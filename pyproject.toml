@@ -19,4 +19,4 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 # flat layout — small prototype, no src/ package
 packages = ["."]
-include = ["orchestrator.py", "nano_banana.py", "classifier.py", "image_specialist.py", "reflect.py", "evaluator.py", "specialists.py"]
+include = ["orchestrator.py", "nano_banana.py", "classifier.py", "image_specialist.py", "reflect.py", "evaluator.py", "specialists.py", "segmenter.py"]

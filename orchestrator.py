@@ -655,6 +655,8 @@ def main() -> None:
                    help="disable the autonomous evaluate-and-retrigger loop on image cells")
     p.add_argument("--max-retriggers", type=int, default=3,
                    help="cap on retriggers per cell (default 3)")
+    p.add_argument("--segment", default=None,
+                   help="path to a document; segment it into salient passages and run each through the orchestrator")
     args = p.parse_args()
 
     if args.sweep_trivial:
@@ -717,8 +719,55 @@ def main() -> None:
         print()
         return
 
+    if args.segment:
+        try:
+            import segmenter as _seg
+            doc_path = Path(args.segment)
+            text = doc_path.read_text()
+            seg_result = _seg.segment_document(text)
+        except Exception as e:
+            print(f"segmenter error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"segmented {doc_path.name}: {len(seg_result.segments)} passages",
+              file=sys.stderr)
+        print(f"summary: {seg_result.summary}", file=sys.stderr)
+        cache_info = (
+            f"cache:hit/{seg_result.cache_read_tokens}t" if seg_result.cache_read_tokens > 0
+            else f"cache:wrote/{seg_result.cache_creation_tokens}t" if seg_result.cache_creation_tokens > 0
+            else "cache:miss"
+        )
+        print(f"segmenter usage: {seg_result.input_tokens}u / {seg_result.output_tokens}o "
+              f"[{cache_info}]", file=sys.stderr)
+
+        use_llm = False if args.no_llm_classify else None
+        proposals = []
+        for i, s in enumerate(seg_result.segments):
+            preview = s.snippet[:80].replace("\n", " ")
+            print(f"  [{i + 1}/{len(seg_result.segments)}] {preview}...",
+                  file=sys.stderr)
+            ctx = (
+                f"Document: {doc_path.name}. "
+                f"Document summary: {seg_result.summary}. "
+                f"Surrounding context: {s.context}"
+            )
+            proposal = append_proposal(
+                s.snippet, ctx, args.type,
+                write=args.write,
+                generate_image=args.generate,
+                use_llm=use_llm,
+                auto_retrigger=not args.no_auto_retrigger,
+                max_retriggers=args.max_retriggers,
+            )
+            proposals.append(proposal)
+            print(f"      -> {proposal.id} ({proposal.cell_type})", file=sys.stderr)
+
+        json.dump([asdict(p) for p in proposals], sys.stdout, indent=2)
+        print()
+        return
+
     if not args.snippet:
-        p.error("--snippet is required (unless --sweep-trivial or --reflect)")
+        p.error("--snippet is required (unless --sweep-trivial / --reflect / --segment)")
 
     use_llm = False if args.no_llm_classify else None  # None = auto-detect via env
     proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate,
