@@ -325,3 +325,132 @@ calls on Sonnet 4.6 with cache:hit on the 2550-token system prompts after
 the first write. Approximate sprint spend: ~$0.85. Daily image cap
 (`LUCIDA_DAILY_IMAGE_CAP=200`) never came near firing. Cost ceiling is
 not a v0.5 concern.
+
+## Appendix: anchoring the "Gemini compromises" claim
+
+Earlier in the v0.5 sprint I leaned on a vibes-claim — "the compromises
+Gemini makes in image generation are themselves [structural]" — that the
+slimemold framework flagged 3× without me anchoring it. This appendix is
+the cataloging pass over the existing 8 PNGs in `cells/` against four
+hypothesized failure modes (literal-simile / stock-drift / missed-detail
+/ wrong-genre).
+
+Five distinct snippets across 8 cells (lighthouse chain repeats one
+snippet 3×, milpa repeats another 2×). Visual inspection of each PNG
+against its `trigger_snippet`:
+
+| Cell | Mode | Evidence |
+|---|---|---|
+| 0005 | **wrong-genre** | snippet is meta-commentary on essay craft ("the Margaret moment ... essay's emotional center"); rendered as a *literal cozy pensioner scene*. Gemini took the referent of "successful pensioner" and skipped the rhetorical frame. |
+| 0010 | **literal-simile** (sharp) | "part Lourdes and part Costco" rendered with a literal "COSTCO" sign in the streetscape. The `learnings.md` body above already calls this "substrate hallucination from a simile"; same finding. |
+| 0014 | **literal-simile** (color-as-object) | "bone-white corn" rendered as skeletal pale stalks with no living corn morphology, beans absent. The body-text framing emphasises the Mediterranean-village background; the foreground is the literal-simile case. |
+| 0015 | none / minor | same snippet as 0014, second attempt; living milpa, woman in traditional dress, beans implied, bone-white kernels visible inside intact husks. Cross-attempt variance is itself a finding. |
+| 0022 | **missed-detail** | atmospheric mill OK, but the named props (Singer machines, 1989 calendar) are absent. Eval scored 0.82 and accepted. |
+| 0023–0025 | **missed-detail (persistent)** | "alternating bands of unequal width" is the named distinguishing detail in the snippet. All three attempts show ~equal-width bands; 0025 is marginally less equal. Eval@0.82 each time, retrigger fired twice, no real fix across the chain. |
+
+### Modes evidenced vs. unsupported
+
+- **literal-simile** — solidly anchored. Cells 0010 (metaphor) and 0014 (color-word). 2 cells, distinct sub-mechanisms (rendering the literal half of a metaphor; rendering a descriptor word as object morphology).
+- **missed-detail** — solidly anchored. Cells 0022 (props), 0023–0025 (geometry). 4 cells, lighthouse chain over-weights it.
+- **wrong-genre** — 1 cell (0005). Real but thin.
+- **stock-drift** — *not evidenced in this corpus.* Every failure here is *specifically wrong*, not *generically wrong*. The mode I imagined from earlier-session memory does not show up against the v0.5 specialist's heavily-templated prompts. Possible explanation: stock-drift happens at low-effort prompts and the v0.5 pipeline is high-effort by construction. **Killing this mode from the taxonomy until evidence shows up.**
+
+### Strongest single finding
+
+The lighthouse chain (0023→0024→0025) shows that **corrective prompt text
+does not reliably break a strong visual prior**, even when the prompt
+includes the snippet verbatim, an explicit "bands should be unequal in
+width" props line, an explicit "do NOT invent generic candy-stripe equal
+bands" do-NOT-invent line, and retrigger-supplied corrective guidance.
+The body-text already named the empty-guidance bug as the proximate
+cause of the chain not improving; visual inspection across all three
+attempts shows that even *with* meaningful guidance text, the equal-bands
+prior wins. This shifts the design pressure: the real lever for named-
+compromise correction is probably image-to-image edit mode (port from
+`seeing/`) or model substitution, not better corrective text.
+
+### What's still vibes after this pass
+
+- Whether `wrong-genre` is a real recurring mode or a one-off depends on more meta-commentary snippets (only 1 cell here).
+- Whether `literal-simile` rate scales with simile density in the snippet — the current cells were hand-picked.
+- Whether image-to-image edit actually fixes the prior-strength problem; that's a design hypothesis until tested.
+
+A targeted fresh batch (~$0.25, 6 generations) would tighten wrong-genre and falsify-or-confirm stock-drift. Deferred until the prior-strength implication is acted on.
+
+### Followup: i2i edit is mode-conditional, not universal (N=5)
+
+After porting `transform_image` from `seeing/`, ran 5 i2i tests across
+the failure modes from the cataloging table above. Each used the
+existing `cells/cell-XXXX.png` as the base image plus a manually-
+authored corrective brief targeting the snippet's named compromise.
+Outputs at `cells/cell-XXXX.i2i_test.png`; cells.json unchanged.
+
+| Cell | Mode | Result | Score |
+|---|---|---|---|
+| 0023 | missed-detail (geometry) | **fixed** — bands now unequal-width | 0.82 |
+| 0022 | missed-detail (named props) | **fixed** — Singer machines visible, calendar present | 0.82 |
+| 0014 | literal-simile (color-as-object) | **fixed** — corn is living, beans visible | 0.82 |
+| 0010 | literal-simile (metaphor) | **failed** — literal "COSTCO" sign persists despite explicit corrective text | 0.52 |
+| 0005 | wrong-genre (meta-commentary) | **catastrophic** — over-corrected to a literal text card reproducing the snippet | 0.15 |
+
+**The pattern: i2i works when the failure is a missing or distorted
+concrete detail inside an otherwise-correct interpretation. It fails
+when the failure is a wrong interpretation of the snippet** — because
+the wrong-interpretation is baked into the base PNG and Gemini anchors
+on it. The cataloging's mode taxonomy now has predictive value: the
+mode determines whether i2i is the right correction strategy or makes
+things worse.
+
+This revises the earlier "i2i is the lever" finding from N=1. It is
+*a* lever, but a mode-conditional one.
+
+### Implication for Phase 2 design
+
+A naive "use i2i whenever a previous PNG exists" wiring would have
+made `cell-0005` go from score n/a (no eval at the time) to 0.15, and
+`cell-0010` from n/a to 0.52. **Mode-aware gating is required, not
+optional.**
+
+Three approaches:
+
+1. **Evaluator emits a structured `failure_mode` field** (missed-detail
+   / literal-simile / wrong-genre / none). Orchestrator uses i2i only
+   for missed-detail and literal-simile-color-as-object; uses fresh
+   generate for literal-simile-metaphor and wrong-genre. Cleanest, but
+   requires another evaluator-prompt pass and a schema change.
+2. **Heuristic on `what_didnt_work` text**: if it contains tokens like
+   "literal," "metaphor," "interpretation," fall back to fresh generate;
+   else i2i. Cheap, brittle.
+3. **Try fresh first, fall back to i2i** if fresh also fails. Most
+   robust, double the cost, and would have to evaluate in a loop.
+
+(1) is the right answer; the evaluator already does this analysis
+implicitly in `what_worked` / `what_didnt_work`. Adding the structured
+field is small.
+
+**Shipped:** approach (1). `evaluator.py` now emits a `failure_mode`
+field (enum: missed_detail / literal_simile_color /
+literal_simile_metaphor / wrong_genre / none) and the orchestrator's
+retrigger loop routes accordingly: i2i for missed_detail and
+literal_simile_color, fresh text-to-image for literal_simile_metaphor,
+abort retrigger entirely on wrong_genre. Flag-gated via
+`LUCIDA_RETRIGGER_USE_I2I` (default on). Not yet validated end-to-end
+on a fresh image cell — code review is clean but a live test on a
+synthetic snippet would close the loop.
+
+### Side findings from the mini-batch
+
+- *Eval score saturates at 0.82 on near-success.* Three of the four
+  i2i fixes (0014, 0022, 0023) all scored exactly 0.82 — once the named
+  compromise lands, the eval finds a new minor nit and lands in the
+  same band. This is the same finding from the lighthouse pass: the
+  0.7-0.9 band is wide and any given image has *some* nit. Doesn't
+  block adoption.
+- *Evaluator gate fires correctly across the board.* All four
+  successful and unsuccessful evals returned `should_retrigger` values
+  consistent with their score — `retrigger=False` at 0.82,
+  `retrigger=True` at 0.52 and 0.15. The evaluator-prompt tightening
+  (this commit) is doing its job.
+- *Stock-drift still unsupported.* None of the 5 i2i outputs were
+  generic-and-bland; they were either correct, specifically-wrong, or
+  catastrophically over-corrected. Mode stays killed.
