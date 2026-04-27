@@ -434,9 +434,23 @@ literal_simile_metaphor / wrong_genre / none) and the orchestrator's
 retrigger loop routes accordingly: i2i for missed_detail and
 literal_simile_color, fresh text-to-image for literal_simile_metaphor,
 abort retrigger entirely on wrong_genre. Flag-gated via
-`LUCIDA_RETRIGGER_USE_I2I` (default on). Not yet validated end-to-end
-on a fresh image cell — code review is clean but a live test on a
-synthetic snippet would close the loop.
+`LUCIDA_RETRIGGER_USE_I2I` (default on).
+
+**End-to-end validation:** synthetic image-genre snippet (a
+handcrafted bike frame with five horizontal painted bands red→blue
+on the head tube specifically). Initial text-to-image (`cell-0070`)
+scattered the bands across multiple tubes — Gemini's "rainbow bike"
+prior beat the snippet's specific tube placement. With
+`LUCIDA_RETRIGGER_SCORE_FLOOR=0.8` to force retrigger past the new
+0.7-threshold accept rule, the orchestrator emitted
+`failure_mode=missed_detail`, routed to i2i, called `transform_image`
+with `cell-0070.png` as the edit base and a short corrective brief,
+and produced `cell-0071` with the bands now concentrated exactly on
+the head tube while preserving the vise, chain, caliper, and
+lighting. Every shipped code path fired correctly in flight.
+
+`cell-0070.png` and `cell-0071.png` are kept on disk as the
+validation evidence; cells.json is clean (the run used `--no-write`).
 
 ### Side findings from the mini-batch
 
