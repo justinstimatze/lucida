@@ -91,6 +91,100 @@
       "html": null,
       "caption": "",
       "notes": "generated via gemini-2.5-flash-image (1781371 bytes)"
+    },
+    {
+      "id": "cell-0006",
+      "timestamp": "2026-04-27T06:06:34+00:00",
+      "cell_type": "text",
+      "trigger_snippet": "The modern economy, on this view, is composed of many layers \u2014 operational, managerial, financial, institutional, dynastic, sovereign \u2014 each operating on its own timescale and by its own internal logic.",
+      "prompt": "Produce a Mermaid diagram (graph LR or flowchart, no extra text)\nillustrating the structure described below. Keep it readable; \u226412\nnodes; label edges where it adds clarity.\nDo not add nodes or edges for entities/relationships not\nmentioned in the snippet \u2014 the diagram should be a faithful\nstructural map, not an embellished one.\n\nSnippet:\nThe modern economy, on this view, is composed of many layers \u2014 operational, managerial, financial, institutional, dynastic, sovereign \u2014 each operating on its own timescale and by its own internal logic.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": null,
+      "html": null,
+      "caption": "Layered-economy enumeration. Six named layers; vertical order follows prose order. Edges (---) are stacking-only -- the snippet does not specify directionality or dependency between layers. [demoted from mermaid: edges are unlabeled and undirected (---), purely structural stacking]",
+      "notes": "(hand-filled v0.5-substitute spec) [classifier(v0) text; forced mermaid] [trivial-filter applied]",
+      "attempted_cell_type": "mermaid",
+      "attempted_spec": "graph TD\n  L1[\"operational\"]\n  L2[\"managerial\"]\n  L3[\"financial\"]\n  L4[\"institutional\"]\n  L5[\"dynastic\"]\n  L6[\"sovereign\"]\n  L1 --- L2 --- L3 --- L4 --- L5 --- L6"
+    },
+    {
+      "id": "cell-0007",
+      "timestamp": "2026-04-27T06:06:34+00:00",
+      "cell_type": "text",
+      "trigger_snippet": "The economist Jason Hickel has estimated, by a methodology contested among his peers, that net wealth flows from the Global South to the North in the post-1960 period have averaged approximately ten trillion dollars per year via the mechanism of unequal exchange.",
+      "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nThe economist Jason Hickel has estimated, by a methodology contested among his peers, that net wealth flows from the Global South to the North in the post-1960 period have averaged approximately ten trillion dollars per year via the mechanism of unequal exchange.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": null,
+      "html": null,
+      "caption": "$10T/year net wealth flow, Global South to Global North, post-1960 average (Hickel; methodology contested per the snippet). Single bar reflects the snippet's single quantitative claim -- no time-series, since the snippet provides only an average. [demoted from vega: single data point (1 rows in data.values)]",
+      "notes": "(hand-filled v0.5-substitute spec) [classifier(v0) text; forced vega] [trivial-filter applied]",
+      "attempted_cell_type": "vega",
+      "attempted_spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "description": "Net wealth flow, Global South to Global North, post-1960 (Hickel, contested)",
+        "data": {
+          "values": [
+            {
+              "flow": "South to North via unequal exchange",
+              "trillion_usd_per_year": 10
+            }
+          ]
+        },
+        "mark": "bar",
+        "encoding": {
+          "y": {
+            "field": "flow",
+            "type": "nominal",
+            "axis": {
+              "title": null
+            }
+          },
+          "x": {
+            "field": "trillion_usd_per_year",
+            "type": "quantitative",
+            "axis": {
+              "title": "USD trillions / year (avg, post-1960)"
+            }
+          }
+        },
+        "width": 420,
+        "height": 60
+      }
+    },
+    {
+      "id": "cell-0008",
+      "timestamp": "2026-04-27T06:06:34+00:00",
+      "cell_type": "html",
+      "trigger_snippet": "The cooperative that pays above-market wages discovers that the competitor next to it pays below-market wages and can therefore offer lower prices; to remain solvent, the cooperative either matches the lower wages or loses the customer.",
+      "prompt": "Produce an HTML <table> (no inline styles; CSS is in\nnotebook.css) that surfaces the comparison described below.\nDo not invent rows, columns, or values not present in the\nsnippet. If the snippet underspecifies a dimension, leave\nthat cell blank rather than filling it with a plausible-\nlooking guess.\n\nSnippet:\nThe cooperative that pays above-market wages discovers that the competitor next to it pays below-market wages and can therefore offer lower prices; to remain solvent, the cooperative either matches the lower wages or loses the customer.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": null,
+      "html": "<table><thead><tr><th></th><th>cooperative</th><th>competitor</th></tr></thead><tbody><tr><td>wages paid</td><td>above-market</td><td>below-market</td></tr><tr><td>prices charged</td><td></td><td>lower</td></tr><tr><td>solvency response in this scenario</td><td>match wages OR lose customer</td><td></td></tr></tbody></table>",
+      "caption": "Cooperative vs competitor wage/price tension. Empty cells where the snippet underspecifies the dimension (cooperative's prices, competitor's solvency response) -- no plausible-looking guesses inserted.",
+      "notes": "(hand-filled v0.5-substitute spec) [classifier(v0) text; forced html]"
+    },
+    {
+      "id": "cell-0009",
+      "timestamp": "2026-04-27T06:06:34+00:00",
+      "cell_type": "mermaid",
+      "trigger_snippet": "The distributed, partially-conscious, locally-rational economy is the economy that has, in the same period, doubled global life expectancy.",
+      "prompt": "Produce a Mermaid diagram (graph LR or flowchart, no extra text)\nillustrating the structure described below. Keep it readable; \u226412\nnodes; label edges where it adds clarity.\nDo not add nodes or edges for entities/relationships not\nmentioned in the snippet \u2014 the diagram should be a faithful\nstructural map, not an embellished one.\n\nSnippet:\nThe distributed, partially-conscious, locally-rational economy is the economy that has, in the same period, doubled global life expectancy.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": "graph LR\n  E[\"the modern economy<br/>(distributed, partially-conscious,<br/>locally-rational)\"]\n  L[\"doubled global<br/>life expectancy\"]\n  E -. \"in the same period (co-occurrence; mechanism unstated)\" .-> L",
+      "html": null,
+      "caption": "The snippet asserts temporal co-occurrence between the modern economy's distributed character and doubled life expectancy. Dotted edge with explicit qualifier preserves the under-specification -- snippet does not claim a causal mechanism, so the diagram does not invent one.",
+      "notes": "(hand-filled v0.5-substitute spec; FINDING: snippet is closer to identificatory/correlative than causal -- pre-classification of #4 as causal was overconfident) [classifier(v0) text; forced mermaid]"
+    },
+    {
+      "id": "cell-0010",
+      "timestamp": "2026-04-27T06:06:34+00:00",
+      "cell_type": "image",
+      "trigger_snippet": "Among the most quietly hopeful of the contemporary cross-border arrangements is a small Baja California town called Los Algodones, which Burkhard Bilger has aptly described in *The New Yorker* as 'part Lourdes and part Costco.' More than a thousand dentists serve a clientele drawn principally from the American Southwest and the Canadian prairies \u2014 a clientele consisting, by Bilger's own demographic observations, overwhelmingly of older white snowbirds whose failure to be served by the American dental insurance regime has produced their attendance at the Mexican alternative.",
+      "prompt": "(nano banana prompt)\nConceptual scene illustrating: Among the most quietly hopeful of the contemporary cross-border arrangements is a small Baja California town called Los Algodones, which Burkhard Bilger has aptly described in *The New Yorker* as 'part Lourdes and part Costco.' More than a thousand dentists serve a clientele drawn principally from the American Southwest and the Canadian prairies \u2014 a clientele consisting, by Bilger's own demographic observations, overwhelmingly of older white snowbirds whose failure to be served by the American dental insurance regime has produced their attendance at the Mexican alternative.\nStyle: warm, restrained, low-saturation, painterly.\nNo text, no captions in the image.\nDo not invent props, settings, or characters not implied by\nthe snippet. Ground the scene in what the snippet actually\nsays \u2014 resist generic stock-illustration furniture.\n\nContext:\n(none)",
+      "image_path": "cells/cell-0010.png",
+      "spec": null,
+      "html": null,
+      "caption": "",
+      "notes": "generated via gemini-2.5-flash-image (1612966 bytes) [classifier(v0)\u2192mermaid; forced\u2192image]"
     }
   ]
 }

@@ -21,10 +21,13 @@ mermaid.initialize({ startOnLoad: false, theme: "neutral" });
 async function load() {
   const res = await fetch("cells.json", { cache: "no-store" });
   const data = await res.json();
-  document.getElementById("session-meta").textContent =
-    `session: ${data.session_id}  ·  cells: ${data.cells.length}`;
+  const visible = data.cells.filter(c => !(c.cell_type === "text" && c.attempted_cell_type));
+  const suppressed = data.cells.length - visible.length;
+  const meta = `session: ${data.session_id}  ·  cells: ${visible.length}` +
+    (suppressed ? ` (${suppressed} suppressed by trivial-filter)` : "");
+  document.getElementById("session-meta").textContent = meta;
   const root = document.getElementById("notebook");
-  for (const c of data.cells) {
+  for (const c of visible) {
     root.appendChild(renderCell(c));
   }
 }
@@ -40,6 +43,7 @@ function renderCell(c) {
   const card = el("article", "cell");
   const head = el("div", "cell-head");
   head.appendChild(el("span", "cell-type", c.cell_type));
+  head.appendChild(el("span", "cell-id", c.id || ""));
   head.appendChild(el("span", "cell-time", c.timestamp || ""));
   card.appendChild(head);
 

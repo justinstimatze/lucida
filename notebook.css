@@ -59,6 +59,11 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.cell-id {
+  color: var(--fg);
+  font-weight: 500;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+}
 .cell-trigger, .cell-prompt {
   margin: 0.4rem 0;
   font-size: 0.85rem;

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
@@ -33,6 +34,9 @@ class CellProposal:
     html: str | None = None
     caption: str = ""
     notes: str = ""
+    # populated by demote_if_trivial when the original viz failed the heuristic
+    attempted_cell_type: str | None = None
+    attempted_spec: object | None = None
 
 
 def now_iso() -> str:
@@ -50,6 +54,13 @@ def classify(snippet: str) -> str:
     Real version will call Claude. For v0 we want to see how often a
     naive classifier would have made the right call so we can compare
     against the LLM later.
+
+    v0.5 target (inherited from station/sensors/leg5_spec.md, lines 60-69
+    and 117-122): replace with a Claude-based classifier whose primary
+    target is the *discourse move* (structural | temporal | comparative
+    | causal | quantitative) plus a confidence score. Cell type follows
+    from move + confidence, not the other way around. Confidence gates:
+    <0.6 suppress, 0.6-0.8 render with "draft" indicator, >0.8 normal.
     """
     s = snippet.lower()
     if any(k in s for k in ["graph", "network", "topology", "relationship", "depends on", "cites"]):
@@ -69,6 +80,9 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             Produce a Mermaid diagram (graph LR or flowchart, no extra text)
             illustrating the structure described below. Keep it readable; ≤12
             nodes; label edges where it adds clarity.
+            Do not add nodes or edges for entities/relationships not
+            mentioned in the snippet — the diagram should be a faithful
+            structural map, not an embellished one.
 
             Snippet:
             {snippet}
@@ -94,6 +108,9 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             Conceptual scene illustrating: {snippet}
             Style: warm, restrained, low-saturation, painterly.
             No text, no captions in the image.
+            Do not invent props, settings, or characters not implied by
+            the snippet. Ground the scene in what the snippet actually
+            says — resist generic stock-illustration furniture.
 
             Context:
             {context or '(none)'}
@@ -102,6 +119,10 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
         return dedent(f"""
             Produce an HTML <table> (no inline styles; CSS is in
             notebook.css) that surfaces the comparison described below.
+            Do not invent rows, columns, or values not present in the
+            snippet. If the snippet underspecifies a dimension, leave
+            that cell blank rather than filling it with a plausible-
+            looking guess.
 
             Snippet:
             {snippet}
@@ -124,18 +145,135 @@ def load_cells() -> dict:
     return json.loads(CELLS_PATH.read_text())
 
 
+def is_trivial(cell_type: str, spec, html: str | None) -> str | None:
+    """Heuristic: would this viz be more informative as a caption-only text
+    cell? If trivial, returns a short reason; else None.
+
+    Inherited from station/sensors/leg5_spec.md confidence-gate idea, applied
+    at the rendering stage rather than the classification stage. Conservative:
+    catches obvious cases (single-row vega, edgeless or stacking-only mermaid,
+    single-data-cell html) and lets borderline cases through.
+    """
+    if cell_type == "vega":
+        return _trivial_vega(spec)
+    if cell_type == "mermaid":
+        return _trivial_mermaid(spec)
+    if cell_type == "html":
+        return _trivial_html(html)
+    return None
+
+
+def _trivial_vega(spec) -> str | None:
+    if not isinstance(spec, dict):
+        return None
+    values = spec.get("data", {}).get("values")
+    if isinstance(values, list) and len(values) <= 1:
+        return f"single data point ({len(values)} rows in data.values)"
+    return None
+
+
+def _trivial_mermaid(spec) -> str | None:
+    if not isinstance(spec, str) or not spec.strip():
+        return None
+    lines = [l.strip() for l in spec.splitlines() if l.strip()]
+    edge_tokens = ["-->", "---", "-.->", ".->", "==>", "<--"]
+    edge_lines = [l for l in lines if any(t in l for t in edge_tokens)]
+    if not edge_lines:
+        return "no edges (just a node list)"
+    has_directed = any(
+        any(t in l for t in ["-->", "==>", "-.->", ".->"])
+        for l in edge_lines
+    )
+    has_edge_label = any(
+        re.search(r'-\.\s*"[^"]+"\s*\.->', l) or       # -. "label" .->
+        re.search(r'-\.[^.]+\.->', l) or                # -.label.->
+        re.search(r'\|"?[^"|]+"?\|', l)                 # |label| or |"label"|
+        for l in edge_lines
+    )
+    if not has_directed and not has_edge_label:
+        return "edges are unlabeled and undirected (---), purely structural stacking"
+    return None
+
+
+def _trivial_html(html: str | None) -> str | None:
+    if not isinstance(html, str) or not html.strip():
+        return None
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, flags=re.IGNORECASE | re.DOTALL)
+    if len(rows) < 2:
+        return f"too few rows ({len(rows)})"
+    has_header = "<th" in rows[0].lower()
+    data_rows = rows[1:] if has_header else rows
+    non_empty_data_cells = 0
+    for r in data_rows:
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", r, flags=re.IGNORECASE | re.DOTALL)
+        non_empty_data_cells += sum(1 for c in cells if c.strip())
+    if non_empty_data_cells < 2:
+        return f"too few non-empty data cells ({non_empty_data_cells})"
+    return None
+
+
+def demote_if_trivial(proposal: CellProposal) -> str | None:
+    """If proposal's viz is trivial, mutate proposal in place into a text cell
+    (preserving the original under attempted_*). Returns the demotion reason
+    or None."""
+    reason = is_trivial(proposal.cell_type, proposal.spec, proposal.html)
+    if not reason:
+        return None
+    proposal.attempted_cell_type = proposal.cell_type
+    proposal.attempted_spec = proposal.spec if proposal.spec is not None else proposal.html
+    proposal.cell_type = "text"
+    proposal.spec = None
+    proposal.html = None
+    proposal.caption = (proposal.caption or "") + f" [demoted from {proposal.attempted_cell_type}: {reason}]"
+    return reason
+
+
+def sweep_trivial(write: bool = False) -> list[str]:
+    """Walk cells.json and demote any cell whose populated viz is trivial.
+    Returns list of '<id>: <reason>' descriptions. With write=False this is
+    a dry-run report; with write=True it persists."""
+    data = load_cells()
+    demoted = []
+    for cell in data["cells"]:
+        reason = is_trivial(
+            cell.get("cell_type"),
+            cell.get("spec"),
+            cell.get("html"),
+        )
+        if not reason:
+            continue
+        cell["attempted_cell_type"] = cell["cell_type"]
+        cell["attempted_spec"] = (
+            cell.get("spec") if cell.get("spec") is not None else cell.get("html")
+        )
+        cell["cell_type"] = "text"
+        cell["spec"] = None
+        cell["html"] = None
+        cell["caption"] = (cell.get("caption") or "") + f" [demoted from {cell['attempted_cell_type']}: {reason}]"
+        cell["notes"] = (cell.get("notes") or "") + " [trivial-filter applied]"
+        demoted.append(f"{cell['id']}: {reason}")
+    if write and demoted:
+        CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+    return demoted
+
+
 def append_proposal(snippet: str, context: str = "", cell_type: str | None = None,
                     write: bool = False, generate_image: bool = False) -> CellProposal:
     data = load_cells()
-    chosen_type = cell_type or classify(snippet)
+    auto_type = classify(snippet)
+    chosen_type = cell_type or auto_type
     cell_id = next_id(data["cells"])
+    if cell_type and cell_type != auto_type:
+        classifier_note = f"classifier(v0)→{auto_type}; forced→{cell_type}"
+    else:
+        classifier_note = f"classifier(v0)→{auto_type}"
     proposal = CellProposal(
         id=cell_id,
         timestamp=now_iso(),
         cell_type=chosen_type,
         trigger_snippet=snippet.strip(),
         prompt=build_prompt(chosen_type, snippet, context),
-        notes="(awaiting generation)",
+        notes=f"(awaiting generation) [{classifier_note}]",
     )
 
     if generate_image and chosen_type == "image":
@@ -144,9 +282,16 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         try:
             result = nano_banana.generate(proposal.prompt, out)
             proposal.image_path = f"cells/{out.name}"
-            proposal.notes = f"generated via {result.model} ({result.bytes_written} bytes)"
+            proposal.notes = f"generated via {result.model} ({result.bytes_written} bytes) [{classifier_note}]"
         except nano_banana.NanoBananaError as e:
-            proposal.notes = f"generation failed: {e}"
+            proposal.notes = f"generation failed: {e} [{classifier_note}]"
+
+    # Trivial check after spec/html may have been populated. In v0 this only
+    # fires for cells whose specs were filled by something other than this
+    # orchestrator (hand-fill or v0.5 LLM specialist).
+    demoted_reason = demote_if_trivial(proposal)
+    if demoted_reason:
+        proposal.notes = f"{proposal.notes} [trivial-filter applied]"
 
     if write:
         data["cells"].append(asdict(proposal))
@@ -156,14 +301,32 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--snippet", required=True, help="conversation excerpt that triggers a cell")
+    p.add_argument("--snippet", help="conversation excerpt that triggers a cell")
     p.add_argument("--context", default="", help="optional extra context (file paths, prior cells, etc.)")
     p.add_argument("--type", default=None, choices=["image", "vega", "mermaid", "html", "text"],
                    help="force a cell type; default = naive classifier")
-    p.add_argument("--write", action="store_true", help="append the proposal to cells.json")
+    p.add_argument("--write", action="store_true",
+                   help="append the proposal to cells.json (or, with --sweep-trivial, persist the demotions)")
     p.add_argument("--generate", action="store_true",
                    help="for image cells, actually call nano banana to generate")
+    p.add_argument("--sweep-trivial", action="store_true",
+                   help="walk cells.json and demote trivial cells in place; pair with --write to persist")
     args = p.parse_args()
+
+    if args.sweep_trivial:
+        demoted = sweep_trivial(write=args.write)
+        if demoted:
+            print(f"demoted {len(demoted)} cell(s):")
+            for d in demoted:
+                print(f"  - {d}")
+            if not args.write:
+                print("(dry-run; pass --write to persist)")
+        else:
+            print("(no trivial cells found)")
+        return
+
+    if not args.snippet:
+        p.error("--snippet is required (unless --sweep-trivial)")
 
     proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate)
     json.dump(asdict(proposal), sys.stdout, indent=2)
