@@ -70,8 +70,11 @@ ratio.
 
 ### Criterion 2 — classifier mis-routing (>40%)
 
-**Trigger fired hard against v0. Kill action was implicitly taken (v0.5
-LLM classifier shipped). Verdict: v0 keyword classifier was unsalvageable.**
+**Trigger fired hard against v0. v0.5 LLM classifier shipped as the kill
+action. Honesty caveat: keyword-expansion remediation, never tried in
+the sprint, would have moved the in-sample needle — the LLM classifier
+wins on robustness and on outputs the keyword path cannot produce, not
+on raw routing accuracy alone.**
 
 Direct head-to-head from commit 8ffba97, five held-out snippets:
 
@@ -83,9 +86,41 @@ Direct head-to-head from commit 8ffba97, five held-out snippets:
 | meta-cognitive omission | mermaid | text @0.72 [draft] | text |
 | mycorrhizal comparison | text  | html @0.93        | html |
 
-**v0 keyword: 1/5. v0.5 LLM: 5/5.** Pre-committed kill action was "rip
-out the auto-classifier; make `--type` required." We chose the stronger
-remediation (LLM classifier) instead and the data justifies it.
+**v0 keyword (as-written): 1/5. v0.5 LLM: 5/5.**
+
+**Honesty pass on the keyword path** — `kill_criteria.md` pre-committed
+the remediation "expand the keyword set based on observed mis-routings;
+tighten priority order." That remediation was never executed during the
+sprint; we jumped to the LLM classifier. Re-running it in
+`scratch_keyword_expansion.py` after the report's first draft, with
+~30 minutes of targeted edits (drop the soft "depends on" trigger from
+mermaid, add cycle/feedback-loop terms for animated_svg, add scene-
+sensory terms for image, add axes-of-comparison terms for html, reorder
+specific-before-generic):
+
+```
+v0 keyword (as-written):  1/5
+v0+ (one-round expansion): 5/5
+v0.5 LLM:                  5/5
+```
+
+So the pre-committed remediation does work *on this test set*. The
+correct interpretation of the criterion-2 outcome is therefore:
+
+1. **In-sample accuracy is not the load-bearing differentiator.** Both
+   keyword-expanded and LLM hit 5/5. The keyword version was hand-tuned
+   to a known test, which is exactly the failure mode keyword classifiers
+   generalize into — every new snippet category requires another patch.
+2. **The LLM classifier wins on three things keywords cannot give:**
+   (a) discourse-move output (`temporal/causal/quantitative/comparative/
+   structural/none`) which the specialists consume, (b) a calibrated
+   confidence score (cell-0034 @0.55 → text, cell-0020 @0.72 → draft,
+   cells 0017-0021 unambiguous cases all >0.85), and (c) generalization
+   without per-snippet maintenance.
+3. **The kill criterion's kill action ("rip out the auto-classifier;
+   make `--type` required") was the wrong kill.** The real choice was
+   *upgrade* vs *kill*, and the upgrade was justified — but on robustness
+   grounds, not because the keyword path was unsalvageable.
 
 Confidence calibration is meaningful, not vibes. cell-0034 ("we're
 talking again about the productivity-compensation gap") landed at
@@ -102,9 +137,12 @@ Operational evidence the remediation also works on volume:
   `cell_type` alone — it tells the specialist *what move the snippet is
   making*, which the v0 path could not surface at all.
 
-This was the criterion most cleanly answered. The v0 keyword classifier
-in `orchestrator.py:69` (`def classify(snippet: str) -> str:`) is dead
-code now; it stays only as an `--no-llm-classify` fallback for offline use.
+This was the criterion most cleanly answered, with one important
+caveat surfaced post-write (above). The v0 keyword classifier in
+`orchestrator.py:69` is not dead code in principle — it is dead code
+*for this project's needs* because we want discourse-move output, a
+confidence score, and generalization. As an `--no-llm-classify`
+fallback for offline / API-key-absent use it still earns its keep.
 
 ### Criterion 3 — substrate hallucination (>20%)
 
