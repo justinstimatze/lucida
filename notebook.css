@@ -1,11 +1,13 @@
 /* minimal v0 styling — aesthetic doesn't matter, legibility does */
 :root {
-  --fg: #1a1a1a;
-  --muted: #666;
-  --bg: #fafafa;
-  --line: #ddd;
-  --accent: #355;
-  --code-bg: #f0f0f0;
+  --fg: #e5e5e5;
+  --muted: #8a8a92;
+  --bg: #0a0a0e;
+  --line: #2a2a2e;
+  --accent: #66ccff;
+  --code-bg: #15151a;
+  --cell-bg: #131318;
+  --header-bg: #15151a;
 }
 body {
   margin: 0;
@@ -17,7 +19,7 @@ body {
 header {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--line);
-  background: white;
+  background: var(--header-bg);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -38,7 +40,7 @@ main {
   padding: 0 1rem;
 }
 .cell {
-  background: white;
+  background: var(--cell-bg);
   border: 1px solid var(--line);
   border-radius: 4px;
   margin: 0.75rem 0;
@@ -108,7 +110,7 @@ main {
 .scene3d-target {
   display: block;
   margin: 0.25rem 0;
-  background: #0a0a0a;
+  background: transparent;
   border-radius: 3px;
   overflow: hidden;
   min-height: 360px;
@@ -125,6 +127,73 @@ main {
 .aframe-target a-scene {
   width: 100% !important;
   height: 100% !important;
+}
+
+/* ============================================================
+   THEMES
+   :root above is the default = "lab" theme (dark notebook).
+   URL param ?theme=<name> or cookie lucida_theme=<name> sets a
+   class on <html>; the rules below override --vars per theme.
+   Adapted from gemotvis/frontend/src/styles/themes.css.
+   ============================================================ */
+
+/* MAGI -- Evangelion / NERV. Amber + green on near-black, monospace. */
+.theme-magi {
+  --bg: #050505;
+  --cell-bg: #0c0c0c;
+  --header-bg: #0c0c0c;
+  --line: #2a2a2a;
+  --fg: #ff8c00;
+  --muted: #884600;
+  --accent: #00ff41;
+  --code-bg: #0a0a0a;
+}
+.theme-magi body {
+  font-family: "Courier New", "Lucida Console", monospace;
+}
+.theme-magi header,
+.theme-magi .cell-head,
+.theme-magi .cell-type,
+.theme-magi .cell-id {
+  text-transform: uppercase;
+}
+.theme-magi header h1 {
+  text-shadow: 0 0 4px rgba(255, 140, 0, 0.5);
+}
+
+/* MINIMAL -- Vercel / Linear / Geist. Clean light. */
+.theme-minimal {
+  --bg: #ffffff;
+  --cell-bg: #f7f7f7;
+  --header-bg: #ffffff;
+  --line: #e5e5e5;
+  --fg: #171717;
+  --muted: #737373;
+  --accent: #0070f3;
+  --code-bg: #f0f0f0;
+}
+.theme-minimal body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+/* GASTOWN -- Steampunk / Industrial / Brass. */
+.theme-gastown {
+  --bg: #e8dcc8;
+  --cell-bg: #f5e6d3;
+  --header-bg: #f5e6d3;
+  --line: #c4a882;
+  --fg: #2c1810;
+  --muted: #5d4037;
+  --accent: #cd7f32;
+  --code-bg: #d8cab2;
+}
+.theme-gastown body {
+  font-family: "Crimson Text", "Georgia", serif;
+}
+.theme-gastown header,
+.theme-gastown .cell-head {
+  font-family: "Cinzel", "Georgia", serif;
+  text-transform: uppercase;
 }
 .cell-caption {
   font-size: 0.95rem;

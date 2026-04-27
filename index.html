@@ -10,6 +10,24 @@
 <!-- A-Frame bundles Three.js; we reuse window.THREE from it for scene3d cells -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js"></script>
+<script>
+  // Theme bootstrap -- runs synchronously in head to avoid FOUC.
+  // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
+  // Adapted from gemotvis/frontend/src/stores/theme.ts.
+  (function () {
+    var valid = ["lab", "magi", "minimal", "gastown"];
+    var theme = "lab";
+    try {
+      var url = new URLSearchParams(window.location.search).get("theme");
+      var m = document.cookie.match(/(?:^|; )lucida_theme=(\w+)/);
+      if (url && valid.indexOf(url) >= 0) theme = url;
+      else if (m && valid.indexOf(m[1]) >= 0) theme = m[1];
+    } catch (e) { /* fall through to default */ }
+    document.documentElement.classList.add("theme-" + theme);
+    document.cookie = "lucida_theme=" + theme + "; path=/; max-age=" + (365 * 24 * 60 * 60) + "; SameSite=Lax";
+    window.__LUCIDA_THEME = theme;
+  })();
+</script>
 </head>
 <body>
 <header>
@@ -19,7 +37,121 @@
 <main id="notebook"></main>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
-mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+
+// Full-stack theme config: chrome lives in CSS (notebook.css), but
+// mermaid + vega + scene3d/aframe content also need theme-aware colors.
+// Active theme is set by the inline head script -> window.__LUCIDA_THEME.
+const ACTIVE = window.__LUCIDA_THEME || "lab";
+
+const THEME_CONFIG = {
+  lab: {
+    mermaid: { theme: "dark" },
+    vega: { theme: "dark" },
+    palette: {
+      stroke1: "#00ffff", stroke2: "#ff00ff", stroke3: "#ffff00",
+      accent: "#66ccff", fg: "#e5e5e5", muted: "#8a8a92",
+      bg: "#0a0a0e", panel: "#131318",
+    },
+  },
+  magi: {
+    mermaid: {
+      theme: "base",
+      themeVariables: {
+        background: "#050505",
+        primaryColor: "#0c0c0c",
+        primaryTextColor: "#ff8c00",
+        primaryBorderColor: "#ff8c00",
+        secondaryColor: "#0c0c0c",
+        tertiaryColor: "#0c0c0c",
+        mainBkg: "#0c0c0c",
+        lineColor: "#00ff41",
+        textColor: "#ff8c00",
+        secondaryTextColor: "#ff8c00",
+        tertiaryTextColor: "#ff8c00",
+      },
+    },
+    vega: {
+      config: {
+        background: "transparent",
+        title: { color: "#ff8c00", font: "Courier New" },
+        axis: {
+          domainColor: "#884600", labelColor: "#ff8c00",
+          tickColor: "#884600", gridColor: "#2a2a2a",
+          titleColor: "#ff8c00", labelFont: "Courier New",
+          titleFont: "Courier New",
+        },
+        legend: { labelColor: "#ff8c00", titleColor: "#ff8c00" },
+        range: { category: ["#ff8c00", "#00ff41", "#ff2020", "#4488ff", "#ffff00", "#ff00ff"] },
+      },
+    },
+    palette: {
+      stroke1: "#ff8c00", stroke2: "#00ff41", stroke3: "#ff2020",
+      accent: "#00ff41", fg: "#ff8c00", muted: "#884600",
+      bg: "#050505", panel: "#0c0c0c",
+    },
+  },
+  minimal: {
+    mermaid: { theme: "neutral" },
+    vega: {},
+    palette: {
+      stroke1: "#0070f3", stroke2: "#737373", stroke3: "#171717",
+      accent: "#0070f3", fg: "#171717", muted: "#737373",
+      bg: "#ffffff", panel: "#f7f7f7",
+    },
+  },
+  gastown: {
+    mermaid: {
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#f5e6d3",
+        primaryTextColor: "#2c1810",
+        primaryBorderColor: "#cd7f32",
+        lineColor: "#8b5e3c",
+        textColor: "#2c1810",
+        mainBkg: "#f5e6d3",
+        secondaryColor: "#e8dcc8",
+      },
+    },
+    vega: {
+      config: {
+        background: "transparent",
+        title: { color: "#2c1810", font: "Crimson Text" },
+        axis: {
+          domainColor: "#5d4037", labelColor: "#2c1810",
+          tickColor: "#5d4037", titleColor: "#2c1810",
+          labelFont: "Crimson Text", titleFont: "Crimson Text",
+        },
+        legend: { labelColor: "#2c1810", titleColor: "#2c1810" },
+        range: { category: ["#cd7f32", "#8b5e3c", "#b87333", "#5d4037", "#70798c", "#a0522d"] },
+      },
+    },
+    palette: {
+      stroke1: "#cd7f32", stroke2: "#8b5e3c", stroke3: "#5d4037",
+      accent: "#cd7f32", fg: "#2c1810", muted: "#5d4037",
+      bg: "#e8dcc8", panel: "#f5e6d3",
+    },
+  },
+};
+
+const TC = THEME_CONFIG[ACTIVE] || THEME_CONFIG.lab;
+
+mermaid.initialize({ startOnLoad: false, ...TC.mermaid });
+
+// Token expansion for cell specs: $accent, $stroke1, $stroke2, $stroke3,
+// $fg, $muted, $bg, $panel. Substituted before innerHTML / scene3d render
+// so cell content re-colors with theme.
+function expandTokens(s) {
+  if (typeof s !== "string") return s;
+  return s.replace(/\$(\w+)/g, (m, name) => TC.palette[name] || m);
+}
+function resolveColor(c) {
+  if (typeof c !== "string") return c;
+  if (c.startsWith("$")) {
+    const name = c.slice(1);
+    return TC.palette[name] || c;
+  }
+  return c;
+}
 
 async function load() {
   const res = await fetch("cells.json", { cache: "no-store" });
@@ -27,7 +159,8 @@ async function load() {
   const visible = data.cells.filter(c => !(c.cell_type === "text" && c.attempted_cell_type));
   const suppressed = data.cells.length - visible.length;
   const meta = `session: ${data.session_id}  ·  cells: ${visible.length}` +
-    (suppressed ? ` (${suppressed} suppressed by trivial-filter)` : "");
+    (suppressed ? ` (${suppressed} suppressed by trivial-filter)` : "") +
+    `  ·  theme: ${ACTIVE}`;
   document.getElementById("session-meta").textContent = meta;
   const root = document.getElementById("notebook");
   for (const c of visible) {
@@ -75,7 +208,7 @@ function renderCell(c) {
   } else if (c.cell_type === "vega" && c.spec) {
     const target = el("div", "vega-target");
     body.appendChild(target);
-    vegaEmbed(target, c.spec, { actions: false }).catch(err => {
+    vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).catch(err => {
       target.textContent = "vega render error: " + err.message;
     });
   } else if (c.cell_type === "mermaid" && c.spec) {
@@ -90,7 +223,7 @@ function renderCell(c) {
     body.innerHTML = c.html;
   } else if (c.cell_type === "animated_svg" && c.spec) {
     const target = el("div", "svg-target");
-    target.innerHTML = c.spec;
+    target.innerHTML = expandTokens(c.spec);
     body.appendChild(target);
   } else if (c.cell_type === "scene3d" && c.spec) {
     const target = el("div", "scene3d-target");
@@ -98,10 +231,10 @@ function renderCell(c) {
     setTimeout(() => initScene3D(target, c.spec), 0);
   } else if (c.cell_type === "aframe" && c.spec) {
     const target = el("div", "aframe-target");
-    const trimmed = c.spec.trim();
+    const trimmed = expandTokens(c.spec).trim();
     const wrapped = trimmed.startsWith("<a-scene")
       ? trimmed
-      : `<a-scene embedded vr-mode-ui="enabled: false">${trimmed}</a-scene>`;
+      : `<a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true">${trimmed}</a-scene>`;
     target.innerHTML = wrapped;
     body.appendChild(target);
   } else if (c.cell_type === "lottie" && c.spec) {
@@ -156,9 +289,14 @@ function initScene3D(container, spec) {
   }
   const w = container.clientWidth || 600;
   const h = 360;
-  const renderer = new T.WebGLRenderer({ antialias: true });
+  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(w, h);
-  renderer.setClearColor(spec.background || "#0a0a0a", 1);
+  const bg = spec.background;
+  if (bg && bg !== "transparent") {
+    renderer.setClearColor(bg, 1);
+  } else {
+    renderer.setClearColor(0x000000, 0);
+  }
   container.appendChild(renderer.domElement);
 
   const scene = new T.Scene();
@@ -168,7 +306,7 @@ function initScene3D(container, spec) {
   const animatables = [];
   for (const obj of (spec.objects || [])) {
     let mesh = null;
-    const color = new T.Color(obj.color || "#ffffff");
+    const color = new T.Color(resolveColor(obj.color) || "#ffffff");
     const size = obj.size || 1;
     if (obj.kind === "wireframe_cube") {
       const geo = new T.BoxGeometry(size, size, size);
