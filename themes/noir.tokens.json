@@ -1,0 +1,46 @@
+{
+  "_comment": "Blade Runner 2049 / Territory Studio. Reference: Territory Studio cited palette — amber #f78b04 (Joi hologram), blue-cast dark #0c1a2e, phosphor-green #3aff8c (terminals). CRT phosphor, amber holograms, rain-soaked noir. Typography: heavy Courier monospace.",
+  "accent": {
+    "primary":   "#f78b04",
+    "secondary": "#3aff8c",
+    "warning":   "#ffcc44",
+    "danger":    "#ff3333",
+    "ok":        "#3aff8c"
+  },
+  "surface": {
+    "bg":     "#0c1a2e",
+    "cell":   "#0f1e35",
+    "header": "#0a1628",
+    "code":   "#0d1c30",
+    "muted":  "#3a5a7a",
+    "line":   "#162438"
+  },
+  "text": {
+    "fg":    "#e8c87a",
+    "muted": "#3a5a7a"
+  },
+  "data": {
+    "_comment": "Amber primary, phosphor-green, warm gold, cold blue, red alert, steel teal. Reads as CRT display across substrates.",
+    "cat": ["#f78b04", "#3aff8c", "#ffd060", "#4db8cc", "#ff4433", "#c8a060"]
+  },
+  "type": {
+    "body": "\"Courier New\", \"Courier\", ui-monospace, monospace",
+    "head": "\"Courier New\", \"Courier\", ui-monospace, monospace",
+    "mono": "\"Courier New\", ui-monospace, monospace"
+  },
+  "fx": {
+    "glow":      "rgba(247, 139, 4, 0.45)",
+    "glow-line": "rgba(247, 139, 4, 0.3)"
+  },
+  "palette": {
+    "stroke1": "#f78b04",
+    "stroke2": "#3aff8c",
+    "stroke3": "#ffd060",
+    "accent":  "#f78b04",
+    "fg":      "#e8c87a",
+    "muted":   "#3a5a7a",
+    "bg":      "#0c1a2e",
+    "panel":   "#0f1e35"
+  },
+  "layout": "terminal"
+}

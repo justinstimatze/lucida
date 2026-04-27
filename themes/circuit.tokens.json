@@ -1,0 +1,46 @@
+{
+  "_comment": "Tron Legacy / GMUNK grid aesthetic. Reference: gmunk.com/TRON-Board-Room + pushing-pixels.org GMUNK interview (2011). Binary two-color — teal-blue (#7dfdfe) + orange (#f4af2d) on pure near-black. Strict grid, flat, no gradients. Animation-as-focus: stillness = ambient, motion = focal.",
+  "accent": {
+    "primary":   "#7dfdfe",
+    "secondary": "#f4af2d",
+    "warning":   "#f4af2d",
+    "danger":    "#ff4433",
+    "ok":        "#00e5a0"
+  },
+  "surface": {
+    "bg":     "#030504",
+    "cell":   "#070a06",
+    "header": "#040704",
+    "code":   "#060906",
+    "muted":  "#1a5a5a",
+    "line":   "#0d2e2e"
+  },
+  "text": {
+    "fg":    "#9ff8f9",
+    "muted": "#1a5a5a"
+  },
+  "data": {
+    "_comment": "Teal primary, orange faction, bright teal alt, warm amber, red, steel — binary circuit palette.",
+    "cat": ["#7dfdfe", "#f4af2d", "#00e5ff", "#ffd060", "#ff4433", "#4dcfcf"]
+  },
+  "type": {
+    "body": "\"OCR A Extended\", \"Courier New\", ui-monospace, monospace",
+    "head": "\"OCR A Extended\", \"Courier New\", ui-monospace, monospace",
+    "mono": "\"Courier New\", ui-monospace, monospace"
+  },
+  "fx": {
+    "glow":      "rgba(125, 253, 254, 0.45)",
+    "glow-line": "rgba(125, 253, 254, 0.3)"
+  },
+  "palette": {
+    "stroke1": "#7dfdfe",
+    "stroke2": "#f4af2d",
+    "stroke3": "#00e5ff",
+    "accent":  "#7dfdfe",
+    "fg":      "#9ff8f9",
+    "muted":   "#1a5a5a",
+    "bg":      "#030504",
+    "panel":   "#070a06"
+  },
+  "layout": "grid"
+}

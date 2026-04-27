@@ -1,0 +1,19 @@
+# Pre-commit hooks. Run `pre-commit install` once after first checkout.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - anthropic
+          - python-dotenv
+        # mypy is permissive (strict=false) per pyproject.toml — catches
+        # return-type drift and untyped-config mistakes without blocking.
+        args: [--ignore-missing-imports]

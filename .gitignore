@@ -1,0 +1,46 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# external tool state
+.defn/
+
+# generated artifacts that aren't seed/placeholder
+.nano_banana_usage.json
+cells/cell-*.png
+cells/cell-*.jpg
+cells/cell-*.webp
+
+# transcript watcher state files
+.watcher_state_*.json
+
+# runtime mint log — append-only by orchestrator, read by recent_mints hook
+mint_log.jsonl
+
+# user cell data — each user generates their own from their own conversations
+cells.json
+cells.json.bak*
+cells_*_archive.json
+
+# audit outputs are local — contain snippets from real conversations
+audits/
+
+# Claude Code project settings — personal paths, not for contributors
+.claude/
+
+# stray screenshots / pastes
+Pasted image*.png
+Pasted image*.jpg
+
+# generated demo artifacts — run demo/make_demo_cells.py to recreate
+demo/demo_cells.json
+
+# local-only research scrapes/exhaustive surveys — not committed.
+# Curated synthesis with bookmarks lives in design-references.md (committed);
+# raw per-entry tables and competitor URL surveys live here for local lookup.
+research/

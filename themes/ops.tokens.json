@@ -1,0 +1,46 @@
+{
+  "_comment": "Operations board aesthetic — Star Trek TNG inspired. Saturated orange + peach + magenta + purple on navy/black, condensed-bold display type. Color-band bracket framing.",
+  "accent": {
+    "primary":   "#ff9900",
+    "secondary": "#ffcc99",
+    "warning":   "#ffcc33",
+    "danger":    "#cc6666",
+    "ok":        "#99cc99"
+  },
+  "surface": {
+    "bg":     "#000000",
+    "cell":   "#000044",
+    "header": "#000000",
+    "code":   "#0a0a1a",
+    "muted":  "#9999cc",
+    "line":   "#ff9900"
+  },
+  "text": {
+    "fg":    "#ffcc99",
+    "muted": "#9999cc"
+  },
+  "data": {
+    "_comment": "LCARS canonical palette in display order: orange, peach, magenta, purple, yellow, salmon. Reads instantly as TNG ops board — saturated flat fills, no shading.",
+    "cat": ["#ff9900", "#ffcc99", "#cc5599", "#9999cc", "#ffcc33", "#cc6666"]
+  },
+  "type": {
+    "body": "\"Antonio\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed\", \"Arial Narrow\", sans-serif",
+    "head": "\"Antonio\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed Bold\", \"Arial Narrow\", sans-serif",
+    "mono": "\"Fira Mono\", \"Courier New\", monospace"
+  },
+  "fx": {
+    "glow":      "transparent",
+    "glow-line": "rgba(255, 153, 0, 0.25)"
+  },
+  "palette": {
+    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution.",
+    "stroke1": "#ff9900",
+    "stroke2": "#ffcc99",
+    "stroke3": "#cc5599",
+    "accent":  "#ff9900",
+    "fg":      "#ffcc99",
+    "muted":   "#9999cc",
+    "bg":      "#000000",
+    "panel":   "#000044"
+  }
+}

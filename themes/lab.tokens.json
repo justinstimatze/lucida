@@ -1,0 +1,46 @@
+{
+  "_comment": "Default lab theme. Cyan + magenta + yellow on near-black; sans-serif. Mermaid uses the built-in dark theme (mermaid_builtin), so themeVariables are not derived.",
+  "mermaid_builtin": "dark",
+  "accent": {
+    "primary":   "#66ccff",
+    "secondary": "#ff66dd",
+    "warning":   "#fbbf24",
+    "danger":    "#f87171",
+    "ok":        "#4ade80"
+  },
+  "surface": {
+    "bg":     "#0a0a0e",
+    "cell":   "#131318",
+    "header": "#15151a",
+    "code":   "#15151a",
+    "muted":  "#8a8a92",
+    "line":   "#2a2a2e"
+  },
+  "text": {
+    "fg":    "#e5e5e5",
+    "muted": "#8a8a92"
+  },
+  "data": {
+    "cat": ["#66ccff", "#ff66dd", "#ffee66", "#00ffff", "#ff00ff", "#ffff00"]
+  },
+  "type": {
+    "body": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
+    "head": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
+    "mono": "ui-monospace, \"SF Mono\", Menlo, monospace"
+  },
+  "fx": {
+    "glow":      "rgba(102, 204, 255, 0.35)",
+    "glow-line": "rgba(255, 102, 221, 0.35)"
+  },
+  "palette": {
+    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution. The saturated neon trio (#00ffff/#ff00ff/#ffff00) now lives at data.cat[3..5] for opt-in saturation instead of being the default scene3d strokes.",
+    "stroke1": "#66ccff",
+    "stroke2": "#ff66dd",
+    "stroke3": "#ffee66",
+    "accent":  "#66ccff",
+    "fg":      "#e5e5e5",
+    "muted":   "#8a8a92",
+    "bg":      "#0a0a0e",
+    "panel":   "#131318"
+  }
+}

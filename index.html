@@ -1,0 +1,3294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>lucida notebook</title>
+<link rel="stylesheet" href="notebook.css" />
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<!-- Three.js loaded eagerly for scene3d cells. -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+<!-- d3-hierarchy: canonical squarified treemap (Bruls 2000). Replaces
+     ~80 lines of custom squarify code; we just feed it weights and read
+     leaf rectangles back. -->
+<script src="https://cdn.jsdelivr.net/npm/d3-array@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-hierarchy@3"></script>
+<script>
+  // Theme bootstrap -- runs synchronously in head to avoid FOUC.
+  // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
+  // Adapted from gemotvis/frontend/src/stores/theme.ts.
+  (function () {
+    var valid = ["lab", "conclave", "minimal", "gastown", "ops", "vigil", "circuit", "noir", "renegade", "mainframe", "terminus"];
+    var theme = "lab";
+    try {
+      var url = new URLSearchParams(window.location.search).get("theme");
+      var m = document.cookie.match(/(?:^|; )lucida_theme=(\w+)/);
+      if (url && valid.indexOf(url) >= 0) theme = url;
+      else if (m && valid.indexOf(m[1]) >= 0) theme = m[1];
+    } catch (e) { /* fall through to default */ }
+    document.documentElement.classList.add("theme-" + theme);
+    document.cookie = "lucida_theme=" + theme + "; path=/; max-age=" + (365 * 24 * 60 * 60) + "; SameSite=Lax";
+    window.__LUCIDA_THEME = theme;
+  })();
+</script>
+</head>
+<body>
+<header>
+  <!-- "lucida notebook" title removed: static chrome that doesn't earn
+       its keep on a glanceable page. Per memory/feedback_glanceable_no_clicks
+       and the user's "only consistently useful content should remain on the
+       viz page". The browser tab's <title> still says "lucida notebook" so
+       window-switching identification is preserved. -->
+  <div id="hud" class="hud" aria-live="polite">
+    <div class="hud-row hud-row-top">
+      <span class="hud-cell hud-status">
+        <span class="hud-label">STATUS</span>
+        <span class="hud-value" id="hud-status-val">—</span>
+        <span class="hud-pulse" id="hud-pulse"></span>
+      </span>
+      <span class="hud-cell hud-elapsed">
+        <span class="hud-label">SINCE.LAST</span>
+        <span class="hud-value" id="hud-elapsed-val">—</span>
+      </span>
+      <span class="hud-cell hud-cells-cell">
+        <span class="hud-label">CELLS</span>
+        <span class="hud-value" id="hud-cells-val">—</span>
+        <svg class="hud-cells-bar" id="hud-cells-bar" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true"></svg>
+      </span>
+      <span class="hud-cell hud-session-trigger" id="hud-session-cell"
+            role="button" tabindex="0" aria-haspopup="true"
+            aria-controls="session-dropdown"
+            title="click to filter by session(s)">
+        <span class="hud-label">SESSION</span>
+        <span class="hud-value" id="hud-session-val">—</span>
+        <span class="hud-caret" aria-hidden="true">▾</span>
+      </span>
+      <div id="session-dropdown" class="session-dropdown" hidden></div>
+      <span class="hud-cell hud-layout-trigger" id="hud-layout-cell"
+            role="button" tabindex="0" aria-haspopup="true"
+            aria-controls="layout-dropdown"
+            title="click to switch layout">
+        <span class="hud-label">LAYOUT</span>
+        <span class="hud-value" id="hud-layout-val">GRID</span>
+        <span class="hud-caret" aria-hidden="true">▾</span>
+      </span>
+      <div id="layout-dropdown" class="session-dropdown" hidden></div>
+      <span class="hud-cell hud-theme-trigger" id="hud-theme-cell"
+            role="button" tabindex="0" aria-haspopup="true"
+            aria-controls="theme-dropdown"
+            title="click to switch theme">
+        <span class="hud-label">THEME</span>
+        <span class="hud-value" id="hud-theme-val">—</span>
+        <span class="hud-caret" aria-hidden="true">▾</span>
+      </span>
+      <div id="theme-dropdown" class="session-dropdown" hidden></div>
+    </div>
+    <div class="hud-row hud-row-bot">
+      <span class="hud-cell hud-kills" id="hud-kill1-slot" data-state="ok">
+        <svg class="hud-ring" viewBox="0 0 24 24"><circle class="hud-ring-base" cx="12" cy="12" r="10"></circle><circle class="hud-ring-fill" cx="12" cy="12" r="10"></circle></svg>
+        <span class="hud-label">KILL.AESTHETIC</span>
+        <span class="hud-value" id="hud-kill1-val">—</span>
+      </span>
+      <span class="hud-cell hud-kills" id="hud-kill2-slot" data-state="ok">
+        <svg class="hud-ring" viewBox="0 0 24 24"><circle class="hud-ring-base" cx="12" cy="12" r="10"></circle><circle class="hud-ring-fill" cx="12" cy="12" r="10"></circle></svg>
+        <span class="hud-label">KILL.MISROUTE</span>
+        <span class="hud-value" id="hud-kill2-val">—</span>
+      </span>
+      <span class="hud-cell hud-kills" id="hud-kill3-slot" data-state="ok">
+        <svg class="hud-ring" viewBox="0 0 24 24"><circle class="hud-ring-base" cx="12" cy="12" r="10"></circle><circle class="hud-ring-fill" cx="12" cy="12" r="10"></circle></svg>
+        <span class="hud-label">KILL.HALLUC</span>
+        <span class="hud-value" id="hud-kill3-val">—</span>
+      </span>
+      <span class="hud-cell hud-mints">
+        <span class="hud-label">RECENT</span>
+        <span class="hud-value" id="hud-recent-val">—</span>
+      </span>
+    </div>
+    <div class="hud-scanline" aria-hidden="true"></div>
+  </div>
+</header>
+<main id="notebook"></main>
+<!-- Inter-cell connections overlay (WebGL via Three.js).
+     Replaces the prior SVG implementation. Fixed-position canvas;
+     pointer-events:none. The Three.js scene is structured so a future
+     VR-loopback (PerspectiveCamera + WebXRManager) is a mechanical
+     swap of the camera and renderer, not a rewrite. See
+     drawConnections() below. -->
+<canvas id="connection-overlay" aria-hidden="true"></canvas>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+// Full-stack theme config: chrome lives in CSS (notebook.css), but
+// mermaid + vega + scene3d content also need theme-aware colors.
+// Active theme is set by the inline head script -> window.__LUCIDA_THEME.
+const ACTIVE = window.__LUCIDA_THEME || "lab";
+
+// Centralized mutable state. Pre-2026-04-28 the renderer had ~15
+// disconnected `let` variables scattered through the module —
+// state.rendering.renderedIds / state.hud.lastTyped / state.conn.renderer / state.hud.killHistory etc.
+// Made "what is currently rendered?" hard to answer and led to
+// observer-leak bugs where scrolled-out cells never disconnected
+// their IntersectionObservers. This object is the single source of
+// mutable state; every subsystem reads/writes named paths.
+//
+// Per memory/feedback_layout_density_validated.md don't drift back
+// into module-scope let leakage on future feature work — add to
+// state, don't sprinkle.
+const state = {
+  // Multi-stream arc step 2: ?session=<id1>,<id2>,... filter. Multi-
+  // select via comma-separated list. Empty / no param = unscoped (show
+  // every cell, intuitive default). The literal "untagged" is a pseudo-
+  // session matching cells without a session_id field. Set is
+  // mutable at runtime via the HUD dropdown.
+  sessions: {
+    // Multi-stream arc step 4: ?session=auto is a sentinel meaning "every
+    // distinct session_id in cells.json should be a column". active is left
+    // empty at parse time; load() populates it from the data, and
+    // liveAppendNewCells() grows it when a fresh cell arrives with a new
+    // session_id. The URL stays `?session=auto` so the share link doesn't
+    // freeze a snapshot of session ids.
+    active: (function () {
+      try {
+        const v = new URLSearchParams(window.location.search).get("session");
+        if (!v || v.trim() === "auto") return new Set();
+        return new Set(v.split(",").map(s => s.trim()).filter(Boolean));
+      } catch (e) { return new Set(); }
+    })(),
+    autoMode: (function () {
+      try {
+        const v = new URLSearchParams(window.location.search).get("session");
+        return v != null && v.trim() === "auto";
+      } catch (e) { return false; }
+    })(),
+  },
+  rendering: {
+    renderedIds: new Set(),       // cells already mounted in the notebook
+    overflowPending: false,       // overflow-check rAF throttle
+    cellsBarKey: null,            // memo key for HUD substrate-bar repaint
+  },
+  hud: {
+    lastTyped: new Map(),         // typeInto cache (suppress re-animation)
+    lastSeenMint: null,           // most-recent cell_id surfaced in HUD recent ticker
+    lastMintTs: null,             // for the live seconds-since-last counter
+    killHistory: new Map(),       // kill-slot data-state history → bloom triggers
+    cachedAudit: undefined,       // undefined = not attempted; null = none found; obj = result
+  },
+  webgl: {
+    registry: [],                 // active scene3d contexts (LRU eviction)
+  },
+  conn: {
+    renderer: null, scene: null, camera: null,  // Three.js connection-overlay
+    lines: [],                    // current line meshes (re-disposed each redraw)
+    animating: false,             // continuous-pulse rAF running flag
+    startTime: 0,                 // animation epoch
+    rafPending: false,            // redraw rAF throttle
+  },
+};
+function matchesActiveSession(cell) {
+  if (state.sessions.active.size === 0) return true;
+  if (state.sessions.active.has("untagged") && !cell.session_id) return true;
+  return state.sessions.active.has(cell.session_id);
+}
+// Persist the current filter to the URL so the view is shareable from
+// inside a Claude Code session without the user typing a query string.
+function syncSessionFilterToURL() {
+  const url = new URL(window.location.href);
+  if (state.sessions.autoMode) {
+    url.searchParams.set("session", "auto");
+  } else if (state.sessions.active.size === 0) {
+    url.searchParams.delete("session");
+  } else {
+    url.searchParams.set("session", [...state.sessions.active].join(","));
+  }
+  window.history.replaceState(null, "", url.toString());
+}
+
+// Re-render the notebook from cells.json under the current filter.
+// Called after a session-filter toggle. Clears the existing notebook
+// + render-id baseline so the next pass treats every visible cell as
+// fresh; live-append continues from there.
+async function rerenderNotebook() {
+  disconnectAllCellObservers();
+  document.getElementById("notebook").innerHTML = "";
+  state.rendering.renderedIds.clear();
+  await load();
+  loadHud().catch(() => {});
+  scheduleRedrawConnections();
+}
+
+// Walk the notebook DOM and disconnect every per-element observer
+// stashed by pauseOffScreen / lazyMount. Without this, rerenders
+// leave behind live IntersectionObservers that keep firing into
+// torn-down state. Per audit 2026-04-28.
+function disconnectAllCellObservers() {
+  document.querySelectorAll("#notebook *").forEach(el => {
+    if (el._pauseObserver) { el._pauseObserver.disconnect(); el._pauseObserver = null; }
+    if (el._lazyObserver)  { el._lazyObserver.disconnect();  el._lazyObserver = null; }
+  });
+}
+
+// Build the session-filter dropdown contents. Reads unique session_id
+// values from cells.json (plus an "untagged" pseudo-session for cells
+// missing the field) and renders a checkbox list. Each toggle updates
+// state.sessions.active, syncs the URL, and re-renders the notebook.
+function buildSessionDropdown(cellsData) {
+  const dropdown = document.getElementById("session-dropdown");
+  if (!dropdown) return;
+  const cells = (cellsData && cellsData.cells) || [];
+  const sessionCounts = new Map();
+  let untaggedCount = 0;
+  for (const c of cells) {
+    if (c.replaced_by) continue;
+    if (c.session_id) {
+      sessionCounts.set(c.session_id, (sessionCounts.get(c.session_id) || 0) + 1);
+    } else {
+      untaggedCount++;
+    }
+  }
+  const entries = [...sessionCounts.entries()].sort((a, b) => b[1] - a[1]);
+  if (untaggedCount > 0) entries.push(["untagged", untaggedCount]);
+
+  const header = `
+    <div class="session-dropdown-header">
+      <span>FILTER BY SESSION</span>
+      <button type="button" class="session-dropdown-clear">show all</button>
+    </div>
+  `;
+  const rows = entries.map(([sid, count]) => {
+    const checked = state.sessions.active.has(sid) ? "checked" : "";
+    const safeId = sid.replace(/[^a-zA-Z0-9_-]/g, "_");
+    return `
+      <label class="session-dropdown-row">
+        <input type="checkbox" data-session="${sid}" id="sess-cb-${safeId}" ${checked}>
+        <span class="session-dropdown-id">${sid}</span>
+        <span class="session-dropdown-count">${count}</span>
+      </label>
+    `;
+  }).join("");
+  dropdown.innerHTML = header + (rows || '<div class="session-dropdown-empty">no sessions yet</div>');
+
+  dropdown.querySelector(".session-dropdown-clear")?.addEventListener("click", () => {
+    state.sessions.active.clear();
+    syncSessionFilterToURL();
+    buildSessionDropdown(cellsData);
+    rerenderNotebook();
+  });
+  dropdown.querySelectorAll('input[type="checkbox"][data-session]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      const sid = cb.dataset.session;
+      if (cb.checked) state.sessions.active.add(sid);
+      else state.sessions.active.delete(sid);
+      syncSessionFilterToURL();
+      rerenderNotebook();
+    });
+  });
+}
+
+// Wire the LAYOUT HUD slot. Mirrors the session dropdown shape but
+// with a fixed list of layout choices (grid / treemap / organic /
+// scatter). Selecting a layout updates ?layout=<v> in the URL and
+// reloads — applying live without reload would require resetting
+// every cell's inline style, which the existing layout funcs don't
+// do, so a reload keeps it simple. Visually the same `.session-
+// dropdown` styles apply to the chip + popover.
+function buildLayoutDropdown() {
+  const dropdown = document.getElementById("layout-dropdown");
+  if (!dropdown) return;
+  const current = getLayoutMode();
+  // Read from LAYOUT_REGISTRY so adding a new layout there auto-shows
+  // it in the dropdown without touching this function.
+  const options = Object.values(LAYOUT_REGISTRY);
+  const rows = options.map(o => `
+    <button type="button" role="option" class="session-dropdown-row layout-dropdown-row"
+            data-layout="${o.id}"
+            aria-selected="${o.id === current ? 'true' : 'false'}"
+            ${o.id === current ? 'aria-current="true"' : ""}>
+      <span class="session-dropdown-id">${o.label}</span>
+      <span class="session-dropdown-count">${o.description}</span>
+    </button>
+  `).join("");
+  dropdown.innerHTML = `
+    <div class="session-dropdown-header">
+      <span>LAYOUT</span>
+    </div>
+    <div role="listbox" aria-label="Layout">${rows}</div>
+  `;
+  dropdown.querySelectorAll(".layout-dropdown-row").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.layout;
+      const url = new URL(window.location.href);
+      if (v === "grid") url.searchParams.delete("layout");
+      else url.searchParams.set("layout", v);
+      window.location.replace(url.toString());
+    });
+  });
+}
+// THEME_REGISTRY mirrors LAYOUT_REGISTRY: adding a new theme means adding
+// one entry here and one themes/<id>.tokens.json file. The label shows in
+// the HUD chip and dropdown rows; description is the dropdown subtitle.
+// Theme selection writes the cookie via the head bootstrap script and the
+// ?theme= URL param; both are read on next load.
+const THEME_REGISTRY = {
+  lab:       { id: "lab",       label: "LAB",       description: "cyan/magenta on near-black; default" },
+  conclave:  { id: "conclave",  label: "CONCLAVE",  description: "amber + green three-machine consensus" },
+  minimal:   { id: "minimal",   label: "MINIMAL",   description: "Vercel/Linear clean light" },
+  gastown:   { id: "gastown",   label: "GASTOWN",   description: "steampunk brass on cream serif" },
+  ops:       { id: "ops",       label: "OPS",       description: "color-band operations board, condensed display" },
+  vigil:     { id: "vigil",     label: "VIGIL",     description: "cold electric cyan on void black — always watching" },
+  circuit:   { id: "circuit",   label: "CIRCUIT",   description: "teal-blue + orange binary on pure black" },
+  noir:      { id: "noir",      label: "NOIR",      description: "amber hologram on rain-soaked blue-black" },
+  renegade:  { id: "renegade",  label: "RENEGADE",  description: "omnitool orange + nav cyan on warm-black" },
+  mainframe: { id: "mainframe", label: "MAINFRAME", description: "neon aqua city grid, Game Cube purple accent" },
+  terminus:  { id: "terminus",  label: "TERMINUS",  description: "phosphor on black — end of the line" },
+};
+
+function buildThemeDropdown() {
+  const dropdown = document.getElementById("theme-dropdown");
+  if (!dropdown) return;
+  const current = ACTIVE;
+  const options = Object.values(THEME_REGISTRY);
+  const rows = options.map(o => `
+    <button type="button" role="option" class="session-dropdown-row theme-dropdown-row"
+            data-theme="${o.id}"
+            aria-selected="${o.id === current ? 'true' : 'false'}"
+            ${o.id === current ? 'aria-current="true"' : ""}>
+      <span class="session-dropdown-id">${o.label}</span>
+      <span class="session-dropdown-count">${o.description}</span>
+    </button>
+  `).join("");
+  dropdown.innerHTML = `
+    <div class="session-dropdown-header">
+      <span>THEME</span>
+    </div>
+    <div role="listbox" aria-label="Theme">${rows}</div>
+  `;
+  dropdown.querySelectorAll(".theme-dropdown-row").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.theme;
+      if (v === ACTIVE) return;
+      // Write the cookie too so a subsequent visit without ?theme= still
+      // honors the choice — matches the head bootstrap's cookie-or-URL
+      // resolution order.
+      document.cookie = `lucida_theme=${v}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
+      const url = new URL(window.location.href);
+      url.searchParams.set("theme", v);
+      window.location.replace(url.toString());
+    });
+  });
+}
+function initThemeDropdownTrigger() {
+  const trigger = document.getElementById("hud-theme-cell");
+  const dropdown = document.getElementById("theme-dropdown");
+  if (!trigger || !dropdown) return;
+  const valEl = document.getElementById("hud-theme-val");
+  if (valEl) valEl.textContent = (THEME_REGISTRY[ACTIVE]?.label || ACTIVE.toUpperCase());
+  const open = () => {
+    buildThemeDropdown();
+    dropdown.hidden = false;
+    const r = trigger.getBoundingClientRect();
+    dropdown.style.top = (r.bottom + 4) + "px";
+    dropdown.style.left = r.left + "px";
+  };
+  const close = () => { dropdown.hidden = true; };
+  const toggle = () => { dropdown.hidden ? open() : close(); };
+  trigger.addEventListener("click", toggle);
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (dropdown.hidden) return;
+    if (!dropdown.contains(e.target) && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dropdown.hidden) close();
+  });
+}
+
+function initLayoutDropdownTrigger() {
+  const trigger = document.getElementById("hud-layout-cell");
+  const dropdown = document.getElementById("layout-dropdown");
+  if (!trigger || !dropdown) return;
+  // Reflect the current mode on the chip on load.
+  const valEl = document.getElementById("hud-layout-val");
+  if (valEl) valEl.textContent = getLayoutMode().toUpperCase();
+  const open = () => {
+    buildLayoutDropdown();
+    dropdown.hidden = false;
+    const r = trigger.getBoundingClientRect();
+    dropdown.style.top = (r.bottom + 4) + "px";
+    dropdown.style.left = r.left + "px";
+  };
+  const close = () => { dropdown.hidden = true; };
+  const toggle = () => { dropdown.hidden ? open() : close(); };
+  trigger.addEventListener("click", toggle);
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (dropdown.hidden) return;
+    if (!dropdown.contains(e.target) && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dropdown.hidden) close();
+  });
+}
+
+// Wire the SESSION HUD slot to toggle the dropdown. Click outside or
+// ESC dismisses. Per memory/feedback_glanceable_no_clicks.md the
+// dropdown is power-user-config (clicked once to scope), not a
+// default-path interaction; the empty default keeps the glanceable
+// principle intact.
+function initSessionDropdownTrigger() {
+  const trigger = document.getElementById("hud-session-cell");
+  const dropdown = document.getElementById("session-dropdown");
+  if (!trigger || !dropdown) return;
+
+  const open = async () => {
+    const cellsData = await fetchJSON("cells.json");
+    buildSessionDropdown(cellsData);
+    dropdown.hidden = false;
+    const r = trigger.getBoundingClientRect();
+    dropdown.style.top = (r.bottom + 4) + "px";
+    dropdown.style.left = r.left + "px";
+  };
+  const close = () => { dropdown.hidden = true; };
+  const toggle = () => { dropdown.hidden ? open() : close(); };
+
+  trigger.addEventListener("click", toggle);
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (dropdown.hidden) return;
+    if (!dropdown.contains(e.target) && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dropdown.hidden) close();
+  });
+}
+
+// Theme tokens (themes/<name>.tokens.json) are the single source of truth
+// for cross-substrate theming: mermaid themeVariables, vega config (axis
+// colors, range categories), animated_svg $X palette substitution, and the
+// new --data-cat-N CSS vars all derive from one JSON file per theme.
+// Pre-2026-04-29 each substrate had its own hand-mapped literals so themes
+// drifted (vega range had off-brand colors that didn't match mermaid edges).
+// See design-references.md "Theme strategy" + memory/visual_consistency_
+// theming_pass.md for the why.
+async function loadTokens(themeName) {
+  try {
+    const r = await fetch(`themes/${themeName}.tokens.json`, { cache: "no-cache" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    console.warn(`[lucida] failed to load themes/${themeName}.tokens.json: ${e}; falling back to lab`);
+    if (themeName === "lab") throw e;  // can't fall back further
+    const r = await fetch(`themes/lab.tokens.json`, { cache: "no-cache" });
+    return await r.json();
+  }
+}
+
+function buildThemeConfig(t) {
+  // mermaid: built-in themes (dark/neutral) skip themeVariables; otherwise
+  // we derive themeVariables from accent/surface/text/type tokens so the
+  // mermaid edges/nodes/text track the same accent values used elsewhere.
+  const mermaidConf = t.mermaid_builtin
+    ? { theme: t.mermaid_builtin }
+    : {
+        theme: "base",
+        themeVariables: {
+          background: t.surface.bg,
+          primaryColor: t.surface.cell,
+          primaryTextColor: t.text.fg,
+          primaryBorderColor: t.accent.primary,
+          secondaryColor: t.surface.cell,
+          tertiaryColor: t.surface.cell,
+          mainBkg: t.surface.cell,
+          lineColor: t.accent.secondary,
+          textColor: t.text.fg,
+          secondaryTextColor: t.text.fg,
+          tertiaryTextColor: t.text.fg,
+          // Edge-label backplates (the rect behind "produces", "consumed by",
+          // etc on edges) defaulted to a near-white that inverted the
+          // light-on-dark contrast on every dark theme. User flagged
+          // 2026-04-29 ("the mermaid text backplates are still bad").
+          // Match the cell-bg so labels render light-on-cell-bg, same as
+          // node text. labelBoxBkgColor + edgeLabelBackground both apply
+          // depending on diagram type (flowchart vs sequence).
+          edgeLabelBackground: t.surface.cell,
+          labelBoxBkgColor: t.surface.cell,
+          actorBkg: t.surface.cell,
+          actorTextColor: t.text.fg,
+          actorLineColor: t.accent.primary,
+          noteBkgColor: t.surface.cell,
+          noteTextColor: t.text.fg,
+          noteBorderColor: t.accent.primary,
+          // fontFamily here governs mermaid's text-width measurement when
+          // sizing edge-label backing rects. Must match the render-time CSS
+          // font or wider chars overflow the pre-measured rect.
+          fontFamily: t.type.mono || t.type.body,
+        },
+      };
+
+  return {
+    mermaid: mermaidConf,
+    vega: {
+      config: {
+        background: "transparent",
+        title: { color: t.text.fg, font: t.type.head || t.type.body },
+        axis: {
+          domainColor: t.surface.muted, labelColor: t.text.fg,
+          tickColor: t.surface.muted, gridColor: t.surface.line,
+          titleColor: t.text.fg,
+          labelFont: t.type.body, titleFont: t.type.body,
+          // Long category labels (e.g., "cinematic family (Powers-of-Ten +
+          // match-cut)") were eating most of the plot in 380-500px cells
+          // because the vega specialist had been setting labelLimit: 300.
+          // Theme-level ceiling at 160px clamps the baseline; per-spec
+          // overrides still win, so the specialist prompt also tells the
+          // model not to override (specialists.py VEGA_SYSTEM constraint).
+          labelLimit: 160, labelOverlap: true,
+        },
+        legend: { labelColor: t.text.fg, titleColor: t.text.fg },
+        range: { category: t.data.cat },
+      },
+    },
+    palette: t.palette,
+  };
+}
+
+// Apply selected token values to :root as CSS custom properties so HTML
+// cells / vega cell wrappers / connection-overlay can read them. The
+// existing chrome vars (--bg, --accent, --fg, etc.) are still set by
+// notebook.css per .theme-<name> class — token vars layer additional
+// roles on top (--data-cat-N, --accent-secondary, --accent-warning, etc.)
+// and could fully replace the CSS chrome blocks in a follow-up pass.
+function applyTokensToCSSVars(t) {
+  const root = document.documentElement;
+  (t.data?.cat || []).forEach((c, i) => root.style.setProperty(`--data-cat-${i}`, c));
+  root.style.setProperty("--accent-primary",   t.accent.primary);
+  root.style.setProperty("--accent-secondary", t.accent.secondary);
+  root.style.setProperty("--accent-warning",   t.accent.warning);
+  root.style.setProperty("--accent-danger",    t.accent.danger);
+  root.style.setProperty("--accent-ok",        t.accent.ok);
+  // Type tokens — exposed as CSS vars so chrome (dropdowns, popovers,
+  // captions) can pick the active theme's font without depending on
+  // DOM-tree inheritance. Pre-2026-04-30 dropdowns inherited from
+  // .hud's explicit monospace, so they didn't track lcars/gastown
+  // condensed/serif body fonts.
+  if (t.type) {
+    if (t.type.body) root.style.setProperty("--type-body", t.type.body);
+    if (t.type.head) root.style.setProperty("--type-head", t.type.head);
+    if (t.type.mono) root.style.setProperty("--type-mono", t.type.mono);
+  }
+}
+
+const TOKENS = await loadTokens(ACTIVE);
+applyTokensToCSSVars(TOKENS);
+const TC = buildThemeConfig(TOKENS);
+
+// Token-declared layout preference applied after LAYOUT_REGISTRY is defined
+// (see applyTokenLayout call below the registry).
+
+// flowchart.htmlLabels: false renders edge labels as native SVG <text>
+// instead of foreignObject+HTML. The foreignObject path measures label
+// width with mermaid's default proportional font but renders with our
+// theme CSS (Courier New monospace under magi), and the wider monospace
+// chars overflow the pre-measured foreignObject — manifesting as
+// truncated labels like "fin" or "triggers demot". SVG text labels
+// measure and render with the same font, so they size correctly.
+mermaid.initialize({
+  startOnLoad: false,
+  flowchart: { htmlLabels: false },
+  ...TC.mermaid,
+});
+
+// Pause off-screen 3D content (Three.js render loops, A-Frame scenes) via
+// IntersectionObserver. Multiple live WebGL contexts in one page wedge the
+// render thread; this only animates what's visible.
+function pauseOffScreen(targetEl, onShow, onHide) {
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) onShow();
+      else onHide();
+    }
+  }, { rootMargin: "200px" });
+  // Stash on the element so rerenderNotebook can disconnect on teardown.
+  // Without this, every cell that's ever scrolled out of view leaves a
+  // live IntersectionObserver behind across rerenders. Per audit
+  // 2026-04-28.
+  targetEl._pauseObserver = io;
+  io.observe(targetEl);
+}
+
+// Lazy-load Prism.js (core + autoloader) on first code-cell mount.
+// Sessions without code cells skip Prism entirely. The autoloader fetches
+// language packs on demand from the same CDN root. All concurrent
+// first-mounts share the same Promise so we only fetch + parse once.
+let _prismLoad = null;
+function ensurePrismLoaded(language) {
+  if (window.Prism && window.Prism.languages && window.Prism.languages[language]) {
+    return Promise.resolve();
+  }
+  if (!_prismLoad) {
+    _prismLoad = new Promise((resolve, reject) => {
+      const core = document.createElement("script");
+      core.src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js";
+      core.onload = () => {
+        // Disable Prism's default auto-highlight on DOM ready — we trigger
+        // highlightElement manually per cell so lazy-mounted cells get
+        // highlighted on viewport entry, not page load.
+        if (window.Prism) window.Prism.manual = true;
+        const auto = document.createElement("script");
+        auto.src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js";
+        auto.onload = () => {
+          try {
+            window.Prism.plugins.autoloader.languages_path =
+              "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/";
+          } catch (e) { /* autoloader missing — degrade silently */ }
+          resolve();
+        };
+        auto.onerror = () => reject(new Error("Prism autoloader failed"));
+        document.head.appendChild(auto);
+      };
+      core.onerror = () => reject(new Error("Prism core failed"));
+      document.head.appendChild(core);
+    });
+  }
+  return _prismLoad;
+}
+
+// Browsers cap live WebGL contexts at ~16; with 84 cells minted over a
+// session, a few scene3d demos eat that budget and leak GPU memory
+// even when paused. This registry keeps at most WEBGL_CAP scenes alive at
+// once, evicting the least-recently-visible non-visible scene when a new
+// one initializes. Evicted scenes call their teardown to dispose Three.js
+// geometry/materials/renderer + drop the canvas; they re-init from spec
+// when scrolled back into view.
+const WEBGL_CAP = 2;
+function registerWebGL(entry) {
+  state.webgl.registry.push(entry);
+  evictWebGLIfOverCap();
+}
+function touchWebGL(entry) { entry.lastVisible = performance.now(); }
+function evictWebGLIfOverCap() {
+  while (state.webgl.registry.length > WEBGL_CAP) {
+    const evictable = state.webgl.registry
+      .filter(e => !e.visible)
+      .sort((a, b) => a.lastVisible - b.lastVisible);
+    if (evictable.length === 0) break;
+    const victim = evictable[0];
+    try { victim.teardown(); } catch (err) { /* swallow */ }
+    const idx = state.webgl.registry.indexOf(victim);
+    if (idx >= 0) state.webgl.registry.splice(idx, 1);
+  }
+}
+
+// Lazy mount/unmount for SVG-heavy substrates (mermaid, vega, animated_svg).
+// Starts unmounted; the IntersectionObserver renders on first viewport
+// approach and tears down when the cell drifts beyond ~1500px of viewport.
+// The 1500px margin is intentionally generous — earlier 400px tightening
+// caused thrashing leaks (rapid mount/unmount cycles each leaking a vega
+// view through a finalize race, accumulating to +150MB). Specs are cheap
+// to re-render (no API call). Optional teardown callback may be async;
+// returning a Promise lets vega await its embed before finalize().
+function lazyMount(target, render, teardown) {
+  let mounted = false;
+  const io = new IntersectionObserver(async (entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting && !mounted) {
+        target.style.minHeight = "";
+        try { render(); } catch (err) { /* swallow */ }
+        mounted = true;
+      } else if (!e.isIntersecting && mounted) {
+        const h = target.offsetHeight;
+        if (h > 20) target.style.minHeight = h + "px";
+        if (teardown) {
+          try { await teardown(); } catch (err) { /* swallow */ }
+        }
+        target.innerHTML = "";
+        mounted = false;
+      }
+    }
+  }, { rootMargin: "1500px" });
+  target._lazyObserver = io;  // see rerenderNotebook for cleanup
+  io.observe(target);
+}
+
+// Natural-size pivot phase 2 (2026-04-29): after a cell's content
+// renders, measure its intrinsic width and set --cell-natural-width
+// on the cell article so the flex layout sizes the cell to content.
+// Read scrollWidth (NOT clientWidth) so wider-than-viewport content
+// reports its true intrinsic size. Adds inset for cell padding/border
+// (~32px) so the cell's visible content area matches the measured
+// content rather than tightly clipping to scrollWidth's edge.
+function applyNaturalCellSize(target, hint) {
+  const cell = target && target.closest && target.closest(".cell");
+  if (!cell) return;
+  // Defer one frame so layout has settled.
+  requestAnimationFrame(() => {
+    let naturalWidth = 0;
+    if (typeof hint === "number" && hint > 0) {
+      naturalWidth = hint;
+    } else {
+      // Measure widest descendant. scrollWidth on the target captures
+      // children that overflow (wide tables, natural-size mermaid
+      // SVGs); fall back to the measured bounding rect if scrollWidth
+      // is zero (text-only content).
+      naturalWidth = target.scrollWidth || target.getBoundingClientRect().width || 0;
+    }
+    if (naturalWidth <= 0) return;
+    const padding = 32;
+    cell.style.setProperty("--cell-natural-width", (naturalWidth + padding) + "px");
+  });
+}
+
+// Auto-pan camera tour for cells whose intrinsic content exceeds the
+// cell viewport (dense mermaid SVGs, wide html tables). Furnas
+// focus+context principle (design-references.md) applied with animated
+// camera moves: detect overflow, compute waypoints across the content,
+// animate transform: translate(x,y) between them with a dwell at each
+// position, loop. Automatic — no user interaction required. Honors
+// prefers-reduced-motion (no animation), pauses on hover (so the
+// reader can stop and inspect a frame), and pauses when the cell is
+// offscreen via IntersectionObserver (no cycles burned in periphery).
+//
+// Caller is responsible for setting `content` to its natural size
+// BEFORE calling this — for mermaid, that means overriding the SVG's
+// auto-fit width/height so the natural pixel dimensions are used.
+function setupAutoPan(container, content, opts) {
+  if (!container || !content) return;
+  const reducedMotion = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducedMotion) return;
+
+  // Defer one frame so the browser has measured the rendered content.
+  requestAnimationFrame(() => {
+    const cRect = container.getBoundingClientRect();
+    const iRect = content.getBoundingClientRect();
+    if (cRect.width < 80 || cRect.height < 60) return;  // too small to bother
+
+    const overflowX = iRect.width - cRect.width > 20;
+    const overflowY = iRect.height - cRect.height > 20;
+    if (!overflowX && !overflowY) return;
+
+    // Try column-anchored pan for tables: when content holds a single
+    // <table> and overflow is horizontal, waypoints snap to column
+    // boundaries so the camera reads column-by-column rather than
+    // edge-to-edge. Per user 2026-04-29: "should pan from column to
+    // column probably and not edge to edge."
+    let columnAnchors = null;
+    if (overflowX && !overflowY) {
+      const table = (content.tagName === "TABLE")
+        ? content
+        : content.querySelector("table");
+      if (table) {
+        const headerRow = table.querySelector("thead tr") || table.querySelector("tr");
+        if (headerRow && headerRow.children.length >= 2) {
+          const cells = Array.from(headerRow.children);
+          const baseLeft = (content.tagName === "TABLE"
+            ? content.getBoundingClientRect()
+            : iRect).left;
+          const overflow = iRect.width - cRect.width;
+          // Anchor x = column's left edge relative to content; clamp
+          // the resulting translate to the total overflow so the last
+          // column lands flush-right instead of overshooting.
+          columnAnchors = cells.map(td => {
+            const dx = td.getBoundingClientRect().left - baseLeft;
+            return -Math.min(Math.max(0, dx), overflow);
+          });
+        }
+      }
+    }
+
+    // Strip-pan fallback for non-table overflow (mermaid SVGs, etc).
+    // Generate evenly-distributed frames per axis: at least 3 frames
+    // (start / middle / end) when overflow is meaningful, more if
+    // needed to keep ≤70% jump between frames. Per user 2026-04-29:
+    // the prior floor()-based stride generated only corner waypoints
+    // for typical overflow sizes, so the camera tour skipped the
+    // interior of the diagram and "shows almost only the edges."
+    const axisFrames = (overflow, containerSize) => {
+      if (overflow <= 20) return [0];
+      const minFrames = overflow > containerSize * 0.4 ? 3 : 2;
+      const overlapStep = (opts && opts.overlap != null ? 1 - opts.overlap : 0.7);
+      const byStride = Math.ceil(overflow / (containerSize * overlapStep)) + 1;
+      const n = Math.max(minFrames, byStride);
+      const frames = [];
+      for (let i = 0; i < n; i++) {
+        frames.push(-(i * overflow / (n - 1)));
+      }
+      return frames;
+    };
+
+    const waypoints = [];
+    if (columnAnchors) {
+      for (const x of columnAnchors) waypoints.push({ x, y: 0 });
+    } else if (overflowX && !overflowY) {
+      for (const x of axisFrames(iRect.width - cRect.width, cRect.width)) {
+        waypoints.push({ x, y: 0 });
+      }
+    } else if (overflowY && !overflowX) {
+      for (const y of axisFrames(iRect.height - cRect.height, cRect.height)) {
+        waypoints.push({ x: 0, y });
+      }
+    } else {
+      const xFrames = axisFrames(iRect.width - cRect.width, cRect.width);
+      const yFrames = axisFrames(iRect.height - cRect.height, cRect.height);
+      // Row-major sweep with serpentine reversal — left-to-right on
+      // even rows, right-to-left on odd rows. Avoids the long diagonal
+      // jump from row-end back to row-start that would feel like a
+      // teleport between dwells.
+      yFrames.forEach((y, r) => {
+        const xs = (r % 2 === 0) ? xFrames : [...xFrames].reverse();
+        for (const x of xs) waypoints.push({ x, y });
+      });
+    }
+    // De-duplicate AND collapse near-duplicates. Strip-pan with 30%
+    // overlap on small-overflow content produces clusters of waypoints
+    // within a few px of each other (e.g., -350/-400/-400 when overflow
+    // is just slightly past one stride). Animating between them looks
+    // like jitter rather than a tour. Collapse anything within 25% of
+    // the container's smaller dimension into a single endpoint, taking
+    // the more-extreme value so the final overflow is still reached.
+    const minSpacing = 0.25 * Math.min(cRect.width, cRect.height);
+    const dedup = [];
+    for (const wp of waypoints) {
+      const last = dedup[dedup.length - 1];
+      if (!last) { dedup.push(wp); continue; }
+      const dx = Math.abs(last.x - wp.x);
+      const dy = Math.abs(last.y - wp.y);
+      if (dx > minSpacing || dy > minSpacing) {
+        dedup.push(wp);
+      } else {
+        // Replace previous with whichever is more extreme (further from 0)
+        if (Math.abs(wp.x) + Math.abs(wp.y) > Math.abs(last.x) + Math.abs(last.y)) {
+          dedup[dedup.length - 1] = wp;
+        }
+      }
+    }
+    if (dedup.length < 2) return;
+
+    // Append a zoom-out "overview" beat to the cycle so the user sees
+    // the whole diagram/table once per tour, then resumes panning. Per
+    // user 2026-04-29 evening: scanning at zoomed-in level only made it
+    // hard to get a sense for the whole. Scale chosen so content fits
+    // inside container with small margin; only added when overflow is
+    // big enough that an overview is meaningfully different from any
+    // pan frame (otherwise it's redundant). transformOrigin top-left
+    // means scale(<1) at translate(0,0) anchors content to the cell's
+    // top-left corner — natural reading entry point.
+    const fitScale = Math.min(
+      cRect.width  / Math.max(iRect.width,  1),
+      cRect.height / Math.max(iRect.height, 1)
+    );
+    if (fitScale < 0.92) {
+      // Center the shrunk content inside the container instead of
+      // anchoring top-left — top-left would read as "content shrunk
+      // into the corner" rather than "camera pulled back to see the
+      // whole thing." With transformOrigin: top-left, the centering
+      // translate is computed in the un-scaled coordinate system, so
+      // the actual visual offset is (cRect - iRect*scale) / 2.
+      const overviewX = (cRect.width  - iRect.width  * fitScale) / 2;
+      const overviewY = (cRect.height - iRect.height * fitScale) / 2;
+      // Overview dwell is longer (1.4x) so the user has time to take
+      // the whole structure in before the next pan begins.
+      dedup.push({ x: overviewX, y: overviewY, scale: fitScale, dwellOverride: 1.4 });
+    }
+
+    container.style.overflow = "hidden";
+    content.style.transformOrigin = "top left";
+    content.style.transition = "transform 1500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+    content.style.willChange = "transform";
+
+    let i = 0;
+    let timer = null;
+    let paused = false;
+    let visible = true;
+    // Dwell long enough to actually read a column or region. Per user
+    // 2026-04-29: prior 3.2s felt rushed. 5.5s gives ~4s of stillness
+    // after the 1.5s transition completes — enough to read a table
+    // column without scanning frantically.
+    const dwell = (opts && opts.dwellMs != null) ? opts.dwellMs : 5500;
+
+    const tick = () => {
+      timer = null;
+      if (paused || !visible) return;
+      const wp = dedup[i];
+      const scale = (wp.scale != null) ? wp.scale : 1;
+      content.style.transform =
+        `translate(${wp.x.toFixed(1)}px, ${wp.y.toFixed(1)}px) scale(${scale.toFixed(3)})`;
+      i = (i + 1) % dedup.length;
+      const stepDwell = wp.dwellOverride ? Math.round(dwell * wp.dwellOverride) : dwell;
+      timer = setTimeout(tick, stepDwell);
+    };
+
+    container.addEventListener("mouseenter", () => { paused = true; });
+    container.addEventListener("mouseleave", () => {
+      paused = false;
+      if (visible && timer === null) tick();
+    });
+
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        visible = e.isIntersecting;
+        if (visible && !paused && timer === null) {
+          tick();
+        } else if (!visible && timer !== null) {
+          clearTimeout(timer); timer = null;
+        }
+      }
+    }, { rootMargin: "200px" });
+    io.observe(container);
+
+    // Stash on container so cell tear-down (rerenderNotebook clears
+    // _lazyObserver, etc) can find and disconnect.
+    container._autoPanObserver = io;
+    container._autoPanTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
+
+    // Kick off after first paint settles.
+    setTimeout(tick, 600);
+  });
+}
+
+// Token expansion for cell specs: $accent, $stroke1, $stroke2, $stroke3,
+// $fg, $muted, $bg, $panel. Substituted before innerHTML / scene3d render
+// so cell content re-colors with theme.
+function expandTokens(s) {
+  if (typeof s !== "string") return s;
+  return s.replace(/\$(\w+)/g, (m, name) => TC.palette[name] || m);
+}
+function resolveColor(c) {
+  if (typeof c !== "string") return c;
+  if (c.startsWith("$")) {
+    const name = c.slice(1);
+    return TC.palette[name] || c;
+  }
+  return c;
+}
+
+// Type-on animation: progressively reveal text into a target element.
+// Hackertyper-feel; bounded so first paint isn't a blocking effect.
+// Critical: only animates when the value actually CHANGES — otherwise
+// the 5s HUD poll would re-type the entire header every tick, which
+// reads as nervous flicker, not signal.
+function typeInto(elId, text, perChar = 18, maxChars = 200) {
+  const e = document.getElementById(elId);
+  if (!e) return;
+  const t = String(text).slice(0, maxChars);
+  if (state.hud.lastTyped.get(elId) === t) return;  // unchanged → leave it alone
+  state.hud.lastTyped.set(elId, t);
+  e.textContent = "";
+  let i = 0;
+  const tick = () => {
+    e.textContent = t.slice(0, ++i);
+    if (i < t.length) setTimeout(tick, perChar);
+  };
+  tick();
+}
+
+async function fetchJSON(path) {
+  try {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+// Discover the newest substrate-eval audit JSON. Browsers can't glob
+// directories on a static server, so we walk backward from today across a
+// 14-day window. Cached after first lookup so subsequent loadHud polls
+// don't re-issue 14 fetches per cycle. Returns null if no audit is found
+// in the window — kill #3 then displays "n/a".
+async function loadLatestSubstrateAudit() {
+  if (state.hud.cachedAudit !== undefined) return state.hud.cachedAudit;
+  const today = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today.getTime() - i * 86400000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const a = await fetchJSON(`audits/substrate_eval_${dateStr}.json`);
+    if (a) {
+      state.hud.cachedAudit = a;
+      return a;
+    }
+  }
+  state.hud.cachedAudit = null;
+  return null;
+}
+async function fetchText(path) {
+  try {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.text();
+  } catch (e) { return null; }
+}
+
+// Compute lucida HUD metrics from cells.json + the latest substrate eval.
+// Kill rates use audited values when present, else fall back to cells.json
+// regex / proxy heuristics so the strip never reads "—".
+function computeHud(data, substrateAudit, mintLog) {
+  const cells = data.cells || [];
+  // Scope to the active session if ?session= is set; otherwise global.
+  // Kill-criteria gauges then reflect the current session's rates, not
+  // a cross-session aggregate that would be misleading in a session view.
+  const scoped = cells.filter(matchesActiveSession);
+  const active = scoped.filter(c => !c.replaced_by);
+  const visible = active.filter(c => !(c.cell_type === "text" && c.attempted_cell_type));
+  const byType = {};
+  for (const c of visible) byType[c.cell_type] = (byType[c.cell_type] || 0) + 1;
+
+  // KILL.AESTHETIC — kill #1, image quality. Proxy: count image cells whose notes mention low score.
+  // For the audit, we'd read audits/audit_*.md; for now use the rate from the existing audit_2026-04-27 figures.
+  let kill1 = "n/a";
+  const imgCells = visible.filter(c => c.cell_type === "image");
+  if (imgCells.length) kill1 = `img ${imgCells.length} (audit Δ pending)`;
+
+  // KILL.MISROUTE — classifier mis-routings. Pull from notes via regex.
+  const forced = active.filter(c => /forced→\w+/.test(c.notes || ""));
+  const total = active.length;
+  const kill2pct = total ? (forced.length * 100 / total).toFixed(1) : "0.0";
+  const kill2 = `${kill2pct}% (${forced.length}/${total})`;
+
+  // KILL.HALLUC — substrate hallucination from latest audit.
+  let kill3 = "n/a";
+  if (substrateAudit && substrateAudit.length) {
+    const evaluated = substrateAudit.filter(r => !r.error);
+    const inv = evaluated.filter(r => (r.substrate_inv && r.substrate_inv.length) || (r.caption_inv && r.caption_inv.length));
+    const pct = evaluated.length ? (inv.length * 100 / evaluated.length).toFixed(1) : "0.0";
+    kill3 = `${pct}% (${inv.length}/${evaluated.length})`;
+  }
+
+  // STATUS — alive if any mint within last 60min, else idle.
+  let status = "IDLE";
+  let lastMint = null;
+  if (mintLog && mintLog.length) {
+    const now = Date.now();
+    const recent = mintLog.filter(m => {
+      const t = Date.parse(m.timestamp || "");
+      return !isNaN(t) && (now - t) < 60 * 60 * 1000;
+    });
+    if (recent.length) status = "ACTIVE";
+    lastMint = mintLog[mintLog.length - 1];
+  }
+
+  // RECENT — last 3 mints, comma-separated.
+  let recent = "—";
+  if (mintLog && mintLog.length) {
+    const last3 = mintLog.slice(-3).map(m => `${m.cell_id}:${m.cell_type}`);
+    recent = last3.join("  ");
+  }
+
+  return {
+    status,
+    cells: `${visible.length}`,
+    cellsByType: byType,
+    cellsTotal: visible.length,
+    // Session display: prefer the active ?session= filter when set.
+    // Single id → show truncated; multiple → show "Nsess"; none →
+    // fall back to corpus-level session_id field.
+    session: (state.sessions.active.size === 1
+              ? [...state.sessions.active][0].slice(0, 8)
+              : state.sessions.active.size > 1
+                ? `${state.sessions.active.size}sess`
+                : (data.session_id || "—").slice(0, 8)),
+    theme: (window.__LUCIDA_THEME || "lab").toUpperCase(),
+    kill1, kill2, kill3, recent,
+  };
+}
+
+// Substrate-type → theme-token color mapping for the CELLS stacked bar.
+// Higher-value substrates get bright tokens; text + image get de-emphasized
+// since they're either anti-differentiation (text) or demoted (image).
+const SUBSTRATE_COLORS = {
+  vega:         "var(--accent)",
+  mermaid:      "var(--vis-ok, #4ade80)",
+  html:         "var(--vis-warn, #fbbf24)",
+  animated_svg: "var(--accent)",
+  scene3d:      "var(--vis-ok, #4ade80)",
+  treemap:      "var(--vis-ok, #4ade80)",
+  code:         "var(--accent)",
+  sparkline:    "var(--accent)",
+  ascii:        "var(--vis-warn, #fbbf24)",
+  text:         "var(--muted)",
+  image:        "var(--vis-tripped, #f87171)",
+};
+
+// Render the stacked-bar of substrate distribution. Idempotent: clears
+// previous segments + rebuilds. Uses a small cache so we don't repaint
+// when the breakdown is unchanged.
+function renderCellsBar(byType, total) {
+  const svg = document.getElementById("hud-cells-bar");
+  if (!svg) return;
+  if (!total || total <= 0) {
+    svg.innerHTML = "";
+    state.rendering.cellsBarKey = null;
+    return;
+  }
+  // Stable order: prioritize visible/high-value substrates first so the
+  // bar reads left-to-right by importance.
+  const order = ["vega", "mermaid", "html", "animated_svg", "scene3d",
+                 "treemap", "code", "sparkline", "ascii", "image", "text"];
+  const present = order.filter(t => byType[t]);
+  for (const t of Object.keys(byType)) {
+    if (!present.includes(t)) present.push(t);
+  }
+  const key = present.map(t => `${t}:${byType[t]}`).join(",") + `=${total}`;
+  if (key === state.rendering.cellsBarKey) return;
+  state.rendering.cellsBarKey = key;
+
+  svg.innerHTML = "";
+  let x = 0;
+  for (const t of present) {
+    const n = byType[t];
+    const w = (n / total) * 100;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", x.toFixed(3));
+    rect.setAttribute("y", "0");
+    rect.setAttribute("width", w.toFixed(3));
+    rect.setAttribute("height", "6");
+    rect.setAttribute("fill", SUBSTRATE_COLORS[t] || "var(--muted)");
+    rect.setAttribute("opacity", t === "text" ? "0.5" : "0.92");
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent = `${t}: ${n}`;
+    rect.appendChild(title);
+    svg.appendChild(rect);
+    x += w;
+  }
+}
+
+// Parse mint_log.jsonl (one JSON object per line) into an array.
+function parseMintLog(text) {
+  if (!text) return [];
+  return text.split(/\r?\n/).filter(Boolean).map(line => {
+    try { return JSON.parse(line); } catch (e) { return null; }
+  }).filter(Boolean);
+}
+
+// Track latest seen mint so we can detect *new* events between polls
+// and flash the HUD to announce them. Persists across loadHud calls.
+
+// Set of cell IDs already rendered in the notebook. Initialized by the
+// first load() pass and grown by liveAppendNewCells() as fresh cells arrive.
+// to the notebook with a slide-in animation. Called from loadHud() so it
+// runs at the same 1.5s cadence as the HUD poll.
+function liveAppendNewCells(cellsData) {
+  if (!cellsData || !Array.isArray(cellsData.cells)) return 0;
+  // In auto-mode, a fresh cell from a brand-new session_id grows the
+  // active set so its column auto-mounts. The `matchesActiveSession`
+  // filter below then accepts it via the freshly-added id.
+  if (state.sessions.autoMode) {
+    let changed = false;
+    for (const c of cellsData.cells) {
+      if (c.replaced_by) continue;
+      if (c.cell_type === "text" && c.attempted_cell_type) continue;
+      const sid = c.session_id || "untagged";
+      if (!state.sessions.active.has(sid)) {
+        state.sessions.active.add(sid);
+        changed = true;
+      }
+    }
+    if (changed) {
+      // Pre-mount any newly-discovered session columns (mirrors load()).
+      if (isMultiStream()) for (const sid of state.sessions.active) ensureSessionColumn(sid);
+    }
+  }
+  const visible = cellsData.cells.filter(c => {
+    if (c.cell_type === "text" && c.attempted_cell_type) return false;
+    if (c.replaced_by) return false;
+    if (!matchesActiveSession(c)) return false;  // ?session=<id> filter (step 2)
+    return true;
+  });
+  // First poll establishes the baseline; subsequent polls detect deltas.
+  // load() seeds state.rendering.renderedIds before the first poll fires.
+  const fresh = visible.filter(c => !state.rendering.renderedIds.has(c.id));
+  if (!fresh.length) return 0;
+
+  // Rebuild snippetGroups from the full visible set so attempt-N-of-M
+  // badges include the newly arrived cells.
+  const snippetGroups = new Map();
+  for (const c of visible) {
+    if (!c.trigger_snippet) continue;
+    if (!snippetGroups.has(c.trigger_snippet)) snippetGroups.set(c.trigger_snippet, []);
+    snippetGroups.get(c.trigger_snippet).push(c.id);
+  }
+
+  const root = document.getElementById("notebook");
+  // Reverse-chrono prepend: newest cell ends up at top. Preserve the
+  // user's current viewport position when they're not at the top —
+  // prepending grows the document upward, so without compensation a
+  // user reading older cells would suddenly see different content.
+  // When the user IS at the top, let the new cell push everything down
+  // naturally so they see it immediately.
+  const wasAtTop = window.scrollY < 100;
+  const oldDocHeight = document.body.offsetHeight;
+  let firstNode = null;
+  const multi = isMultiStream();
+  for (const c of fresh) {
+    const node = renderCell(c, snippetGroups);
+    node.classList.add("cell-fresh");
+    if (multi) {
+      // Route into the cell's session column; newest first within column.
+      const col = ensureSessionColumn(sessionKey(c));
+      const headerEl = col.firstChild;
+      col.insertBefore(node, headerEl.nextSibling);
+    } else {
+      root.prepend(node);
+    }
+    state.rendering.renderedIds.add(c.id);
+    firstNode = node;
+    setTimeout(() => node.classList.remove("cell-fresh"), 1400);
+  }
+  // Cap the visible cell count: prepending a fresh cell without eviction
+  // would let the grid grow indefinitely. Auto-mode caps at hero count
+  // (?max=N or layout cap); ?recent=N caps the trailing transcript in any
+  // mode. IDs stay in renderedIds so they don't re-mount on the next
+  // poll — refresh re-seeds the tail.
+  const recentCap = getRecentCap();
+  const tickLayoutEntry = LAYOUT_REGISTRY[getLayoutMode()];
+  const tickLayoutCap = tickLayoutEntry && tickLayoutEntry.cap;
+  if ((state.sessions.autoMode || recentCap || tickLayoutCap) && !multi) {
+    const cap = state.sessions.autoMode
+      ? getVisibleCap()
+      : (recentCap || tickLayoutCap);
+    const cells = root.querySelectorAll(":scope > .cell");
+    for (let i = cells.length - 1; i >= cap; i--) {
+      cells[i].remove();
+    }
+  }
+  if (!wasAtTop && firstNode) {
+    const delta = document.body.offsetHeight - oldDocHeight;
+    if (delta > 0) window.scrollBy(0, delta);
+  }
+  // Transfer the "still warm" hero glow to the newest appended cell.
+  if (firstNode) applyStillWarmToLatest();
+  // Re-apply alternate layout (treemap / organic) so freshly arrived
+  // cells get their absolute position computed alongside existing ones.
+  // Default grid mode is a no-op.
+  applyActiveLayout();
+  // Redraw inter-cell connections — a fresh reflection cell or a fresh
+  // source cell can both invalidate existing paths.
+  if (firstNode) scheduleRedrawConnections();
+  // Re-tag overflow on any cells that may have changed size from the
+  // append (and async-loaded content settling in for fresh cells).
+  if (firstNode) {
+    scheduleCheckOverflow();
+    setTimeout(scheduleCheckOverflow, 800);
+    setTimeout(scheduleCheckOverflow, 2200);
+  }
+  return fresh.length;
+}
+
+// Single shared poll. Fetches cells.json + mint_log once per cadence,
+// then dispatches to (a) live cell-append, then (b) HUD update. The
+// audit's "control flow inversion" critique was that minting was
+// gated by HUD render — that's still partially true (single fetch
+// loop), but the layering is now explicit and we can split into
+// independent cadences if mint latency ever bites: just call
+// pollCells() and pollHud() from separate intervals with different
+// cache keys for cellsData / mintLogText. Per audit 2026-04-28.
+async function pollAll() {
+  const [cellsData, mintLogText] = await Promise.all([
+    fetchJSON("cells.json"),
+    fetchText("mint_log.jsonl"),
+  ]);
+  if (!cellsData) return;
+
+  // (a) Cell append first — this is the "what just landed" signal,
+  // load-bearing for the live-stream feel. HUD updates derive from
+  // the same cellsData so cell counts + flashes reflect post-append.
+  const appended = liveAppendNewCells(cellsData);
+  if (appended) flashHud();
+
+  // (b) HUD update from the same fetched data. Synchronous compute
+  // + typeInto-driven repaint of HUD slots.
+  await updateHud(cellsData, mintLogText);
+}
+
+async function updateHud(cellsData, mintLogText) {
+  // Pick latest substrate eval if present. Browser can't list directories,
+  // so we walk backward from today across a 14-day window once per page
+  // load and cache the result. Page reload re-discovers.
+  const substrateAudit = await loadLatestSubstrateAudit();
+
+  const mintLog = parseMintLog(mintLogText);
+  const newest = mintLog.length ? mintLog[mintLog.length - 1] : null;
+
+  // Detect new mint vs. last poll → flash HUD.
+  if (newest && newest.cell_id && newest.cell_id !== state.hud.lastSeenMint) {
+    if (state.hud.lastSeenMint !== null) flashHud();  // skip flash on first paint
+    state.hud.lastSeenMint = newest.cell_id;
+  }
+  state.hud.lastMintTs = newest ? newest.timestamp : null;
+
+  const m = computeHud(cellsData, substrateAudit, mintLog);
+  typeInto("hud-status-val", m.status);
+  typeInto("hud-cells-val", m.cells);
+  renderCellsBar(m.cellsByType, m.cellsTotal);
+  typeInto("hud-session-val", m.session);
+  typeInto("hud-theme-val", m.theme);
+  typeInto("hud-kill1-val", m.kill1);
+  typeInto("hud-kill2-val", m.kill2);
+  typeInto("hud-kill3-val", m.kill3);
+  typeInto("hud-recent-val", m.recent);
+  const hud = document.getElementById("hud");
+  hud.dataset.status = m.status.toLowerCase();
+  // Mirror the status onto #notebook so the hero cell can pulse a
+  // continuous "live stream" border while the watcher is active.
+  document.getElementById("notebook").dataset.stream = m.status.toLowerCase();
+  applyKillState("hud-kill1-slot", parsePct(m.kill1), 30, 50);
+  applyKillState("hud-kill2-slot", parsePct(m.kill2), 25, 40);
+  applyKillState("hud-kill3-slot", parsePct(m.kill3), 12, 20);
+}
+
+// Backward-compat alias: existing call sites (rerenderNotebook,
+// bootstrap loop) still call loadHud(). Same behavior; just dispatches
+// to the split form so a future cadence change is local.
+const loadHud = pollAll;
+
+// Parse a % value out of strings like "11.5% (7/61)" / "n/a" / "img 6 (audit Δ pending)".
+function parsePct(s) {
+  if (typeof s !== "string") return null;
+  const m = s.match(/(\d+(?:\.\d+)?)\s*%/);
+  return m ? parseFloat(m[1]) : null;
+}
+
+// Set data-state on a kill slot from a % vs warn/tripped thresholds, and
+// fill the ring in proportion. Ring uses stroke-dasharray on a 2*pi*r=62.83 path.
+// Track each kill slot's previous state so we can detect non-tripped →
+// tripped transitions and trigger the peripheral-to-center bloom (Iron
+// HUD signature: peripheral gauges escalate to center when their data
+// becomes load-bearing — see design-references.md "peripheral-to-center
+// attention move"). First-paint state is treated as established
+// (no bloom on initial load if a kill is already tripped).
+function applyKillState(slotId, pct, warnAt, trippedAt) {
+  const slot = document.getElementById(slotId);
+  if (!slot) return;
+  let killState = "ok";
+  if (pct == null) killState = "unknown";
+  else if (pct >= trippedAt) killState = "tripped";
+  else if (pct >= warnAt) killState = "warn";
+  const prev = state.hud.killHistory.get(slotId);
+  slot.dataset.state = killState;
+  if (prev !== undefined && prev !== "tripped" && killState === "tripped") {
+    bloomKillTrip(slot, pct);
+  }
+  state.hud.killHistory.set(slotId, killState);
+  const fill = slot.querySelector(".hud-ring-fill");
+  if (!fill) return;
+  const circ = 2 * Math.PI * 10;  // r=10
+  let frac = 0;
+  if (pct != null) {
+    // Cap at trippedAt for the ring fill so a tripped slot looks "full".
+    frac = Math.min(1, Math.max(0, pct / trippedAt));
+  }
+  fill.style.strokeDasharray = `${(frac * circ).toFixed(2)} ${circ.toFixed(2)}`;
+}
+
+// Peripheral-to-center bloom. Clones a kill slot's content into a
+// fixed-position hero card, animates it from its peripheral HUD position
+// to the viewport center (scaled up, glowing), holds, then animates
+// back. Pure Web Animations API — no React Flow / no animation library.
+// Triggered automatically by applyKillState on a tripped transition;
+// can also be invoked manually via window.lucidaBloomDemo() for testing.
+function bloomKillTrip(slot, pct) {
+  const sourceRect = slot.getBoundingClientRect();
+  const label = slot.querySelector(".hud-label")?.textContent || "KILL";
+  const value = slot.querySelector(".hud-value")?.textContent || `${pct}%`;
+
+  const hero = el("div", "kill-bloom-hero");
+  hero.dataset.killState = "tripped";
+  hero.innerHTML = `
+    <div class="kill-bloom-label">${label}</div>
+    <div class="kill-bloom-value">${value}</div>
+    <div class="kill-bloom-status">TRIPPED</div>
+  `;
+  document.body.appendChild(hero);
+
+  // Position at source first; layout pass; then animate to center.
+  const heroW = 280, heroH = 160;
+  const sourceX = sourceRect.left + sourceRect.width / 2 - heroW / 2;
+  const sourceY = sourceRect.top + sourceRect.height / 2 - heroH / 2;
+  const centerX = window.innerWidth / 2 - heroW / 2;
+  const centerY = window.innerHeight / 2 - heroH / 2;
+  hero.style.left = sourceX + "px";
+  hero.style.top = sourceY + "px";
+  hero.style.width = heroW + "px";
+  hero.style.height = heroH + "px";
+
+  const dx = centerX - sourceX;
+  const dy = centerY - sourceY;
+
+  hero.animate(
+    [
+      { transform: "translate(0, 0) scale(0.2)", opacity: 0 },
+      { transform: `translate(${dx * 0.5}px, ${dy * 0.5}px) scale(0.7)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1, offset: 0.6 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1, offset: 0.85 },
+      { transform: "translate(0, 0) scale(0.2)", opacity: 0 },
+    ],
+    { duration: 3500, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)", fill: "forwards" }
+  ).onfinish = () => hero.remove();
+}
+
+// Console-accessible demo: window.lucidaBloomDemo() fakes a tripped
+// transition on KILL.HALLUC so the bloom can be eyeballed without
+// waiting for a real kill-criteria trip.
+window.lucidaBloomDemo = function (slotId = "hud-kill3-slot") {
+  const slot = document.getElementById(slotId);
+  if (slot) bloomKillTrip(slot, 99);
+};
+
+// Inter-cell connections: WebGL via Three.js. Replaces the prior SVG
+// implementation. Lines are real 3D paths in a Three.js scene with a
+// forward Z-arc through the middle, giving the connections genuine
+// depth (the user's "the lines imply 3D-ness" intuition). Per
+// memory/2d_3d_mix_arc.md — Tier 3 partial. Structure is VR-loopback-
+// ready: future swap of OrthographicCamera → PerspectiveCamera +
+// WebXRManager keeps everything else mechanical.
+//
+// gemotvis lesson (memory/2d_3d_mix_arc.md, anchored 2026-04-28): the
+// brittleness wasn't CSS-3D-specific — it was multiple async animation
+// systems trampling each other. Lucida is vanilla, single source of
+// truth (Three.js render on rAF), so the trampling vector doesn't
+// apply.
+function ensureThreeOverlay() {
+  if (state.conn.renderer) return state.conn.renderer;
+  const canvas = document.getElementById("connection-overlay");
+  if (!canvas || !window.THREE) return null;
+  const T = window.THREE;
+  state.conn.renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  state.conn.renderer.setPixelRatio(window.devicePixelRatio);
+  state.conn.renderer.setClearColor(0x000000, 0);
+  // updateStyle:false on init AND on every resize. CSS handles the
+  // canvas's displayed size via `width: 100%; height: 100%`. If we let
+  // Three.js write inline style here, it captures the init-time size,
+  // and later viewport changes never refresh it — buffer downscales
+  // on resize but the stale inline style keeps stretching the buffer
+  // across the (now-different) viewport. That's the "giant green bar"
+  // bug: any pixel rendered at buffer.width=926 became a horizontal
+  // bar across an inline-styled-2060px canvas after the user resized
+  // their window. Per audit 2026-04-28.
+  canvas.style.removeProperty("width");
+  canvas.style.removeProperty("height");
+  state.conn.renderer.setSize(window.innerWidth, window.innerHeight, false);
+  state.conn.scene = new T.Scene();
+  // Orthographic camera maps viewport pixels directly to scene units.
+  // top=0 / bottom=H inverts Y so screen Y increases downward (matches
+  // DOM getBoundingClientRect coordinates). Z range allows ±1000px
+  // depth for connection arcs; near/far will tighten when this becomes
+  // a PerspectiveCamera in VR mode.
+  state.conn.camera = new T.OrthographicCamera(
+    0, window.innerWidth,
+    0, window.innerHeight,
+    -2000, 2000,
+  );
+  state.conn.camera.position.z = 100;
+  return state.conn.renderer;
+}
+
+function _connAccent() {
+  // Read live --accent from current theme. Cheap (cached in browser
+  // computed-style); ensures connections re-color on theme switch.
+  const c = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent").trim();
+  return new window.THREE.Color(c || "#66ccff");
+}
+
+function scheduleRedrawConnections() {
+  if (state.conn.rafPending) return;
+  state.conn.rafPending = true;
+  requestAnimationFrame(() => {
+    state.conn.rafPending = false;
+    drawConnections();
+  });
+}
+
+function drawConnections() {
+  if (!ensureThreeOverlay()) return;
+  const T = window.THREE;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Resync camera + renderer to current viewport (cheap; both mostly
+  // no-ops if dimensions unchanged).
+  state.conn.renderer.setSize(vw, vh, false);
+  state.conn.camera.left = 0;
+  state.conn.camera.right = vw;
+  state.conn.camera.top = 0;
+  state.conn.camera.bottom = vh;
+  state.conn.camera.updateProjectionMatrix();
+
+  // Dispose previous lines. Three.js holds GPU buffers for geometry +
+  // materials that don't auto-release; this loop is the price for
+  // redrawing on every scroll tick.
+  for (const line of state.conn.lines) {
+    state.conn.scene.remove(line);
+    if (line.geometry) line.geometry.dispose();
+    if (line.material) line.material.dispose();
+  }
+  state.conn.lines.length = 0;
+
+  // Session threads first (alt-layout modes only) — independent of
+  // reflection lines below, so they still appear when there are no
+  // reflection cells in view.
+  const layoutMode = getLayoutMode();
+  if (layoutMode === "treemap" || layoutMode === "organic") {
+    _drawSessionThreads(T);
+  }
+
+  const reflections = document.querySelectorAll(".cell-reflection[data-source-ids]");
+  if (!reflections.length) {
+    state.conn.renderer.render(state.conn.scene, state.conn.camera);
+    if (state.conn.lines.length && !state.conn.animating) {
+      state.conn.animating = true;
+      state.conn.startTime = performance.now();
+      requestAnimationFrame(_connAnimate);
+    }
+    return;
+  }
+
+  const inView = (r) => r.bottom > 0 && r.top < vh;
+  const accent = _connAccent();
+
+  for (const refl of reflections) {
+    const reflRect = refl.getBoundingClientRect();
+    if (!inView(reflRect)) continue;
+    const reflCx = reflRect.left + reflRect.width / 2;
+
+    // First pass: classify sources as in-view / off-below / off-above
+    // so we can fan the off-screen stubs across the reflection's edge
+    // instead of stacking them all at the same X.
+    const sourceIds = (refl.dataset.sourceIds || "").split(",").filter(Boolean);
+    const sources = sourceIds.map(sid => {
+      const el = document.getElementById(sid);
+      if (!el) return null;
+      const sr = el.getBoundingClientRect();
+      let bucket;
+      if (inView(sr)) bucket = "in";
+      else if (sr.top >= reflRect.bottom) bucket = "below";
+      else bucket = "above";
+      return { sid, sr, bucket };
+    }).filter(Boolean);
+
+    const stubsBelow = sources.filter(s => s.bucket === "below");
+    const stubsAbove = sources.filter(s => s.bucket === "above");
+    const drawStubFan = (stubs, dir) => {
+      if (!stubs.length) return;
+      // Anchor at the reflection's edge in the direction-of-source.
+      // Skip when that edge isn't visible — no useful place to draw
+      // a directional indicator the user can see.
+      const refEdge = dir === "below" ? reflRect.bottom : reflRect.top;
+      if (dir === "below" && (refEdge >= vh || refEdge < 0)) return;
+      if (dir === "above" && (refEdge <= 0 || refEdge > vh)) return;
+      const baseY = refEdge;
+      const endY = dir === "below"
+        ? Math.min(vh - 2, baseY + 60)
+        : Math.max(2, baseY - 60);
+      if (Math.abs(endY - baseY) < 16) return;  // too short — would read as a glitch
+      // Fan stubs across the reflection's edge so multiple off-screen
+      // sources don't stack at the same X. Width capped at the
+      // reflection's own width minus padding.
+      const fanWidth = Math.min(reflRect.width - 48, stubs.length * 26);
+      const fanLeft = reflCx - fanWidth / 2;
+      stubs.forEach((_, i) => {
+        const x = stubs.length === 1
+          ? reflCx
+          : fanLeft + (i + 0.5) * (fanWidth / stubs.length);
+        const stubPoints = [
+          new T.Vector3(x, baseY, 8),
+          new T.Vector3(x, endY, 8),
+        ];
+        const stubGeo = new T.BufferGeometry().setFromPoints(stubPoints);
+        const stubMat = new T.LineBasicMaterial({
+          color: accent, transparent: true, opacity: 0.55,
+        });
+        const stubLine = new T.Line(stubGeo, stubMat);
+        state.conn.scene.add(stubLine);
+        state.conn.lines.push(stubLine);
+      });
+    };
+    drawStubFan(stubsBelow, "below");
+    drawStubFan(stubsAbove, "above");
+
+    for (const s of sources) {
+      if (s.bucket !== "in") continue;
+      const sid = s.sid;
+      const srcRect = s.sr;
+      const srcInView = true;
+
+      // Full curve. Anchor reflection at source-aligned X (clamped to
+      // its bounds), pick nearest vertical edges, sample a cubic
+      // bezier in XY with a forward Z-arc through the middle.
+      const srcCx = srcRect.left + srcRect.width / 2;
+      const reflAnchorX = Math.max(
+        reflRect.left + 24,
+        Math.min(reflRect.right - 24, srcCx),
+      );
+      let srcY, reflY;
+      if (srcRect.top >= reflRect.bottom) {
+        srcY = srcRect.top; reflY = reflRect.bottom;
+      } else if (srcRect.bottom <= reflRect.top) {
+        srcY = srcRect.bottom; reflY = reflRect.top;
+      } else {
+        srcY = srcRect.top + srcRect.height / 2;
+        reflY = reflRect.top + reflRect.height / 2;
+      }
+      if (Math.abs(srcY - reflY) < 50) continue;
+      const midY = (srcY + reflY) / 2;
+
+      const points = [];
+      const steps = 28;
+      const maxZ = 40;  // px of forward arc; tune for parallax feel
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        // Cubic bezier with control points anchoring near each endpoint X.
+        const u = 1 - t;
+        const x = u*u*u*srcCx + 3*u*u*t*srcCx + 3*u*t*t*reflAnchorX + t*t*t*reflAnchorX;
+        const y = u*u*u*srcY + 3*u*u*t*midY + 3*u*t*t*midY + t*t*t*reflY;
+        const z = maxZ * Math.sin(t * Math.PI);  // bow forward in middle
+        points.push(new T.Vector3(x, y, z));
+      }
+      const geo = new T.BufferGeometry().setFromPoints(points);
+      const mat = new T.LineBasicMaterial({
+        color: accent, transparent: true, opacity: 0.45,
+      });
+      const line = new T.Line(geo, mat);
+      state.conn.scene.add(line);
+      state.conn.lines.push(line);
+    }
+  }
+
+  state.conn.renderer.render(state.conn.scene, state.conn.camera);
+  // Kick the continuous animation loop if there's anything to animate.
+  if (state.conn.lines.length && !state.conn.animating) {
+    state.conn.animating = true;
+    state.conn.startTime = performance.now();
+    requestAnimationFrame(_connAnimate);
+  }
+}
+
+// Cells from the same Claude Code session, linked chronologically
+// (DOM order, since cells render reverse-chrono). Colors cycle per
+// session via a fixed palette so threads stay visually distinct
+// without becoming theme-dependent.
+const _sessionThreadPalette = [
+  0x66ccff, 0xff9966, 0x99ff66, 0xff66cc,
+  0xccff66, 0x66ffcc, 0x9966ff, 0xffcc66,
+  0xcc99ff, 0x66ff99, 0xff6666, 0x99ccff,
+];
+const _sessionColorMap = new Map();
+function _colorForSession(sid) {
+  if (_sessionColorMap.has(sid)) return _sessionColorMap.get(sid);
+  const c = _sessionThreadPalette[_sessionColorMap.size % _sessionThreadPalette.length];
+  _sessionColorMap.set(sid, c);
+  return c;
+}
+function _drawSessionThreads(T) {
+  const cells = document.querySelectorAll("#notebook > .cell[data-session-id]");
+  if (!cells.length) return;
+  const groups = new Map();
+  for (const cell of cells) {
+    if (getComputedStyle(cell).display === "none") continue;
+    const sid = cell.dataset.sessionId;
+    if (!groups.has(sid)) groups.set(sid, []);
+    groups.get(sid).push(cell);
+  }
+  for (const [sid, group] of groups) {
+    if (group.length < 2) continue;
+    const colorHex = _colorForSession(sid);
+    const color = new T.Color(colorHex);
+    for (let i = 0; i < group.length - 1; i++) {
+      const ar = group[i].getBoundingClientRect();
+      const br = group[i + 1].getBoundingClientRect();
+      const ax = ar.left + ar.width / 2;
+      const ay = ar.top + ar.height / 2;
+      const bx = br.left + br.width / 2;
+      const by = br.top + br.height / 2;
+      // Z=2 keeps session threads slightly behind the reflection
+      // arcs (which use Z=4-8) so they read as ambient backbone.
+      const pts = [new T.Vector3(ax, ay, 2), new T.Vector3(bx, by, 2)];
+      const geo = new T.BufferGeometry().setFromPoints(pts);
+      const mat = new T.LineBasicMaterial({
+        color, transparent: true, opacity: 0.4,
+      });
+      const line = new T.Line(geo, mat);
+      state.conn.scene.add(line);
+      state.conn.lines.push(line);
+    }
+  }
+}
+
+// Continuous animation: pulse line opacity over time so the connections
+// feel alive (signal flow). Stops automatically when the line set is
+// empty (no reflections in viewport) and resumes on next draw.
+function _connAnimate(now) {
+  if (!state.conn.lines.length) {
+    state.conn.animating = false;
+    return;
+  }
+  const elapsed = (now - state.conn.startTime) / 1000;
+  for (const line of state.conn.lines) {
+    if (!line.material) continue;
+    // Slow opacity wobble, +/- 0.15 around base. Phase offset by line
+    // index would be nicer but keeping simple — uniform pulse reads
+    // as "the whole network is alive".
+    const base = line.material.userData?.baseOpacity ?? line.material.opacity;
+    if (line.material.userData?.baseOpacity === undefined) {
+      line.material.userData.baseOpacity = base;
+    }
+    line.material.opacity = base + 0.15 * Math.sin(elapsed * 1.8);
+  }
+  state.conn.renderer.render(state.conn.scene, state.conn.camera);
+  requestAnimationFrame(_connAnimate);
+}
+
+window.addEventListener("scroll", scheduleRedrawConnections, { passive: true });
+window.addEventListener("resize", scheduleRedrawConnections);
+
+// Tag cells that overflow their height cap so the bottom-fade gradient
+// only renders where it's needed. Without this, every short cell gets
+// a spurious fade. Re-runs on resize and on retries after fresh mints
+// (async vega/mermaid/scene3d content settles in over a few seconds).
+function scheduleCheckOverflow() {
+  if (state.rendering.overflowPending) return;
+  state.rendering.overflowPending = true;
+  requestAnimationFrame(() => {
+    state.rendering.overflowPending = false;
+    document.querySelectorAll("#notebook .cell").forEach(c => {
+      const overflows = c.scrollHeight > c.clientHeight + 2;
+      c.classList.toggle("cell-overflow", overflows);
+    });
+  });
+}
+window.addEventListener("resize", scheduleCheckOverflow);
+
+function flashHud() {
+  const hud = document.getElementById("hud");
+  hud.classList.add("hud-flash");
+  setTimeout(() => hud.classList.remove("hud-flash"), 700);
+}
+
+// Live elapsed-since-last-mint tick. Updates a dedicated SINCE.LAST slot
+// every second so the HUD feels alive between polls without fighting the
+// loadHud poll over the STATUS slot. Direct textContent mutation; no
+// typeInto, no animation. The pulse dot still encodes activity recency
+// via the hud[data-status] attribute set by loadHud.
+function tickSinceLast() {
+  const e = document.getElementById("hud-elapsed-val");
+  if (!e) return;
+  if (!state.hud.lastMintTs) { e.textContent = "—"; return; }
+  const t = Date.parse(state.hud.lastMintTs);
+  if (isNaN(t)) { e.textContent = "—"; return; }
+  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  e.textContent = formatElapsed(sec);
+}
+
+function formatElapsed(sec) {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m${sec % 60}s`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h${Math.floor((sec % 3600) / 60)}m`;
+  return `${Math.floor(sec / 86400)}d`;
+}
+
+// Multi-stream arc step 3: when 2+ sessions are selected via the
+// HUD dropdown, the notebook switches from a single responsive grid
+// to a flex-row of per-session columns. Each column is a vertical
+// stack of that session's cells (newest at top); each column's
+// :first-child still gets hero treatment via the existing CSS rule.
+// Single-session and unscoped views remain in single-grid mode.
+// ?session=auto explicitly tiles all sessions into the single grid
+// instead of spawning per-session columns; columns crush at N>5
+// sessions, the grid auto-fits the viewport.
+function isMultiStream() {
+  if (state.sessions.autoMode) return false;
+  return state.sessions.active.size >= 2;
+}
+// Cap visible cells in auto-mode so the grid fits the viewport without
+// vertical scroll. Default 12 ≈ 1 hero + 3-4 cols × 3 rows of ambient
+// cells at typical 1800×1000 viewports. ?max=N overrides for larger
+// screens or power-user density preferences. Organic mode bumps to
+// 19 (1 hero + 3 concentric rings of 6) — those rings extend the
+// notebook past one viewport, vertical scroll engages.
+function getVisibleCap() {
+  try {
+    const v = new URLSearchParams(window.location.search).get("max");
+    const n = v ? parseInt(v, 10) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch (e) { /* fallthrough */ }
+  const entry = LAYOUT_REGISTRY[getLayoutMode()];
+  return (entry && entry.cap) || 12;
+}
+// ?recent=N: cap the rendered grid to the last N cells regardless of
+// session/auto mode. Default behavior (no param) still renders everything
+// — keeps backwards compat. Acts as the user-facing "the bottom of the
+// transcript is dead substrate, just stop rendering it" knob. Distinct
+// from ?max=N which is auto-mode's hero-cell cap; ?recent=N is the
+// general transcript-tail cap.
+function getRecentCap() {
+  try {
+    const v = new URLSearchParams(window.location.search).get("recent");
+    const n = v ? parseInt(v, 10) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch (e) { /* fallthrough */ }
+  return null;
+}
+// =============================================================
+// Layout registry. Each layout is a self-contained entry with an
+// `apply()` callback. To add a new layout (e.g. an LCARS-themed
+// asymmetric-panel mode, a Muuri-driven drag-arrangeable mode, or a
+// jsPlumb-routed graph mode):
+//   1. Write a function that absolutely-positions the existing
+//      `#notebook > .cell` elements (or invokes a 3rd-party lib that
+//      does so).
+//   2. Register it below with `id`, `label`, `description`, and
+//      `apply`. Optional `cap` overrides getVisibleCap().
+//   3. `getLayoutMode()` validates against the registry, the LAYOUT
+//      dropdown auto-lists the entry, `applyActiveLayout()` dispatches.
+//
+// No other code path needs to change — keep this contract.
+// =============================================================
+const LAYOUT_REGISTRY = {
+  grid: {
+    id: "grid",
+    label: "grid",
+    description: "auto-fit, the default",
+    apply: () => { /* CSS auto-fit handles it */ },
+  },
+  treemap: {
+    id: "treemap",
+    label: "treemap",
+    description: "weight-proportional tiles (d3)",
+    apply: () => applyTreemapLayout(),
+    cap: 8,
+  },
+  organic: {
+    id: "organic",
+    label: "organic",
+    description: "concentric rings, FUI feel",
+    apply: () => applyOrganicLayout(),
+    cap: 7,
+  },
+  scatter: {
+    id: "scatter",
+    label: "scatter",
+    description: "overlapping windows pile",
+    apply: () => applyScatterLayout(),
+    cap: 12,
+  },
+  tactical: {
+    id: "tactical",
+    label: "tactical",
+    description: "asymmetric command center — hero left, stack right",
+    apply: () => { /* CSS grid handles it */ },
+  },
+  terminal: {
+    id: "terminal",
+    label: "terminal",
+    description: "single-column CRT stream",
+    apply: () => { /* CSS block handles it */ },
+  },
+  // Future: masonry (Muuri), dock (Dockview / FlexLayout).
+  // Reference list: memory/window_layout_libs.md.
+};
+// Apply token-declared layout preference as default when no ?layout= override.
+// Runs here so LAYOUT_REGISTRY is already defined above.
+(function applyTokenLayout() {
+  const urlLayout = new URLSearchParams(window.location.search).get("layout");
+  if (!urlLayout && TOKENS.layout && LAYOUT_REGISTRY[TOKENS.layout]) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("layout", TOKENS.layout);
+    history.replaceState(null, "", url.toString());
+  }
+})();
+
+function getLayoutMode() {
+  try {
+    const v = (new URLSearchParams(window.location.search).get("layout") || "").trim();
+    if (v && LAYOUT_REGISTRY[v]) return v;
+  } catch (e) { /* fallthrough */ }
+  return "grid";
+}
+function sessionKey(c) {
+  return c.session_id || "untagged";
+}
+// Find or create the column wrapper for a session in multi-stream mode.
+function ensureSessionColumn(sid) {
+  const root = document.getElementById("notebook");
+  let col = root.querySelector(`.session-column[data-sid="${CSS.escape(sid)}"]`);
+  if (col) return col;
+  col = el("div", "session-column");
+  col.dataset.sid = sid;
+  const header = el("div", "session-column-header", sid.slice(0, 12));
+  col.appendChild(header);
+  root.appendChild(col);
+  return col;
+}
+
+async function load() {
+  const res = await fetch("cells.json", { cache: "no-store" });
+  const data = await res.json();
+  // ?session=auto: discover every distinct session_id in the corpus and
+  // mount one column per session. Cells without a session_id collapse
+  // into the "untagged" pseudo-column.
+  if (state.sessions.autoMode) {
+    for (const c of data.cells) {
+      if (c.replaced_by) continue;
+      if (c.cell_type === "text" && c.attempted_cell_type) continue;
+      state.sessions.active.add(c.session_id || "untagged");
+    }
+  }
+  const visible = data.cells.filter(c => {
+    if (c.cell_type === "text" && c.attempted_cell_type) return false;  // demoted by trivial-filter
+    if (c.replaced_by) return false;                                     // superseded by a retrigger
+    if (!matchesActiveSession(c)) return false;                          // ?session=<id> filter (step 2)
+    return true;
+  });
+
+  // Group cells that share a trigger_snippet so each can render as
+  // "attempt N of M" rather than appearing as accidental duplicates.
+  const snippetGroups = new Map();
+  for (const c of visible) {
+    if (!c.trigger_snippet) continue;
+    if (!snippetGroups.has(c.trigger_snippet)) snippetGroups.set(c.trigger_snippet, []);
+    snippetGroups.get(c.trigger_snippet).push(c.id);
+  }
+
+  const root = document.getElementById("notebook");
+  if (isMultiStream()) {
+    // Mission-control mode. One column per selected session; cells
+    // routed into their column. Columns are pre-created in dropdown
+    // order so a session with no cells still renders an empty column
+    // (acts as a placeholder for "this session is being watched but
+    // hasn't minted yet").
+    root.dataset.mode = "multi-stream";
+    for (const sid of state.sessions.active) ensureSessionColumn(sid);
+    for (const c of visible) {
+      const col = ensureSessionColumn(sessionKey(c));
+      // Newest first within column — prepend AFTER the header.
+      const headerEl = col.firstChild;
+      col.insertBefore(renderCell(c, snippetGroups), headerEl.nextSibling);
+      state.rendering.renderedIds.add(c.id);
+    }
+  } else {
+    root.dataset.mode = "single";
+    // CSS hook for the auto-mode tightened layout (smaller max-heights
+    // so the cap-N cells fit one viewport).
+    if (state.sessions.autoMode) root.dataset.auto = "true";
+    else delete root.dataset.auto;
+    const layout = getLayoutMode();
+    if (layout !== "grid") root.dataset.layout = layout;
+    else delete root.dataset.layout;
+    // Reverse-chrono render: newest cells live at the top so they're
+    // immediately visible without autoscroll. Iterating chronologically
+    // and prepending each puts the last (newest) cell at the very top.
+    // In auto-mode, cap to the trailing N cells so the grid fits the
+    // viewport — older cells are still in cells.json, just not on screen.
+    const recentCap = getRecentCap();
+    // Layout cap applies even in non-auto mode now. Pre-2026-04-29 the
+    // LAYOUT_REGISTRY[*].cap was only enforced when state.sessions.autoMode
+    // was true; selecting scatter (cap:12) on the full corpus tried to
+    // absolute-position 1000+ cells and froze the browser. User reported
+    // 2026-04-29 ("scatter also seems to have crashed or frozen the browser").
+    // Now: layouts with a declared cap use it always; grid (no cap) keeps
+    // the original "render everything" behavior.
+    const layoutEntry = LAYOUT_REGISTRY[getLayoutMode()];
+    const layoutCap = layoutEntry && layoutEntry.cap;
+    let tail;
+    if (state.sessions.autoMode) tail = visible.slice(-getVisibleCap());
+    else if (recentCap) tail = visible.slice(-recentCap);
+    else if (layoutCap) tail = visible.slice(-layoutCap);
+    else tail = visible;
+    for (const c of tail) {
+      root.prepend(renderCell(c, snippetGroups));
+      state.rendering.renderedIds.add(c.id);
+    }
+  }
+
+  // Hero "still warm" treatment: the most-recent visible cell gets a
+  // subtle glow that fades over ~60s. Survives across renders by
+  // looking at timestamp on each load.
+  applyStillWarmToLatest();
+  // Click-to-zoom: clicking a cell's body (not its interactive children)
+  // promotes it to a centered overlay at near-viewport size. Escape or
+  // click-on-backdrop dismisses. Opt-in inspection without disturbing
+  // the live grid. Idempotent — safe to call after each load().
+  setupCellZoom();
+  // Apply alternate layouts (treemap / organic) if URL opted in.
+  // Default grid stays as-is. Run after the substrate-async settles
+  // so cell heights are stable when squarify reads them.
+  applyActiveLayout();
+  setTimeout(applyActiveLayout, 600);
+  setTimeout(applyActiveLayout, 2000);
+  // Initial draw of inter-cell connections; subsequent redraws fire
+  // on scroll/resize and after liveAppendNewCells.
+  scheduleRedrawConnections();
+  // Tag cells whose content exceeds the height cap so the fade
+  // gradient renders only where needed.
+  scheduleCheckOverflow();
+  // Catch async-loaded content (vega/mermaid/scene3d) that resolves
+  // after first layout — re-check at intervals during the first
+  // few seconds of page life.
+  setTimeout(scheduleCheckOverflow, 500);
+  setTimeout(scheduleCheckOverflow, 1500);
+  setTimeout(scheduleCheckOverflow, 3000);
+}
+
+// Tag the most-recent cell with .cell-still-warm. The CSS animates the
+// glow's opacity from full → none over ~60s, so a "fresh-on-load" cell
+// reads as still settling. New cells from liveAppendNewCells also get
+// this treatment via the cell-fresh path. Reverse-chrono: newest is at
+// index 0 (the first .cell in document order is the most-recent mint).
+// ----------------------------------------------------------------
+// Treemap layout via d3-hierarchy (canonical squarified treemap from
+// Bruls/Huijsen/van Wijk 2000). Replaces ~80 lines of custom squarify
+// per memory/window_layout_libs.md ("don't reinvent"). Newest cell
+// gets the highest weight → biggest tile.
+// ----------------------------------------------------------------
+function applyTreemapLayout() {
+  const root = document.getElementById("notebook");
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length || !window.d3) return;
+  const headerH = 80;
+  const w = window.innerWidth - 32;
+  const h = window.innerHeight - headerH - 32;
+  if (w <= 0 || h <= 0) return;
+  cells.forEach((c, i) => { if (!c.id) c.id = `__cell-${i}`; });
+  // Floor weight keeps smallest cell at least (N/2) relative weight,
+  // preventing the squarify ratio from going past ~3:1 (newest:oldest).
+  // Without this, 8 cells produce an 8:1 ratio and the trailing cells
+  // become unreadably small.
+  const weightFloor = Math.ceil(cells.length / 2);
+  const root_ = window.d3.hierarchy({
+    children: cells.map((c, i) => ({
+      id: c.id,
+      weight: (cells.length - i) + weightFloor,
+    })),
+  }).sum(d => d.weight ?? 0)
+    .sort((a, b) => b.value - a.value);
+  window.d3.treemap()
+    .size([w, h])
+    .paddingInner(14)
+    .paddingOuter(0)
+    .round(true)
+    .tile(window.d3.treemapSquarify)(root_);
+  const byId = new Map(root_.leaves().map(leaf => [leaf.data.id, leaf]));
+  cells.forEach((cell, i) => {
+    const leaf = byId.get(cell.id);
+    if (!leaf) return;
+    Object.assign(cell.style, {
+      position: "absolute",
+      left: leaf.x0 + "px",
+      top: leaf.y0 + "px",
+      width: (leaf.x1 - leaf.x0) + "px",
+      height: (leaf.y1 - leaf.y0) + "px",
+      maxHeight: "none",
+      maxWidth: "none",
+      // Above the connection-overlay (z=50) so session-thread lines
+      // pass behind cell tiles and are visible in the gutter.
+      zIndex: String(100 + (cells.length - i)),
+    });
+  });
+  Object.assign(root.style, {
+    position: "relative",
+    height: h + "px",
+    minHeight: h + "px",
+  });
+}
+
+// ----------------------------------------------------------------
+// Organic v1: hero at center + 3 concentric rings of 6 satellites
+// each (cap 19). Outer rings extend past one viewport vertically, so
+// the notebook scrolls. Satellite size shrinks gently outward; ring
+// radii spaced so neighboring rings don't overlap. Slot angles are
+// staggered ring-to-ring (30° offset on odd rings) so cells don't
+// pile vertically up the y-axis.
+// ----------------------------------------------------------------
+function applyOrganicLayout() {
+  const root = document.getElementById("notebook");
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const headerH = 80;
+  const w = window.innerWidth - 32;
+  // Use the SMALLER viewport dim so rings fit horizontally on
+  // narrow displays and tiles stay readable on widescreens. Using
+  // max() inflated radii past the viewport edge on narrow windows.
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
+  const cx = w / 2;
+  const slotsPerRing = 6;
+  // 1 ring of 6 (cap 7). Sized to satisfy memory/layout_visual_rigor.md
+  // PLUS ~82px of cell chrome (head + line-clamped caption + hairline
+  // summaries) eaten before the body area. Vega min body 280px →
+  // tile height needs ≥ 362, tile width ≥ ~462. 0.55 × minDim ≈ 479
+  // wide × 374 tall at minDim=871. Clears the budgeted minimum.
+  const ringSpecs = [
+    { radius: minDim * 0.62, size: minDim * 0.55 },
+  ];
+  const outer = ringSpecs[ringSpecs.length - 1];
+  const outerSatHalfH = outer.size * 0.78 / 2;
+  // cy: outermost top satellite needs y >= headerH so cells don't float
+  // over the .hud top status bar. headerH=80 was declared above but
+  // unused — pre-2026-04-29 the clearance was a hardcoded 32, which
+  // worked when .hud was taller than 32px collapsed but regressed once
+  // the hud got compressed. User reported 2026-04-29 ("organic layout
+  // titles basically get truncated and the windows float over the top
+  // of the top status bar still").
+  const cy = Math.max(window.innerHeight / 2, outer.radius + outerSatHalfH + headerH);
+  // Hero substantially bigger so its body fills its tile rather than
+  // floating in a sparse center.
+  const heroW = minDim * 0.58;
+  const heroH = minDim * 0.42;
+  cells.forEach((cell, i) => {
+    let x, y, sw, sh, visible = true;
+    if (i === 0) {
+      sw = heroW; sh = heroH;
+      x = cx - sw / 2; y = cy - sh / 2;
+    } else {
+      const ringIdx = Math.floor((i - 1) / slotsPerRing);
+      if (ringIdx >= ringSpecs.length) {
+        visible = false;
+      } else {
+        const spec = ringSpecs[ringIdx];
+        const slotIdx = (i - 1) % slotsPerRing;
+        // Stagger ring 2 + 4 by 30° so cells don't align radially with
+        // ring 1 — gives the layout an organic "petals offset between
+        // layers" feel instead of starburst spokes.
+        const angleOffset = (ringIdx % 2 === 1) ? Math.PI / slotsPerRing : 0;
+        const angle = (slotIdx / slotsPerRing) * Math.PI * 2 - Math.PI / 2 + angleOffset;
+        sw = spec.size; sh = spec.size * 0.78;
+        x = cx + Math.cos(angle) * spec.radius - sw / 2;
+        y = cy + Math.sin(angle) * spec.radius - sh / 2;
+      }
+    }
+    if (!visible) { cell.style.display = "none"; return; }
+    Object.assign(cell.style, {
+      position: "absolute",
+      display: "",
+      left: x + "px",
+      top: y + "px",
+      width: sw + "px",
+      // min-height (not fixed height) so cells with less content shrink
+      // to fit instead of padding empty space below the body. User
+      // flagged 2026-04-29 ("in organic some of the cells have a lot of
+      // whitespace at the bottom"). Tall content can overflow naturally
+      // (maxHeight: none). The radial centering is approximate when
+      // heights vary, but visual symmetry around cy is preserved well
+      // enough for the FUI feel.
+      height: "auto",
+      minHeight: Math.round(sh * 0.5) + "px",
+      maxHeight: "none",
+      maxWidth: "none",
+      // 100+ keeps cells above the connection-overlay canvas (z=50) so
+      // session-thread + reflection lines pass BEHIND the cell tiles.
+      // Lines visible only in the gaps between cells — the user-asked
+      // organic-FUI feel of "structural backbone behind the windows".
+      zIndex: String(100 + (cells.length - i)),
+    });
+  });
+  // Tall-enough notebook for the outer ring to fit before bottom.
+  const totalH = cy + ringSpecs[ringSpecs.length - 1].radius + ringSpecs[ringSpecs.length - 1].size;
+  Object.assign(root.style, {
+    position: "relative",
+    height: totalH + "px",
+    minHeight: totalH + "px",
+  });
+  // Auto-scroll once on first organic load so the hero is centered in
+  // the viewport. Without this, the user lands at scrollY=0 and the
+  // hero (centered around cy>500 on most viewports) is below the fold,
+  // surface area dominated by empty notebook above the rings.
+  if (!state.rendering._organicScrolled) {
+    state.rendering._organicScrolled = true;
+    const target = Math.max(0, cy - window.innerHeight / 2);
+    window.scrollTo({ top: target, behavior: "instant" });
+  }
+}
+
+// ----------------------------------------------------------------
+// Scatter v0: each cell drops at a pseudo-random position in the
+// viewport (deterministic hash from cell id so positions are stable
+// across renders). Cells overlap; newest cell gets highest z-index
+// so it sits on top. Like a desktop-windows pile or a corkboard.
+// ----------------------------------------------------------------
+function _hashCellId(s) {
+  // Simple FNV-ish hash returning a 32-bit unsigned int.
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+function applyScatterLayout() {
+  const root = document.getElementById("notebook");
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const headerH = 80;
+  const w = window.innerWidth - 32;
+  const h = window.innerHeight - headerH - 16;
+  if (w <= 0 || h <= 0) return;
+  // Cell size: bigger for hero, slightly smaller for ambient. Keep them
+  // wide-rectangle so charts/tables read at a glance even when
+  // partially occluded.
+  const heroW = Math.min(w * 0.42, 640);
+  const heroH = Math.min(h * 0.50, 380);
+  const cellW = Math.min(w * 0.30, 460);
+  const cellH = Math.min(h * 0.36, 280);
+  // Slot-grid distribution so cells use the negative space across the
+  // viewport instead of clustering center (pure-hash mod can collide
+  // around mid-range values). 4×3 grid for ≤12 cells; deterministic
+  // slot assignment via hash sort. Each slot is jittered ±25px.
+  const cols = 4;
+  const rows = Math.max(2, Math.ceil(cells.length / cols));
+  const colW = w / cols;
+  const rowH = h / rows;
+  // Sort cells by stable hash for deterministic slot assignment.
+  const ordered = cells
+    .map((cell, i) => ({ cell, i, hash: _hashCellId(cell.id || `i${i}`) }))
+    .sort((a, b) => a.hash - b.hash);
+  const slotCenter = new Map();
+  ordered.forEach((item, slotIdx) => {
+    const col = slotIdx % cols;
+    const row = Math.floor(slotIdx / cols) % rows;
+    const cx = col * colW + colW / 2;
+    const cy = row * rowH + rowH / 2;
+    const jx = (item.hash % 51) - 25;
+    const jy = ((item.hash >>> 8) % 51) - 25;
+    slotCenter.set(item.i, { cx: cx + jx, cy: cy + jy });
+  });
+  const positions = cells.map((cell, i) => {
+    const sw = i === 0 ? heroW : cellW;
+    const sh = i === 0 ? heroH : cellH;
+    const c = slotCenter.get(i);
+    let x = c.cx - sw / 2;
+    let y = c.cy - sh / 2;
+    // Clamp inside viewport so corner slots don't push tiles off-edge.
+    x = Math.max(20, Math.min(w - sw - 20, x));
+    y = Math.max(20, Math.min(h - sh - 20, y));
+    return { x, y, sw, sh };
+  });
+  // Newest cell (i=0) lands over the oldest visible (last in DOM order)
+  // with small jitter — covers the least-important tile per user
+  // feedback. The hero stays centered around oldest's slot, so even
+  // after clamp the visual reads as "new arrival pinned to oldest".
+  if (cells.length >= 2) {
+    const oldestPos = positions[positions.length - 1];
+    const newestId = cells[0].id || "i0";
+    const jx = (_hashCellId(newestId + ":jx") % 41) - 20;
+    const jy = (_hashCellId(newestId + ":jy") % 41) - 20;
+    const sw = positions[0].sw;
+    const sh = positions[0].sh;
+    let nx = oldestPos.x + (oldestPos.sw - sw) / 2 + jx;
+    let ny = oldestPos.y + (oldestPos.sh - sh) / 2 + jy;
+    nx = Math.max(20, Math.min(w - sw - 20, nx));
+    ny = Math.max(20, Math.min(h - sh - 20, ny));
+    positions[0] = { x: nx, y: ny, sw, sh };
+  }
+  cells.forEach((cell, i) => {
+    const { x, y, sw, sh } = positions[i];
+    Object.assign(cell.style, {
+      position: "absolute",
+      display: "",
+      left: x + "px",
+      top: y + "px",
+      width: sw + "px",
+      // Same height treatment as organic — natural content height with
+      // a minHeight floor so cells with little content don't pad empty
+      // space at the bottom (user 2026-04-29 "like half the cell").
+      height: "auto",
+      minHeight: Math.round(sh * 0.5) + "px",
+      maxHeight: "none",
+      maxWidth: "none",
+      // Above the connection-overlay (z=50) so session-thread lines
+      // pass BEHIND each cell. In scatter the cells overlap a lot,
+      // so lines mostly read in the corners/edges where tiles don't
+      // cover them — the structural backbone visible peeking out.
+      zIndex: String(100 + (cells.length - i)),
+    });
+  });
+  Object.assign(root.style, {
+    position: "relative",
+    height: h + "px",
+    minHeight: h + "px",
+  });
+}
+
+// Apply the active layout mode, if any. Called after load() and on
+// window resize. No-op for grid mode (the CSS auto-fit handles it).
+function applyActiveLayout() {
+  const entry = LAYOUT_REGISTRY[getLayoutMode()];
+  if (entry && typeof entry.apply === "function") entry.apply();
+  // Inter-cell connection lines anchor to getBoundingClientRect, which
+  // changes when cells are absolutely positioned by the layout funcs
+  // above. Re-trigger the WebGL overlay so reflection edges + session
+  // threads track the new positions.
+  scheduleRedrawConnections();
+}
+
+// Re-apply on resize so tile sizes track the viewport.
+let _layoutResizeTimer = null;
+window.addEventListener("resize", () => {
+  if (_layoutResizeTimer) clearTimeout(_layoutResizeTimer);
+  _layoutResizeTimer = setTimeout(applyActiveLayout, 120);
+});
+
+// Click-to-zoom via native <dialog>. The browser handles focus trap,
+// Escape-to-close, and the ::backdrop pseudo-element for free; we
+// just clone the cell's DOM into the dialog on click. Per
+// memory/window_layout_libs.md ("don't reinvent" — Radix/HeadlessUI
+// modals exist, but the platform <dialog> is even simpler).
+function setupCellZoom() {
+  if (state.rendering._cellZoomBound) return;
+  state.rendering._cellZoomBound = true;
+  let dlg = document.getElementById("cell-zoom-dialog");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "cell-zoom-dialog";
+    document.body.appendChild(dlg);
+  }
+  // Click on the dialog backdrop (the dialog element itself, but not
+  // its descendants) closes the modal. Native <dialog> already closes
+  // on Escape automatically.
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg) dlg.close();
+  });
+  document.addEventListener("click", (e) => {
+    if (dlg.open) return;  // dialog handles its own clicks
+    const cell = e.target.closest("#notebook > .cell");
+    if (!cell) return;
+    // Don't hijack clicks on inner interactive elements.
+    if (e.target.closest(".cell-id, button, a, input, summary, details, details *")) return;
+    // Clone the cell into the dialog. Cloning preserves rendered SVG
+    // (mermaid) and html content; vega charts come along as a static
+    // snapshot of their last render — fine for inspection mode.
+    const clone = cell.cloneNode(true);
+    clone.removeAttribute("style");  // strip layout-mode inline positioning
+    clone.classList.add("cell-zoomed-clone");
+    // Inspection-mode reset: the original cell ran with content sized
+    // to natural intrinsic dimensions (mermaid SVG at viewBox px,
+    // html-pan-wrap at max-content) which overflowed the dialog and
+    // produced horizontal scrollbars on click. In the dialog the user
+    // wants fit-to-view, not natural-overflow — reset the sizing so
+    // content scales to the dialog width. Per user 2026-04-29.
+    clone.style.removeProperty("--cell-natural-width");
+    clone.style.maxHeight = "none";
+    const cloneSvg = clone.querySelector(".mermaid-target svg");
+    if (cloneSvg) {
+      // Fit-to-view in the dialog: width:auto + height:auto with a
+      // max-width AND max-height clamps preserves viewBox aspect
+      // ratio while ensuring the SVG never exceeds the dialog box
+      // (which would force a scrollbar). 75vh leaves headroom for
+      // the cell-head + caption + trigger summary above the SVG.
+      cloneSvg.style.width = "auto";
+      cloneSvg.style.height = "auto";
+      cloneSvg.style.maxWidth = "100%";
+      cloneSvg.style.maxHeight = "75vh";
+      cloneSvg.style.transform = "";
+    }
+    const cloneMermaidTarget = clone.querySelector(".mermaid-target");
+    if (cloneMermaidTarget) {
+      cloneMermaidTarget.style.maxHeight = "none";
+      cloneMermaidTarget.style.overflow = "visible";
+    }
+    const cloneWrap = clone.querySelector(".html-pan-wrap");
+    if (cloneWrap) {
+      cloneWrap.style.width = "auto";
+      cloneWrap.style.maxWidth = "100%";
+      cloneWrap.style.minWidth = "0";
+      cloneWrap.style.transform = "";
+    }
+    const cloneHtmlTarget = clone.querySelector(".html-target");
+    if (cloneHtmlTarget) {
+      cloneHtmlTarget.style.overflow = "auto";  // tables wider than dialog get a scrollbar inside the cell
+    }
+    dlg.replaceChildren(clone);
+    dlg.showModal();
+
+    // Re-embed any vega charts inside the clone — same canvas-cloning
+    // problem as scene3d below: cloneNode(true) copies the <canvas>
+    // element but it paints blank because canvas pixels don't survive
+    // cloning. The spec is stashed on .vega-target's dataset at
+    // render time so we can re-embed here with the dialog-sized
+    // container.
+    const cloneVegaTarget = clone.querySelector(".vega-target");
+    if (cloneVegaTarget && cloneVegaTarget.dataset.vegaSpec && window.vegaEmbed) {
+      cloneVegaTarget.innerHTML = "";
+      requestAnimationFrame(() => {
+        try {
+          const spec = JSON.parse(cloneVegaTarget.dataset.vegaSpec);
+          window.vegaEmbed(cloneVegaTarget, spec, { actions: false, ...TC.vega }).catch(err => {
+            cloneVegaTarget.textContent = "vega render error: " + err.message;
+          });
+        } catch (err) {
+          console.warn("[lucida] vega zoom re-embed failed:", err);
+        }
+      });
+    }
+    // Re-instantiate any 3D scenes inside the clone — cloneNode(true) of
+    // a <canvas> produces a blank canvas, so without re-init the dialog
+    // shows nothing for scene3d cells. RAF defers until layout has
+    // measured the dialog so initScene3D's clientWidth read is non-zero.
+    const scene3dTarget = clone.querySelector(".scene3d-target");
+    if (scene3dTarget && scene3dTarget.dataset.scene3dSpec) {
+      scene3dTarget.innerHTML = "";  // remove the blank cloned canvas
+      scene3dTarget.style.minHeight = "";
+      requestAnimationFrame(() => {
+        try {
+          const spec = JSON.parse(scene3dTarget.dataset.scene3dSpec);
+          const ctrl = initScene3D(scene3dTarget, spec);
+          if (ctrl) {
+            ctrl.play();
+            dlg._zoomedCtrl = ctrl;
+          }
+        } catch (err) {
+          console.warn("[lucida] scene3d zoom re-init failed:", err);
+        }
+      });
+    }
+  });
+  // Tear down the re-instantiated scene when the dialog closes so it
+  // doesn't keep a hidden Three.js render loop spinning.
+  dlg.addEventListener("close", () => {
+    if (dlg._zoomedCtrl) {
+      try { dlg._zoomedCtrl.dispose(); } catch (e) {}
+      dlg._zoomedCtrl = null;
+    }
+  });
+}
+
+function applyStillWarmToLatest() {
+  document.querySelectorAll(".cell.cell-still-warm").forEach(n => n.classList.remove("cell-still-warm"));
+  if (isMultiStream()) {
+    // Each column glows its own most-recent cell — independent
+    // mission-control feeds, each with its own "live" indicator.
+    document.querySelectorAll(".session-column").forEach(col => {
+      const c = col.querySelector(".cell");
+      if (c) c.classList.add("cell-still-warm");
+    });
+  } else {
+    const cells = document.querySelectorAll(".cell");
+    if (cells.length) cells[0].classList.add("cell-still-warm");
+  }
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function renderCell(c, snippetGroups) {
+  const card = el("article", "cell");
+  if (c.id) card.id = c.id;
+  if (c.cell_type) card.dataset.cellType = c.cell_type;
+  // Session id on the card for the WebGL session-thread connection lines
+  // (drawSessionThreads in alt-layout modes). Reflection source-ids
+  // continue to live on .cell-reflection[data-source-ids] for the
+  // existing reflection→source connection rendering.
+  if (c.session_id) card.dataset.sessionId = c.session_id;
+  const sources = Array.isArray(c.reflection_source_ids) ? c.reflection_source_ids : [];
+  if (sources.length > 0) {
+    card.classList.add("cell-reflection");
+    card.dataset.sourceIds = sources.join(",");
+  }
+  // Top-left cell head: dense, dynamic-content-only. The type label
+  // ("vega" / "html" / etc.) is dropped — the cell's visual rendering
+  // already tells the user what substrate it is, and the label costs
+  // a slot that should carry actual signal. Per memory/
+  // feedback_dynamic_only_chrome.md.
+  // Order (left-to-right): generated title (prominent) · discourse_move
+  // · confidence · attempt-badge if any · cell-id (small, clickable to
+  // copy) · timestamp.
+  const head = el("div", "cell-head");
+  if (c.title) {
+    head.appendChild(el("span", "cell-title", c.title));
+  }
+  if (c.id) {
+    const idEl = el("button", "cell-id", c.id);
+    idEl.type = "button";
+    idEl.title = "click to copy";
+    // Explicit accessible name for screen readers — title is announced
+    // inconsistently across SR/browser combos; aria-label always wins.
+    idEl.setAttribute("aria-label", `${c.id}, click to copy cell id`);
+    idEl.dataset.cellType = c.cell_type;  // for substrate-based color hint
+    idEl.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(c.id);
+        idEl.classList.add("cell-id-copied");
+        const prev = idEl.textContent;
+        idEl.textContent = "copied · " + c.id;
+        setTimeout(() => {
+          idEl.classList.remove("cell-id-copied");
+          idEl.textContent = prev;
+        }, 900);
+      } catch (e) {
+        idEl.title = "copy failed: " + (e && e.message || "no clipboard access");
+      }
+    });
+    head.appendChild(idEl);
+  }
+  if (c.discourse_move) {
+    head.appendChild(el("span", "cell-move", c.discourse_move));
+  }
+  if (typeof c.confidence === "number") {
+    const conf = el("span", "cell-conf", c.confidence.toFixed(2));
+    conf.title = `classifier confidence: ${c.confidence}`;
+    head.appendChild(conf);
+  }
+  if (snippetGroups && c.trigger_snippet) {
+    const group = snippetGroups.get(c.trigger_snippet);
+    if (group && group.length > 1) {
+      const idx = group.indexOf(c.id);
+      head.appendChild(el("span", "cell-attempt-badge",
+        `${idx + 1}/${group.length}`));
+    }
+  }
+  // Session origin chip: only visible when multiple sessions are mixed
+  // into one grid (?session=auto). In single-session views, the column
+  // header / HUD already names the session so the per-cell chip is noise.
+  if (state.sessions.autoMode && c.session_id) {
+    const sess = el("span", "cell-session", c.session_id.slice(0, 14));
+    sess.title = `session: ${c.session_id}`;
+    head.appendChild(sess);
+  }
+  // Time chip: show HH:MM only (compact). The full ISO timestamp lives
+  // in the title attribute for hover. The verbose "2026-04-29T19:20:07+00:00"
+  // chip was eating 40% of the cell-head row width and crowding out the
+  // cell-title (user 2026-04-29 — title truncation in organic layout).
+  const timeStr = (() => {
+    if (!c.timestamp) return "";
+    const m = c.timestamp.match(/T(\d{2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}` : c.timestamp;
+  })();
+  const timeChip = el("span", "cell-time", timeStr);
+  if (c.timestamp) timeChip.title = c.timestamp;
+  head.appendChild(timeChip);
+  card.appendChild(head);
+
+  if (sources.length > 0) {
+    const srcRow = el("div", "cell-reflection-sources");
+    srcRow.appendChild(el("span", "cell-reflection-sources-label", "reflecting on"));
+    for (const sid of sources) {
+      const a = el("a", "cell-reflection-source-chip", sid);
+      a.href = "#" + sid;
+      srcRow.appendChild(a);
+    }
+    card.appendChild(srcRow);
+  }
+
+  const body = el("div", "cell-body");
+  card.appendChild(body);
+
+  if (c.cell_type === "image" && c.image_path) {
+    const img = el("img");
+    img.loading = "lazy";  // browser-native lazy decode; image cells are
+    // demoted from auto-classifier (kill #1) but 4 historical ones remain
+    // and each decoded raster is multi-MB.
+    img.src = c.image_path;
+    img.alt = c.caption || "generated image";
+    body.appendChild(img);
+  } else if (c.cell_type === "vega" && c.spec) {
+    const target = el("div", "vega-target");
+    // Stash the spec on the target so the click-zoom modal can
+    // re-embed vega in its clone. Without this, cloneNode(true)
+    // copies the <canvas> element but it paints blank in the dialog.
+    try {
+      target.dataset.vegaSpec = JSON.stringify(c.spec);
+    } catch (e) { /* spec not serializable; skip */ }
+    body.appendChild(target);
+    let currentEmbed = null;
+    let currentView = null;
+    const renderVega = () => {
+      currentEmbed = vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).then(result => {
+        currentView = result && result.view;
+        // If the spec declares a numeric width, use it as the cell's
+        // natural width. Otherwise (`"width": "container"` style)
+        // measure post-render scrollWidth.
+        const specWidth = (c.spec && typeof c.spec.width === "number") ? c.spec.width : 0;
+        applyNaturalCellSize(target, specWidth);
+        return result;
+      }).catch(err => {
+        target.textContent = "vega render error: " + err.message;
+        return null;
+      });
+    };
+    // Async: await the in-flight embed Promise before finalizing.
+    // Without this, fast scroll-pasts hit teardown while the embed is
+    // still resolving — currentView is null at teardown time, finalize
+    // never fires, and the resolved view (signal graph + canvas backing)
+    // is orphaned. Each leaked view costs a few MB; 80 thrashes = 150MB+.
+    const teardownVega = async () => {
+      if (currentEmbed) {
+        try { await currentEmbed; } catch (e) {}
+      }
+      if (currentView) {
+        try { currentView.finalize(); } catch (e) {}
+        currentView = null;
+      }
+      currentEmbed = null;
+    };
+    lazyMount(target, renderVega, teardownVega);
+  } else if (c.cell_type === "mermaid" && c.spec) {
+    const target = el("div", "mermaid-target");
+    body.appendChild(target);
+    // Stable ID per cell across re-renders. Mermaid 10+ removes its own
+    // temp container after render, so reusing the ID is fine and avoids
+    // accumulating per-ID internal state on each remount.
+    const renderMermaid = async () => {
+      try {
+        // Validate first via mermaid.parse() — without this, mermaid.render
+        // injects its own "Syntax error in text / mermaid version 10.x.y"
+        // stub into the document body when parsing fails, and that stub
+        // floats free of our cell. parse() throws on invalid syntax; we
+        // render a clean inline error instead.
+        await mermaid.parse(c.spec);
+        const { svg } = await mermaid.render(`m-${c.id}`, c.spec);
+        target.innerHTML = svg;
+        // Mermaid: render at natural viewBox size (not auto-fit). The
+        // cell will size to that width via applyNaturalCellSize. Auto-
+        // pan only kicks in if the natural-size diagram is itself
+        // wider/taller than what fits in the dashboard viewport.
+        const svgEl = target.querySelector("svg");
+        if (svgEl) {
+          const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+          if (vb && vb.width > 0 && vb.height > 0) {
+            svgEl.removeAttribute("style");
+            svgEl.style.maxWidth = "none";
+            svgEl.style.width = vb.width + "px";
+            svgEl.style.height = vb.height + "px";
+            applyNaturalCellSize(target, vb.width);
+            // Auto-pan fallback only when the natural-size SVG is
+            // STILL wider than the dashboard viewport (genuinely huge
+            // diagram). Threshold: ≥1.4× the cell box (post-flex
+            // sizing) AND ≥120px absolute. Skip vertical pan path
+            // since content height is now content-driven (no forced
+            // viewport cap).
+            const cw = target.getBoundingClientRect().width || 0;
+            const wOverflow = cw > 0 && vb.width > cw * 1.4 && (vb.width - cw) > 120;
+            if (wOverflow) {
+              target.style.maxHeight = "32vh";
+              setupAutoPan(target, svgEl);
+            }
+          }
+        }
+      } catch (err) {
+        target.classList.add("mermaid-error");
+        target.textContent = "mermaid render error: " +
+          (err && err.message ? err.message.split("\n")[0] : String(err));
+      }
+    };
+    lazyMount(target, renderMermaid);
+  } else if (c.cell_type === "html" && c.html) {
+    const target = el("div", "html-target");
+    body.appendChild(target);
+    const renderHtml = () => {
+      // Wrap content in an inner div so the cell can size to the
+      // wrap's intrinsic width (max-content per CSS). No-op for html
+      // that fits the cell — setupAutoPan returns early on no
+      // overflow. Natural-size pivot 2026-04-29: cell width follows
+      // wrap.scrollWidth via applyNaturalCellSize.
+      const wrap = el("div", "html-pan-wrap");
+      wrap.innerHTML = c.html;
+      target.innerHTML = "";
+      target.appendChild(wrap);
+      applyNaturalCellSize(wrap);
+      setupAutoPan(target, wrap);
+    };
+    lazyMount(target, renderHtml);
+  } else if (c.cell_type === "animated_svg" && c.spec) {
+    const target = el("div", "svg-target");
+    body.appendChild(target);
+    const renderSVG = () => {
+      target.innerHTML = expandTokens(c.spec);
+      // animated_svg authors a <svg width="N" ...>; use that as the
+      // cell's natural width (falls back to scrollWidth measure).
+      const inner = target.querySelector("svg");
+      const w = inner ? parseFloat(inner.getAttribute("width")) || 0 : 0;
+      applyNaturalCellSize(target, w);
+    };
+    lazyMount(target, renderSVG);
+  } else if (c.cell_type === "treemap" && c.spec) {
+    // Treemap substrate (Shneiderman 1991, design-references.md): nested
+    // rectangles where size encodes a quantitative attribute and nesting
+    // encodes hierarchy. Renders via d3.treemap (already loaded for the
+    // ?layout=treemap mode). Spec format:
+    //   { title?: string, items: [{label, value, children?}, ...] }
+    // Leaves get a colored rect (cycled through --data-cat-N) plus a
+    // wrapped label + value. Empty / zero-value children are pruned.
+    const target = el("div", "treemap-target");
+    body.appendChild(target);
+    const renderTreemap = () => {
+      try {
+        const spec = c.spec || {};
+        const items = Array.isArray(spec.items) ? spec.items : [];
+        if (!window.d3 || items.length === 0) {
+          target.textContent = "treemap render: missing d3 or empty items";
+          return;
+        }
+        // Natural cell size for treemap: width × height proportional to
+        // total value count, with sane min/max. The rendered pixel area
+        // has to be enough for ~6-8 readable tiles even when one leaf
+        // dominates.
+        const total = items.reduce((s, x) => s + (x.value || 0), 0) || 1;
+        const w = Math.max(360, Math.min(640, 360 + items.length * 24));
+        const h = Math.max(220, Math.min(360, 220 + Math.sqrt(total) * 4));
+        const root = window.d3.hierarchy({ children: items, label: spec.title || "" }, d => d.children)
+          .sum(d => d.value || 0)
+          .sort((a, b) => (b.value || 0) - (a.value || 0));
+        window.d3.treemap()
+          .size([w, h])
+          .paddingInner(2)
+          .paddingOuter(0)
+          .round(true)
+          .tile(window.d3.treemapSquarify)(root);
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", w);
+        svg.setAttribute("height", h);
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        svg.style.maxWidth = "100%";
+        svg.style.height = "auto";
+        const leaves = root.leaves();
+        leaves.forEach((leaf, i) => {
+          const x = leaf.x0, y = leaf.y0;
+          const tw = leaf.x1 - leaf.x0, th = leaf.y1 - leaf.y0;
+          if (tw <= 0 || th <= 0) return;
+          const fillIdx = i % 6;
+          const rect = document.createElementNS(svgNS, "rect");
+          rect.setAttribute("x", x);
+          rect.setAttribute("y", y);
+          rect.setAttribute("width", tw);
+          rect.setAttribute("height", th);
+          rect.setAttribute("fill", `var(--data-cat-${fillIdx}, #888)`);
+          rect.setAttribute("fill-opacity", "0.85");
+          rect.setAttribute("stroke", "var(--bg)");
+          rect.setAttribute("stroke-width", "1");
+          svg.appendChild(rect);
+          // Label + value text — only render when tile is large enough.
+          if (tw < 40 || th < 22) return;
+          const labelText = leaf.data.label || "";
+          const valueText = String(leaf.data.value ?? "");
+          const padX = 6, padY = 14;
+          const label = document.createElementNS(svgNS, "text");
+          label.setAttribute("x", x + padX);
+          label.setAttribute("y", y + padY);
+          label.setAttribute("font-family", "var(--type-body, sans-serif)");
+          label.setAttribute("font-size", "11");
+          label.setAttribute("fill", "var(--bg)");
+          label.setAttribute("font-weight", "600");
+          // Trim label to fit width
+          const maxChars = Math.max(3, Math.floor((tw - padX * 2) / 5.5));
+          label.textContent = labelText.length > maxChars
+            ? labelText.slice(0, maxChars - 1) + "…"
+            : labelText;
+          svg.appendChild(label);
+          if (th >= 36) {
+            const value = document.createElementNS(svgNS, "text");
+            value.setAttribute("x", x + padX);
+            value.setAttribute("y", y + padY + 16);
+            value.setAttribute("font-family", "var(--type-mono, monospace)");
+            value.setAttribute("font-size", "13");
+            value.setAttribute("fill", "var(--bg)");
+            value.setAttribute("font-weight", "700");
+            value.textContent = valueText;
+            svg.appendChild(value);
+          }
+        });
+        target.innerHTML = "";
+        target.appendChild(svg);
+        applyNaturalCellSize(target, w);
+      } catch (err) {
+        target.classList.add("treemap-error");
+        target.textContent = "treemap render error: " + err.message;
+      }
+    };
+    lazyMount(target, renderTreemap);
+  } else if (c.cell_type === "code" && c.spec) {
+    // Code substrate: syntax-highlighted block. Spec is { language, source }.
+    // Prism.js + autoloader are lazy-loaded on first code cell. The autoloader
+    // grabs the language pack on demand from CDN. Prism token classes are
+    // styled by the .code-target rules in notebook.css using theme tokens —
+    // not Prism's bundled CSS — so highlighting follows magi/lcars/etc.
+    const target = el("div", "code-target");
+    const pre = el("pre", "code-pre");
+    const codeEl = document.createElement("code");
+    const lang = (c.spec.language || "text").toLowerCase();
+    codeEl.className = "language-" + lang;
+    codeEl.textContent = c.spec.source || "";
+    pre.appendChild(codeEl);
+    target.appendChild(pre);
+    body.appendChild(target);
+    const renderCode = () => {
+      ensurePrismLoaded(lang).then(() => {
+        if (window.Prism && window.Prism.highlightElement) {
+          window.Prism.highlightElement(codeEl);
+        }
+      }).catch(() => { /* silent — code still renders unhighlighted */ });
+      // Natural width: longest line × ~6.5px/char (the .code-pre font
+      // is 0.72rem which renders at ~6.5px per mono char). Cap tighter
+      // (520 max, was 720) so a 10-line function doesn't dominate the
+      // grid — code cells should compose alongside other substrates,
+      // not crowd them out. Per user 2026-04-29.
+      const lines = (c.spec.source || "").split("\n");
+      const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+      const w = Math.min(520, Math.max(260, 16 + longest * 6.5));
+      applyNaturalCellSize(target, w);
+    };
+    lazyMount(target, renderCode);
+  } else if (c.cell_type === "sparkline" && c.spec) {
+    // Sparkline substrate: single-row mini-chart. Pure SVG, no dep. Spec:
+    //   { series: [n,...], current?, min?, max?, band_lo?, band_hi?, label?, unit? }
+    // Default natural size 320×72 (label band + line band + caption); grows
+    // with point count to keep ≥ 6px between samples.
+    const target = el("div", "sparkline-target");
+    body.appendChild(target);
+    const renderSpark = () => {
+      try {
+        const spec = c.spec || {};
+        const series = (spec.series || []).map(Number).filter(n => Number.isFinite(n));
+        if (series.length < 2) {
+          target.textContent = "sparkline: needs ≥2 numeric points";
+          return;
+        }
+        const w = Math.min(640, Math.max(280, 24 + series.length * 14));
+        const h = 76;
+        const padL = 8, padR = 56, padT = 18, padB = 14;
+        const innerW = w - padL - padR, innerH = h - padT - padB;
+        const yMin = (typeof spec.min === "number") ? spec.min : Math.min(...series);
+        const yMax = (typeof spec.max === "number") ? spec.max : Math.max(...series);
+        const yRange = (yMax - yMin) || 1;
+        const xAt = i => padL + (i / (series.length - 1)) * innerW;
+        const yAt = v => padT + innerH - ((v - yMin) / yRange) * innerH;
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", w);
+        svg.setAttribute("height", h);
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        svg.style.maxWidth = "100%";
+        svg.style.height = "auto";
+        // Optional shaded band for "normal range".
+        if (typeof spec.band_lo === "number" && typeof spec.band_hi === "number") {
+          const yLo = yAt(Math.max(spec.band_lo, yMin));
+          const yHi = yAt(Math.min(spec.band_hi, yMax));
+          const band = document.createElementNS(svgNS, "rect");
+          band.setAttribute("x", padL);
+          band.setAttribute("y", Math.min(yLo, yHi));
+          band.setAttribute("width", innerW);
+          band.setAttribute("height", Math.abs(yHi - yLo));
+          band.setAttribute("fill", "var(--accent)");
+          band.setAttribute("fill-opacity", "0.10");
+          svg.appendChild(band);
+        }
+        // Polyline of the series.
+        const points = series.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+        const line = document.createElementNS(svgNS, "polyline");
+        line.setAttribute("points", points);
+        line.setAttribute("fill", "none");
+        line.setAttribute("stroke", "var(--accent)");
+        line.setAttribute("stroke-width", "1.6");
+        line.setAttribute("stroke-linecap", "round");
+        line.setAttribute("stroke-linejoin", "round");
+        svg.appendChild(line);
+        // Current-value dot + readout.
+        const cur = (typeof spec.current === "number") ? spec.current : series[series.length - 1];
+        const cIdx = series.length - 1;
+        const cx = xAt(cIdx), cy = yAt(cur);
+        const dot = document.createElementNS(svgNS, "circle");
+        dot.setAttribute("cx", cx);
+        dot.setAttribute("cy", cy);
+        dot.setAttribute("r", "3.2");
+        dot.setAttribute("fill", "var(--accent)");
+        svg.appendChild(dot);
+        const readout = document.createElementNS(svgNS, "text");
+        readout.setAttribute("x", w - padR + 6);
+        readout.setAttribute("y", cy + 4);
+        readout.setAttribute("font-family", "var(--type-mono, monospace)");
+        readout.setAttribute("font-size", "13");
+        readout.setAttribute("font-weight", "700");
+        readout.setAttribute("fill", "var(--fg)");
+        readout.textContent = String(cur) + (spec.unit || "");
+        svg.appendChild(readout);
+        // Optional label above.
+        if (spec.label) {
+          const lbl = document.createElementNS(svgNS, "text");
+          lbl.setAttribute("x", padL);
+          lbl.setAttribute("y", 12);
+          lbl.setAttribute("font-family", "var(--type-mono, monospace)");
+          lbl.setAttribute("font-size", "10");
+          lbl.setAttribute("fill", "var(--muted)");
+          lbl.setAttribute("letter-spacing", "0.05em");
+          lbl.textContent = String(spec.label).toUpperCase();
+          svg.appendChild(lbl);
+        }
+        target.innerHTML = "";
+        target.appendChild(svg);
+        applyNaturalCellSize(target, w);
+      } catch (err) {
+        target.textContent = "sparkline render error: " + err.message;
+      }
+    };
+    lazyMount(target, renderSpark);
+  } else if (c.cell_type === "ascii" && c.spec) {
+    // ASCII substrate: monospace box-drawing block. Spec is { ascii, kind? }.
+    // Pure <pre>; theme tokens (--fg, --bg, --accent) drive color so it
+    // reads on every theme without per-substrate CSS branches.
+    const target = el("div", "ascii-target");
+    body.appendChild(target);
+    const renderAscii = () => {
+      const ascii = (c.spec && c.spec.ascii) || "";
+      const pre = el("pre", "ascii-pre");
+      pre.textContent = ascii;
+      target.innerHTML = "";
+      target.appendChild(pre);
+      // Natural width: longest line × ~9.0px/ch (box-drawing glyphs
+      // at 0.88rem mono render wider than ASCII — the wider multiplier
+      // keeps the ┌─┐ ╔═╗ corners from being squeezed past readability).
+      // Min raised to 280 so single-narrow-line ASCII doesn't render
+      // as a sliver. Per user 2026-04-29 cell-1249 unreadable case.
+      const lines = ascii.split("\n");
+      const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+      const w = Math.min(720, Math.max(280, 24 + longest * 9.0));
+      applyNaturalCellSize(target, w);
+    };
+    lazyMount(target, renderAscii);
+  } else if (c.cell_type === "scene3d" && c.spec) {
+    // Lazy + LRU-capped: Three.js renderer + scene are created on first
+    // viewport entry, paused when scrolled past, and fully disposed if
+    // the cell remains the least-recently-visible non-visible scene when
+    // a new scene needs to init. Re-init from spec on scroll-back.
+    const target = el("div", "scene3d-target");
+    // Stash the spec on the target so click-to-zoom can re-instantiate
+    // the scene in the dialog clone (cloneNode(true) of a <canvas>
+    // produces a blank canvas — the rendered pixels aren't part of the
+    // DOM, so a literal clone shows nothing). The dialog reads this and
+    // calls initScene3D fresh on the cloned target.
+    try { target.dataset.scene3dSpec = JSON.stringify(c.spec); } catch (e) {}
+    body.appendChild(target);
+    let ctrl = null;
+    const entry = {
+      visible: false,
+      lastVisible: 0,
+      teardown: () => {
+        const h = target.offsetHeight;
+        if (ctrl) { ctrl.dispose(); ctrl = null; }
+        if (h > 20) target.style.minHeight = h + "px";
+      },
+    };
+    pauseOffScreen(
+      target,
+      () => {
+        entry.visible = true;
+        touchWebGL(entry);
+        if (!ctrl) {
+          target.style.minHeight = "";
+          ctrl = initScene3D(target, c.spec);
+          if (ctrl) registerWebGL(entry);
+        }
+        if (ctrl) ctrl.play();
+      },
+      () => {
+        entry.visible = false;
+        touchWebGL(entry);
+        if (ctrl) ctrl.pause();
+        evictWebGLIfOverCap();
+      },
+    );
+  } else if (c.cell_type === "text" && c.caption) {
+    // caption-only renders below
+  } else if (c.classifier_reasoning || c.confidence !== null) {
+    // Proposal cell: classifier metadata exists but no spec/html/image yet.
+    // Surface the reasoning so the cell isn't visually broken-looking.
+    const proposal = el("div", "cell-proposal");
+    const labelText = c.confidence != null
+      ? `proposal — awaiting ${c.cell_type} spec  ·  confidence ${c.confidence.toFixed(2)}`
+      : `proposal — awaiting ${c.cell_type} spec`;
+    proposal.appendChild(el("div", "cell-proposal-label", labelText));
+    if (c.classifier_reasoning) {
+      proposal.appendChild(el("div", "cell-proposal-reasoning", c.classifier_reasoning));
+    }
+    body.appendChild(proposal);
+  } else {
+    body.appendChild(el("div", "cell-empty", "(no content for this cell)"));
+  }
+
+  if (c.caption) {
+    const cap = el("div", "cell-caption", c.caption);
+    cap.title = c.caption;
+    cap.tabIndex = 0;
+    card.appendChild(cap);
+  }
+
+  // Trigger snippet + prompt + notes: bottom of cell, collapsed by default.
+  // Reference info — load-bearing only when debugging or auditing
+  // a specific cell. Per memory/feedback_dynamic_only_chrome.md, kept
+  // out of the prime visual real estate at the top. Notes (prompt-
+  // construction telemetry) folds into the prompt details since they're
+  // both about how the cell was produced.
+  if (c.trigger_snippet) {
+    const trig = el("details", "cell-trigger");
+    trig.appendChild(el("summary", null, "trigger snippet"));
+    trig.appendChild(el("pre", null, c.trigger_snippet));
+    card.appendChild(trig);
+  }
+  if (c.prompt || c.notes !== undefined) {
+    const p = el("details", "cell-prompt");
+    p.appendChild(el("summary", null, "prompt"));
+    if (c.notes !== undefined) {
+      const n = el("div", "cell-prompt-notes");
+      n.appendChild(el("strong", null, "notes: "));
+      const text = c.notes || "(unrated)";
+      const parts = text.split(/(\bcell-\d{4}\b)/g);
+      for (const part of parts) {
+        if (/^cell-\d{4}$/.test(part)) {
+          const a = el("a", "cell-id-link", part);
+          a.href = "#" + part;
+          n.appendChild(a);
+        } else if (part) {
+          n.appendChild(document.createTextNode(part));
+        }
+      }
+      p.appendChild(n);
+    }
+    if (c.prompt) p.appendChild(el("pre", null, c.prompt));
+    card.appendChild(p);
+  }
+
+  return card;
+}
+
+function initScene3D(container, spec) {
+  const T = window.THREE;
+  if (!T) {
+    container.textContent = "Three.js not available";
+    return null;
+  }
+  const w = container.clientWidth || 600;
+  const h = 360;
+  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(w, h, false);
+  // Ensure the canvas CSS size matches the container exactly. Without
+  // this, when the cell is hero-width at init then shrinks into ambient
+  // (or any reflow), the canvas keeps its initial CSS width and overflows
+  // out the right side of the cell. Combined with the ResizeObserver
+  // below, the renderer tracks the cell width at all times.
+  renderer.domElement.style.width = "100%";
+  renderer.domElement.style.height = h + "px";
+  renderer.domElement.style.display = "block";
+  const bg = spec.background;
+  if (bg && bg !== "transparent") {
+    renderer.setClearColor(bg, 1);
+  } else {
+    renderer.setClearColor(0x000000, 0);
+  }
+  container.appendChild(renderer.domElement);
+
+  const scene = new T.Scene();
+  const camera = new T.PerspectiveCamera(50, w / h, 0.1, 100);
+  camera.position.set(0, 0, spec.camera_distance || 5);
+
+  const animatables = [];
+  for (const obj of (spec.objects || [])) {
+    let mesh = null;
+    const color = new T.Color(resolveColor(obj.color) || "#ffffff");
+    const size = obj.size || 1;
+    if (obj.kind === "wireframe_cube") {
+      const geo = new T.BoxGeometry(size, size, size);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "wireframe_sphere") {
+      const geo = new T.SphereGeometry(size, 16, 12);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "torus") {
+      const geo = new T.TorusGeometry(size, size * 0.3, 8, 24);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "icosahedron") {
+      const geo = new T.IcosahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "axis_helper") {
+      mesh = new T.AxesHelper(size);
+    } else if (obj.kind === "particle_cloud") {
+      const geo = new T.BufferGeometry();
+      const positions = [];
+      const count = obj.count || 100;
+      const spread = obj.spread || 3;
+      for (let i = 0; i < count; i++) {
+        positions.push((Math.random() - 0.5) * spread * 2);
+        positions.push((Math.random() - 0.5) * spread * 2);
+        positions.push((Math.random() - 0.5) * spread * 2);
+      }
+      geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
+      mesh = new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
+    } else if (obj.kind === "cylinder") {
+      // Vertical column / tower / pole. height defaults to 2*size for
+      // a tower-shaped default; specs that want a flat puck pass a
+      // smaller height. Top/bottom radius separate so cones (height>0,
+      // top=0) work via the same primitive without needing a "cone"
+      // type — though we do also expose "cone" for clarity below.
+      const radius = size;
+      const height = (typeof obj.height === "number") ? obj.height : size * 2;
+      const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "cone") {
+      const radius = size;
+      const height = (typeof obj.height === "number") ? obj.height : size * 2;
+      const geo = new T.ConeGeometry(radius, height, 16, 1, false);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "plane") {
+      // Stacked translucent layers / floor planes / strata. Default
+      // square; specs can pass width + height for rectangular layers.
+      const w_ = size;
+      const h_ = (typeof obj.height === "number") ? obj.height : size;
+      const geo = new T.PlaneGeometry(w_, h_, 1, 1);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({
+        color, wireframe: true, side: T.DoubleSide,
+      }));
+    } else if (obj.kind === "line") {
+      // Connection / vector / edge between two points. obj.from and
+      // obj.to are [x,y,z]. Used for showing relationships between
+      // positioned primitives (semantic-geometry vocabulary).
+      const from = Array.isArray(obj.from) ? obj.from : [0, 0, 0];
+      const to = Array.isArray(obj.to) ? obj.to : [1, 0, 0];
+      const geo = new T.BufferGeometry().setFromPoints([
+        new T.Vector3(...from),
+        new T.Vector3(...to),
+      ]);
+      mesh = new T.Line(geo, new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "label") {
+      // Text floating in 3D space — axis labels for charts, named
+      // electrodes for anatomical scenes, repo names atop towers.
+      // Implemented as a canvas-textured sprite so the text always
+      // faces the camera (regardless of scene rotation). obj.text
+      // is the string; size controls render scale (default ~0.5
+      // works for short labels).
+      const text = String(obj.text || "");
+      const cnv = document.createElement("canvas");
+      const ctx = cnv.getContext("2d");
+      const fontPx = 64;
+      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+      const metrics = ctx.measureText(text);
+      cnv.width = Math.max(64, Math.ceil(metrics.width) + 20);
+      cnv.height = fontPx + 20;
+      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+      ctx.fillStyle = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      ctx.fillText(text, cnv.width / 2, cnv.height / 2);
+      const tex = new T.CanvasTexture(cnv);
+      const mat = new T.SpriteMaterial({ map: tex, transparent: true });
+      mesh = new T.Sprite(mat);
+      const scale = size || 0.5;
+      mesh.scale.set(scale * (cnv.width / cnv.height), scale, 1);
+    }
+    if (mesh) {
+      if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
+      scene.add(mesh);
+      if (Array.isArray(obj.rotation_speed)) {
+        animatables.push({ mesh, speed: obj.rotation_speed });
+      }
+    }
+  }
+
+  // Render loop is play/pause-able via the returned controller; the caller
+  // wires it to an IntersectionObserver so off-screen scenes don't compete
+  // for the GPU thread.
+  let running = false;
+  function animate() {
+    if (!running) return;
+    requestAnimationFrame(animate);
+    for (const a of animatables) {
+      a.mesh.rotation.x += a.speed[0] || 0;
+      a.mesh.rotation.y += a.speed[1] || 0;
+      a.mesh.rotation.z += a.speed[2] || 0;
+    }
+    renderer.render(scene, camera);
+  }
+  // Track container width with ResizeObserver. Without this, scenes that
+  // initialize at hero width and later get shifted into ambient (half-width
+  // grid slot) keep their original canvas size and overflow the cell —
+  // user-visible as "3D content mostly cut off" on cells like 0658.
+  const ro = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const cw = entry.contentRect.width;
+      if (cw > 10) {
+        renderer.setSize(cw, h, false);
+        renderer.domElement.style.width = "100%";
+        renderer.domElement.style.height = h + "px";
+        camera.aspect = cw / h;
+        camera.updateProjectionMatrix();
+      }
+    }
+  });
+  ro.observe(container);
+  return {
+    play() { if (!running) { running = true; animate(); } },
+    pause() { running = false; },
+    dispose() {
+      running = false;
+      ro.disconnect();
+      scene.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+      renderer.dispose();
+      if (renderer.forceContextLoss) renderer.forceContextLoss();
+      if (renderer.domElement && renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
+      }
+    },
+  };
+}
+
+load().catch(err => {
+  document.getElementById("notebook").textContent =
+    "load error: " + err.message;
+});
+
+initSessionDropdownTrigger();
+initLayoutDropdownTrigger();
+initThemeDropdownTrigger();
+
+// HUD click-to-pin: clicking the HUD toggles data-expanded so it stays
+// open without requiring continuous hover. Click the HUD again to
+// collapse. Avoid toggling when the click landed on the SESSION
+// dropdown or its trigger (those have their own handlers).
+function toggleHudExpanded(e) {
+  // Skip if click bubbled from the session-dropdown trigger or its popover
+  const sessionCell = document.getElementById("hud-session-cell");
+  const dropdown = document.getElementById("session-dropdown");
+  if (sessionCell?.contains(e.target)) return;
+  if (dropdown && dropdown.contains(e.target)) return;
+  const hud = e.currentTarget;
+  hud.dataset.expanded = hud.dataset.expanded === "true" ? "false" : "true";
+  hud.setAttribute("aria-expanded", hud.dataset.expanded);
+}
+const hudEl = document.getElementById("hud");
+hudEl?.addEventListener("click", toggleHudExpanded);
+// Keyboard accessibility: Enter or Space activates the same toggle —
+// touch users get the click handler, keyboard users get this. The HUD
+// is now a focusable region (tabindex 0) with role="button"-like
+// semantics. Touch devices with no hover state benefit from the click
+// path so the expand-on-hover behavior is never the only way in.
+hudEl?.setAttribute("tabindex", "0");
+hudEl?.setAttribute("role", "button");
+hudEl?.setAttribute("aria-expanded", "false");
+hudEl?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    toggleHudExpanded({ currentTarget: hudEl, target: hudEl });
+  }
+});
+
+// HUD bootstraps and polls fast. Hackertyper-feel reveal happens
+// inside typeInto() but only on actual value changes (cached), so the
+// poll cadence doesn't cause header flicker. The since-last-mint
+// counter ticks every second so the HUD feels alive even between polls.
+loadHud().catch(() => {});
+setInterval(() => loadHud().catch(() => {}), 1500);
+setInterval(tickSinceLast, 1000);
+</script>
+</body>
+</html>
