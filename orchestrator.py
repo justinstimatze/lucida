@@ -711,7 +711,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 current.notes += (
                     f" [eval@{eval_result.quality_score:.2f}"
                     f", {'retrigger' if should_retrigger else 'accepted'}"
-                    f"/{gate_reason}]"
+                    f"/{gate_reason}"
+                    f", mode={eval_result.failure_mode}]"
                 )
                 if not should_retrigger:
                     break

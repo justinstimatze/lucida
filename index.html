@@ -209,7 +209,9 @@ function el(tag, cls, text) {
 
 function renderCell(c, snippetGroups) {
   const card = el("article", "cell");
-  if (Array.isArray(c.reflection_source_ids) && c.reflection_source_ids.length > 0) {
+  if (c.id) card.id = c.id;
+  const sources = Array.isArray(c.reflection_source_ids) ? c.reflection_source_ids : [];
+  if (sources.length > 0) {
     card.classList.add("cell-reflection");
   }
   const head = el("div", "cell-head");
@@ -225,6 +227,17 @@ function renderCell(c, snippetGroups) {
   }
   head.appendChild(el("span", "cell-time", c.timestamp || ""));
   card.appendChild(head);
+
+  if (sources.length > 0) {
+    const srcRow = el("div", "cell-reflection-sources");
+    srcRow.appendChild(el("span", "cell-reflection-sources-label", "reflecting on"));
+    for (const sid of sources) {
+      const a = el("a", "cell-reflection-source-chip", sid);
+      a.href = "#" + sid;
+      srcRow.appendChild(a);
+    }
+    card.appendChild(srcRow);
+  }
 
   if (c.trigger_snippet) {
     const trig = el("div", "cell-trigger");
@@ -369,7 +382,17 @@ function renderCell(c, snippetGroups) {
   if (c.notes !== undefined) {
     const n = el("div", "cell-notes");
     n.appendChild(el("strong", null, "notes: "));
-    n.appendChild(document.createTextNode(c.notes || "(unrated)"));
+    const text = c.notes || "(unrated)";
+    const parts = text.split(/(\bcell-\d{4}\b)/g);
+    for (const part of parts) {
+      if (/^cell-\d{4}$/.test(part)) {
+        const a = el("a", "cell-id-link", part);
+        a.href = "#" + part;
+        n.appendChild(a);
+      } else if (part) {
+        n.appendChild(document.createTextNode(part));
+      }
+    }
     card.appendChild(n);
   }
 
