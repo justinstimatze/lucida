@@ -15,3 +15,6 @@ build/
 cells/cell-*.png
 cells/cell-*.jpg
 cells/cell-*.webp
+
+# transcript watcher state files
+.watcher_state_*.json
