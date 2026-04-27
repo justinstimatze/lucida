@@ -10,12 +10,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from textwrap import dedent
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass
 
 
 CELLS_PATH = Path(__file__).parent / "cells.json"
@@ -37,6 +44,10 @@ class CellProposal:
     # populated by demote_if_trivial when the original viz failed the heuristic
     attempted_cell_type: str | None = None
     attempted_spec: object | None = None
+    # populated by the v0.5 LLM classifier (classifier.py)
+    discourse_move: str | None = None
+    confidence: float | None = None
+    classifier_reasoning: str | None = None
 
 
 def now_iso() -> str:
@@ -360,22 +371,66 @@ def sweep_trivial(write: bool = False) -> list[str]:
 
 
 def append_proposal(snippet: str, context: str = "", cell_type: str | None = None,
-                    write: bool = False, generate_image: bool = False) -> CellProposal:
+                    write: bool = False, generate_image: bool = False,
+                    use_llm: bool | None = None) -> CellProposal:
     data = load_cells()
-    auto_type = classify(snippet)
-    chosen_type = cell_type or auto_type
+    auto_type_v0 = classify(snippet)  # always run keyword classifier for comparison
+
+    if use_llm is None:
+        use_llm = bool(os.environ.get("ANTHROPIC_API_KEY")) and cell_type is None
+
+    discourse_move = None
+    confidence = None
+    classifier_reasoning = None
+    classifier_label = f"classifier(v0)→{auto_type_v0}"
+    gate_note = ""
+    chosen_type = cell_type or auto_type_v0
+
+    if use_llm and cell_type is None:
+        try:
+            import classifier as _classifier
+            llm = _classifier.classify(snippet, context)
+            discourse_move = llm.discourse_move
+            confidence = llm.confidence
+            classifier_reasoning = llm.reasoning
+            short_model = llm.model.replace("claude-", "")
+            if llm.cache_read_tokens > 0:
+                cache_info = f"cache:hit/{llm.cache_read_tokens}t"
+            elif llm.cache_creation_tokens > 0:
+                cache_info = f"cache:wrote/{llm.cache_creation_tokens}t"
+            else:
+                cache_info = "cache:miss(prefix<min)"
+            classifier_label = (
+                f"classifier({short_model})→"
+                f"{llm.discourse_move}/{llm.cell_type}@{llm.confidence:.2f} "
+                f"[v0→{auto_type_v0}] {cache_info}"
+            )
+            # Confidence gate (leg5_spec.md lines 117-122)
+            if llm.confidence < 0.6:
+                chosen_type = "text"
+                gate_note = f" [confidence-gate <0.6 → text; was {llm.cell_type}]"
+            elif llm.confidence < 0.8:
+                chosen_type = llm.cell_type
+                gate_note = " [draft, confidence 0.6-0.8]"
+            else:
+                chosen_type = llm.cell_type
+        except Exception as e:
+            chosen_type = auto_type_v0
+            gate_note = f" [LLM classifier failed: {e}]"
+    elif cell_type and cell_type != auto_type_v0:
+        classifier_label += f"; forced→{cell_type}"
+
     cell_id = next_id(data["cells"])
-    if cell_type and cell_type != auto_type:
-        classifier_note = f"classifier(v0)→{auto_type}; forced→{cell_type}"
-    else:
-        classifier_note = f"classifier(v0)→{auto_type}"
     proposal = CellProposal(
         id=cell_id,
         timestamp=now_iso(),
         cell_type=chosen_type,
         trigger_snippet=snippet.strip(),
         prompt=build_prompt(chosen_type, snippet, context),
-        notes=f"(awaiting generation) [{classifier_note}]",
+        notes=f"(awaiting generation) [{classifier_label}]{gate_note}",
+        discourse_move=discourse_move,
+        confidence=confidence,
+        classifier_reasoning=classifier_reasoning,
     )
 
     if generate_image and chosen_type == "image":
@@ -415,6 +470,8 @@ def main() -> None:
                    help="for image cells, actually call nano banana to generate")
     p.add_argument("--sweep-trivial", action="store_true",
                    help="walk cells.json and demote trivial cells in place; pair with --write to persist")
+    p.add_argument("--no-llm-classify", action="store_true",
+                   help="disable the v0.5 LLM classifier; force the keyword classifier even if ANTHROPIC_API_KEY is set")
     args = p.parse_args()
 
     if args.sweep_trivial:
@@ -432,7 +489,9 @@ def main() -> None:
     if not args.snippet:
         p.error("--snippet is required (unless --sweep-trivial)")
 
-    proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate)
+    use_llm = False if args.no_llm_classify else None  # None = auto-detect via env
+    proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate,
+                               use_llm=use_llm)
     json.dump(asdict(proposal), sys.stdout, indent=2)
     print()
 
