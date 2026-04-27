@@ -460,15 +460,64 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         except Exception as e:
             classifier_label += f" [imgspec failed: {e}]"
 
+    # v0.5 specialists for non-image cell types: when --generate is set,
+    # call the matching specialist (mermaid / vega / html / animated_svg)
+    # to produce a snippet-grounded spec. Symmetric with image_specialist
+    # but for the cheaper, all-text spec types. Specialists may demote to
+    # text if the snippet doesn't fit the type as well as the classifier
+    # thought.
+    non_image_spec = None
+    non_image_html = None
+    non_image_caption = ""
+    if (llm_available and generate_image
+            and chosen_type in ("mermaid", "vega", "html", "animated_svg")
+            and os.environ.get("ANTHROPIC_API_KEY")):
+        try:
+            import specialists as _specs
+            fns = {
+                "mermaid": _specs.generate_mermaid_spec,
+                "vega": _specs.generate_vega_spec,
+                "html": _specs.generate_html_spec,
+                "animated_svg": _specs.generate_animated_svg_spec,
+            }
+            spec_result = fns[chosen_type](snippet, context)
+            spec_cache_info = (
+                f"cache:hit/{spec_result.cache_read_tokens}t" if spec_result.cache_read_tokens > 0
+                else f"cache:wrote/{spec_result.cache_creation_tokens}t" if spec_result.cache_creation_tokens > 0
+                else "cache:miss"
+            )
+            if spec_result.should_demote_to_text:
+                old_type = chosen_type
+                chosen_type = "text"
+                gate_note += f" [{old_type}-specialist demoted to text: {spec_result.demotion_reason}]"
+            else:
+                if chosen_type == "html":
+                    non_image_html = spec_result.spec
+                else:
+                    non_image_spec = spec_result.spec
+                non_image_caption = spec_result.caption
+                classifier_label += f" [{chosen_type}-specialist:{spec_cache_info}]"
+        except Exception as e:
+            classifier_label += f" [{chosen_type}-specialist failed: {e}]"
+
     cell_id = next_id(data["cells"])
     final_prompt = image_prompt_override or build_prompt(chosen_type, snippet, context)
+    has_specialist_content = non_image_spec is not None or non_image_html is not None
+    proposal_notes = (
+        f"generated via specialist [{classifier_label}]{gate_note}"
+        if has_specialist_content
+        else f"(awaiting generation) [{classifier_label}]{gate_note}"
+    )
     proposal = CellProposal(
         id=cell_id,
         timestamp=now_iso(),
         cell_type=chosen_type,
         trigger_snippet=snippet.strip(),
         prompt=final_prompt,
-        notes=f"(awaiting generation) [{classifier_label}]{gate_note}",
+        spec=non_image_spec,
+        html=non_image_html,
+        caption=non_image_caption,
+        notes=proposal_notes,
         discourse_move=discourse_move,
         confidence=confidence,
         classifier_reasoning=classifier_reasoning,

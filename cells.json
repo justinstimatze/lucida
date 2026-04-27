@@ -509,6 +509,153 @@
       "replaced_by": null,
       "retrigger_count": 2,
       "retrigger_reason": ""
+    },
+    {
+      "id": "cell-0026",
+      "timestamp": "2026-04-27T09:17:59+00:00",
+      "cell_type": "html",
+      "trigger_snippet": "The two species of mycorrhizal fungi differ on every meaningful axis: Glomeromycota colonize root cells intracellularly, partner exclusively with vascular plants, and are obligate symbionts; Basidiomycota colonize root surfaces intercellularly, pair with woody trees, and can survive saprotrophically when no host is present.",
+      "prompt": "Produce an HTML <table> (no inline styles; CSS is in\nnotebook.css) that surfaces the comparison described below.\nDo not invent rows, columns, or values not present in the\nsnippet. If the snippet underspecifies a dimension, leave\nthat cell blank rather than filling it with a plausible-\nlooking guess.\n\nSnippet:\nThe two species of mycorrhizal fungi differ on every meaningful axis: Glomeromycota colonize root cells intracellularly, partner exclusively with vascular plants, and are obligate symbionts; Basidiomycota colonize root surfaces intercellularly, pair with woody trees, and can survive saprotrophically when no host is present.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": null,
+      "html": "<table><thead><tr><th></th><th>Glomeromycota</th><th>Basidiomycota</th></tr></thead><tbody><tr><td>Colonization method</td><td>intracellular (within root cells)</td><td>intercellular (root surfaces)</td></tr><tr><td>Host plant partners</td><td>vascular plants (exclusively)</td><td>woody trees</td></tr><tr><td>Symbiont status</td><td>obligate symbiont</td><td>can survive saprotrophically without a host</td></tr></tbody></table>",
+      "caption": "Glomeromycota vs Basidiomycota mycorrhizal fungi across three axes: colonization method, host plant partners, and symbiont status.",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192comparative/html@0.92 [v0\u2192text] cache:wrote/2550t [html-specialist:cache:miss]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": "comparative",
+      "confidence": 0.92,
+      "classifier_reasoning": "Two named entities (Glomeromycota, Basidiomycota) compared across three explicit, parallel dimensions (colonization site, host type, trophic strategy). A comparison table surfaces the contrast grid more efficiently than prose and adds clear visual structure the snippet alone lacks.",
+      "reflection_source_ids": null,
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
+    },
+    {
+      "id": "cell-0027",
+      "timestamp": "2026-04-27T09:18:22+00:00",
+      "cell_type": "vega",
+      "trigger_snippet": "Between 1979 and 2019, the top 10% of US households captured 56% of total income growth, while the bottom 50% captured 4%. The middle 40% saw their share fall by 8 percentage points.",
+      "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nBetween 1979 and 2019, the top 10% of US households captured 56% of total income growth, while the bottom 50% captured 4%. The middle 40% saw their share fall by 8 percentage points.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "data": {
+          "values": [
+            {
+              "group": "Top 10%",
+              "share_pct": 56
+            },
+            {
+              "group": "Middle 40%",
+              "share_pct": 36
+            },
+            {
+              "group": "Bottom 50%",
+              "share_pct": 4
+            }
+          ]
+        },
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 3
+        },
+        "encoding": {
+          "y": {
+            "field": "group",
+            "type": "nominal",
+            "sort": [
+              "-share_pct"
+            ],
+            "axis": {
+              "title": null,
+              "labelFontSize": 12
+            }
+          },
+          "x": {
+            "field": "share_pct",
+            "type": "quantitative",
+            "axis": {
+              "title": "Share of total income growth (%)",
+              "titleFontSize": 11
+            },
+            "scale": {
+              "domain": [
+                0,
+                65
+              ]
+            }
+          },
+          "color": {
+            "field": "group",
+            "type": "nominal",
+            "legend": null,
+            "scale": {
+              "domain": [
+                "Top 10%",
+                "Middle 40%",
+                "Bottom 50%"
+              ],
+              "range": [
+                "#c0392b",
+                "#7f8c8d",
+                "#2980b9"
+              ]
+            }
+          },
+          "tooltip": [
+            {
+              "field": "group",
+              "type": "nominal",
+              "title": "Group"
+            },
+            {
+              "field": "share_pct",
+              "type": "quantitative",
+              "title": "Share of growth (%)"
+            }
+          ]
+        },
+        "width": 480,
+        "height": 120
+      },
+      "html": null,
+      "caption": "Share of total US income growth captured by each group, 1979\u20132019. The top 10% took 56%; the bottom 50% took just 4%.",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192quantitative/vega@0.93 [v0\u2192vega] cache:hit/2550t [vega-specialist:cache:miss]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": "quantitative",
+      "confidence": 0.93,
+      "classifier_reasoning": "Three distinct groups (top 10%, middle 40%, bottom 50%) each with a precise numeric share of income growth captured over a defined period (1979\u20132019). A bar chart makes the distributional skew viscerally apparent \u2014 the 56% vs. 4% gap is far more striking visually than computed mentally from prose alone.",
+      "reflection_source_ids": null,
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
+    },
+    {
+      "id": "cell-0028",
+      "timestamp": "2026-04-27T09:18:36+00:00",
+      "cell_type": "mermaid",
+      "trigger_snippet": "Soil compaction reduces root depth, which decreases water uptake, which stresses plants, which lowers yields, which increases the pressure to till -- which compacts the soil further. Each cycle accelerates the next.",
+      "prompt": "Produce a Mermaid diagram (graph LR or flowchart, no extra text)\nillustrating the structure described below. Keep it readable; \u226412\nnodes; label edges where it adds clarity.\nDo not add nodes or edges for entities/relationships not\nmentioned in the snippet \u2014 the diagram should be a faithful\nstructural map, not an embellished one.\n\nSnippet:\nSoil compaction reduces root depth, which decreases water uptake, which stresses plants, which lowers yields, which increases the pressure to till -- which compacts the soil further. Each cycle accelerates the next.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": "graph LR\n  SC[\"Soil Compaction\"]\n  RD[\"Reduced Root Depth\"]\n  WU[\"Decreased Water Uptake\"]\n  PS[\"Plant Stress\"]\n  LY[\"Lower Yields\"]\n  PT[\"Pressure to Till\"]\n\n  SC -->|reduces| RD\n  RD -->|decreases| WU\n  WU -->|stresses| PS\n  PS -->|lowers| LY\n  LY -->|increases pressure for| PT\n  PT -->|further compacts| SC",
+      "html": null,
+      "caption": "A reinforcing feedback loop in which soil compaction degrades root function and plant health, driving tilling practices that compound the original compaction \u2014 each cycle accelerating the next.",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192causal/mermaid@0.91 [v0\u2192text] cache:hit/2550t [mermaid-specialist:cache:miss]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": "causal",
+      "confidence": 0.91,
+      "classifier_reasoning": "The snippet is a closed causal loop with 6 distinct named states (soil compaction \u2192 root depth \u2192 water uptake \u2192 plant stress \u2192 yield loss \u2192 tilling pressure \u2192 back to compaction), each connected by a directed \"reduces/decreases/increases\" edge. A mermaid cycle diagram makes the feedback loop's closure and directionality immediately visible in a way prose requires the reader to reconstruct mentally.",
+      "reflection_source_ids": null,
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
     }
   ]
 }
