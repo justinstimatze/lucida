@@ -468,3 +468,107 @@ validation evidence; cells.json is clean (the run used `--no-write`).
 - *Stock-drift still unsupported.* None of the 5 i2i outputs were
   generic-and-bland; they were either correct, specifically-wrong, or
   catastrophically over-corrected. Mode stays killed.
+
+## Followup: score-saturation probe (N=5, $0.14)
+
+Hypothesis (carried over from prior session): the 0.82 cluster
+suggests the evaluator's 0.7-0.9 band is too wide. Test: re-eval 5
+cells under the new failure_mode-aware prompt and check whether
+scores re-distribute.
+
+Cells: `cell-0022` (Singer machines), `cell-0023`/`cell-0024`
+(lighthouse chain — both prior @ 0.82), `cell-0010` (COSTCO sign),
+`cell-0014` (bone-white corn).
+
+| cell | old | new | mode | reading |
+|---|---|---|---|---|
+| 0022 (Singer) | 0.82 | 0.82 ≈ | none | rubric accepts treadle-style as substitute |
+| 0023 (lighthouse) | 0.82 | 0.62 ↓ | missed_detail | structural geometry miss caught cleanly |
+| 0024 (lighthouse rt) | 0.82 | 0.62 ↓ | missed_detail | same; would have caught the chain pathology in flight |
+| 0010 (COSTCO) | n/a | 0.45 | literal_simile_metaphor | clean |
+| 0014 (corn) | n/a | 0.62 | literal_simile_color | clean |
+
+**The new prompt breaks the 0.82-cluster on STRUCTURAL detail
+misses (band geometry) but NOT on NAMED-BRAND misses where a
+plausible substitute exists.** cell-0022's image shows generic
+treadle machines without visible Singer branding; the model accepts
+this at 0.82 because dusty Singers without visible logos *could
+plausibly* be Singers. failure_mode also misclassified as `none`.
+
+### Forcing the named-entity rule
+
+Added explicit override to `evaluator.py` SYSTEM_PROMPT:
+
+> Named entities ... A close substitute is NOT sufficient when the
+> snippet names the entity explicitly. ... If the snippet names the
+> entity and the image renders only a generic version, this is a
+> load-bearing miss — score MUST be ≤0.6, failure_mode = missed_detail.
+
+Re-evaluated cell-0022: 0.82 → 0.78. Score moved 4 cents but did
+not cross 0.7. failure_mode correctly flipped to `missed_detail`.
+
+Hammered the rule (added "**This rule overrides the score-band
+definitions ... a named-entity miss is BY DEFINITION not 'minor
+issues' ... do not soften with 'however the silhouette is
+suggestive.'**"). Re-evaluated again: 0.78 → 0.72. Another 6 cents.
+Still not below 0.7.
+
+**Pattern: prompt language can move the score in the right direction
+but cannot reliably push named-entity misses below 0.7 when the
+substitute is plausible.** The model treats Singer-without-logo as
+debatable and hedges. Two prompt escalations gave +10 cents of
+movement and ran out of headroom.
+
+### Implication
+
+Two things were happening in the 0.82 cluster:
+1. **Failure-mode misclassification** (real bug). cell-0022 was
+   tagged `none` despite a missing named entity. Fixed: now
+   `missed_detail` consistently. This was the structural bug.
+2. **Score-precision saturation on plausible substitutes** (calibration
+   issue, not a prompt bug). Resistant to prompt language. The
+   orchestrator's `LUCIDA_RETRIGGER_SCORE_FLOOR` (default 0.5) is the
+   right knob — operators who need named-entity strictness set floor
+   to 0.75 and catch the 0.72 cases via the score_floor branch
+   regardless of the evaluator's `should_retrigger` flag.
+
+Failure-mode routing in the orchestrator works correctly downstream
+of either path — that's the part that matters.
+
+Carry-forward: if score precision becomes load-bearing later, the
+right intervention is structural (few-shot examples, an explicit
+"enumerate named entities → state visible/not for each" forcing
+step, or a JSON-structured rubric with absolute caps), not more
+imperative prompt language.
+
+### Followup: enumerate-then-score forcing step ($0.02, N=1)
+
+Tested the structural intervention from the carry-forward above.
+Added a "Required pre-scoring step: named-entity audit" block to
+the SYSTEM_PROMPT before the Scoring section. The audit forces:
+
+1. List proper nouns / named brands from the snippet.
+2. For each, decide VISIBLE or NOT VISIBLE — *no "debatable"*.
+3. If count(NOT VISIBLE) >= 1, score MUST be ≤0.6.
+
+The "no debatable" clause is the load-bearing part — it removes the
+hedging escape route the model used to stay at 0.72 across two prior
+prompt escalations.
+
+Re-evaluated cell-0022:
+
+| attempt | score | failure_mode | retrigger | rule strength |
+|---|---|---|---|---|
+| original prompt | 0.82 | none | False | no named-entity rule |
+| named-entity rule added | 0.78 | missed_detail | False | rule present, soft |
+| rule hammered with override | 0.72 | missed_detail | False | imperative override |
+| enumerate-first forcing step | **0.62** | missed_detail | **True** | structural |
+
+Crossed 0.7 cleanly. The model's `what_didnt_work` now leads with
+"Named entity miss:" rather than burying it after atmospheric praise.
+
+**N=1.** Forcing step is anchored on cell-0022 only. Worth a broader
+N=5 re-test before committing the prompt change to main —
+specifically against cells where the named-entity rule should NOT
+fire (cells with no named entities), to check the forcing step
+doesn't over-correct generic snippets downward.

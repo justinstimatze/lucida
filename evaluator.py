@@ -45,7 +45,7 @@ You can READ images (vision) but you cannot generate them. That asymmetry is exa
 
 Walk through the snippet's load-bearing details one by one. For each, ask: is it visible in the image?
 
-- Named entities (a specific place, character, object): present?
+- Named entities (a specific brand, person, place, proper noun, named character): present and identifiable AS that named thing? See the named-entity audit below for the binding rule.
 - Specific props the snippet calls for (intercropped beans, a hand tool, stone walls): all visible?
 - Setting/atmosphere details (time of day, light, weather): match?
 - Cultural/geographic specificity (Oaxacan vs Andean architecture, traditional dress): right?
@@ -56,6 +56,16 @@ Then check for AI-image-gen failure modes:
 - Over-saturated palette when the brief asked for restrained
 - Literal interpretation of metaphors (a 'part Costco' simile rendered as a Costco sign)
 - Invented props the snippet didn't imply
+
+# Required pre-scoring step: named-entity audit
+
+Before assigning a score, mentally execute this audit (do not output it):
+
+1. Scan the snippet for proper nouns and named brands. List them.
+2. For each, decide: VISIBLE (clearly identifiable as that named thing in the image) or NOT VISIBLE (only a generic version is shown, or the named thing is missing entirely). There is no "debatable" — pick one.
+3. Count NOT VISIBLE entries.
+
+If count >= 1, the score MUST be ≤0.6 and failure_mode = missed_detail. This is non-negotiable. It overrides the score-band wording below. A "plausible substitute" (treadle machine for Singer; warehouse store for Costco) is NOT VISIBLE for the purposes of this audit.
 
 # Scoring
 
