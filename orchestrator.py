@@ -278,6 +278,53 @@ def load_cells() -> dict:
     return json.loads(CELLS_PATH.read_text())
 
 
+def closed_loop_stats(cells: list[dict]) -> dict:
+    """Closed-loop metric proposed in learnings.md.
+
+    A cell *closes a loop* if at least one is true:
+      1. it was retriggered (replaces or replaced_by populated)
+      2. it appears in another cell's reflection_source_ids
+      3. it is itself a reflection cell (reflection_source_ids non-empty)
+
+    Infrastructure-only seed cells that are *demos* (no real snippet)
+    are excluded from the denominator — they're inert by design.
+
+    Returns a dict suitable for both human-readable logging and machine
+    parsing.
+    """
+    seed_or_demo = lambda c: (
+        c.get("id", "").startswith("seed-")
+        or "infrastructure demo" in (c.get("trigger_snippet") or "")
+    )
+    referenced_ids: set[str] = set()
+    for c in cells:
+        for src in (c.get("reflection_source_ids") or []):
+            referenced_ids.add(src)
+
+    content_cells = [c for c in cells if not seed_or_demo(c)]
+    closed = []
+    for c in content_cells:
+        loops = []
+        if c.get("replaces") or c.get("replaced_by"):
+            loops.append("retrigger")
+        if c["id"] in referenced_ids:
+            loops.append("reflected_on")
+        if c.get("reflection_source_ids"):
+            loops.append("reflection_output")
+        if loops:
+            closed.append((c["id"], loops))
+
+    total_content = len(content_cells)
+    closed_count = len(closed)
+    return {
+        "total_cells": len(cells),
+        "content_cells": total_content,
+        "closed_cells": closed_count,
+        "ratio": (closed_count / total_content) if total_content else 0.0,
+        "closed": closed,
+    }
+
+
 def is_trivial(cell_type: str, spec, html: str | None) -> str | None:
     """Heuristic: would this viz be more informative as a caption-only text
     cell? If trivial, returns a short reason; else None.
@@ -708,7 +755,21 @@ def main() -> None:
                    help="cap on retriggers per cell (default 3)")
     p.add_argument("--segment", default=None,
                    help="path to a document; segment it into salient passages and run each through the orchestrator")
+    p.add_argument("--metric", default=None, choices=["closed-loop"],
+                   help="report a corpus-level metric and exit")
     args = p.parse_args()
+
+    if args.metric == "closed-loop":
+        stats = closed_loop_stats(load_cells()["cells"])
+        print(
+            f"closed-loop ratio: {stats['closed_cells']}/{stats['content_cells']} "
+            f"= {stats['ratio'] * 100:.1f}%  "
+            f"(of {stats['total_cells']} total; "
+            f"seeds & infra demos excluded from denominator)"
+        )
+        for cid, loops in stats["closed"]:
+            print(f"  {cid}: {','.join(loops)}")
+        return
 
     if args.sweep_trivial:
         demoted = sweep_trivial(write=args.write)

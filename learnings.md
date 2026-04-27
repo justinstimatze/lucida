@@ -233,17 +233,38 @@ A cell *closes a loop* when it satisfies at least one of:
 2. **Reflection input** — it appears in another cell's
    `reflection_source_ids`
 3. **Reflection output** — it is itself a reflection cell
-4. **Specialist follow-on** — its content is referenced by a later
-   classifier reasoning string or specialist prompt
+   (non-empty `reflection_source_ids`)
 
-Counting against the current corpus:
+Implemented in `orchestrator.py:closed_loop_stats()`; runs via
+`python orchestrator.py --metric closed-loop`. The watcher emits the
+metric on each pass that mints cells (`watcher.py:watch()`).
 
-- Retrigger lineages: cell-0023, 0024, 0025 → **3**
-- Reflection input: cells 0011, 0012, 0013, 0014, 0015 → **5**
-- Reflection output: cell-0016 → **1**
-- Specialist follow-on: cell-0028 (mermaid) was suggested by cell-0016 → **1**
+Seed cells and infrastructure demos (cells 0011-0013, declared
+"infrastructure demo, no real snippet") are excluded from both
+numerator and denominator — they are inert by design.
 
-**Closed-loop count: 10 of 35 = 28.6%.**
+The metric measured against the current corpus:
+
+```
+$ python orchestrator.py --metric closed-loop
+closed-loop ratio: 6/28 = 21.4%  (of 35 total; seeds & infra demos excluded)
+  cell-0014: reflected_on
+  cell-0015: reflected_on
+  cell-0016: reflection_output
+  cell-0023: retrigger
+  cell-0024: retrigger
+  cell-0025: retrigger
+```
+
+**Closed-loop ratio: 6 of 28 content cells = 21.4%.**
+
+Note on omissions from the metric: a fourth criterion I considered —
+"specialist follow-on" (a cell whose content is referenced by a later
+classifier reasoning string) — turned out too soft to detect
+mechanically without explicit ID links. cell-0028's mermaid was
+suggested by cell-0016's reflection, but that lineage isn't stored
+anywhere queryable. Adding it would inflate the ratio with weak
+evidence. Better to keep the metric mechanical and conservative.
 
 This is a more honest measure than "did the human go look" because it
 captures what makes lucida structurally different from a folder of
@@ -253,9 +274,10 @@ design — but they also don't get to count as wins. A cell that nothing
 else touches is overhead.
 
 **Proposed v0.5 → v1 target:** closed-loop ratio ≥ 50% over the next 30
-content cells (excluding infrastructure demos). If we can't break 50%,
-the system is a slow expensive way to log conversations and we should
-fold reflection/retrigger into the orchestrator's default path or rethink.
+content cells (excluding infrastructure demos). Current baseline 21.4%.
+If we can't break 50%, the system is a slow expensive way to log
+conversations and we should fold reflection/retrigger into the
+orchestrator's default path or rethink.
 
 ## What I'd change about the kill criteria themselves
 

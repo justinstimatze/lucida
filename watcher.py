@@ -185,11 +185,26 @@ def watch(
         while True:
             step = process_once(transcript_path, **kwargs)
             ts = time.strftime("%H:%M:%S")
+            metric = ""
+            # Closed-loop ratio after each pass that minted something —
+            # cheap, runs against in-memory cells.json. The point is to
+            # surface the metric live during shape-A operation so we can
+            # tell whether new cells are participating in loops or just
+            # piling up.
             if step.cells_minted:
+                try:
+                    from orchestrator import closed_loop_stats, load_cells
+                    cl = closed_loop_stats(load_cells()["cells"])
+                    metric = (
+                        f" closed-loop {cl['closed_cells']}/{cl['content_cells']}"
+                        f"={cl['ratio'] * 100:.0f}%"
+                    )
+                except Exception:
+                    metric = ""
                 print(
                     f"[watcher {ts}] +{step.cells_minted} cells "
                     f"({step.cells_skipped_dup} dups skipped, "
-                    f"{step.new_chars} new chars): {step.minted_ids}",
+                    f"{step.new_chars} new chars){metric}: {step.minted_ids}",
                     file=sys.stderr,
                 )
             else:
