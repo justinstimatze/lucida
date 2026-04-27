@@ -67,6 +67,33 @@ Score 0.0 to 1.0:
 
 Default threshold for retrigger is 0.6. Score conservatively: most images don't perfectly hit every detail; reserve <0.6 for clear failures.
 
+# Retrigger decision
+
+The should_retrigger flag follows mechanically from the score band, NOT from a separate "would a fix help" judgment:
+
+- score < 0.5: should_retrigger = true (clear failure, regenerate)
+- score 0.5-0.7: should_retrigger = true (significant failure that retrigger may correct)
+- score 0.7-0.9: should_retrigger = **false** — by the band definition above, this is "minor issues that don't undermine the cell," so accept it. Do not flag retrigger here even if you can name a specific tweak; the cell is acceptable as-is.
+- score >= 0.9: should_retrigger = false (already excellent)
+
+If you find yourself wanting to retrigger at 0.7+, the right move is to lower the score into the 0.5-0.7 band, not to flag retrigger above the threshold. The scoring rubric and the retrigger flag must be internally consistent — the orchestrator gates on this and a score/flag mismatch wastes a generation cycle (observed: lighthouse chain 0023→0024→0025, three eval@0.82 with retrigger=true, no improvement across attempts because the score said "fine" and the flag said "redo").
+
+# Failure-mode classification
+
+After identifying what went wrong, classify the failure into ONE of these modes (taxonomy from learnings.md → cataloging appendix). The orchestrator routes to image-to-image edit vs. fresh-generate based on this — a wrong classification can make the next attempt worse:
+
+- **missed_detail**: A specifically-named prop, geometry, or feature is missing or rendered incorrectly inside an otherwise-correct interpretation. Examples: "alternating bands of unequal width" rendered as equal bands; "Singer sewing machines + 1989 calendar" both absent; named character missing a tool. Image-to-image edit reliably fixes these — the base image's correct interpretation is preserved while the missing detail is added.
+
+- **literal_simile_color**: A color/material descriptor was rendered as object morphology rather than as a property of the right object. Example: "bone-white corn" rendered as skeletal pale stalks rather than as living corn whose kernels happen to be white. Image-to-image edit usually fixes these.
+
+- **literal_simile_metaphor**: A metaphor's literal half was rendered. Examples: "part Lourdes and part Costco" rendered with a literal Costco store sign; "drowning in paperwork" rendered with someone literally underwater. Image-to-image edit makes this WORSE — the wrong-interpretation is in the base PNG and the model anchors on it. Flag this so the orchestrator does fresh generate, not edit.
+
+- **wrong_genre**: The snippet is meta-commentary, abstract, or rhetorical and the image renders it as a concrete scene (or the inverse). Example: "the Margaret moment is the essay's emotional center" — meta-commentary about an essay — rendered as a literal cozy pensioner scene. The cell type itself may have been wrong; even fresh generate is unlikely to help. Flag this and the orchestrator will abort retrigger.
+
+- **none**: Image is correct or has only minor issues unrelated to the modes above.
+
+Pick the SINGLE most-load-bearing mode if more than one applies. Defer to missed_detail when uncertain — it has the safest correction strategy.
+
 # Retrigger guidance
 
 If you recommend retriggering, write retrigger_guidance as a SHORT corrective brief that the image specialist will pass to Gemini on the next attempt. Be specific about what to fix:
@@ -103,16 +130,24 @@ EVALUATE_TOOL = {
             },
             "should_retrigger": {
                 "type": "boolean",
-                "description": "True if the cell should be regenerated with corrective guidance.",
+                "description": "True if quality_score < 0.7. Must be false at score >= 0.7; the score band already defines those as acceptable.",
             },
             "retrigger_guidance": {
                 "type": "string",
                 "description": "Short corrective brief for the next attempt; empty if should_retrigger=false.",
             },
+            "failure_mode": {
+                "type": "string",
+                "enum": [
+                    "missed_detail", "literal_simile_color",
+                    "literal_simile_metaphor", "wrong_genre", "none",
+                ],
+                "description": "Primary failure mode (see system prompt). Routes orchestrator to i2i edit vs. fresh generate vs. abort. Pick the single most load-bearing mode if multiple apply.",
+            },
         },
         "required": [
             "quality_score", "what_worked", "what_didnt_work",
-            "should_retrigger", "retrigger_guidance",
+            "should_retrigger", "retrigger_guidance", "failure_mode",
         ],
     },
 }
@@ -130,6 +165,7 @@ class EvaluationResult:
     cache_creation_tokens: int
     input_tokens: int
     output_tokens: int
+    failure_mode: str = "none"
 
 
 class EvaluatorError(RuntimeError):
@@ -202,6 +238,7 @@ def evaluate_image_cell(
                 what_didnt_work=inp["what_didnt_work"],
                 should_retrigger=bool(inp["should_retrigger"]),
                 retrigger_guidance=inp["retrigger_guidance"],
+                failure_mode=inp.get("failure_mode", "none"),
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
                 cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
