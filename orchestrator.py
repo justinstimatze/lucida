@@ -532,7 +532,11 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 f"{llm.discourse_move}/{llm.cell_type}@{llm.confidence:.2f} "
                 f"[v0→{auto_type_v0}] {cache_info}"
             )
-            # Confidence gate (leg5_spec.md lines 117-122)
+            # Confidence gate (leg5_spec.md lines 117-122). Spec says
+            # "no viz update; panel holds last good" at <0.6 — i.e. suppress.
+            # lucida diverges: demote to text rather than suppress, since
+            # text cells still carry information and lucida has no "panel"
+            # to hold-last-good. The cell mints, just without viz authority.
             if llm.confidence < 0.6:
                 chosen_type = "text"
                 gate_note = f" [confidence-gate <0.6 → text; was {llm.cell_type}]"
@@ -643,15 +647,29 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     if generate_image and chosen_type == "image":
         out_dir = Path(__file__).parent / "cells"
 
-        def _generate_into(p: CellProposal, attempt_label: str) -> None:
-            """Mutate p with nano_banana result; preserve classifier_label in notes."""
+        def _generate_into(p: CellProposal, attempt_label: str,
+                           edit_base: Path | None = None) -> None:
+            """Mutate p with nano_banana result; preserve classifier_label in notes.
+
+            If edit_base is set, run image-to-image edit on that PNG using
+            p.prompt as the (short) corrective brief. Otherwise text-to-image
+            from p.prompt. Routing is done by the caller based on
+            evaluator.failure_mode (see learnings.md → i2i mode-conditional).
+            """
             import nano_banana
             out_path = out_dir / f"{p.id}.png"
             try:
-                result = nano_banana.generate(p.prompt, out_path)
+                if edit_base is not None:
+                    result = nano_banana.transform_image(
+                        edit_base, p.prompt, out_path, temperature=0.4,
+                    )
+                    mode_tag = f"i2i-edit of {edit_base.name}"
+                else:
+                    result = nano_banana.generate(p.prompt, out_path)
+                    mode_tag = "text-to-image"
                 p.image_path = f"cells/{out_path.name}"
                 p.notes = (
-                    f"{attempt_label} via {result.model} "
+                    f"{attempt_label} ({mode_tag}) via {result.model} "
                     f"({result.bytes_written} bytes) [{classifier_label}]"
                 )
             except nano_banana.NanoBananaError as e:
@@ -698,6 +716,19 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 if not should_retrigger:
                     break
 
+                # Failure-mode gate: wrong_genre means the cell-type itself
+                # was probably wrong (snippet is meta-commentary or abstract,
+                # not a renderable scene). Re-attempting won't help; abort.
+                # See learnings.md → i2i mini-batch (cell-0005 went from a
+                # generic-pensioner scene to score 0.15 even with explicit
+                # corrective text).
+                if eval_result.failure_mode == "wrong_genre":
+                    current.notes += (
+                        " [wrong_genre — aborting retrigger; "
+                        "snippet may not be image-genre]"
+                    )
+                    break
+
                 # Build corrective guidance. Prefer evaluator's retrigger_guidance
                 # (intentional corrective). When score-floor forced retrigger
                 # without that, splice what_didnt_work into a stronger reframe so
@@ -728,19 +759,44 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     current.notes += " [guidance-stalled, breaking]"
                     break
                 prev_guidance = guidance
-                # Strip prior CORRECTIVE GUIDANCE sections so we don't accumulate
-                # stale corrections across attempts -- the base prompt + latest
-                # guidance is what Gemini should see.
-                base_prompt = current.prompt.split(
-                    "\n\nCORRECTIVE GUIDANCE FROM PREVIOUS ATTEMPT"
-                )[0]
+
+                # Mode-aware routing: i2i edit fixes missed_detail and
+                # literal_simile_color reliably (per learnings.md mini-batch),
+                # but makes literal_simile_metaphor worse (the wrong-
+                # interpretation is in the base PNG and Gemini anchors on
+                # it — cell-0010 COSTCO sign survived an explicit removal
+                # corrective). Default-on; LUCIDA_RETRIGGER_USE_I2I=0 disables.
+                i2i_modes = {"missed_detail", "literal_simile_color"}
+                use_i2i = (
+                    os.environ.get("LUCIDA_RETRIGGER_USE_I2I", "1") == "1"
+                    and eval_result.failure_mode in i2i_modes
+                    and current.image_path
+                )
+
                 new_id_num = len(data["cells"]) + len(cells_to_write) + 1
                 new_id = f"cell-{new_id_num:04d}"
-                enhanced_prompt = (
-                    f"{base_prompt}\n\n"
-                    f"CORRECTIVE GUIDANCE FROM PREVIOUS ATTEMPT (#{attempt + 1}):\n"
-                    f"{guidance}"
-                )
+                if use_i2i:
+                    # For i2i, the prompt is just the short corrective brief;
+                    # the base image carries the rest of the context.
+                    enhanced_prompt = (
+                        f"(i2i edit of {current.id}; "
+                        f"failure_mode={eval_result.failure_mode})\n\n"
+                        f"{guidance}"
+                    )
+                else:
+                    # Text-to-image: full original prompt + corrective addendum.
+                    # Strip prior CORRECTIVE GUIDANCE sections so we don't
+                    # accumulate stale corrections across attempts.
+                    base_prompt = current.prompt.split(
+                        "\n\nCORRECTIVE GUIDANCE FROM PREVIOUS ATTEMPT"
+                    )[0].split(
+                        "\n\n("  # i2i header from a prior i2i retrigger
+                    )[0]
+                    enhanced_prompt = (
+                        f"{base_prompt}\n\n"
+                        f"CORRECTIVE GUIDANCE FROM PREVIOUS ATTEMPT (#{attempt + 1}):\n"
+                        f"{guidance}"
+                    )
                 new_proposal = CellProposal(
                     id=new_id,
                     timestamp=now_iso(),
@@ -757,7 +813,14 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 )
                 current.replaced_by = new_id
 
-                _generate_into(new_proposal, f"retrigger {attempt + 1}")
+                edit_base = (
+                    Path(__file__).parent / current.image_path
+                    if use_i2i else None
+                )
+                _generate_into(
+                    new_proposal, f"retrigger {attempt + 1}",
+                    edit_base=edit_base,
+                )
                 cells_to_write.append(new_proposal)
 
                 if not new_proposal.image_path:
