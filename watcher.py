@@ -82,6 +82,7 @@ class WatcherStep:
     cells_minted: int
     cells_skipped_dup: int
     minted_ids: list[str] = field(default_factory=list)
+    reflection_id: str | None = None
     note: str = ""
 
 
@@ -95,8 +96,17 @@ def process_once(
     max_retriggers: int = 3,
     min_new_chars: int = 200,
     state_path: Path | None = None,
+    reflect_every: int | None = None,
+    reflect_n: int = 5,
 ) -> WatcherStep:
-    """Read transcript delta, segment, mint non-duplicate cells."""
+    """Read transcript delta, segment, mint non-duplicate cells.
+
+    If ``reflect_every`` is a positive int, the watcher tracks cumulative
+    minted-since-last-reflect across passes (in the state file) and calls
+    orchestrator.reflect_and_persist(reflect_n) once the threshold is
+    crossed. Without this, shape A is a one-way pipe — the closed-loop
+    metric only goes down.
+    """
     if not transcript_path.exists():
         return WatcherStep(0, 0, 0, 0, note=f"transcript not found: {transcript_path}")
 
@@ -157,6 +167,23 @@ def process_once(
             skipped += 1
             print(f"  failed to mint segment: {e}", file=sys.stderr)
 
+    # Reflection cadence: drive a reflection cell after every `reflect_every`
+    # mintings (cumulative across passes). State persists the running count
+    # so a slow stream of single-cell mintings still triggers reflection on
+    # schedule. Reflection failures are logged but don't block the watcher.
+    reflection_id: str | None = None
+    if reflect_every and reflect_every > 0 and minted_ids:
+        pending = state.get("cells_minted_since_reflect", 0) + len(minted_ids)
+        if pending >= reflect_every:
+            try:
+                from orchestrator import reflect_and_persist
+                proposal = reflect_and_persist(reflect_n, write=write)
+                reflection_id = proposal.id
+                pending = 0
+            except Exception as e:
+                print(f"  reflection error: {e}", file=sys.stderr)
+        state["cells_minted_since_reflect"] = pending
+
     if write:
         state["last_offset"] = len(text)
         state["last_pass"] = time.time()
@@ -168,6 +195,7 @@ def process_once(
         cells_minted=len(minted_ids),
         cells_skipped_dup=skipped,
         minted_ids=minted_ids,
+        reflection_id=reflection_id,
         note=seg_result.summary,
     )
 
@@ -201,10 +229,11 @@ def watch(
                     )
                 except Exception:
                     metric = ""
+                refl = f" + reflection {step.reflection_id}" if step.reflection_id else ""
                 print(
                     f"[watcher {ts}] +{step.cells_minted} cells "
                     f"({step.cells_skipped_dup} dups skipped, "
-                    f"{step.new_chars} new chars){metric}: {step.minted_ids}",
+                    f"{step.new_chars} new chars){metric}{refl}: {step.minted_ids}",
                     file=sys.stderr,
                 )
             else:
@@ -239,6 +268,13 @@ def main() -> None:
     p.add_argument("--max-retriggers", type=int, default=3)
     p.add_argument("--min-new-chars", type=int, default=200,
                    help="don't fire the segmenter unless the delta is at least this large")
+    p.add_argument("--reflect-every", type=int,
+                   default=int(os.environ.get("LUCIDA_WATCHER_REFLECT_EVERY", "0") or "0"),
+                   help="trigger a reflection cell after every N minted cells "
+                        "(cumulative across passes; 0 disables; default 0). "
+                        "Without this, shape A is one-way and the closed-loop ratio only goes down.")
+    p.add_argument("--reflect-n", type=int, default=5,
+                   help="number of recent visible cells the reflection covers (default 5)")
     args = p.parse_args()
 
     use_llm = False if args.no_llm_classify else None
@@ -250,6 +286,8 @@ def main() -> None:
         auto_retrigger=not args.no_auto_retrigger,
         max_retriggers=args.max_retriggers,
         min_new_chars=args.min_new_chars,
+        reflect_every=args.reflect_every,
+        reflect_n=args.reflect_n,
     )
 
     transcript_path = Path(args.transcript)
@@ -263,6 +301,7 @@ def main() -> None:
             "cells_minted": step.cells_minted,
             "cells_skipped_dup": step.cells_skipped_dup,
             "minted_ids": step.minted_ids,
+            "reflection_id": step.reflection_id,
             "note": step.note,
         }, indent=2))
 

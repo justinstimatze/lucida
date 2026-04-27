@@ -325,6 +325,55 @@ def closed_loop_stats(cells: list[dict]) -> dict:
     }
 
 
+def reflect_and_persist(n: int = 5, write: bool = True) -> "CellProposal":
+    """Run a reflection pass over the last n visible cells and persist the
+    resulting reflection cell. Returns the CellProposal (returned even if
+    write=False, for dry-run callers).
+
+    Extracted from the --reflect CLI block so the watcher can drive
+    reflection autonomously after a configurable cadence of mintings.
+    Raises whatever reflect.reflect_on_recent_cells raises (typically
+    ReflectError on missing key/SDK or no visible cells).
+    """
+    import reflect as _reflect
+    result = _reflect.reflect_on_recent_cells(n)
+
+    data = load_cells()
+    cell_id = next_id(data["cells"])
+    cache_info = (
+        f"cache:hit/{result.cache_read_tokens}t" if result.cache_read_tokens > 0
+        else f"cache:wrote/{result.cache_creation_tokens}t" if result.cache_creation_tokens > 0
+        else "cache:miss"
+    )
+    parts = [result.reflection]
+    if result.what_worked:
+        parts.append(f"What worked: {result.what_worked}")
+    if result.what_didnt_work:
+        parts.append(f"What didn't: {result.what_didnt_work}")
+    if result.proposed_next_cell_type != "none" and result.proposed_next_snippet:
+        parts.append(
+            f"Proposed next ({result.proposed_next_cell_type}): "
+            f"{result.proposed_next_snippet}"
+        )
+    caption = "\n\n".join(parts)
+    short_model = result.model.replace("claude-", "")
+    proposal = CellProposal(
+        id=cell_id,
+        timestamp=now_iso(),
+        cell_type="text",
+        trigger_snippet=f"(reflection on {len(result.source_ids)} cells: {', '.join(result.source_ids)})",
+        prompt="(reflective loop -- system prompt was reflect.SYSTEM_PROMPT; user content was the recent cells as multimodal input)",
+        caption=caption,
+        notes=f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]",
+        classifier_reasoning=result.reasoning,
+        reflection_source_ids=result.source_ids,
+    )
+    if write:
+        data["cells"].append(asdict(proposal))
+        CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+    return proposal
+
+
 def is_trivial(cell_type: str, spec, html: str | None) -> str | None:
     """Heuristic: would this viz be more informative as a caption-only text
     cell? If trivial, returns a short reason; else None.
@@ -785,48 +834,10 @@ def main() -> None:
 
     if args.reflect:
         try:
-            import reflect as _reflect
-            result = _reflect.reflect_on_recent_cells(args.reflect_on)
+            proposal = reflect_and_persist(args.reflect_on, write=args.write)
         except Exception as e:
             print(f"reflect error: {e}", file=sys.stderr)
             sys.exit(1)
-
-        data = load_cells()
-        cell_id = next_id(data["cells"])
-        cache_info = (
-            f"cache:hit/{result.cache_read_tokens}t" if result.cache_read_tokens > 0
-            else f"cache:wrote/{result.cache_creation_tokens}t" if result.cache_creation_tokens > 0
-            else "cache:miss"
-        )
-
-        # Compose a multi-paragraph caption from the structured reflection
-        parts = [result.reflection]
-        if result.what_worked:
-            parts.append(f"What worked: {result.what_worked}")
-        if result.what_didnt_work:
-            parts.append(f"What didn't: {result.what_didnt_work}")
-        if result.proposed_next_cell_type != "none" and result.proposed_next_snippet:
-            parts.append(
-                f"Proposed next ({result.proposed_next_cell_type}): "
-                f"{result.proposed_next_snippet}"
-            )
-        caption = "\n\n".join(parts)
-
-        short_model = result.model.replace("claude-", "")
-        proposal = CellProposal(
-            id=cell_id,
-            timestamp=now_iso(),
-            cell_type="text",
-            trigger_snippet=f"(reflection on {len(result.source_ids)} cells: {', '.join(result.source_ids)})",
-            prompt="(reflective loop -- system prompt was reflect.SYSTEM_PROMPT; user content was the recent cells as multimodal input)",
-            caption=caption,
-            notes=f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]",
-            classifier_reasoning=result.reasoning,
-            reflection_source_ids=result.source_ids,
-        )
-        if args.write:
-            data["cells"].append(asdict(proposal))
-            CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
         json.dump(asdict(proposal), sys.stdout, indent=2)
         print()
         return
