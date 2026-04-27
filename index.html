@@ -184,8 +184,8 @@ function renderCell(c) {
   card.appendChild(head);
 
   if (c.trigger_snippet) {
-    const trig = el("details", "cell-trigger");
-    trig.appendChild(el("summary", null, "trigger snippet"));
+    const trig = el("div", "cell-trigger");
+    trig.appendChild(el("div", "cell-trigger-label", "trigger snippet"));
     trig.appendChild(el("pre", null, c.trigger_snippet));
     card.appendChild(trig);
   }

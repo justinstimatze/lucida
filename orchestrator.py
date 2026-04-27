@@ -48,6 +48,8 @@ class CellProposal:
     discourse_move: str | None = None
     confidence: float | None = None
     classifier_reasoning: str | None = None
+    # populated when this cell is a reflection -- ids of the cells reflected on
+    reflection_source_ids: list[str] | None = None
 
 
 def now_iso() -> str:
@@ -504,6 +506,10 @@ def main() -> None:
                    help="walk cells.json and demote trivial cells in place; pair with --write to persist")
     p.add_argument("--no-llm-classify", action="store_true",
                    help="disable the v0.5 LLM classifier; force the keyword classifier even if ANTHROPIC_API_KEY is set")
+    p.add_argument("--reflect", action="store_true",
+                   help="reflective loop: read back recent visible cells (incl. images) and synthesize a reflection cell")
+    p.add_argument("-n", "--reflect-on", type=int, default=5,
+                   help="number of recent visible cells to reflect on (with --reflect)")
     args = p.parse_args()
 
     if args.sweep_trivial:
@@ -518,8 +524,56 @@ def main() -> None:
             print("(no trivial cells found)")
         return
 
+    if args.reflect:
+        try:
+            import reflect as _reflect
+            result = _reflect.reflect_on_recent_cells(args.reflect_on)
+        except Exception as e:
+            print(f"reflect error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        data = load_cells()
+        cell_id = next_id(data["cells"])
+        cache_info = (
+            f"cache:hit/{result.cache_read_tokens}t" if result.cache_read_tokens > 0
+            else f"cache:wrote/{result.cache_creation_tokens}t" if result.cache_creation_tokens > 0
+            else "cache:miss"
+        )
+
+        # Compose a multi-paragraph caption from the structured reflection
+        parts = [result.reflection]
+        if result.what_worked:
+            parts.append(f"What worked: {result.what_worked}")
+        if result.what_didnt_work:
+            parts.append(f"What didn't: {result.what_didnt_work}")
+        if result.proposed_next_cell_type != "none" and result.proposed_next_snippet:
+            parts.append(
+                f"Proposed next ({result.proposed_next_cell_type}): "
+                f"{result.proposed_next_snippet}"
+            )
+        caption = "\n\n".join(parts)
+
+        short_model = result.model.replace("claude-", "")
+        proposal = CellProposal(
+            id=cell_id,
+            timestamp=now_iso(),
+            cell_type="text",
+            trigger_snippet=f"(reflection on {len(result.source_ids)} cells: {', '.join(result.source_ids)})",
+            prompt="(reflective loop -- system prompt was reflect.SYSTEM_PROMPT; user content was the recent cells as multimodal input)",
+            caption=caption,
+            notes=f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]",
+            classifier_reasoning=result.reasoning,
+            reflection_source_ids=result.source_ids,
+        )
+        if args.write:
+            data["cells"].append(asdict(proposal))
+            CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+        json.dump(asdict(proposal), sys.stdout, indent=2)
+        print()
+        return
+
     if not args.snippet:
-        p.error("--snippet is required (unless --sweep-trivial)")
+        p.error("--snippet is required (unless --sweep-trivial or --reflect)")
 
     use_llm = False if args.no_llm_classify else None  # None = auto-detect via env
     proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate,

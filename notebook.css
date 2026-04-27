@@ -70,7 +70,14 @@ main {
   margin: 0.4rem 0;
   font-size: 0.85rem;
 }
-.cell-trigger summary, .cell-prompt summary {
+.cell-trigger-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.2rem;
+}
+.cell-prompt summary {
   cursor: pointer;
   color: var(--muted);
   user-select: none;
