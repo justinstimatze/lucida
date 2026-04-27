@@ -137,6 +137,19 @@ const TC = THEME_CONFIG[ACTIVE] || THEME_CONFIG.lab;
 
 mermaid.initialize({ startOnLoad: false, ...TC.mermaid });
 
+// Pause off-screen 3D content (Three.js render loops, A-Frame scenes) via
+// IntersectionObserver. Multiple live WebGL contexts in one page wedge the
+// render thread; this only animates what's visible.
+function pauseOffScreen(targetEl, onShow, onHide) {
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) onShow();
+      else onHide();
+    }
+  }, { rootMargin: "200px" });
+  io.observe(targetEl);
+}
+
 // Token expansion for cell specs: $accent, $stroke1, $stroke2, $stroke3,
 // $fg, $muted, $bg, $panel. Substituted before innerHTML / scene3d render
 // so cell content re-colors with theme.
@@ -171,9 +184,19 @@ async function load() {
     (suppressedNote ? ` (${suppressedNote})` : "") +
     `  ·  theme: ${ACTIVE}`;
   document.getElementById("session-meta").textContent = meta;
+
+  // Group cells that share a trigger_snippet so each can render as
+  // "attempt N of M" rather than appearing as accidental duplicates.
+  const snippetGroups = new Map();
+  for (const c of visible) {
+    if (!c.trigger_snippet) continue;
+    if (!snippetGroups.has(c.trigger_snippet)) snippetGroups.set(c.trigger_snippet, []);
+    snippetGroups.get(c.trigger_snippet).push(c.id);
+  }
+
   const root = document.getElementById("notebook");
   for (const c of visible) {
-    root.appendChild(renderCell(c));
+    root.appendChild(renderCell(c, snippetGroups));
   }
 }
 
@@ -184,11 +207,22 @@ function el(tag, cls, text) {
   return e;
 }
 
-function renderCell(c) {
+function renderCell(c, snippetGroups) {
   const card = el("article", "cell");
+  if (Array.isArray(c.reflection_source_ids) && c.reflection_source_ids.length > 0) {
+    card.classList.add("cell-reflection");
+  }
   const head = el("div", "cell-head");
   head.appendChild(el("span", "cell-type", c.cell_type));
   head.appendChild(el("span", "cell-id", c.id || ""));
+  if (snippetGroups && c.trigger_snippet) {
+    const group = snippetGroups.get(c.trigger_snippet);
+    if (group && group.length > 1) {
+      const idx = group.indexOf(c.id);
+      head.appendChild(el("span", "cell-attempt-badge",
+        `attempt ${idx + 1} of ${group.length}`));
+    }
+  }
   head.appendChild(el("span", "cell-time", c.timestamp || ""));
   card.appendChild(head);
 
@@ -237,7 +271,10 @@ function renderCell(c) {
   } else if (c.cell_type === "scene3d" && c.spec) {
     const target = el("div", "scene3d-target");
     body.appendChild(target);
-    setTimeout(() => initScene3D(target, c.spec), 0);
+    setTimeout(() => {
+      const ctrl = initScene3D(target, c.spec);
+      if (ctrl) pauseOffScreen(target, ctrl.play, ctrl.pause);
+    }, 0);
   } else if (c.cell_type === "aframe" && c.spec) {
     const target = el("div", "aframe-target");
     const trimmed = expandTokens(c.spec).trim();
@@ -246,6 +283,22 @@ function renderCell(c) {
       : `<a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true">${trimmed}</a-scene>`;
     target.innerHTML = wrapped;
     body.appendChild(target);
+    // Strip A-Frame's chrome (Enter VR / orientation / loader title) and
+    // pause the scene when it scrolls off-screen.
+    setTimeout(() => {
+      const stripSel = ".a-enter-vr, .a-orientation-modal, .a-loader-title, .a-modal, .a-fullscreen-button";
+      target.querySelectorAll(stripSel).forEach(el => el.remove());
+      const sceneEl = target.querySelector("a-scene");
+      if (sceneEl) {
+        // Some A-Frame builds keep a-loader-title elements inside a-scene
+        sceneEl.querySelectorAll(stripSel).forEach(el => el.remove());
+        pauseOffScreen(
+          target,
+          () => { try { sceneEl.play && sceneEl.play(); } catch (e) {} },
+          () => { try { sceneEl.pause && sceneEl.pause(); } catch (e) {} },
+        );
+      }
+    }, 500);
   } else if (c.cell_type === "lottie" && c.spec) {
     const target = el("div", "lottie-target");
     body.appendChild(target);
@@ -272,6 +325,18 @@ function renderCell(c) {
     }, 0);
   } else if (c.cell_type === "text" && c.caption) {
     // caption-only renders below
+  } else if (c.classifier_reasoning || c.confidence !== null) {
+    // Proposal cell: classifier metadata exists but no spec/html/image yet.
+    // Surface the reasoning so the cell isn't visually broken-looking.
+    const proposal = el("div", "cell-proposal");
+    const labelText = c.confidence != null
+      ? `proposal — awaiting ${c.cell_type} spec  ·  confidence ${c.confidence.toFixed(2)}`
+      : `proposal — awaiting ${c.cell_type} spec`;
+    proposal.appendChild(el("div", "cell-proposal-label", labelText));
+    if (c.classifier_reasoning) {
+      proposal.appendChild(el("div", "cell-proposal-reasoning", c.classifier_reasoning));
+    }
+    body.appendChild(proposal);
   } else {
     body.appendChild(el("div", "cell-empty", "(no content for this cell)"));
   }
@@ -294,7 +359,7 @@ function initScene3D(container, spec) {
   const T = window.THREE || (window.AFRAME && window.AFRAME.THREE);
   if (!T) {
     container.textContent = "Three.js not available (A-Frame failed to load?)";
-    return;
+    return null;
   }
   const w = container.clientWidth || 600;
   const h = 360;
@@ -355,7 +420,12 @@ function initScene3D(container, spec) {
     }
   }
 
+  // Render loop is play/pause-able via the returned controller; the caller
+  // wires it to an IntersectionObserver so off-screen scenes don't compete
+  // for the GPU thread.
+  let running = false;
   function animate() {
+    if (!running) return;
     requestAnimationFrame(animate);
     for (const a of animatables) {
       a.mesh.rotation.x += a.speed[0] || 0;
@@ -364,7 +434,10 @@ function initScene3D(container, spec) {
     }
     renderer.render(scene, camera);
   }
-  animate();
+  return {
+    play() { if (!running) { running = true; animate(); } },
+    pause() { running = false; },
+  };
 }
 
 load().catch(err => {

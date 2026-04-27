@@ -135,6 +135,78 @@ main {
   width: 100% !important;
   height: 100% !important;
 }
+/* A-Frame's vr-mode-ui="enabled: false" doesn't reliably suppress the
+   chrome on dynamically-injected scenes. Hide the entry/exit buttons,
+   loader title, and orientation modal directly. The first set targets
+   the documented A-Frame class names; the broader selectors are a
+   fallback for any UI A-Frame injects with names we didn't anticipate. */
+.aframe-target .a-enter-vr,
+.aframe-target .a-enter-vr-button,
+.aframe-target .a-orientation-modal,
+.aframe-target .a-loader-title,
+.aframe-target .a-modal,
+.aframe-target .a-fullscreen-button,
+.aframe-target button,
+.aframe-target a-scene > div:not(.a-canvas-container) {
+  display: none !important;
+}
+.aframe-target a-scene > .a-loader-title,
+.aframe-target a-scene > .a-enter-vr {
+  display: none !important;
+}
+/* If A-Frame appends VR UI to body level (some versions do), nuke it. */
+body > .a-enter-vr,
+body > .a-orientation-modal {
+  display: none !important;
+}
+
+/* Proposal cells (cells with classifier metadata but no rendered spec yet)
+   surface their classifier reasoning instead of "(no content)". */
+.cell-proposal {
+  background: transparent;
+  border: 1px dashed var(--line);
+  padding: 0.75rem;
+  text-align: left;
+  color: var(--fg);
+  font-size: 0.85rem;
+  border-radius: 3px;
+}
+.cell-proposal-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+.cell-proposal-reasoning {
+  font-style: italic;
+  line-height: 1.45;
+}
+
+/* Reflection cells get a left accent stripe + a "↺ REFLECTION" badge so
+   they read as meta rather than just-another-text-cell. */
+.cell.cell-reflection {
+  border-left: 3px solid var(--accent);
+}
+.cell.cell-reflection .cell-type::after {
+  content: " ↺ reflection";
+  margin-left: 0.5rem;
+  color: var(--muted);
+  font-weight: normal;
+  letter-spacing: 0.03em;
+}
+
+/* Cells sharing a trigger_snippet are labeled "attempt N of M" so A/B
+   iterations (e.g. v0 vs v0.5 path on the same snippet) read as
+   intentional rather than accidentally-duplicated. */
+.cell-attempt-badge {
+  font-size: 0.7rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  padding-left: 0.5rem;
+}
 
 /* ============================================================
    THEMES
