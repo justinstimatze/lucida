@@ -352,7 +352,7 @@ against its `trigger_snippet`:
 
 - **literal-simile** — solidly anchored. Cells 0010 (metaphor) and 0014 (color-word). 2 cells, distinct sub-mechanisms (rendering the literal half of a metaphor; rendering a descriptor word as object morphology).
 - **missed-detail** — solidly anchored. Cells 0022 (props), 0023–0025 (geometry). 4 cells, lighthouse chain over-weights it.
-- **wrong-genre** — 1 cell (0005). Real but thin.
+- **wrong-genre** — anchored at N=2. cell-0005 (the Margaret moment, score 0.15 post-i2i) plus a fresh N=2 test (`scratch_wrong_genre_n2.py`, snippet "what makes this argument hold up isn't the data... the reader's act of completing the picture is the essay's actual claim", score 0.35). Both snippets are pure meta-commentary with zero scene description; both got rendered as concrete scenes; the eval correctly classified both as `wrong_genre` with the right reasoning ("snippet is meta-commentary about literary form... entirely abstract/rhetorical"). The mode is durable and the orchestrator's abort-retrigger decision is justified.
 - **stock-drift** — *not evidenced in this corpus.* Every failure here is *specifically wrong*, not *generically wrong*. The mode I imagined from earlier-session memory does not show up against the v0.5 specialist's heavily-templated prompts. Possible explanation: stock-drift happens at low-effort prompts and the v0.5 pipeline is high-effort by construction. **Killing this mode from the taxonomy until evidence shows up.**
 
 ### Strongest single finding
