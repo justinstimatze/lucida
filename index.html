@@ -156,10 +156,19 @@ function resolveColor(c) {
 async function load() {
   const res = await fetch("cells.json", { cache: "no-store" });
   const data = await res.json();
-  const visible = data.cells.filter(c => !(c.cell_type === "text" && c.attempted_cell_type));
-  const suppressed = data.cells.length - visible.length;
+  const visible = data.cells.filter(c => {
+    if (c.cell_type === "text" && c.attempted_cell_type) return false;  // demoted by trivial-filter
+    if (c.replaced_by) return false;                                     // superseded by a retrigger
+    return true;
+  });
+  const trivialSuppressed = data.cells.filter(c => c.cell_type === "text" && c.attempted_cell_type).length;
+  const retriggerSuppressed = data.cells.filter(c => c.replaced_by).length;
+  const suppressedNote = [
+    trivialSuppressed && `${trivialSuppressed} suppressed by trivial-filter`,
+    retriggerSuppressed && `${retriggerSuppressed} replaced by retrigger`,
+  ].filter(Boolean).join(", ");
   const meta = `session: ${data.session_id}  ·  cells: ${visible.length}` +
-    (suppressed ? ` (${suppressed} suppressed by trivial-filter)` : "") +
+    (suppressedNote ? ` (${suppressedNote})` : "") +
     `  ·  theme: ${ACTIVE}`;
   document.getElementById("session-meta").textContent = meta;
   const root = document.getElementById("notebook");

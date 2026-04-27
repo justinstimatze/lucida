@@ -50,6 +50,11 @@ class CellProposal:
     classifier_reasoning: str | None = None
     # populated when this cell is a reflection -- ids of the cells reflected on
     reflection_source_ids: list[str] | None = None
+    # populated by the autonomous retrigger loop (image cells only):
+    replaces: str | None = None         # predecessor cell this one supersedes
+    replaced_by: str | None = None      # successor (set on the predecessor when retriggered)
+    retrigger_count: int = 0            # how many retriggers this cell has gone through
+    retrigger_reason: str | None = None # evaluator's corrective guidance from the predecessor
 
 
 def now_iso() -> str:
@@ -374,7 +379,9 @@ def sweep_trivial(write: bool = False) -> list[str]:
 
 def append_proposal(snippet: str, context: str = "", cell_type: str | None = None,
                     write: bool = False, generate_image: bool = False,
-                    use_llm: bool | None = None) -> CellProposal:
+                    use_llm: bool | None = None,
+                    auto_retrigger: bool = True,
+                    max_retriggers: int = 3) -> CellProposal:
     data = load_cells()
     auto_type_v0 = classify(snippet)  # always run keyword classifier for comparison
 
@@ -467,25 +474,110 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         classifier_reasoning=classifier_reasoning,
     )
 
+    # Image generation + autonomous retrigger loop. The loop closes the
+    # Wakisaka pattern: generate -> evaluate -> if disappointing, regenerate
+    # with the evaluator's corrective brief as feedback. Bounded by
+    # max_retriggers and the LUCIDA_RETRIGGER_SCORE_FLOOR env var.
+    cells_to_write: list[CellProposal] = [proposal]
     if generate_image and chosen_type == "image":
-        import nano_banana
-        out = Path(__file__).parent / "cells" / f"{cell_id}.png"
-        try:
-            result = nano_banana.generate(proposal.prompt, out)
-            proposal.image_path = f"cells/{out.name}"
-            proposal.notes = f"generated via {result.model} ({result.bytes_written} bytes) [{classifier_label}]"
-        except nano_banana.NanoBananaError as e:
-            proposal.notes = f"generation failed: {e} [{classifier_label}]"
+        out_dir = Path(__file__).parent / "cells"
 
-    # Trivial check after spec/html may have been populated. In v0 this only
-    # fires for cells whose specs were filled by something other than this
-    # orchestrator (hand-fill or v0.5 LLM specialist).
+        def _generate_into(p: CellProposal, attempt_label: str) -> None:
+            """Mutate p with nano_banana result; preserve classifier_label in notes."""
+            import nano_banana
+            out_path = out_dir / f"{p.id}.png"
+            try:
+                result = nano_banana.generate(p.prompt, out_path)
+                p.image_path = f"cells/{out_path.name}"
+                p.notes = (
+                    f"{attempt_label} via {result.model} "
+                    f"({result.bytes_written} bytes) [{classifier_label}]"
+                )
+            except nano_banana.NanoBananaError as e:
+                p.notes = f"{attempt_label} failed: {e} [{classifier_label}]"
+
+        _generate_into(proposal, "generated")
+
+        if (auto_retrigger and llm_available and proposal.image_path
+                and os.environ.get("ANTHROPIC_API_KEY")):
+            score_floor = float(os.environ.get("LUCIDA_RETRIGGER_SCORE_FLOOR", "0.5"))
+            current = proposal
+            for attempt in range(max_retriggers):
+                try:
+                    import evaluator as _eval
+                    eval_result = _eval.evaluate_image_cell(
+                        snippet,
+                        Path(__file__).parent / current.image_path,
+                    )
+                except Exception as e:
+                    current.notes += f" [evaluator failed: {e}]"
+                    break
+
+                should_retrigger = (
+                    eval_result.should_retrigger
+                    or eval_result.quality_score < score_floor
+                )
+                current.notes += (
+                    f" [eval@{eval_result.quality_score:.2f}"
+                    f"{', retrigger' if should_retrigger else ', accepted'}]"
+                )
+                if not should_retrigger:
+                    break
+
+                # Build retrigger proposal with corrective guidance baked in.
+                # Prefer retrigger_guidance; fall back to what_didnt_work when
+                # the score-floor path forced retrigger without explicit guidance.
+                guidance = (
+                    eval_result.retrigger_guidance.strip()
+                    or eval_result.what_didnt_work.strip()
+                    or "(score below floor; try a different visual interpretation, attending to every load-bearing detail in the snippet)"
+                )
+                # Strip prior CORRECTIVE GUIDANCE sections so we don't accumulate
+                # stale corrections across attempts -- the base prompt + latest
+                # guidance is what Gemini should see.
+                base_prompt = current.prompt.split(
+                    "\n\nCORRECTIVE GUIDANCE FROM PREVIOUS ATTEMPT"
+                )[0]
+                new_id_num = len(data["cells"]) + len(cells_to_write) + 1
+                new_id = f"cell-{new_id_num:04d}"
+                enhanced_prompt = (
+                    f"{base_prompt}\n\n"
+                    f"CORRECTIVE GUIDANCE FROM PREVIOUS ATTEMPT (#{attempt + 1}):\n"
+                    f"{guidance}"
+                )
+                new_proposal = CellProposal(
+                    id=new_id,
+                    timestamp=now_iso(),
+                    cell_type="image",
+                    trigger_snippet=snippet.strip(),
+                    prompt=enhanced_prompt,
+                    notes=f"(retrigger {attempt + 1}/{max_retriggers}) [{classifier_label}]",
+                    discourse_move=proposal.discourse_move,
+                    confidence=proposal.confidence,
+                    classifier_reasoning=proposal.classifier_reasoning,
+                    replaces=current.id,
+                    retrigger_count=attempt + 1,
+                    retrigger_reason=guidance,
+                )
+                current.replaced_by = new_id
+
+                _generate_into(new_proposal, f"retrigger {attempt + 1}")
+                cells_to_write.append(new_proposal)
+
+                if not new_proposal.image_path:
+                    break  # generation failed; stop retriggering
+                current = new_proposal
+
+            proposal = current  # the FINAL proposal is the last attempt
+
+    # Trivial filter on the final proposal (only -- predecessors keep their state)
     demoted_reason = demote_if_trivial(proposal)
     if demoted_reason:
         proposal.notes = f"{proposal.notes} [trivial-filter applied]"
 
     if write:
-        data["cells"].append(asdict(proposal))
+        for c in cells_to_write:
+            data["cells"].append(asdict(c))
         CELLS_PATH.write_text(json.dumps(data, indent=2))
     return proposal
 
@@ -510,6 +602,10 @@ def main() -> None:
                    help="reflective loop: read back recent visible cells (incl. images) and synthesize a reflection cell")
     p.add_argument("-n", "--reflect-on", type=int, default=5,
                    help="number of recent visible cells to reflect on (with --reflect)")
+    p.add_argument("--no-auto-retrigger", action="store_true",
+                   help="disable the autonomous evaluate-and-retrigger loop on image cells")
+    p.add_argument("--max-retriggers", type=int, default=3,
+                   help="cap on retriggers per cell (default 3)")
     args = p.parse_args()
 
     if args.sweep_trivial:
@@ -577,7 +673,9 @@ def main() -> None:
 
     use_llm = False if args.no_llm_classify else None  # None = auto-detect via env
     proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate,
-                               use_llm=use_llm)
+                               use_llm=use_llm,
+                               auto_retrigger=not args.no_auto_retrigger,
+                               max_retriggers=args.max_retriggers)
     json.dump(asdict(proposal), sys.stdout, indent=2)
     print()
 
