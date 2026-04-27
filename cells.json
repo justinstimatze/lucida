@@ -1,0 +1,96 @@
+{
+  "session_id": "lucida-v0-zerosum-seed",
+  "cells": [
+    {
+      "id": "seed-001",
+      "timestamp": "2026-04-26T10:00:00Z",
+      "cell_type": "mermaid",
+      "trigger_snippet": "Discussing how zerosum's argument relates to ballast, sisyphus, research-doc, and trickster \u2014 what does each prior collaboration cover and what does zerosum add on top?",
+      "prompt": "Render a graph of the prior-work positioning between zerosum and four sister documents (ballast, sisyphus, research-doc, trickster). Show what each contributes and the cross-references.",
+      "spec": "graph LR\n  Z[\"zerosum\\nstructural extraction frame\"]\n  B[\"ballast\\ncognitive mechanism\"]\n  S[\"sisyphus\\ndramatic version\"]\n  R[\"research-doc\\nempirical anchors\"]\n  T[\"trickster\\nrelational answer\"]\n  B -.complements.-> Z\n  S -.dramatizes.-> Z\n  R -.cites into.-> Z\n  T -.sister essay.-> Z\n  Z -.refers back.-> R",
+      "caption": "Prior-work delta map. zerosum at center; siblings positioned by relationship type.",
+      "notes": "(unrated \u2014 seed cell)"
+    },
+    {
+      "id": "seed-002",
+      "timestamp": "2026-04-26T10:01:00Z",
+      "cell_type": "vega",
+      "trigger_snippet": "Productivity has grown ~65% since 1979; median real hourly compensation has grown ~14%. The gap is the empirical anchor for the structural argument.",
+      "prompt": "Bar chart comparing productivity growth (65%) to median real hourly compensation growth (14%) for US, 1979-2019. Title implies the gap is the load-bearing anchor.",
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "description": "productivity vs compensation 1979-2019",
+        "data": {
+          "values": [
+            {
+              "series": "productivity",
+              "growth_pct": 65
+            },
+            {
+              "series": "median real hourly compensation",
+              "growth_pct": 14
+            }
+          ]
+        },
+        "mark": "bar",
+        "encoding": {
+          "y": {
+            "field": "series",
+            "type": "nominal",
+            "axis": {
+              "title": null
+            }
+          },
+          "x": {
+            "field": "growth_pct",
+            "type": "quantitative",
+            "axis": {
+              "title": "growth %, 1979-2019"
+            }
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "legend": null
+          }
+        },
+        "width": 480,
+        "height": 100
+      },
+      "caption": "Productivity-compensation gap 1979-2019 \u2014 the recurring anchor across drafts.",
+      "notes": "(unrated \u2014 seed cell)"
+    },
+    {
+      "id": "seed-003",
+      "timestamp": "2026-04-26T10:02:00Z",
+      "cell_type": "image",
+      "trigger_snippet": "The Margaret moment is not a break. Margaret appears as a detail the narrator celebrates as a successful pensioner. The reader's recognition of what Margaret is inside the celebration is the essay's emotional center.",
+      "prompt": "(would-be nano banana prompt) Conceptual scene: an elderly woman seated alone at a small kitchen table with morning light, holding a pension statement. Mood: dignified solitude. Style: warm, restrained, low-saturation, painterly. Slight emphasis on her hands and the document. No text in the image.",
+      "image_path": "cells/placeholder.svg",
+      "caption": "Margaret-at-the-table \u2014 the essay's emotional anchor. (placeholder pending nano banana access)",
+      "notes": "(unrated \u2014 seed cell)"
+    },
+    {
+      "id": "seed-004",
+      "timestamp": "2026-04-26T10:03:00Z",
+      "cell_type": "html",
+      "trigger_snippet": "Reviewer \u00d7 section concerns from the panel review files \u2014 who flagged what.",
+      "prompt": "Build a heatmap-style HTML table of 8 reviewers \u00d7 13 sections, with \u2022 where a reviewer raised a concern about that section.",
+      "html": "<table><thead><tr><th>section</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>R6</th><th>R7</th><th>R8</th></tr></thead><tbody><tr><td>I \u2014 Plumber</td><td>\u2022</td><td></td><td></td><td>\u2022</td><td></td><td>\u2022</td><td></td><td></td></tr><tr><td>II \u2014 Older Picture</td><td>\u2022</td><td></td><td></td><td></td><td></td><td></td><td>\u2022</td><td></td></tr><tr><td>III \u2014 Numbers</td><td></td><td>\u2022</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>IV \u2014 Laminar Flow</td><td>\u2022</td><td></td><td></td><td></td><td>\u2022</td><td></td><td></td><td>\u2022</td></tr><tr><td>V \u2014 Atomization</td><td>\u2022</td><td></td><td>\u2022</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>VI \u2014 Despair</td><td>\u2022</td><td></td><td></td><td></td><td></td><td>\u2022</td><td></td><td></td></tr><tr><td>VII \u2014 Resilience</td><td>\u2022</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>VIII \u2014 Alberto</td><td>\u2022</td><td></td><td></td><td></td><td></td><td></td><td>\u2022</td><td></td></tr><tr><td>IX \u2014 Longevity</td><td>\u2022</td><td></td><td></td><td></td><td></td><td>\u2022</td><td></td><td></td></tr><tr><td>X \u2014 Cooperative</td><td></td><td>\u2022</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>XI \u2014 Steelman</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>XII \u2014 Close</td><td></td><td></td><td></td><td></td><td>\u2022</td><td></td><td></td><td></td></tr><tr><td>XIII \u2014 Coda</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>",
+      "caption": "Mock reviewer \u00d7 section concern matrix (illustrative \u2014 real cells would parse the panel-review files).",
+      "notes": "(unrated \u2014 seed cell)"
+    },
+    {
+      "id": "cell-0005",
+      "timestamp": "2026-04-27T05:27:19+00:00",
+      "cell_type": "image",
+      "trigger_snippet": "The Margaret moment is not a break \u2014 Margaret appears as a detail the narrator celebrates as a successful pensioner, and the reader's recognition of what Margaret is inside the celebration is the essay's emotional center.",
+      "prompt": "(nano banana prompt)\nConceptual scene illustrating: The Margaret moment is not a break \u2014 Margaret appears as a detail the narrator celebrates as a successful pensioner, and the reader's recognition of what Margaret is inside the celebration is the essay's emotional center.\nStyle: warm, restrained, low-saturation, painterly.\nNo text, no captions in the image.\n\nContext:\n(none)",
+      "image_path": "cells/cell-0005.png",
+      "spec": null,
+      "html": null,
+      "caption": "",
+      "notes": "generated via gemini-2.5-flash-image (1781371 bytes)"
+    }
+  ]
+}

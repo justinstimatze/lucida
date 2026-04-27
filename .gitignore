@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# external tool state
+.defn/
+
+# generated artifacts that aren't seed/placeholder
+.nano_banana_usage.json
+cells/cell-*.png
+cells/cell-*.jpg
+cells/cell-*.webp
