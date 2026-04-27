@@ -376,8 +376,14 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     data = load_cells()
     auto_type_v0 = classify(snippet)  # always run keyword classifier for comparison
 
-    if use_llm is None:
-        use_llm = bool(os.environ.get("ANTHROPIC_API_KEY")) and cell_type is None
+    # llm_available controls BOTH the LLM classifier and the image specialist.
+    # use_llm=None -> auto (True if ANTHROPIC_API_KEY set). use_llm=False ->
+    # forced off (--no-llm-classify). The classifier additionally requires
+    # cell_type to be None (it's deciding the type); the image specialist
+    # runs whenever we're generating an image cell regardless of how
+    # cell_type was determined.
+    llm_explicitly_off = (use_llm is False)
+    llm_available = bool(os.environ.get("ANTHROPIC_API_KEY")) and not llm_explicitly_off
 
     discourse_move = None
     confidence = None
@@ -386,7 +392,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     gate_note = ""
     chosen_type = cell_type or auto_type_v0
 
-    if use_llm and cell_type is None:
+    if llm_available and cell_type is None:
         try:
             import classifier as _classifier
             llm = _classifier.classify(snippet, context)
@@ -420,13 +426,39 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     elif cell_type and cell_type != auto_type_v0:
         classifier_label += f"; forced→{cell_type}"
 
+    # v0.5 image specialist: when we're about to generate an image cell,
+    # run a 2-step prompt (Claude extracts the load-bearing visual brief,
+    # we compose it into a grounded Gemini prompt). The specialist may
+    # also demote to text if the snippet is meta-cognitive or has no real
+    # visual content -- defending against the cell-0005 generic-stock
+    # failure mode upstream of generation.
+    image_prompt_override: str | None = None
+    if llm_available and chosen_type == "image" and generate_image:
+        try:
+            import image_specialist as _imgspec
+            brief = _imgspec.shape_prompt(snippet, context)
+            spec_cache_info = (
+                f"cache:hit/{brief.cache_read_tokens}t" if brief.cache_read_tokens > 0
+                else f"cache:wrote/{brief.cache_creation_tokens}t" if brief.cache_creation_tokens > 0
+                else "cache:miss"
+            )
+            if brief.should_demote_to_text:
+                chosen_type = "text"
+                gate_note += f" [imgspec demoted to text: {spec_cache_info}]"
+            else:
+                image_prompt_override = _imgspec.build_gemini_prompt(brief, snippet)
+                classifier_label += f" [imgspec:{spec_cache_info}]"
+        except Exception as e:
+            classifier_label += f" [imgspec failed: {e}]"
+
     cell_id = next_id(data["cells"])
+    final_prompt = image_prompt_override or build_prompt(chosen_type, snippet, context)
     proposal = CellProposal(
         id=cell_id,
         timestamp=now_iso(),
         cell_type=chosen_type,
         trigger_snippet=snippet.strip(),
-        prompt=build_prompt(chosen_type, snippet, context),
+        prompt=final_prompt,
         notes=f"(awaiting generation) [{classifier_label}]{gate_note}",
         discourse_move=discourse_move,
         confidence=confidence,
@@ -439,9 +471,9 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         try:
             result = nano_banana.generate(proposal.prompt, out)
             proposal.image_path = f"cells/{out.name}"
-            proposal.notes = f"generated via {result.model} ({result.bytes_written} bytes) [{classifier_note}]"
+            proposal.notes = f"generated via {result.model} ({result.bytes_written} bytes) [{classifier_label}]"
         except nano_banana.NanoBananaError as e:
-            proposal.notes = f"generation failed: {e} [{classifier_note}]"
+            proposal.notes = f"generation failed: {e} [{classifier_label}]"
 
     # Trivial check after spec/html may have been populated. In v0 this only
     # fires for cells whose specs were filled by something other than this

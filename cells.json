@@ -273,6 +273,40 @@
       "html": null,
       "caption": "aframe demo -- wireframe primitives with declarative animation. Colors via $tokens; switch theme via ?theme=magi etc.",
       "notes": "(demo cell, hand-authored) \u2014 exists to verify the aframe render branch"
+    },
+    {
+      "id": "cell-0014",
+      "timestamp": "2026-04-27T07:56:48+00:00",
+      "cell_type": "image",
+      "trigger_snippet": "In the highlands of Oaxaca, Do\u00f1a Esperanza tends a terraced milpa above her village, planting beans between stalks of bone-white corn that her grandfather first sowed in 1962. Her terraces hold the soil that the rains would otherwise wash into the river below.",
+      "prompt": "(nano banana prompt)\nConceptual scene illustrating: In the highlands of Oaxaca, Do\u00f1a Esperanza tends a terraced milpa above her village, planting beans between stalks of bone-white corn that her grandfather first sowed in 1962. Her terraces hold the soil that the rains would otherwise wash into the river below.\nStyle: warm, restrained, low-saturation, painterly.\nNo text, no captions in the image.\nDo not invent props, settings, or characters not implied by\nthe snippet. Ground the scene in what the snippet actually\nsays \u2014 resist generic stock-illustration furniture.\n\nContext:\n(none)",
+      "image_path": "cells/cell-0014.png",
+      "spec": null,
+      "html": null,
+      "caption": "",
+      "notes": "generated via gemini-2.5-flash-image (2053153 bytes) [classifier(v0)\u2192text; forced\u2192image]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": null,
+      "confidence": null,
+      "classifier_reasoning": null
+    },
+    {
+      "id": "cell-0015",
+      "timestamp": "2026-04-27T07:58:30+00:00",
+      "cell_type": "image",
+      "trigger_snippet": "In the highlands of Oaxaca, Do\u00f1a Esperanza tends a terraced milpa above her village, planting beans between stalks of bone-white corn that her grandfather first sowed in 1962. Her terraces hold the soil that the rains would otherwise wash into the river below.",
+      "prompt": "(nano banana prompt, v0.5 specialist-shaped)\n\nSubject: An older Indigenous Mexican woman (Do\u00f1a Esperanza) tending a terraced milpa field, planting beans among tall pale corn stalks\nSetting: Highland terraced hillside above a small Oaxacan village, mid-morning, soft mountain light, distant valley and river below, cloud-filtered sun\nMood: Quiet dignity, intergenerational continuity, patient stewardship of the land\nComposition: Medium-wide shot from slightly below the terrace edge looking up at the figure among the corn; terraced rows recede into the background; village rooftops and valley faintly visible below; earthy, muted palette of ochres, greens, and bone-white\n\nSpecific props/details to include:\n  - bone-white corn stalks\n  - bean vines climbing the corn\n  - hand-cut stone terrace walls\n  - a simple planting stick or hoe\n  - rich dark highland soil\n  - distant river valley below\n\nStyle: warm, restrained, low-saturation, painterly. Movie-interface\naesthetic where appropriate. No text, no captions in the image.\n\nDo NOT invent the following (these are common AI-image-gen failures\nfor THIS snippet specifically):\n  - generic 'Mexican peasant' clich\u00e9s or oversaturated folkloric palette\n  - bright tourist-market textiles dominating the frame\n  - sombrero imagery\n  - flat midday harsh lighting\n  - monoculture industrial field rows\n  - embedded text or date labels referencing 1962\n\nOriginal snippet (for reference, do not render literally):\nIn the highlands of Oaxaca, Do\u00f1a Esperanza tends a terraced milpa above her village, planting beans between stalks of bone-white corn that her grandfather first sowed in 1962. Her terraces hold the soil that the rains would otherwise wash into the river below.\n",
+      "image_path": "cells/cell-0015.png",
+      "spec": null,
+      "html": null,
+      "caption": "",
+      "notes": "generated via gemini-2.5-flash-image (1885735 bytes) [classifier(v0)\u2192text; forced\u2192image [imgspec:cache:wrote/2350t]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": null,
+      "confidence": null,
+      "classifier_reasoning": null
     }
   ]
 }
