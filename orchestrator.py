@@ -66,6 +66,22 @@ def next_id(cells: list[dict]) -> str:
     return f"cell-{n:04d}"
 
 
+def _guidance_too_similar(a: str, b: str, threshold: float = 0.7) -> bool:
+    """Word-Jaccard between two retrigger guidance strings.
+
+    Used to break the retrigger loop when consecutive guidances are
+    essentially saying the same thing — the prompt isn't moving the
+    image generator, so further attempts waste API calls.
+    """
+    aw = set(re.findall(r"\w+", a.lower()))
+    bw = set(re.findall(r"\w+", b.lower()))
+    if not aw or not bw:
+        return False
+    union = aw | bw
+    intersect = aw & bw
+    return len(intersect) / len(union) >= threshold
+
+
 def classify(snippet: str) -> str:
     """v0 placeholder classifier — keyword heuristics only.
 
@@ -550,6 +566,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         if (auto_retrigger and llm_available and proposal.image_path
                 and os.environ.get("ANTHROPIC_API_KEY")):
             score_floor = float(os.environ.get("LUCIDA_RETRIGGER_SCORE_FLOOR", "0.5"))
+            score_ceiling = float(os.environ.get("LUCIDA_RETRIGGER_SCORE_CEILING", "0.8"))
+            prev_guidance: str = ""
             current = proposal
             for attempt in range(max_retriggers):
                 try:
@@ -562,25 +580,58 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     current.notes += f" [evaluator failed: {e}]"
                     break
 
-                should_retrigger = (
-                    eval_result.should_retrigger
-                    or eval_result.quality_score < score_floor
-                )
+                # Three-band gate. Below floor: orchestrator forces retrigger
+                # regardless of evaluator. Above ceiling: orchestrator accepts
+                # regardless of evaluator (the lighthouse-chain bug — evaluator
+                # said should_retrigger=True at 0.82 three attempts running,
+                # never improving). In between: defer to evaluator.
+                if eval_result.quality_score < score_floor:
+                    should_retrigger = True
+                    gate_reason = "score_floor"
+                elif eval_result.quality_score >= score_ceiling:
+                    should_retrigger = False
+                    gate_reason = "score_ceiling"
+                else:
+                    should_retrigger = eval_result.should_retrigger
+                    gate_reason = "evaluator" if should_retrigger else "evaluator_accept"
                 current.notes += (
                     f" [eval@{eval_result.quality_score:.2f}"
-                    f"{', retrigger' if should_retrigger else ', accepted'}]"
+                    f", {'retrigger' if should_retrigger else 'accepted'}"
+                    f"/{gate_reason}]"
                 )
                 if not should_retrigger:
                     break
 
-                # Build retrigger proposal with corrective guidance baked in.
-                # Prefer retrigger_guidance; fall back to what_didnt_work when
-                # the score-floor path forced retrigger without explicit guidance.
-                guidance = (
-                    eval_result.retrigger_guidance.strip()
-                    or eval_result.what_didnt_work.strip()
-                    or "(score below floor; try a different visual interpretation, attending to every load-bearing detail in the snippet)"
-                )
+                # Build corrective guidance. Prefer evaluator's retrigger_guidance
+                # (intentional corrective). When score-floor forced retrigger
+                # without that, splice what_didnt_work into a stronger reframe so
+                # the next attempt sees actionable corrective text rather than a
+                # bare description of failure.
+                if eval_result.retrigger_guidance.strip():
+                    guidance = eval_result.retrigger_guidance.strip()
+                elif eval_result.what_didnt_work.strip():
+                    guidance = (
+                        f"Score-floor retrigger ({eval_result.quality_score:.2f} "
+                        f"< {score_floor}). Previous attempt failed at: "
+                        f"{eval_result.what_didnt_work.strip()} "
+                        f"Try a fundamentally different visual interpretation; "
+                        f"attend to every named entity and prop in the snippet."
+                    )
+                else:
+                    guidance = (
+                        f"Score below floor ({eval_result.quality_score:.2f} "
+                        f"< {score_floor}) with no specific failure analysis. "
+                        f"Re-read the snippet and ground the image in its named "
+                        f"entities, props, and setting. Resist generic stock-"
+                        f"illustration furniture."
+                    )
+
+                # Stop if guidance is essentially repeating itself — the prompt
+                # isn't moving the model and further attempts waste images.
+                if prev_guidance and _guidance_too_similar(prev_guidance, guidance):
+                    current.notes += " [guidance-stalled, breaking]"
+                    break
+                prev_guidance = guidance
                 # Strip prior CORRECTIVE GUIDANCE sections so we don't accumulate
                 # stale corrections across attempts -- the base prompt + latest
                 # guidance is what Gemini should see.
