@@ -269,36 +269,57 @@ function renderCell(c, snippetGroups) {
     target.innerHTML = expandTokens(c.spec);
     body.appendChild(target);
   } else if (c.cell_type === "scene3d" && c.spec) {
+    // Lazy: only create the Three.js renderer + scene when the cell
+    // first scrolls into viewport. Off-screen cells stay as empty divs
+    // so initial-load GPU pressure scales with what's visible, not with
+    // total cells in the notebook.
     const target = el("div", "scene3d-target");
     body.appendChild(target);
-    setTimeout(() => {
-      const ctrl = initScene3D(target, c.spec);
-      if (ctrl) pauseOffScreen(target, ctrl.play, ctrl.pause);
-    }, 0);
+    let ctrl = null;
+    pauseOffScreen(
+      target,
+      () => {
+        if (!ctrl) ctrl = initScene3D(target, c.spec);
+        if (ctrl) ctrl.play();
+      },
+      () => { if (ctrl) ctrl.pause(); },
+    );
   } else if (c.cell_type === "aframe" && c.spec) {
+    // Lazy: defer the <a-scene> insertion (and the implicit A-Frame
+    // initialization that follows) until the cell enters viewport.
     const target = el("div", "aframe-target");
-    const trimmed = expandTokens(c.spec).trim();
-    const wrapped = trimmed.startsWith("<a-scene")
-      ? trimmed
-      : `<a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true">${trimmed}</a-scene>`;
-    target.innerHTML = wrapped;
     body.appendChild(target);
-    // Strip A-Frame's chrome (Enter VR / orientation / loader title) and
-    // pause the scene when it scrolls off-screen.
-    setTimeout(() => {
-      const stripSel = ".a-enter-vr, .a-orientation-modal, .a-loader-title, .a-modal, .a-fullscreen-button";
-      target.querySelectorAll(stripSel).forEach(el => el.remove());
-      const sceneEl = target.querySelector("a-scene");
-      if (sceneEl) {
-        // Some A-Frame builds keep a-loader-title elements inside a-scene
-        sceneEl.querySelectorAll(stripSel).forEach(el => el.remove());
-        pauseOffScreen(
-          target,
-          () => { try { sceneEl.play && sceneEl.play(); } catch (e) {} },
-          () => { try { sceneEl.pause && sceneEl.pause(); } catch (e) {} },
-        );
-      }
-    }, 500);
+    let initialized = false;
+    let sceneEl = null;
+    pauseOffScreen(
+      target,
+      () => {
+        if (!initialized) {
+          initialized = true;
+          const trimmed = expandTokens(c.spec).trim();
+          const wrapped = trimmed.startsWith("<a-scene")
+            ? trimmed
+            : `<a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true">${trimmed}</a-scene>`;
+          target.innerHTML = wrapped;
+          // After A-Frame parses + initializes, strip its UI chrome.
+          setTimeout(() => {
+            const stripSel = ".a-enter-vr, .a-orientation-modal, .a-loader-title, .a-modal, .a-fullscreen-button";
+            target.querySelectorAll(stripSel).forEach(el => el.remove());
+            sceneEl = target.querySelector("a-scene");
+            if (sceneEl) {
+              sceneEl.querySelectorAll(stripSel).forEach(el => el.remove());
+            }
+          }, 500);
+        } else if (sceneEl) {
+          try { sceneEl.play && sceneEl.play(); } catch (e) {}
+        }
+      },
+      () => {
+        if (sceneEl) {
+          try { sceneEl.pause && sceneEl.pause(); } catch (e) {}
+        }
+      },
+    );
   } else if (c.cell_type === "lottie" && c.spec) {
     const target = el("div", "lottie-target");
     body.appendChild(target);
