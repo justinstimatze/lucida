@@ -7,6 +7,9 @@
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<!-- A-Frame bundles Three.js; we reuse window.THREE from it for scene3d cells -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js"></script>
 </head>
 <body>
 <header>
@@ -85,6 +88,46 @@ function renderCell(c) {
     });
   } else if (c.cell_type === "html" && c.html) {
     body.innerHTML = c.html;
+  } else if (c.cell_type === "animated_svg" && c.spec) {
+    const target = el("div", "svg-target");
+    target.innerHTML = c.spec;
+    body.appendChild(target);
+  } else if (c.cell_type === "scene3d" && c.spec) {
+    const target = el("div", "scene3d-target");
+    body.appendChild(target);
+    setTimeout(() => initScene3D(target, c.spec), 0);
+  } else if (c.cell_type === "aframe" && c.spec) {
+    const target = el("div", "aframe-target");
+    const trimmed = c.spec.trim();
+    const wrapped = trimmed.startsWith("<a-scene")
+      ? trimmed
+      : `<a-scene embedded vr-mode-ui="enabled: false">${trimmed}</a-scene>`;
+    target.innerHTML = wrapped;
+    body.appendChild(target);
+  } else if (c.cell_type === "lottie" && c.spec) {
+    const target = el("div", "lottie-target");
+    body.appendChild(target);
+    setTimeout(() => {
+      if (typeof lottie === "undefined") {
+        target.textContent = "lottie library not loaded";
+        return;
+      }
+      if (c.spec && c.spec._skip) {
+        target.textContent = `(lottie skipped: ${c.spec.reason || "no spec"})`;
+        return;
+      }
+      try {
+        lottie.loadAnimation({
+          container: target,
+          renderer: "svg",
+          loop: true,
+          autoplay: true,
+          animationData: c.spec,
+        });
+      } catch (err) {
+        target.textContent = "lottie render error: " + err.message;
+      }
+    }, 0);
   } else if (c.cell_type === "text" && c.caption) {
     // caption-only renders below
   } else {
@@ -103,6 +146,78 @@ function renderCell(c) {
   }
 
   return card;
+}
+
+function initScene3D(container, spec) {
+  const T = window.THREE || (window.AFRAME && window.AFRAME.THREE);
+  if (!T) {
+    container.textContent = "Three.js not available (A-Frame failed to load?)";
+    return;
+  }
+  const w = container.clientWidth || 600;
+  const h = 360;
+  const renderer = new T.WebGLRenderer({ antialias: true });
+  renderer.setSize(w, h);
+  renderer.setClearColor(spec.background || "#0a0a0a", 1);
+  container.appendChild(renderer.domElement);
+
+  const scene = new T.Scene();
+  const camera = new T.PerspectiveCamera(50, w / h, 0.1, 100);
+  camera.position.set(0, 0, spec.camera_distance || 5);
+
+  const animatables = [];
+  for (const obj of (spec.objects || [])) {
+    let mesh = null;
+    const color = new T.Color(obj.color || "#ffffff");
+    const size = obj.size || 1;
+    if (obj.kind === "wireframe_cube") {
+      const geo = new T.BoxGeometry(size, size, size);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "wireframe_sphere") {
+      const geo = new T.SphereGeometry(size, 16, 12);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "torus") {
+      const geo = new T.TorusGeometry(size, size * 0.3, 8, 24);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "icosahedron") {
+      const geo = new T.IcosahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "axis_helper") {
+      mesh = new T.AxesHelper(size);
+    } else if (obj.kind === "particle_cloud") {
+      const geo = new T.BufferGeometry();
+      const positions = [];
+      const count = obj.count || 100;
+      const spread = obj.spread || 3;
+      for (let i = 0; i < count; i++) {
+        positions.push((Math.random() - 0.5) * spread * 2);
+        positions.push((Math.random() - 0.5) * spread * 2);
+        positions.push((Math.random() - 0.5) * spread * 2);
+      }
+      geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
+      mesh = new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
+    }
+    if (mesh) {
+      if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
+      scene.add(mesh);
+      if (Array.isArray(obj.rotation_speed)) {
+        animatables.push({ mesh, speed: obj.rotation_speed });
+      }
+    }
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    for (const a of animatables) {
+      a.mesh.rotation.x += a.speed[0] || 0;
+      a.mesh.rotation.y += a.speed[1] || 0;
+      a.mesh.rotation.z += a.speed[2] || 0;
+    }
+    renderer.render(scene, camera);
+  }
+  animate();
 }
 
 load().catch(err => {

@@ -165,14 +165,16 @@
     {
       "id": "cell-0009",
       "timestamp": "2026-04-27T06:06:34+00:00",
-      "cell_type": "mermaid",
+      "cell_type": "text",
       "trigger_snippet": "The distributed, partially-conscious, locally-rational economy is the economy that has, in the same period, doubled global life expectancy.",
       "prompt": "Produce a Mermaid diagram (graph LR or flowchart, no extra text)\nillustrating the structure described below. Keep it readable; \u226412\nnodes; label edges where it adds clarity.\nDo not add nodes or edges for entities/relationships not\nmentioned in the snippet \u2014 the diagram should be a faithful\nstructural map, not an embellished one.\n\nSnippet:\nThe distributed, partially-conscious, locally-rational economy is the economy that has, in the same period, doubled global life expectancy.\n\nContext:\n(none)",
       "image_path": null,
-      "spec": "graph LR\n  E[\"the modern economy<br/>(distributed, partially-conscious,<br/>locally-rational)\"]\n  L[\"doubled global<br/>life expectancy\"]\n  E -. \"in the same period (co-occurrence; mechanism unstated)\" .-> L",
+      "spec": null,
       "html": null,
-      "caption": "The snippet asserts temporal co-occurrence between the modern economy's distributed character and doubled life expectancy. Dotted edge with explicit qualifier preserves the under-specification -- snippet does not claim a causal mechanism, so the diagram does not invent one.",
-      "notes": "(hand-filled v0.5-substitute spec; FINDING: snippet is closer to identificatory/correlative than causal -- pre-classification of #4 as causal was overconfident) [classifier(v0) text; forced mermaid]"
+      "caption": "The snippet asserts temporal co-occurrence between the modern economy's distributed character and doubled life expectancy. Dotted edge with explicit qualifier preserves the under-specification -- snippet does not claim a causal mechanism, so the diagram does not invent one. [demoted from mermaid: too few nodes (2 declared) -- a 1-2 node graph reads as prose]",
+      "notes": "(hand-filled v0.5-substitute spec; FINDING: snippet is closer to identificatory/correlative than causal -- pre-classification of #4 as causal was overconfident) [classifier(v0) text; forced mermaid] [trivial-filter applied]",
+      "attempted_cell_type": "mermaid",
+      "attempted_spec": "graph LR\n  E[\"the modern economy<br/>(distributed, partially-conscious,<br/>locally-rational)\"]\n  L[\"doubled global<br/>life expectancy\"]\n  E -. \"in the same period (co-occurrence; mechanism unstated)\" .-> L"
     },
     {
       "id": "cell-0010",
@@ -185,6 +187,93 @@
       "html": null,
       "caption": "",
       "notes": "generated via gemini-2.5-flash-image (1612966 bytes) [classifier(v0)\u2192mermaid; forced\u2192image]"
+    },
+    {
+      "id": "cell-0011",
+      "timestamp": "2026-04-27T07:07:31+00:00",
+      "cell_type": "animated_svg",
+      "trigger_snippet": "(infrastructure demo, no real snippet) \u2014 pulsing-circle / dashed-line / dashed-arc demonstrating SMIL animation in inline SVG",
+      "prompt": "(seed cell, hand-authored \u2014 verifies animated_svg render path)",
+      "image_path": null,
+      "spec": "<svg width=\"320\" height=\"120\" viewBox=\"0 0 320 120\" xmlns=\"http://www.w3.org/2000/svg\">\n  <rect x=\"0\" y=\"0\" width=\"320\" height=\"120\" fill=\"#0a0a1a\"/>\n  <circle cx=\"60\" cy=\"60\" r=\"18\" fill=\"none\" stroke=\"#00ffff\" stroke-width=\"2\">\n    <animate attributeName=\"r\" values=\"18;36;18\" dur=\"2.4s\" repeatCount=\"indefinite\"/>\n    <animate attributeName=\"opacity\" values=\"1;0.25;1\" dur=\"2.4s\" repeatCount=\"indefinite\"/>\n  </circle>\n  <line x1=\"92\" y1=\"60\" x2=\"260\" y2=\"60\" stroke=\"#00ffff\" stroke-width=\"1.2\" stroke-dasharray=\"6 4\">\n    <animate attributeName=\"stroke-dashoffset\" values=\"0;-20\" dur=\"1.2s\" repeatCount=\"indefinite\"/>\n  </line>\n  <circle cx=\"280\" cy=\"60\" r=\"10\" fill=\"none\" stroke=\"#ff00ff\" stroke-width=\"1.5\">\n    <animate attributeName=\"stroke-dasharray\" values=\"0 63;31 32;63 0\" dur=\"3s\" repeatCount=\"indefinite\"/>\n  </circle>\n</svg>",
+      "html": null,
+      "caption": "animated_svg demo \u2014 pulse, signal trace, and rotating dash-array. Movie-interface palette on dark.",
+      "notes": "(demo cell, hand-authored) \u2014 exists to verify the animated_svg render branch in index.html"
+    },
+    {
+      "id": "cell-0012",
+      "timestamp": "2026-04-27T07:07:31+00:00",
+      "cell_type": "scene3d",
+      "trigger_snippet": "(infrastructure demo, no real snippet) \u2014 three primitive wireframes plus a particle cloud, demonstrating the Three.js scene renderer",
+      "prompt": "(seed cell, hand-authored \u2014 verifies scene3d render path)",
+      "image_path": null,
+      "spec": {
+        "background": "#0a0a1a",
+        "camera_distance": 6,
+        "objects": [
+          {
+            "kind": "wireframe_cube",
+            "size": 1.6,
+            "color": "#00ffff",
+            "rotation_speed": [
+              0.005,
+              0.01,
+              0.0
+            ]
+          },
+          {
+            "kind": "wireframe_sphere",
+            "size": 0.7,
+            "color": "#ff00ff",
+            "position": [
+              3,
+              0,
+              0
+            ],
+            "rotation_speed": [
+              0.02,
+              0.0,
+              0.01
+            ]
+          },
+          {
+            "kind": "torus",
+            "size": 0.6,
+            "color": "#ffff00",
+            "position": [
+              -3,
+              0,
+              0
+            ],
+            "rotation_speed": [
+              0.01,
+              0.02,
+              0.0
+            ]
+          },
+          {
+            "kind": "particle_cloud",
+            "count": 250,
+            "spread": 5,
+            "color": "#ffffff"
+          }
+        ]
+      },
+      "html": null,
+      "caption": "scene3d demo \u2014 wireframe cube, sphere, torus rotating in a particle field. Three.js (via A-Frame's bundle).",
+      "notes": "(demo cell, hand-authored) \u2014 exists to verify the scene3d render branch and initScene3D helper"
+    },
+    {
+      "id": "cell-0013",
+      "timestamp": "2026-04-27T07:07:31+00:00",
+      "cell_type": "aframe",
+      "trigger_snippet": "(infrastructure demo, no real snippet) \u2014 A-Frame primitives with declarative animation components",
+      "prompt": "(seed cell, hand-authored \u2014 verifies aframe render path)",
+      "image_path": null,
+      "spec": "<a-sky color=\"#0a0a1a\"></a-sky>\n<a-light type=\"ambient\" color=\"#ffffff\" intensity=\"0.4\"></a-light>\n<a-light type=\"directional\" position=\"2 4 2\" color=\"#ffffff\" intensity=\"0.6\"></a-light>\n<a-box position=\"0 1.5 -4\" color=\"#00ffff\" wireframe=\"true\" depth=\"1\" height=\"1\" width=\"1\"\n       animation=\"property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear\">\n</a-box>\n<a-sphere position=\"-2 1.5 -4\" color=\"#ff00ff\" wireframe=\"true\" radius=\"0.6\"\n          animation=\"property: position; from: -2 1.5 -4; to: -2 2.3 -4; dir: alternate; loop: true; dur: 2400; easing: easeInOutSine\">\n</a-sphere>\n<a-cylinder position=\"2 1.5 -4\" color=\"#ffff00\" wireframe=\"true\" radius=\"0.4\" height=\"1.2\"\n            animation=\"property: rotation; to: 360 0 0; loop: true; dur: 6000; easing: linear\">\n</a-cylinder>",
+      "html": null,
+      "caption": "aframe demo \u2014 wireframe box rotating, sphere oscillating, cylinder rotating. Declarative 3D via A-Frame.",
+      "notes": "(demo cell, hand-authored) \u2014 exists to verify the aframe render branch"
     }
   ]
 }

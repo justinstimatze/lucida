@@ -20,7 +20,8 @@ in v0.5.
 
 ## Cell types
 
-The notebook supports a hybrid of qualitative and quantitative renderers:
+The notebook supports a hybrid of qualitative, quantitative, and
+motion-graphics renderers:
 
 - **image** — generated image (nano banana / static file). For structural,
   conceptual, scene, sketch artifacts where exact values don't matter.
@@ -32,7 +33,22 @@ The notebook supports a hybrid of qualitative and quantitative renderers:
 - **html** — raw HTML/SVG inline. For tables, matrices, anything
   custom-rendered.
 - **text** — markdown caption only. For when the right artifact is just
-  prose.
+  prose. Also the demotion target for cells caught by the trivial
+  filter (see `kill_criteria.md`).
+- **animated_svg** — inline SVG with SMIL or CSS-keyframe animations.
+  For pulses, sweeps, decryption-text effects, simple motion graphics.
+  No external library; native browser.
+- **scene3d** — JSON spec describing a Three.js scene with primitives
+  (`wireframe_cube`, `wireframe_sphere`, `torus`, `icosahedron`,
+  `particle_cloud`, `axis_helper`). For movie-computer-interface
+  aesthetics: rotating wireframes, particle clouds, glowing geometry.
+  Reuses the Three.js bundled with A-Frame.
+- **aframe** — A-Frame markup (contents of `<a-scene>`). For declarative
+  3D scenes when the A-Frame primitive set is the right level of
+  abstraction.
+- **lottie** — Lottie animation JSON. Best for pre-authored animations
+  (After Effects exports); LLM generation of Lottie schema is unreliable
+  and hand-authoring is the expected path.
 
 ## Files
 

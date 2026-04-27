@@ -96,6 +96,36 @@ main {
   margin: 0.25rem 0;
   overflow-x: auto;
 }
+.svg-target, .lottie-target {
+  display: block;
+  margin: 0.25rem 0;
+  text-align: center;
+}
+.svg-target svg, .lottie-target svg {
+  max-width: 100%;
+  height: auto;
+}
+.scene3d-target {
+  display: block;
+  margin: 0.25rem 0;
+  background: #0a0a0a;
+  border-radius: 3px;
+  overflow: hidden;
+  min-height: 360px;
+}
+.scene3d-target canvas {
+  display: block;
+}
+.aframe-target {
+  display: block;
+  margin: 0.25rem 0;
+  height: 360px;
+  width: 100%;
+}
+.aframe-target a-scene {
+  width: 100% !important;
+  height: 100% !important;
+}
 .cell-caption {
   font-size: 0.95rem;
   color: var(--fg);

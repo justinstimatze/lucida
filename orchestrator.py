@@ -130,6 +130,105 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             Context:
             {context or '(none)'}
         """).strip()
+    if cell_type == "animated_svg":
+        return dedent(f"""
+            Produce an inline <svg> element (no commentary, no outer
+            wrapper) with SMIL or CSS-keyframe animation that visualizes
+            the snippet below.
+
+            Constraints:
+            - Bounded loop, 2-6 seconds per cycle.
+            - 1-3 stroke colors max; movie-interface aesthetic (cyan/
+              magenta on dark, or restrained greys); no full-saturation
+              reds.
+            - The motion must encode something a static SVG could not
+              (flow direction, growth, decay, pulse). If you cannot
+              identify what the motion encodes, return a static SVG.
+            - Do not invent visual elements not implied by the snippet.
+
+            Snippet:
+            {snippet}
+
+            Context:
+            {context or '(none)'}
+        """).strip()
+    if cell_type == "scene3d":
+        return dedent(f"""
+            Produce a JSON spec (no commentary) for a Three.js scene
+            illustrating the snippet below. Use ONLY this schema:
+
+            {{
+              "background": "#hex",
+              "camera_distance": <float>,
+              "objects": [
+                {{
+                  "kind": "wireframe_cube" | "wireframe_sphere"
+                          | "torus" | "icosahedron" | "axis_helper"
+                          | "particle_cloud",
+                  "size": <float>,
+                  "color": "#hex",
+                  "position": [x, y, z],
+                  "rotation_speed": [rx, ry, rz],
+                  "count": <int, particle_cloud only>,
+                  "spread": <float, particle_cloud only>
+                }}
+              ]
+            }}
+
+            Aesthetic constraints (movie-computer-interface):
+            - Dark background; glowing wireframe edges.
+            - 1-3 colors max.
+            - Slow rotation (0.005-0.02 rad/frame).
+
+            Do not invent kinds outside the listed set. Do not invent
+            objects whose presence is not implied by the snippet.
+
+            Snippet:
+            {snippet}
+
+            Context:
+            {context or '(none)'}
+        """).strip()
+    if cell_type == "aframe":
+        return dedent(f"""
+            Produce A-Frame markup (the inner contents of <a-scene>;
+            the surrounding <a-scene> tag is added by the renderer).
+            Use only standard A-Frame primitives: a-box, a-sphere,
+            a-cylinder, a-plane, a-text, a-light, a-sky.
+
+            Aesthetic constraints (movie-computer-interface):
+            - Dark sky color (e.g. "#0a0a1a").
+            - Wireframe primitives where possible.
+            - 1-3 stroke colors max.
+            - Use the `animation` component for rotation/translation,
+              not the deprecated <a-animation>.
+
+            Do not invent primitives or assets that aren't standard
+            A-Frame, and do not reference external models, images, or
+            audio.
+
+            Snippet:
+            {snippet}
+
+            Context:
+            {context or '(none)'}
+        """).strip()
+    if cell_type == "lottie":
+        return dedent(f"""
+            (Lottie cells are best authored with After Effects + bodymovin
+            or hand-edited from a known-good template; LLM generation of
+            valid Lottie JSON from scratch is unreliable.)
+
+            If you have a pre-authored Lottie JSON appropriate to the
+            snippet, paste it. Otherwise, return:
+              {{"_skip": true, "reason": "no pre-authored Lottie available"}}
+
+            Snippet:
+            {snippet}
+
+            Context:
+            {context or '(none)'}
+        """).strip()
     return dedent(f"""
         Caption only — no chart, no diagram. Summarize the snippet in
         ≤2 sentences as the cell content.
@@ -176,6 +275,9 @@ def _trivial_mermaid(spec) -> str | None:
     if not isinstance(spec, str) or not spec.strip():
         return None
     lines = [l.strip() for l in spec.splitlines() if l.strip()]
+    node_decls = [l for l in lines if re.match(r'^\w+\s*[\[\({]', l)]
+    if len(node_decls) < 3:
+        return f"too few nodes ({len(node_decls)} declared) -- a 1-2 node graph reads as prose"
     edge_tokens = ["-->", "---", "-.->", ".->", "==>", "<--"]
     edge_lines = [l for l in lines if any(t in l for t in edge_tokens)]
     if not edge_lines:
@@ -303,7 +405,9 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--snippet", help="conversation excerpt that triggers a cell")
     p.add_argument("--context", default="", help="optional extra context (file paths, prior cells, etc.)")
-    p.add_argument("--type", default=None, choices=["image", "vega", "mermaid", "html", "text"],
+    p.add_argument("--type", default=None,
+                   choices=["image", "vega", "mermaid", "html", "text",
+                            "animated_svg", "scene3d", "aframe", "lottie"],
                    help="force a cell type; default = naive classifier")
     p.add_argument("--write", action="store_true",
                    help="append the proposal to cells.json (or, with --sweep-trivial, persist the demotions)")
