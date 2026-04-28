@@ -1032,8 +1032,16 @@ th, td {
   100% { opacity: 0; }
 }
 .theme-magi .cell.cell-still-warm::before {
-  border-color: #00ff41;
-  box-shadow: 0 0 24px rgba(0, 255, 65, 0.42), 0 0 6px rgba(255, 140, 0, 0.18);
+  /* Was border-color #00ff41 + green box-shadow at 0.42 alpha. With the
+     hero-live-breath-magi pulse already painting an amber glow on the
+     hero's box-shadow, this layered a green frame on top, reading as a
+     green bar wrapping the inside-edge of the hero cell — user-flagged
+     "green bar inside the top cell" 2026-04-28. Switched to amber so
+     the still-warm decay and the live-breath active state share the
+     same hue (one decays over 60s, the other pulses while watcher is
+     active). Green stays scoped to mermaid edges + connection lines. */
+  border-color: #ff8c00;
+  box-shadow: 0 0 16px rgba(255, 140, 0, 0.35), 0 0 4px rgba(255, 140, 0, 0.18);
 }
 .theme-minimal .cell.cell-still-warm::before {
   box-shadow: 0 0 0 transparent;
