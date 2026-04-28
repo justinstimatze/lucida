@@ -73,14 +73,11 @@ main {
   margin: 0;  /* gap on the grid handles spacing instead of margin */
   padding: 0.75rem 1rem;
   min-width: 0;  /* let grid items shrink below their intrinsic width */
-  /* Universal height cap: no single cell may dominate the viewport,
-     regardless of its DOM position or whether it's a reflection.
+  /* Universal height cap. Ambient cells stay short so the grid stays
+     dense; reflections override to ~38vh; hero overrides to 42vh.
      Per memory/feedback_glanceable_no_clicks.md the user shouldn't
-     have to scroll past one tall cell to see the next. The fade
-     gradient hints "more content if scrolled" without requiring a
-     click-to-expand interaction. Tightened from 55vh → 38vh to fit
-     3-4 cells in viewport simultaneously. */
-  max-height: 38vh;
+     have to scroll past one tall cell to see the next. */
+  max-height: 28vh;
   overflow: hidden;
   position: relative;
 }
@@ -105,26 +102,22 @@ main {
   grid-column: 1 / -1;
   padding: clamp(0.9rem, 1.5vw, 1.4rem) clamp(1rem, 2vw, 1.6rem);
   font-size: clamp(0.95rem, 1vw + 0.4rem, 1.05rem);
-  max-height: 55vh;  /* hero gets more headroom than ambient (38vh) */
+  max-height: 42vh;  /* hero is bounded so ambient row fits below */
 }
 .cell:first-child .cell-head {
   font-size: clamp(0.85rem, 0.9vw + 0.3rem, 1rem);
 }
-/* Tier 2: transitional — cells 2 and 3. Still full row, default size.
-   Smooths the visual jump from hero to ambient. */
-.cell:nth-child(2),
-.cell:nth-child(3) {
-  grid-column: 1 / -1;
-}
-/* Tier 3: ambient — cells 4+. Flow naturally in the responsive grid,
-   smaller padding, smaller body font. Density-packed; the user
-   glances and parses the column rather than reads each cell. */
-.cell:nth-child(n+4) {
+/* All non-hero, non-reflection cells flow into the ambient grid.
+   Hero + 2-row ambient grid → 3-5 cells visible at once depending
+   on viewport. Reflections still promote to full-width via the
+   .cell-reflection rule below — they keep prominence regardless of
+   recency position. */
+.cell:not(:first-child):not(.cell-reflection) {
   padding: 0.55rem 0.85rem;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
-.cell:nth-child(n+4) .cell-head {
-  font-size: 0.7rem;
+.cell:not(:first-child):not(.cell-reflection) .cell-head {
+  font-size: 0.72rem;
 }
 /* Reflections auto-promote: even when their DOM position would put
    them in the ambient grid, they take a full row. The connection
@@ -132,6 +125,7 @@ main {
    ambient cells deserves the same prominence as a fresh hero. */
 .cell.cell-reflection {
   grid-column: 1 / -1;
+  max-height: 38vh;
 }
 /* Narrow viewports (phone-width). Collapse hero padding further,
    allow HUD to wrap. */
