@@ -563,11 +563,14 @@ function computeHud(data, substrateAudit, mintLog) {
     cells: `${visible.length}`,
     cellsByType: byType,
     cellsTotal: visible.length,
-    // Session display: prefer the active ?session= filter when set,
-    // else fall back to the corpus-level session_id field. The literal
-    // "untagged" view shows that explicitly. Truncated to 8 chars to
-    // fit the HUD slot.
-    session: (ACTIVE_SESSION || data.session_id || "—").slice(0, 8),
+    // Session display: prefer the active ?session= filter when set.
+    // Single id → show truncated; multiple → show "Nsess"; none →
+    // fall back to corpus-level session_id field.
+    session: (ACTIVE_SESSIONS.size === 1
+              ? [...ACTIVE_SESSIONS][0].slice(0, 8)
+              : ACTIVE_SESSIONS.size > 1
+                ? `${ACTIVE_SESSIONS.size}sess`
+                : (data.session_id || "—").slice(0, 8)),
     theme: (window.__LUCIDA_THEME || "lab").toUpperCase(),
     kill1, kill2, kill3, recent,
   };
@@ -890,22 +893,32 @@ function drawConnections() {
   for (const refl of reflections) {
     const reflRect = refl.getBoundingClientRect();
     if (!inView(reflRect)) continue;
+    const reflCx = reflRect.left + reflRect.width / 2;
 
     const sourceIds = (refl.dataset.sourceIds || "").split(",").filter(Boolean);
     for (const sid of sourceIds) {
       const src = document.getElementById(sid);
       if (!src) continue;
       const srcRect = src.getBoundingClientRect();
-      if (!inView(srcRect)) continue;
+      const srcInView = inView(srcRect);
 
-      // Anchor at horizontal centers; pick the nearest edge of each
-      // rect along the vertical axis. With reverse-chrono + hero/
-      // ambient layout, source is typically *below* reflection
-      // (older), so we connect refl.bottom → src.top. The reverse
-      // case (older reflection above newer source) is rare but
-      // handled.
+      if (!srcInView) {
+        // Source is off-screen — draw a short stub from the reflection's
+        // nearest edge pointing toward where the source lives. Gives
+        // visual confirmation that the reflection has off-screen kin
+        // without the path arcing across unrelated cells.
+        const goingDown = srcRect.top >= reflRect.bottom;
+        const startY = goingDown ? reflRect.bottom : reflRect.top;
+        const endY = goingDown ? Math.min(vh, startY + 60) : Math.max(0, startY - 60);
+        const stub = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        stub.setAttribute("d", `M ${reflCx} ${startY} L ${reflCx} ${endY}`);
+        stub.setAttribute("class", "connection-path connection-stub");
+        svg.appendChild(stub);
+        continue;
+      }
+
+      // Both endpoints visible — full S-curve.
       const srcCx = srcRect.left + srcRect.width / 2;
-      const reflCx = reflRect.left + reflRect.width / 2;
       let srcY, reflY;
       if (srcRect.top >= reflRect.bottom) {
         srcY = srcRect.top;
@@ -914,15 +927,9 @@ function drawConnections() {
         srcY = srcRect.bottom;
         reflY = reflRect.top;
       } else {
-        // Overlapping vertically — connect midpoints, less ideal but
-        // avoids zero-length or backwards paths.
         srcY = srcRect.top + srcRect.height / 2;
         reflY = reflRect.top + reflRect.height / 2;
       }
-
-      // Gentle S-curve: control points pulled toward each endpoint's
-      // own X but pushed slightly past the midpoint Y. Caps the
-      // horizontal sweep so curves don't arc across unrelated cells.
       const midY = (srcY + reflY) / 2;
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute(

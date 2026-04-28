@@ -78,8 +78,9 @@ main {
      Per memory/feedback_glanceable_no_clicks.md the user shouldn't
      have to scroll past one tall cell to see the next. The fade
      gradient hints "more content if scrolled" without requiring a
-     click-to-expand interaction. */
-  max-height: 55vh;
+     click-to-expand interaction. Tightened from 55vh → 38vh to fit
+     3-4 cells in viewport simultaneously. */
+  max-height: 38vh;
   overflow: hidden;
   position: relative;
 }
@@ -104,7 +105,7 @@ main {
   grid-column: 1 / -1;
   padding: clamp(0.9rem, 1.5vw, 1.4rem) clamp(1rem, 2vw, 1.6rem);
   font-size: clamp(0.95rem, 1vw + 0.4rem, 1.05rem);
-  max-height: 70vh;
+  max-height: 55vh;  /* hero gets more headroom than ambient (38vh) */
 }
 .cell:first-child .cell-head {
   font-size: clamp(0.85rem, 0.9vw + 0.3rem, 1rem);
@@ -1026,6 +1027,16 @@ th, td {
   opacity: 0.35;
   filter: drop-shadow(0 0 2px var(--accent, #66ccff));
   animation: connection-flow 3.5s linear infinite;
+}
+/* Off-screen-source stub: shorter, slightly more emphatic, with a
+   different dash rhythm so the directional intent reads at a glance.
+   Tells the user "reflection has off-screen kin in this direction"
+   without drawing a path arcing through unrelated cells. */
+.connection-path.connection-stub {
+  stroke-dasharray: 3 5;
+  opacity: 0.55;
+  stroke-width: 1.6;
+  animation: connection-flow 1.8s linear infinite;
 }
 @keyframes connection-flow {
   to { stroke-dashoffset: -28; }
