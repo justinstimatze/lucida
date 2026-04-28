@@ -1032,14 +1032,9 @@ th, td {
   100% { opacity: 0; }
 }
 .theme-magi .cell.cell-still-warm::before {
-  /* Was border-color #00ff41 + green box-shadow at 0.42 alpha. With the
-     hero-live-breath-magi pulse already painting an amber glow on the
-     hero's box-shadow, this layered a green frame on top, reading as a
-     green bar wrapping the inside-edge of the hero cell — user-flagged
-     "green bar inside the top cell" 2026-04-28. Switched to amber so
-     the still-warm decay and the live-breath active state share the
-     same hue (one decays over 60s, the other pulses while watcher is
-     active). Green stays scoped to mermaid edges + connection lines. */
+  /* Magi still-warm in amber to match the live-breath hero pulse;
+     the green flavor was the original "giant green bar" report and
+     was switched to amber 2026-04-28. */
   border-color: #ff8c00;
   box-shadow: 0 0 16px rgba(255, 140, 0, 0.35), 0 0 4px rgba(255, 140, 0, 0.18);
 }
@@ -1321,35 +1316,15 @@ th, td {
   100% { transform: translateY(70vh); opacity: 0; }
 }
 
-/* Hero-cell scanline (magi only): a slower, more subtle ambient
-   sweep on whatever cell is currently in the hero slot. Reinforces
-   "this is the active focus" without competing with the html
-   scanline. Different rhythm (17s, slower) so the two scans don't
-   visually phase-lock. */
-.theme-magi .cell:first-child::before {
-  content: "";
-  position: absolute;
-  left: 8%; right: 8%;
-  top: 0;
-  height: 18px;
-  background: radial-gradient(ellipse at center,
-    rgba(255, 200, 100, 0.22) 0%,
-    rgba(255, 140, 0, 0.08) 50%,
-    transparent 80%);
-  filter: blur(1.5px);
-  pointer-events: none;
-  z-index: 1;
-  animation: hero-scan 17s linear infinite;
-}
-.theme-magi .cell:first-child {
-  position: relative;  /* anchor for the ::before scanline */
-}
-@keyframes hero-scan {
-  0%   { transform: translateY(-18px); opacity: 0; }
-  6%   { opacity: 1; }
-  92%  { transform: translateY(45vh); opacity: 0.7; }
-  100% { transform: translateY(45vh); opacity: 0; }
-}
+/* Hero-cell scanline removed 2026-04-28. User: "it's not the frame,
+   it's the scanline in the hero cell" — the radial-gradient band
+   sweeping across the hero read as a distracting bar rather than an
+   ambient FUI cue. The hero is already differentiated by size
+   (max-height 45vh vs 32vh ambient), live-breath pulse (box-shadow
+   animation), and still-warm border. Adding a sweeping scan layered
+   too much amber motion onto one element. The .html-target scanline
+   stays — it's per-table and reads as a "live readout" rather than
+   layering on the hero. */
 
 /* Page-level CRT phosphor scan removed — was causing a "giant green
    line" artifact under certain zoom/resolution combinations. The
