@@ -15,19 +15,31 @@ a niche unfilled by current generative-UI tools. See
 
 ## What it does
 
-1. **Watches** a Claude Code session transcript via `watcher.py`.
+1. **Watches** a Claude Code session transcript via `watcher.py`. Each
+   minted cell is stamped with a `session_id` so multiple concurrent
+   sessions can be filtered or composed in the renderer.
 2. **Segments** new prose into snippets (`segmenter.py`).
 3. **Classifies** each snippet into a cell type (`classifier.py`).
+   Text-classified snippets are suppressed unless confidence ≥ 0.92
+   (genuinely text-shaped content only); a substrate-diversity bias
+   suppresses repeat picks when the recent stream is already saturated.
 4. **Dispatches** to a substrate specialist (`specialists.py`) which
-   produces a snippet-grounded spec.
+   produces a snippet-grounded spec under a forcing-step audit
+   (DIRECT / DERIVED / INVENTED).
 5. **Persists** the cell to `cells.json` and appends a record to
    `mint_log.jsonl`.
 6. **Renders** live in the open notebook page at
-   <http://localhost:8766/> — new cells slide in with a substrate-
-   appropriate entrance animation; the HUD strip updates with cell
-   counts, kill-criteria gauges, and recent-mint ticker.
+   <http://localhost:8766/> — reverse-chrono (newest at top), with
+   a hero/ambient auto-layout (newest cell large, older cells flow
+   into a responsive grid). Cells slide in with substrate-appropriate
+   entrance animations; an SVG overlay draws connection lines from
+   reflection cells to their sources; the hero cell breathes a "live
+   stream" border while the watcher is active; kill-criteria rings
+   bloom from the HUD to a hero card on threshold trips.
 7. **Reflects** on every Nth mint via `reflect.py` — produces a
    structured html cell summarizing what worked / didn't / proposed-next.
+   Reflections auto-promote to full-row in the layout regardless of
+   recency position.
 8. **Closes the loop** via the UserPromptSubmit hook in
    `hooks/recent_mints.sh`: recent mints are injected into the next
    Claude Code prompt as context, so the conversation knows what just
@@ -48,7 +60,7 @@ Nine substrates, each with a specialist function. Specialists run with
 | `aframe`       | `generate_aframe_spec`           | declarative WebGL scenes via A-Frame                    |
 | `lottie`       | `generate_lottie_spec`           | usually demotes-with-redirect; Lottie isn't LLM-tractable |
 | `image`        | `image_specialist.py` + Gemini   | scene/illustrative — demoted from auto-classifier (kill #1) |
-| `text`         | n/a                              | meta-commentary; the value-prop failure mode             |
+| `text`         | n/a                              | mostly suppressed (<0.92 confidence); rare honest text   |
 
 All non-image specialists produce snippet-grounded specs via Anthropic
 Sonnet 4.6 with prompt caching. Each has a forcing-step audit
@@ -63,7 +75,8 @@ Four themes, all extensible via the `.theme-<name>` block in
 
 - `lab` — dark notebook (default), cyan accent
 - `magi` — Eva/NERV amber-on-black, Courier New monospace, FUI dialect
-  (mermaid SVG glow + scan-lines + animated dashed edges)
+  (mermaid SVG glow + scan-lines + animated dashed edges + html scan
+  line + amber row stagger)
 - `minimal` — Vercel/Linear flat
 - `gastown` — steampunk brass + serif
 
@@ -72,6 +85,40 @@ new theme = one CSS block setting the `--vis-*` token vocabulary.
 See `memory/feedback_themes_extensible.md` — the system is intended
 to support custom-FUI extensions per user (Bladerunner, Severance, Tron,
 etc.); don't entrench in magi-specific globals.
+
+## URL params
+
+The renderer is configurable from the URL — power-user surface that
+keeps the default click-free path intact. All optional:
+
+- `?theme=lab|magi|minimal|gastown` — theme selection (cookie-persisted)
+- `?session=<id>` — scope to one session
+- `?session=<a>,<b>,<c>` — multi-select; 2+ ids switch the renderer
+  to N-column mission-control mode (one column per session)
+- `?session=untagged` — pseudo-session for cells without a session_id
+
+The HUD's `SESSION` slot is also clickable: opens a dropdown listing
+every unique session_id in `cells.json` with checkboxes + "show all"
+clear button. Selections sync to the URL via `history.replaceState`.
+
+## Layout
+
+Glanceable by design — the layout itself carries the information
+hierarchy without requiring clicks:
+
+- **Hero (newest cell)**: full row, larger padding/font, breathing
+  border when the watcher is active.
+- **Ambient (older cells)**: flow into a responsive grid that scales
+  column count with viewport (`auto-fit minmax(380px, 1fr)`). Cells
+  cap at 28vh with a fade gradient when content exceeds.
+- **Reflections** auto-promote to full-row regardless of position;
+  glowing SVG paths trace from the reflection to its source cells
+  (or short directional stubs if sources are off-screen).
+- **HUD compresses to ~35px** by default; hover or click to expand to
+  the full status panel.
+- **Adaptive**: 1 column at narrow, 2-3 at standard desktop, 4+ on
+  ultrawides. Hero/transitional padding + font use `clamp()` for
+  smooth scaling.
 
 ## Setup
 
@@ -102,23 +149,32 @@ python orchestrator.py --snippet "..." --write --generate
 python orchestrator.py --snippet "..." --type mermaid --write   # force type
 ```
 
-Continuous passive-listener mode via watcher:
+Continuous passive-listener mode via watcher (stamps a `session_id`
+on every minted cell — defaults to the transcript path's filename
+stem unless `--session-id` is passed):
 
 ```bash
-python watcher.py --transcript /path/to/session.jsonl --watch 30 --write --generate
+python watcher.py --transcript /path/to/transcript.txt --watch 30 \
+                  --write --generate \
+                  --session-id my-session   # optional, defaults to filename stem
 ```
 
 Or one-pass:
 
 ```bash
-python watcher.py --transcript /path/to/session.txt --write --generate
+python watcher.py --transcript /path/to/transcript.txt --write --generate
 ```
 
 For Claude Code session logs (jsonl), pre-process via:
 
 ```bash
-python jsonl_to_transcript.py < session.jsonl > /tmp/transcript.txt
+python jsonl_to_transcript.py /path/to/session.jsonl --out /tmp/transcript.txt
 ```
+
+Multi-session (passive dashboard for multiple Claude Code windows):
+launch one watcher per session, each with a distinct `--session-id`,
+then open `http://localhost:8766/?session=A,B,C` to view them
+side-by-side in mission-control mode.
 
 ## Conversation-loop integration
 
@@ -139,8 +195,15 @@ Pre-committed kill criteria in `kill_criteria.md`. Two audit scripts:
   (counts heuristics over `cells.json` notes)
 - `python eval_all_substrates.py` — substrate hallucination audit
   (DIRECT/DERIVED/INVENTED provenance check on every active vega /
-  mermaid / html cell), ~$0.30 across the corpus. Writes
-  `audits/substrate_eval_<date>.{md,json}`. The HUD reads the latest.
+  mermaid / html cell), ~$0.012 per cell (~$0.30-0.50 across a typical
+  corpus). Writes `audits/substrate_eval_<date>.{md,json}`. The HUD
+  reads the latest.
+
+Calibration history lives in `memory/feedback_text_cells_uninteresting.md`
+— the text-mint gate has shifted across four versions as the audit
+results have surfaced; the current setting (suppress text below 0.92
+confidence) is the response to the 2026-04-28 audit that found 55.3%
+substrate hallucination under the prior any-text-suppress rule.
 
 ## Architecture references
 
@@ -189,12 +252,33 @@ lucida/
 ├── learnings.md               calibration history + disconfirms
 ├── design-references.md       curated FUI bookmarks (committed)
 ├── research/                  local-only deeper scrapes (gitignored)
-├── scratch_scene3d_demo.py    one-shot generator for iron-man-3D demos
-├── scratch_backfill_reflection_html.py   idempotent text→html migration
+├── cells_<date>_archive.json  prior corpus snapshots (kept for audit)
 └── cells/
     ├── placeholder.svg        the only tracked cell asset
     └── cell-*.png             generated images (gitignored)
 ```
+
+## Memory directory
+
+Durable design context lives at
+`~/.claude/projects/-home-gas6amus-Documents-lucida/memory/`. Highlights
+worth knowing:
+
+- `multi_stream_arc.md` — three-step plan (session_id tag → ?session=
+  filter → N-column mission control); all three steps landed.
+- `multi_assistant_dashboard.md` — extend lucida from Claude-Code-only
+  to a generic dashboard for any always-active AI (Hermes, Cursor
+  agent, Aider) via pluggable transcript adapters.
+- `station_vr_loopback.md` — long-term: FUI-in-VR power-user mode.
+- `audio_reactive_arc.md` — long-term: sync animations to system audio.
+- `feedback_glanceable_no_clicks.md` — layout-driven hierarchy, no
+  required interactions.
+- `feedback_intuitive_defaults_with_config.md` — every config knob has
+  a default + URL/env/CLI override path.
+- `feedback_layout_density_validated.md` — locks in the validated
+  hero/ambient + height-cap + diversity-bias combo.
+- `no_react_flow.md` — vanilla JS sufficient; reach for graph libs
+  only if the user starts manipulating the cell graph itself.
 
 ## Cost notes
 

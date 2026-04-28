@@ -111,3 +111,37 @@ Site root (analytic critiques across films/TV): <https://scifiinterfaces.com>
 ### How to extend this list
 
 Add only entries you've actually returned to, or that anchor a specific lucida design decision. The full per-archive scrape lives locally in `research/` (gitignored) — this section is the curated subset, not a mirror.
+
+## Decisions anchored from these references
+
+What's actually shipped in lucida that traces back to a specific
+reference, so future redesigns know what's load-bearing vs decorative:
+
+- **Peripheral-to-center bloom on kill rings** (Iron HUD post 2,
+  function catalog) — kill-criteria gauge transitions to "tripped"
+  trigger a Web Animations API bloom: clone the slot's content,
+  animate from peripheral position to viewport center, hold ~2s, fade
+  back. The "peripheral gauges escalate to center when their data
+  becomes load-bearing" move is the single most-on-brand FUI touch
+  lucida has shipped.
+- **Hero / ambient auto-layout** (Hojlund's hero/ambient principle)
+  — `:first-child` cell gets full-row hero treatment; older cells
+  flow into a responsive ambient grid. CSS-only, no JS layout engine
+  (per `memory/no_react_flow.md`).
+- **Reflections always full-row** (Noessel's four-awarenesses
+  framework — context awareness) — a cell synthesizing other cells
+  gets prominence regardless of recency position; SVG connection
+  paths trace from reflection to source cells (or short directional
+  stubs if sources are off-screen).
+- **HTML scan line under magi** (Iron HUD post 2 — alphanumeric
+  churn / live readout aesthetic) — vertical gradient sweep across
+  every html cell on a slow loop. Gives static comparison tables a
+  "live FUI readout" feel rather than a spreadsheet feel.
+- **JARVIS-not-Tony framing** (Iron HUD posts 3-4) — lucida's
+  positioning literature explicitly puts the AI as the load-bearing
+  agent, the user as command-and-control. The watcher is the
+  protagonist; the renderer is the bridge readout.
+- **Pragmatic-futurism rejection of pure-fantasy FUI** (Coleran
+  interview) — cells must justify themselves functionally
+  (DIRECT/DERIVED/INVENTED audit), not just look cool. The
+  substrate-hallucination kill criterion (#3) operationalizes this.
