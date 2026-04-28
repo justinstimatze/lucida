@@ -60,7 +60,7 @@ Given a conversation snippet, decide three things:
 
 # Cell types and when each fits
 
-- **text**: caption-only, no viz. The default. Use when no viz adds value beyond the snippet itself.
+- **text**: caption-only, no viz. **This is the value-prop failure mode** -- lucida is meant to surface what prose alone cannot, and a text cell is the same thing the user already has inline in their conversation. Picking text is a signal that this snippet may not have deserved a cell at all. There are two honest text-pick scenarios: (a) the snippet is unambiguously text-shaped (meta-commentary, status note, abstract reflection) and forcing any viz would be worse -- pick text with HIGH confidence (>=0.85), signaling "text is genuinely the right choice"; (b) you genuinely couldn't find a viz angle for a snippet that seems like it should have one -- pick text with LOW confidence (<0.6), signaling "this snippet probably shouldn't have been minted; the orchestrator's gate will suppress or downgrade." Do not pick text with mid confidence (0.6-0.85) unless you can explain *why* a viz was considered and rejected on substance, not just defaulted away from.
 - **image**: AI-generated scene. Use ONLY when the snippet has real visual specificity (a place, a character, a sensory scene with concrete props or setting). Do NOT use for abstract conceptual passages that happen to contain stray concrete details. Image generators struggle with meta-cognitive content (passages about reading, recognition, framing) -- those should always be text.
 - **vega**: precise quantitative chart. Use only when the snippet has *multi-point* numeric data forming a comparable series, distribution, or relationship. Single values become text -- a single-bar chart adds nothing the prose doesn't.
 - **mermaid**: structural graph or causal flow. Use only when there are 3 or more distinct entities AND labeled or directed relationships between them. A 2-node graph reads as prose; default to text. A list of N items rendered as N nodes with no edges is also trivial; use text or html.
@@ -78,6 +78,7 @@ Given a conversation snippet, decide three things:
 - **Structural claims without explicit relationships → text, not mermaid.** "The economy has many layers each with its own logic" names parts but doesn't claim relationships among them. The diagram would be a list of nodes.
 - **Identification or co-occurrence claims → text, not mermaid.** "X is the X that has Y" is identification. "X co-occurred with Y in the same period" is correlative. Neither warrants a directed graph; the qualifier on the edge would be longer than the snippet.
 - **Underspecified comparisons → text or sparse html.** If the snippet only specifies one side of a comparison, html works only if you can leave blank cells without inventing the missing side.
+- **Look for a viz angle before defaulting to text.** Lucida exists for the moments where prose alone falls short -- if a snippet contains numeric values, named entities with relationships, comparison axes, or temporal structure, surface those even when the snippet's surface form reads as discursive. Don't reject vega just because the snippet's main verb is "argue"; reject vega when the actual data isn't there. The bias against text is part of the value prop.
 
 # Worked examples
 
@@ -106,10 +107,10 @@ Snippet: "Among the most quietly hopeful of the contemporary cross-border arrang
 Decision: discourse_move=structural, cell_type=image, confidence=0.7
 Reasoning: Real visual specificity -- specific named place (Baja California, Los Algodones), specific demographic (older Americans), specific scene (dental clinics in a Mexican border town). The cultural simile ("part Lourdes and part Costco") gives concrete imagery to render. Image cell can produce a grounded scene rather than generic stock.
 
-## Example 6 -- meta-cognitive (text, not image, even with concrete details)
+## Example 6 -- meta-cognitive (text, high confidence)
 Snippet: "The Margaret moment is not a break -- Margaret appears as a detail the narrator celebrates as a successful pensioner, and the reader's recognition of what Margaret is inside the celebration is the essay's emotional center."
-Decision: discourse_move=none, cell_type=text, confidence=0.7
-Reasoning: Despite the concrete name "Margaret", the actual move is meta-cognitive -- about *the reader's recognition* of meaning inside a celebration. Image generators cannot render "the reader's recognition of structural irony"; they default to generic happy-retiree imagery that loses the analytical content. Text caption preserves the meta-cognitive structure.
+Decision: discourse_move=none, cell_type=text, confidence=0.9
+Reasoning: Unambiguously meta-cognitive -- the load-bearing claim is about *the reader's recognition* of meaning inside a celebration. No viz substrate fits: image generators default to generic happy-retiree imagery (cell-0005 cautionary case); vega has no numbers; mermaid has no relational structure between named entities; html has no comparison axes. Text is genuinely the right choice here, hence high confidence. (Contrast with low-confidence text picks, which signal "I tried to find a viz angle and couldn't.")
 
 ## Example 7 -- comparative (html)
 Snippet: "The cooperative that pays above-market wages discovers that the competitor next to it pays below-market wages and can therefore offer lower prices; to remain solvent, the cooperative either matches the lower wages or loses the customer."
@@ -118,7 +119,15 @@ Reasoning: Two entities (cooperative, competitor) compared along multiple dimens
 
 # Quality bar
 
-Lucida's quality bar is "the cell adds something the snippet alone doesn't." If that's not true, return text. Default to text when uncertain, and let the confidence score reflect that uncertainty -- the orchestrator's confidence gate uses your number to decide whether to suppress the cell entirely (<0.6), mark it as draft (0.6-0.8), or render normally (>0.8).
+Lucida's quality bar is "the cell adds something the snippet alone doesn't, in a way prose can't." Lucida hovers next to a Claude Code conversation that is already entirely text inline -- a text cell adds nothing the user doesn't already have. The differentiation is rich/dynamic visuals.
+
+So: do not "default to text when uncertain." Defaulting to text when uncertain is anti-differentiation. Instead:
+- If a viz angle exists, surface it -- even on snippets whose surface form reads discursive.
+- If no viz angle exists and the snippet is genuinely text-shaped (meta-commentary, abstract reflection), pick text with HIGH confidence (>=0.85). This is honest -- text is the right choice, the cell stands on its caption.
+- If no viz angle exists and you're not confident the snippet deserved a cell at all, pick text with LOW confidence (<0.6). The orchestrator's gate will downgrade or suppress; this is the right outcome for an over-eager mint.
+- The middle band (0.6-0.85 + text) should be rare -- if you're picking text with that confidence, your reasoning needs to explain what viz was considered and why it was rejected on substance.
+
+The orchestrator's confidence gate uses your number: <0.6 = suppress / heavy downgrade; 0.6-0.8 = draft; >0.8 = render normally.
 """
 
 

@@ -8,6 +8,14 @@
   --code-bg: #15151a;
   --cell-bg: #131318;
   --header-bg: #15151a;
+  /* glow + escalation tokens (lab-theme defaults; magi overrides for FUI feel) */
+  --vis-amber-glow: rgba(102, 204, 255, 0.35);
+  --glow-sm: 0 0 2px var(--vis-amber-glow);
+  --glow-md: 0 0 4px var(--vis-amber-glow);
+  --glow-lg: 0 0 8px var(--vis-amber-glow), 0 0 2px var(--vis-amber-glow);
+  --vis-ok: #4ade80;
+  --vis-warn: #fbbf24;
+  --vis-tripped: #f87171;
 }
 body {
   margin: 0;
@@ -255,7 +263,8 @@ body > .a-orientation-modal {
    Adapted from gemotvis/frontend/src/styles/themes.css.
    ============================================================ */
 
-/* MAGI -- Evangelion / NERV. Amber + green on near-black, monospace. */
+/* MAGI -- Evangelion / NERV. Amber + green on near-black, monospace.
+   Glow + escalation token system lifted from gemotvis/frontend/src/styles/themes.css. */
 .theme-magi {
   --bg: #050505;
   --cell-bg: #0c0c0c;
@@ -265,6 +274,13 @@ body > .a-orientation-modal {
   --muted: #884600;
   --accent: #00ff41;
   --code-bg: #0a0a0a;
+  --vis-amber-glow: rgba(255, 140, 0, 0.5);
+  --glow-sm: 0 0 2px var(--vis-amber-glow);
+  --glow-md: 0 0 4px var(--vis-amber-glow);
+  --glow-lg: 0 0 8px var(--vis-amber-glow), 0 0 2px var(--vis-amber-glow);
+  --vis-ok: #00ff41;
+  --vis-warn: #ffaa00;
+  --vis-tripped: #ff2020;
 }
 .theme-magi body {
   font-family: "Courier New", "Lucida Console", monospace;
@@ -340,4 +356,163 @@ th, td {
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--line);
   text-align: left;
+}
+
+/* ============================================================
+   HUD — FUI-feel live status strip in the header.
+   Replaces #session-meta. Ambient + informational; scan-lines,
+   monospace, char-by-char reveal handled via JS typeInto().
+   ============================================================ */
+.hud {
+  position: relative;
+  font-family: ui-monospace, "SF Mono", Menlo, "Courier New", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  padding: 0.55rem 0.7rem 0.6rem;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 60%),
+    var(--code-bg);
+  overflow: hidden;
+}
+.hud-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.6rem;
+  padding: 0.15rem 0;
+  align-items: baseline;
+}
+.hud-row-bot {
+  border-top: 1px dashed var(--line);
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+}
+.hud-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+.hud-label {
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.78;
+}
+.hud-value {
+  color: var(--fg);
+  font-weight: 600;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.hud-status .hud-value { color: var(--accent); }
+
+/* Pulse dot next to STATUS — soft glow when ACTIVE, dim when IDLE */
+.hud-pulse {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--muted);
+  margin-left: 0.1rem;
+  box-shadow: 0 0 0 0 transparent;
+}
+.hud[data-status="active"] .hud-pulse {
+  background: var(--accent);
+  animation: hud-pulse 1.6s ease-in-out infinite;
+}
+@keyframes hud-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); }
+  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%,  transparent); }
+}
+
+/* Scanline overlay — subtle horizontal lines that never block content */
+.hud-scanline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.02) 0px,
+    rgba(255,255,255,0.02) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+/* KILL.* slots: dim when below threshold, accent when at/over.
+   The data-tripped state is set via the value text itself for now;
+   future: parse the % and set data-tripped="true" in JS. */
+.hud-kills .hud-value { color: var(--fg); }
+.hud-mints .hud-value {
+  font-size: 0.68rem;
+  opacity: 0.92;
+}
+
+/* Theme-specific HUD overrides — magi gets amber HUD with green accent
+   (matches the existing magi --accent: #00ff41 chartreuse). */
+.theme-magi .hud {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0) 50%),
+    #060606;
+  border-left-color: #00ff41;
+}
+.theme-magi .hud-value {
+  text-shadow:
+    0 0 4px rgba(255, 140, 0, 0.55),
+    0 0 10px rgba(255, 140, 0, 0.18);
+}
+.theme-magi .hud-status .hud-value { color: #00ff41; }
+.theme-magi .hud[data-status="idle"] .hud-status .hud-value { color: #884600; }
+
+/* Minimal theme: tone the HUD down — no glow, just structured monospace */
+.theme-minimal .hud {
+  background: var(--code-bg);
+  border-left-color: var(--accent);
+}
+.theme-minimal .hud-value { text-shadow: none; }
+.theme-minimal .hud-scanline { display: none; }
+
+/* Flash announcement: new mint arrived. Brief border + glow swell. */
+.hud.hud-flash {
+  animation: hud-flash 0.7s ease-out;
+}
+@keyframes hud-flash {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); border-left-color: var(--accent); }
+  40%  { box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent); border-left-color: var(--accent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.hud.hud-flash .hud-value { text-shadow: var(--glow-lg); }
+
+/* Use the new glow tokens in the steady-state HUD too, replacing the
+   ad-hoc text-shadow that originally hard-coded a color-mix. */
+.hud-value { text-shadow: var(--glow-md); }
+.theme-magi .hud-value { text-shadow: var(--glow-md); }
+.theme-minimal .hud-value { text-shadow: none; }
+
+/* Live-append animation: cells that arrive after first paint slide in
+   with a brief accent-bordered glow so the user sees them land. The
+   class is stripped after the animation so re-renders don't replay. */
+.cell.cell-fresh {
+  animation: cell-arrive 1.0s ease-out;
+  border-left: 3px solid var(--accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+@keyframes cell-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+    box-shadow: 0 0 32px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 0 transparent;
+  }
 }

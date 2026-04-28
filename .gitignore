@@ -18,3 +18,6 @@ cells/cell-*.webp
 
 # transcript watcher state files
 .watcher_state_*.json
+
+# runtime mint log — append-only by orchestrator, read by recent_mints hook
+mint_log.jsonl

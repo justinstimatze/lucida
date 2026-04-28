@@ -32,7 +32,50 @@
 <body>
 <header>
   <h1>lucida notebook</h1>
-  <div id="session-meta"></div>
+  <div id="hud" class="hud" aria-live="polite">
+    <div class="hud-row hud-row-top">
+      <span class="hud-cell hud-status">
+        <span class="hud-label">STATUS</span>
+        <span class="hud-value" id="hud-status-val">—</span>
+        <span class="hud-pulse" id="hud-pulse"></span>
+      </span>
+      <span class="hud-cell hud-elapsed">
+        <span class="hud-label">SINCE.LAST</span>
+        <span class="hud-value" id="hud-elapsed-val">—</span>
+      </span>
+      <span class="hud-cell">
+        <span class="hud-label">CELLS</span>
+        <span class="hud-value" id="hud-cells-val">—</span>
+      </span>
+      <span class="hud-cell">
+        <span class="hud-label">SESSION</span>
+        <span class="hud-value" id="hud-session-val">—</span>
+      </span>
+      <span class="hud-cell">
+        <span class="hud-label">THEME</span>
+        <span class="hud-value" id="hud-theme-val">—</span>
+      </span>
+    </div>
+    <div class="hud-row hud-row-bot">
+      <span class="hud-cell hud-kills">
+        <span class="hud-label">KILL.AESTHETIC</span>
+        <span class="hud-value" id="hud-kill1-val">—</span>
+      </span>
+      <span class="hud-cell hud-kills">
+        <span class="hud-label">KILL.MISROUTE</span>
+        <span class="hud-value" id="hud-kill2-val">—</span>
+      </span>
+      <span class="hud-cell hud-kills">
+        <span class="hud-label">KILL.HALLUC</span>
+        <span class="hud-value" id="hud-kill3-val">—</span>
+      </span>
+      <span class="hud-cell hud-mints">
+        <span class="hud-label">RECENT</span>
+        <span class="hud-value" id="hud-recent-val">—</span>
+      </span>
+    </div>
+    <div class="hud-scanline" aria-hidden="true"></div>
+  </div>
 </header>
 <main id="notebook"></main>
 <script type="module">
@@ -166,6 +209,225 @@ function resolveColor(c) {
   return c;
 }
 
+// Type-on animation: progressively reveal text into a target element.
+// Hackertyper-feel; bounded so first paint isn't a blocking effect.
+// Critical: only animates when the value actually CHANGES — otherwise
+// the 5s HUD poll would re-type the entire header every tick, which
+// reads as nervous flicker, not signal.
+const _lastTyped = new Map();
+function typeInto(elId, text, perChar = 18, maxChars = 200) {
+  const e = document.getElementById(elId);
+  if (!e) return;
+  const t = String(text).slice(0, maxChars);
+  if (_lastTyped.get(elId) === t) return;  // unchanged → leave it alone
+  _lastTyped.set(elId, t);
+  e.textContent = "";
+  let i = 0;
+  const tick = () => {
+    e.textContent = t.slice(0, ++i);
+    if (i < t.length) setTimeout(tick, perChar);
+  };
+  tick();
+}
+
+async function fetchJSON(path) {
+  try {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
+async function fetchText(path) {
+  try {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.text();
+  } catch (e) { return null; }
+}
+
+// Compute lucida HUD metrics from cells.json + the latest substrate eval.
+// Kill rates use audited values when present, else fall back to cells.json
+// regex / proxy heuristics so the strip never reads "—".
+function computeHud(data, substrateAudit, mintLog) {
+  const cells = data.cells || [];
+  const active = cells.filter(c => !c.replaced_by);
+  const visible = active.filter(c => !(c.cell_type === "text" && c.attempted_cell_type));
+  const byType = {};
+  for (const c of visible) byType[c.cell_type] = (byType[c.cell_type] || 0) + 1;
+
+  // KILL.AESTHETIC — kill #1, image quality. Proxy: count image cells whose notes mention low score.
+  // For the audit, we'd read audits/audit_*.md; for now use the rate from the existing audit_2026-04-27 figures.
+  let kill1 = "n/a";
+  const imgCells = visible.filter(c => c.cell_type === "image");
+  if (imgCells.length) kill1 = `img ${imgCells.length} (audit Δ pending)`;
+
+  // KILL.MISROUTE — classifier mis-routings. Pull from notes via regex.
+  const forced = active.filter(c => /forced→\w+/.test(c.notes || ""));
+  const total = active.length;
+  const kill2pct = total ? (forced.length * 100 / total).toFixed(1) : "0.0";
+  const kill2 = `${kill2pct}% (${forced.length}/${total})`;
+
+  // KILL.HALLUC — substrate hallucination from latest audit.
+  let kill3 = "n/a";
+  if (substrateAudit && substrateAudit.length) {
+    const evaluated = substrateAudit.filter(r => !r.error);
+    const inv = evaluated.filter(r => (r.substrate_inv && r.substrate_inv.length) || (r.caption_inv && r.caption_inv.length));
+    const pct = evaluated.length ? (inv.length * 100 / evaluated.length).toFixed(1) : "0.0";
+    kill3 = `${pct}% (${inv.length}/${evaluated.length})`;
+  }
+
+  // STATUS — alive if any mint within last 60min, else idle.
+  let status = "IDLE";
+  let lastMint = null;
+  if (mintLog && mintLog.length) {
+    const now = Date.now();
+    const recent = mintLog.filter(m => {
+      const t = Date.parse(m.timestamp || "");
+      return !isNaN(t) && (now - t) < 60 * 60 * 1000;
+    });
+    if (recent.length) status = "ACTIVE";
+    lastMint = mintLog[mintLog.length - 1];
+  }
+
+  // RECENT — last 3 mints, comma-separated.
+  let recent = "—";
+  if (mintLog && mintLog.length) {
+    const last3 = mintLog.slice(-3).map(m => `${m.cell_id}:${m.cell_type}`);
+    recent = last3.join("  ");
+  }
+
+  return {
+    status,
+    cells: `${visible.length}  [${Object.entries(byType).map(([t, n]) => `${t}:${n}`).join("·")}]`,
+    session: (data.session_id || "—").slice(0, 8),
+    theme: (window.__LUCIDA_THEME || "lab").toUpperCase(),
+    kill1, kill2, kill3, recent,
+  };
+}
+
+// Parse mint_log.jsonl (one JSON object per line) into an array.
+function parseMintLog(text) {
+  if (!text) return [];
+  return text.split(/\r?\n/).filter(Boolean).map(line => {
+    try { return JSON.parse(line); } catch (e) { return null; }
+  }).filter(Boolean);
+}
+
+// Track latest seen mint so we can detect *new* events between polls
+// and flash the HUD to announce them. Persists across loadHud calls.
+let _lastSeenMintCellId = null;
+let _lastMintTimestamp = null;  // for the live seconds-since-last counter
+
+// Set of cell IDs already rendered in the notebook. Initialized by the
+// first load() pass and grown by liveAppendNewCells() as fresh cells arrive.
+const _renderedCellIds = new Set();
+
+// Detect cells in cells.json that haven't been rendered yet, append them
+// to the notebook with a slide-in animation. Called from loadHud() so it
+// runs at the same 1.5s cadence as the HUD poll.
+function liveAppendNewCells(cellsData) {
+  if (!cellsData || !Array.isArray(cellsData.cells)) return 0;
+  const visible = cellsData.cells.filter(c => {
+    if (c.cell_type === "text" && c.attempted_cell_type) return false;
+    if (c.replaced_by) return false;
+    return true;
+  });
+  // First poll establishes the baseline; subsequent polls detect deltas.
+  // load() seeds _renderedCellIds before the first poll fires.
+  const fresh = visible.filter(c => !_renderedCellIds.has(c.id));
+  if (!fresh.length) return 0;
+
+  // Rebuild snippetGroups from the full visible set so attempt-N-of-M
+  // badges include the newly arrived cells.
+  const snippetGroups = new Map();
+  for (const c of visible) {
+    if (!c.trigger_snippet) continue;
+    if (!snippetGroups.has(c.trigger_snippet)) snippetGroups.set(c.trigger_snippet, []);
+    snippetGroups.get(c.trigger_snippet).push(c.id);
+  }
+
+  const root = document.getElementById("notebook");
+  for (const c of fresh) {
+    const node = renderCell(c, snippetGroups);
+    node.classList.add("cell-fresh");
+    root.appendChild(node);
+    _renderedCellIds.add(c.id);
+    // Strip the animation class after it plays so re-flows don't replay.
+    setTimeout(() => node.classList.remove("cell-fresh"), 1400);
+  }
+  return fresh.length;
+}
+
+async function loadHud() {
+  const [cellsData, mintLogText] = await Promise.all([
+    fetchJSON("cells.json"),
+    fetchText("mint_log.jsonl"),
+  ]);
+  if (!cellsData) return;
+
+  // Live append before computing HUD metrics so the cell count + flash
+  // reflect the new state.
+  const appended = liveAppendNewCells(cellsData);
+  if (appended) flashHud();
+
+  // Pick latest substrate eval if present; renderer doesn't know which date.
+  let substrateAudit = null;
+  for (const d of ["2026-04-27"]) {
+    const a = await fetchJSON(`audits/substrate_eval_${d}.json`);
+    if (a) { substrateAudit = a; break; }
+  }
+
+  const mintLog = parseMintLog(mintLogText);
+  const newest = mintLog.length ? mintLog[mintLog.length - 1] : null;
+
+  // Detect new mint vs. last poll → flash HUD and re-render notebook tail.
+  if (newest && newest.cell_id && newest.cell_id !== _lastSeenMintCellId) {
+    if (_lastSeenMintCellId !== null) flashHud();  // skip flash on first paint
+    _lastSeenMintCellId = newest.cell_id;
+  }
+  _lastMintTimestamp = newest ? newest.timestamp : null;
+
+  const m = computeHud(cellsData, substrateAudit, mintLog);
+  typeInto("hud-status-val", m.status);
+  typeInto("hud-cells-val", m.cells);
+  typeInto("hud-session-val", m.session);
+  typeInto("hud-theme-val", m.theme);
+  typeInto("hud-kill1-val", m.kill1);
+  typeInto("hud-kill2-val", m.kill2);
+  typeInto("hud-kill3-val", m.kill3);
+  typeInto("hud-recent-val", m.recent);
+  const hud = document.getElementById("hud");
+  hud.dataset.status = m.status.toLowerCase();
+}
+
+function flashHud() {
+  const hud = document.getElementById("hud");
+  hud.classList.add("hud-flash");
+  setTimeout(() => hud.classList.remove("hud-flash"), 700);
+}
+
+// Live elapsed-since-last-mint tick. Updates a dedicated SINCE.LAST slot
+// every second so the HUD feels alive between polls without fighting the
+// loadHud poll over the STATUS slot. Direct textContent mutation; no
+// typeInto, no animation. The pulse dot still encodes activity recency
+// via the hud[data-status] attribute set by loadHud.
+function tickSinceLast() {
+  const e = document.getElementById("hud-elapsed-val");
+  if (!e) return;
+  if (!_lastMintTimestamp) { e.textContent = "—"; return; }
+  const t = Date.parse(_lastMintTimestamp);
+  if (isNaN(t)) { e.textContent = "—"; return; }
+  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  e.textContent = formatElapsed(sec);
+}
+
+function formatElapsed(sec) {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m${sec % 60}s`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h${Math.floor((sec % 3600) / 60)}m`;
+  return `${Math.floor(sec / 86400)}d`;
+}
+
 async function load() {
   const res = await fetch("cells.json", { cache: "no-store" });
   const data = await res.json();
@@ -174,16 +436,6 @@ async function load() {
     if (c.replaced_by) return false;                                     // superseded by a retrigger
     return true;
   });
-  const trivialSuppressed = data.cells.filter(c => c.cell_type === "text" && c.attempted_cell_type).length;
-  const retriggerSuppressed = data.cells.filter(c => c.replaced_by).length;
-  const suppressedNote = [
-    trivialSuppressed && `${trivialSuppressed} suppressed by trivial-filter`,
-    retriggerSuppressed && `${retriggerSuppressed} replaced by retrigger`,
-  ].filter(Boolean).join(", ");
-  const meta = `session: ${data.session_id}  ·  cells: ${visible.length}` +
-    (suppressedNote ? ` (${suppressedNote})` : "") +
-    `  ·  theme: ${ACTIVE}`;
-  document.getElementById("session-meta").textContent = meta;
 
   // Group cells that share a trigger_snippet so each can render as
   // "attempt N of M" rather than appearing as accidental duplicates.
@@ -197,6 +449,7 @@ async function load() {
   const root = document.getElementById("notebook");
   for (const c of visible) {
     root.appendChild(renderCell(c, snippetGroups));
+    _renderedCellIds.add(c.id);  // seed live-append baseline
   }
 }
 
@@ -488,6 +741,14 @@ load().catch(err => {
   document.getElementById("notebook").textContent =
     "load error: " + err.message;
 });
+
+// HUD bootstraps and polls fast. Hackertyper-feel reveal happens
+// inside typeInto() but only on actual value changes (cached), so the
+// poll cadence doesn't cause header flicker. The since-last-mint
+// counter ticks every second so the HUD feels alive even between polls.
+loadHud().catch(() => {});
+setInterval(() => loadHud().catch(() => {}), 1500);
+setInterval(tickSinceLast, 1000);
 </script>
 </body>
 </html>

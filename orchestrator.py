@@ -26,6 +26,25 @@ except ImportError:
 
 
 CELLS_PATH = Path(__file__).parent / "cells.json"
+MINT_LOG_PATH = Path(__file__).parent / "mint_log.jsonl"
+
+
+def _log_mints(cell_dicts: list[dict]) -> None:
+    """Append a one-line JSON record per minted cell. Read by the
+    recent_mints hook to surface fresh cells back into the conversation."""
+    try:
+        with MINT_LOG_PATH.open("a") as f:
+            for c in cell_dicts:
+                snippet = (c.get("trigger_snippet") or "").strip().replace("\n", " ")
+                f.write(json.dumps({
+                    "timestamp": c.get("timestamp"),
+                    "cell_id": c.get("id"),
+                    "cell_type": c.get("cell_type"),
+                    "snippet_head": snippet[:120],
+                    "caption": (c.get("caption") or "").strip()[:200],
+                }) + "\n")
+    except OSError:
+        pass  # mint_log is best-effort; never block a write on it
 
 
 @dataclass
@@ -387,8 +406,10 @@ def reflect_and_persist(n: int = 5, write: bool = True) -> "CellProposal":
         reflection_source_ids=result.source_ids,
     )
     if write:
-        data["cells"].append(asdict(proposal))
+        d = asdict(proposal)
+        data["cells"].append(d)
         CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+        _log_mints([d])
     return proposal
 
 
@@ -861,9 +882,11 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         proposal.notes = f"{proposal.notes} [trivial-filter applied]"
 
     if write:
-        for c in cells_to_write:
-            data["cells"].append(asdict(c))
+        new_dicts = [asdict(c) for c in cells_to_write]
+        for d in new_dicts:
+            data["cells"].append(d)
         CELLS_PATH.write_text(json.dumps(data, indent=2))
+        _log_mints(new_dicts)
     return proposal
 
 
