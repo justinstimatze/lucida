@@ -633,15 +633,19 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     f"classifier confidence {llm.confidence:.2f} < 0.6 "
                     f"(would-be {llm.cell_type}); silent > text"
                 )
-            # Higher-standards text gate: even at high confidence, text
-            # cells contribute zero glanceable value (lucida is a viz
-            # surface; Claude Code already shows text inline). Suppress
-            # any text classification regardless of confidence. Per
-            # memory/feedback_text_cells_uninteresting.md (strengthened).
-            if llm.cell_type == "text":
+            # Text gate: text cells are the value-prop failure mode at
+            # ordinary confidences, but suppressing them entirely forced
+            # the classifier to pick a viz substrate for narrative-prose
+            # snippets and pushed substrate hallucination to 55% (audit
+            # 2026-04-28, kill #3 tripped). High-confidence text mints
+            # restore the escape valve — only fires for genuinely text-
+            # shaped content the classifier is very sure about (aphorisms,
+            # explicit falsifications, single-claim reflections). Per
+            # memory/feedback_text_cells_uninteresting.md (re-tuned).
+            if llm.cell_type == "text" and llm.confidence < 0.92:
                 raise SuppressedMintError(
-                    f"classifier picked text @{llm.confidence:.2f}; "
-                    f"text is the value-prop failure mode — silent > text"
+                    f"text @{llm.confidence:.2f} below 0.92 floor; "
+                    f"silent > low-confidence text"
                 )
             if llm.confidence < 0.8:
                 chosen_type = llm.cell_type
