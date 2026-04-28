@@ -238,7 +238,15 @@ function initSessionDropdownTrigger() {
 const THEME_CONFIG = {
   lab: {
     mermaid: { theme: "dark" },
-    vega: { theme: "dark" },
+    vega: {
+      // Explicit category range so vega charts stay aligned with the
+      // lab palette (cyan + magenta + yellow primary, with softer
+      // tints rounding out the slot count).
+      config: {
+        background: "transparent",
+        range: { category: ["#66ccff", "#ff66dd", "#ffee66", "#00ffff", "#ff00ff", "#ffff00"] },
+      },
+    },
     palette: {
       stroke1: "#00ffff", stroke2: "#ff00ff", stroke3: "#ffff00",
       accent: "#66ccff", fg: "#e5e5e5", muted: "#8a8a92",
@@ -273,7 +281,11 @@ const THEME_CONFIG = {
           titleFont: "Courier New",
         },
         legend: { labelColor: "#ff8c00", titleColor: "#ff8c00" },
-        range: { category: ["#ff8c00", "#00ff41", "#ff2020", "#4488ff", "#ffff00", "#ff00ff"] },
+        // Magi range trimmed to amber + emerald + alert-red primary
+        // trio, with desaturated variants for the remaining slots.
+        // Drops the off-brand yellow/magenta the prior palette had —
+        // they read as foreign in an Eva/NERV amber-on-black FUI.
+        range: { category: ["#ff8c00", "#00ff41", "#ff2020", "#cc6600", "#33aa55", "#aa2020"] },
       },
     },
     palette: {
@@ -687,10 +699,18 @@ function liveAppendNewCells(cellsData) {
   const wasAtTop = window.scrollY < 100;
   const oldDocHeight = document.body.offsetHeight;
   let firstNode = null;
+  const multi = isMultiStream();
   for (const c of fresh) {
     const node = renderCell(c, snippetGroups);
     node.classList.add("cell-fresh");
-    root.prepend(node);
+    if (multi) {
+      // Route into the cell's session column; newest first within column.
+      const col = ensureSessionColumn(sessionKey(c));
+      const headerEl = col.firstChild;
+      col.insertBefore(node, headerEl.nextSibling);
+    } else {
+      root.prepend(node);
+    }
     _renderedCellIds.add(c.id);
     firstNode = node;
     setTimeout(() => node.classList.remove("cell-fresh"), 1400);
@@ -753,6 +773,12 @@ async function loadHud() {
   typeInto("hud-recent-val", m.recent);
   const hud = document.getElementById("hud");
   hud.dataset.status = m.status.toLowerCase();
+  // Mirror the status onto #notebook so the hero cell can pulse a
+  // continuous "live stream" border while the watcher is active.
+  // Persistent visual indicator beyond cell-still-warm's 60s decay —
+  // tells the user "the system is listening *now*", not "this cell
+  // was just minted".
+  document.getElementById("notebook").dataset.stream = m.status.toLowerCase();
   // KILL.* color-escalation + ring fill — thresholds from kill_criteria.md.
   // ok / warn / tripped tokens already in CSS as --vis-ok/warn/tripped.
   applyKillState("hud-kill1-slot", parsePct(m.kill1), 30, 50);
@@ -1001,6 +1027,31 @@ function formatElapsed(sec) {
   return `${Math.floor(sec / 86400)}d`;
 }
 
+// Multi-stream arc step 3: when 2+ sessions are selected via the
+// HUD dropdown, the notebook switches from a single responsive grid
+// to a flex-row of per-session columns. Each column is a vertical
+// stack of that session's cells (newest at top); each column's
+// :first-child still gets hero treatment via the existing CSS rule.
+// Single-session and unscoped views remain in single-grid mode.
+function isMultiStream() {
+  return ACTIVE_SESSIONS.size >= 2;
+}
+function sessionKey(c) {
+  return c.session_id || "untagged";
+}
+// Find or create the column wrapper for a session in multi-stream mode.
+function ensureSessionColumn(sid) {
+  const root = document.getElementById("notebook");
+  let col = root.querySelector(`.session-column[data-sid="${CSS.escape(sid)}"]`);
+  if (col) return col;
+  col = el("div", "session-column");
+  col.dataset.sid = sid;
+  const header = el("div", "session-column-header", sid.slice(0, 12));
+  col.appendChild(header);
+  root.appendChild(col);
+  return col;
+}
+
 async function load() {
   const res = await fetch("cells.json", { cache: "no-store" });
   const data = await res.json();
@@ -1021,12 +1072,30 @@ async function load() {
   }
 
   const root = document.getElementById("notebook");
-  // Reverse-chrono render: newest cells live at the top so they're
-  // immediately visible without autoscroll. Iterating chronologically
-  // and prepending each puts the last (newest) cell at the very top.
-  for (const c of visible) {
-    root.prepend(renderCell(c, snippetGroups));
-    _renderedCellIds.add(c.id);  // seed live-append baseline
+  if (isMultiStream()) {
+    // Mission-control mode. One column per selected session; cells
+    // routed into their column. Columns are pre-created in dropdown
+    // order so a session with no cells still renders an empty column
+    // (acts as a placeholder for "this session is being watched but
+    // hasn't minted yet").
+    root.dataset.mode = "multi-stream";
+    for (const sid of ACTIVE_SESSIONS) ensureSessionColumn(sid);
+    for (const c of visible) {
+      const col = ensureSessionColumn(sessionKey(c));
+      // Newest first within column — prepend AFTER the header.
+      const headerEl = col.firstChild;
+      col.insertBefore(renderCell(c, snippetGroups), headerEl.nextSibling);
+      _renderedCellIds.add(c.id);
+    }
+  } else {
+    root.dataset.mode = "single";
+    // Reverse-chrono render: newest cells live at the top so they're
+    // immediately visible without autoscroll. Iterating chronologically
+    // and prepending each puts the last (newest) cell at the very top.
+    for (const c of visible) {
+      root.prepend(renderCell(c, snippetGroups));
+      _renderedCellIds.add(c.id);
+    }
   }
 
   // Hero "still warm" treatment: the most-recent visible cell gets a
@@ -1053,10 +1122,18 @@ async function load() {
 // this treatment via the cell-fresh path. Reverse-chrono: newest is at
 // index 0 (the first .cell in document order is the most-recent mint).
 function applyStillWarmToLatest() {
-  const cells = document.querySelectorAll(".cell");
-  if (!cells.length) return;
   document.querySelectorAll(".cell.cell-still-warm").forEach(n => n.classList.remove("cell-still-warm"));
-  cells[0].classList.add("cell-still-warm");
+  if (isMultiStream()) {
+    // Each column glows its own most-recent cell — independent
+    // mission-control feeds, each with its own "live" indicator.
+    document.querySelectorAll(".session-column").forEach(col => {
+      const c = col.querySelector(".cell");
+      if (c) c.classList.add("cell-still-warm");
+    });
+  } else {
+    const cells = document.querySelectorAll(".cell");
+    if (cells.length) cells[0].classList.add("cell-still-warm");
+  }
 }
 
 function el(tag, cls, text) {

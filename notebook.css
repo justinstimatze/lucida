@@ -66,6 +66,49 @@ main {
   gap: 0.75rem;
   align-items: start;
 }
+/* Multi-stream mode: when 2+ sessions are selected via the HUD
+   dropdown, the notebook re-shapes into a flex-row of per-session
+   columns. Each column = vertical stack of that session's cells with
+   newest-on-top + hero treatment on its :first-child. Per memory/
+   multi_stream_arc.md step 3 — mission-control layout for users
+   running multiple Claude Code sessions in parallel. */
+#notebook[data-mode="multi-stream"] {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.session-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.session-column-header {
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--accent);
+  margin-bottom: 0.25rem;
+  text-shadow: 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+/* In multi-stream mode the hero-grid-column rule wouldn't apply
+   inside a flex column, so re-style first-child for column hero. */
+.session-column .cell:first-of-type {
+  /* :first-of-type works because the header is a div, not an article */
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  max-height: 38vh;
+}
+.session-column .cell:not(:first-of-type) {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  max-height: 28vh;
+}
 .cell {
   background: var(--cell-bg);
   border: 1px solid var(--line);
@@ -106,6 +149,44 @@ main {
 }
 .cell:first-child .cell-head {
   font-size: clamp(0.85rem, 0.9vw + 0.3rem, 1rem);
+}
+/* Live-stream indicator on the hero cell when the watcher is active.
+   Continuous breathing glow on the border; persists past
+   cell-still-warm's 60s decay. Mirrors hud[data-status="active"]
+   onto #notebook[data-stream="active"] so CSS can target it. Per
+   memory/feedback_glanceable_no_clicks.md — passive ambient signal,
+   not a click target. */
+#notebook[data-stream="active"] .cell:first-child {
+  animation: hero-live-breath 3.2s ease-in-out infinite;
+}
+@keyframes hero-live-breath {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px var(--accent),
+      0 0 8px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px var(--accent),
+      0 0 18px color-mix(in srgb, var(--accent) 50%, transparent),
+      0 0 32px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+}
+.theme-magi #notebook[data-stream="active"] .cell:first-child {
+  animation: hero-live-breath-magi 3.2s ease-in-out infinite;
+}
+@keyframes hero-live-breath-magi {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 140, 0, 0.6),
+      0 0 10px rgba(255, 140, 0, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 140, 0, 0.9),
+      0 0 22px rgba(255, 140, 0, 0.45),
+      0 0 42px rgba(255, 140, 0, 0.18);
+  }
 }
 /* All non-hero, non-reflection cells flow into the ambient grid.
    Hero + 2-row ambient grid → 3-5 cells visible at once depending
