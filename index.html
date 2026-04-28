@@ -987,31 +987,67 @@ function drawConnections() {
     if (!inView(reflRect)) continue;
     const reflCx = reflRect.left + reflRect.width / 2;
 
-    for (const sid of (refl.dataset.sourceIds || "").split(",").filter(Boolean)) {
-      const src = document.getElementById(sid);
-      if (!src) continue;
-      const srcRect = src.getBoundingClientRect();
-      const srcInView = inView(srcRect);
+    // First pass: classify sources as in-view / off-below / off-above
+    // so we can fan the off-screen stubs across the reflection's edge
+    // instead of stacking them all at the same X.
+    const sourceIds = (refl.dataset.sourceIds || "").split(",").filter(Boolean);
+    const sources = sourceIds.map(sid => {
+      const el = document.getElementById(sid);
+      if (!el) return null;
+      const sr = el.getBoundingClientRect();
+      let bucket;
+      if (inView(sr)) bucket = "in";
+      else if (sr.top >= reflRect.bottom) bucket = "below";
+      else bucket = "above";
+      return { sid, sr, bucket };
+    }).filter(Boolean);
 
-      if (!srcInView) {
-        // Off-screen-source stub. Short vertical line at slight forward
-        // Z (so it reads as floating closer than the cell plane).
-        const goingDown = srcRect.top >= reflRect.bottom;
-        const startY = goingDown ? reflRect.bottom : reflRect.top;
-        const endY = goingDown ? Math.min(vh, startY + 60) : Math.max(0, startY - 60);
+    const stubsBelow = sources.filter(s => s.bucket === "below");
+    const stubsAbove = sources.filter(s => s.bucket === "above");
+    const stubBaseY = (dir) => {
+      if (dir === "below") {
+        // Anchor at min(reflRect.bottom, vh) — never draw outside the
+        // viewport. Without this clamp, stubs stack at y=reflRect.bottom
+        // which can be below vh when the reflection extends past the
+        // fold, producing the "giant green line below the screen" bug.
+        return Math.min(vh, reflRect.bottom);
+      }
+      return Math.max(0, reflRect.top);
+    };
+    const drawStubFan = (stubs, dir) => {
+      if (!stubs.length) return;
+      const baseY = stubBaseY(dir);
+      const endY = dir === "below"
+        ? Math.min(vh - 2, baseY + 60)
+        : Math.max(2, baseY - 60);
+      if (Math.abs(endY - baseY) < 8) return;  // not enough viewport room
+      const fanWidth = Math.min(reflRect.width - 32, stubs.length * 22);
+      const fanLeft = reflCx - fanWidth / 2;
+      stubs.forEach((s, i) => {
+        const x = stubs.length === 1
+          ? reflCx
+          : fanLeft + (i + 0.5) * (fanWidth / stubs.length);
         const stubPoints = [
-          new T.Vector3(reflCx, startY, 8),
-          new T.Vector3(reflCx, endY, 8),
+          new T.Vector3(x, baseY, 8),
+          new T.Vector3(x, endY, 8),
         ];
         const stubGeo = new T.BufferGeometry().setFromPoints(stubPoints);
         const stubMat = new T.LineBasicMaterial({
-          color: accent, transparent: true, opacity: 0.6,
+          color: accent, transparent: true, opacity: 0.55,
         });
         const stubLine = new T.Line(stubGeo, stubMat);
         _connScene.add(stubLine);
         _connLines.push(stubLine);
-        continue;
-      }
+      });
+    };
+    drawStubFan(stubsBelow, "below");
+    drawStubFan(stubsAbove, "above");
+
+    for (const s of sources) {
+      if (s.bucket !== "in") continue;
+      const sid = s.sid;
+      const srcRect = s.sr;
+      const srcInView = true;
 
       // Full curve. Anchor reflection at source-aligned X (clamped to
       // its bounds), pick nearest vertical edges, sample a cubic
