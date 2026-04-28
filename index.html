@@ -204,7 +204,7 @@ function pauseOffScreen(targetEl, onShow, onHide) {
 // one initializes. Evicted scenes call their teardown to dispose Three.js
 // geometry/materials/renderer + drop the canvas; they re-init from spec
 // when scrolled back into view.
-const WEBGL_CAP = 3;
+const WEBGL_CAP = 2;
 const webglRegistry = [];
 function registerWebGL(entry) {
   webglRegistry.push(entry);
@@ -742,6 +742,9 @@ function renderCell(c, snippetGroups) {
 
   if (c.cell_type === "image" && c.image_path) {
     const img = el("img");
+    img.loading = "lazy";  // browser-native lazy decode; image cells are
+    // demoted from auto-classifier (kill #1) but 4 historical ones remain
+    // and each decoded raster is multi-MB.
     img.src = c.image_path;
     img.alt = c.caption || "generated image";
     body.appendChild(img);
@@ -790,7 +793,10 @@ function renderCell(c, snippetGroups) {
     };
     lazyMount(target, renderMermaid);
   } else if (c.cell_type === "html" && c.html) {
-    body.innerHTML = c.html;
+    const target = el("div", "html-target");
+    body.appendChild(target);
+    const renderHtml = () => { target.innerHTML = c.html; };
+    lazyMount(target, renderHtml);
   } else if (c.cell_type === "animated_svg" && c.spec) {
     const target = el("div", "svg-target");
     body.appendChild(target);
