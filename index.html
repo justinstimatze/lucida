@@ -57,15 +57,18 @@
       </span>
     </div>
     <div class="hud-row hud-row-bot">
-      <span class="hud-cell hud-kills">
+      <span class="hud-cell hud-kills" id="hud-kill1-slot" data-state="ok">
+        <svg class="hud-ring" viewBox="0 0 24 24"><circle class="hud-ring-base" cx="12" cy="12" r="10"></circle><circle class="hud-ring-fill" cx="12" cy="12" r="10"></circle></svg>
         <span class="hud-label">KILL.AESTHETIC</span>
         <span class="hud-value" id="hud-kill1-val">—</span>
       </span>
-      <span class="hud-cell hud-kills">
+      <span class="hud-cell hud-kills" id="hud-kill2-slot" data-state="ok">
+        <svg class="hud-ring" viewBox="0 0 24 24"><circle class="hud-ring-base" cx="12" cy="12" r="10"></circle><circle class="hud-ring-fill" cx="12" cy="12" r="10"></circle></svg>
         <span class="hud-label">KILL.MISROUTE</span>
         <span class="hud-value" id="hud-kill2-val">—</span>
       </span>
-      <span class="hud-cell hud-kills">
+      <span class="hud-cell hud-kills" id="hud-kill3-slot" data-state="ok">
+        <svg class="hud-ring" viewBox="0 0 24 24"><circle class="hud-ring-base" cx="12" cy="12" r="10"></circle><circle class="hud-ring-fill" cx="12" cy="12" r="10"></circle></svg>
         <span class="hud-label">KILL.HALLUC</span>
         <span class="hud-value" id="hud-kill3-val">—</span>
       </span>
@@ -347,13 +350,25 @@ function liveAppendNewCells(cellsData) {
   }
 
   const root = document.getElementById("notebook");
+  // Decide whether to follow new mints with smooth-scroll: only if the user
+  // is already near the bottom (within ~280px). Avoids yanking when they're
+  // reading earlier cells.
+  const nearBottom = (window.innerHeight + window.scrollY) >=
+    (document.body.offsetHeight - 280);
+  let lastNode = null;
   for (const c of fresh) {
     const node = renderCell(c, snippetGroups);
     node.classList.add("cell-fresh");
     root.appendChild(node);
     _renderedCellIds.add(c.id);
-    // Strip the animation class after it plays so re-flows don't replay.
+    lastNode = node;
     setTimeout(() => node.classList.remove("cell-fresh"), 1400);
+  }
+  if (lastNode && nearBottom) {
+    // Slight delay so the slide-in animation has time to start before we
+    // commit to the scroll target -- otherwise scrollIntoView lands on the
+    // pre-animation position.
+    setTimeout(() => lastNode.scrollIntoView({ behavior: "smooth", block: "end" }), 80);
   }
   return fresh.length;
 }
@@ -398,6 +413,39 @@ async function loadHud() {
   typeInto("hud-recent-val", m.recent);
   const hud = document.getElementById("hud");
   hud.dataset.status = m.status.toLowerCase();
+  // KILL.* color-escalation + ring fill — thresholds from kill_criteria.md.
+  // ok / warn / tripped tokens already in CSS as --vis-ok/warn/tripped.
+  applyKillState("hud-kill1-slot", parsePct(m.kill1), 30, 50);
+  applyKillState("hud-kill2-slot", parsePct(m.kill2), 25, 40);
+  applyKillState("hud-kill3-slot", parsePct(m.kill3), 12, 20);
+}
+
+// Parse a % value out of strings like "11.5% (7/61)" / "n/a" / "img 6 (audit Δ pending)".
+function parsePct(s) {
+  if (typeof s !== "string") return null;
+  const m = s.match(/(\d+(?:\.\d+)?)\s*%/);
+  return m ? parseFloat(m[1]) : null;
+}
+
+// Set data-state on a kill slot from a % vs warn/tripped thresholds, and
+// fill the ring in proportion. Ring uses stroke-dasharray on a 2*pi*r=62.83 path.
+function applyKillState(slotId, pct, warnAt, trippedAt) {
+  const slot = document.getElementById(slotId);
+  if (!slot) return;
+  let state = "ok";
+  if (pct == null) state = "unknown";
+  else if (pct >= trippedAt) state = "tripped";
+  else if (pct >= warnAt) state = "warn";
+  slot.dataset.state = state;
+  const fill = slot.querySelector(".hud-ring-fill");
+  if (!fill) return;
+  const circ = 2 * Math.PI * 10;  // r=10
+  let frac = 0;
+  if (pct != null) {
+    // Cap at trippedAt for the ring fill so a tripped slot looks "full".
+    frac = Math.min(1, Math.max(0, pct / trippedAt));
+  }
+  fill.style.strokeDasharray = `${(frac * circ).toFixed(2)} ${circ.toFixed(2)}`;
 }
 
 function flashHud() {

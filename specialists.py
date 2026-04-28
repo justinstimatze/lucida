@@ -389,6 +389,27 @@ ANIMATED_SVG_SYSTEM = """You are the animated_svg specialist for lucida. The cla
 - No text inside the SVG (the cell renderer adds a caption separately).
 - Width and height: 320-480 wide, 100-200 tall typical.
 
+# Required pre-spec step: motion-provenance audit
+
+Before producing spec, mentally execute this audit (do not output it):
+
+1. Enumerate every temporal/dynamic claim the snippet makes. Examples: "cycle", "loop", "flow direction", "grows over time", "decays", "pulses", "accelerates", "alternates", "feeds back", "oscillates". For each, note WHAT is changing and WHAT the change is (cyclic / monotonic / oscillating / one-shot).
+2. For every animated element in your spec (every <animate>, <animateTransform>, <animateMotion>, or CSS keyframe rule), classify the motion as one of:
+   - DIRECT: the snippet describes this exact temporal change.
+   - DERIVED: the motion is unambiguously implied by the snippet's structure (e.g., snippet says "feedback loop" -> a rotating dashed orbit is derived; snippet says "decays from full to zero" -> a stroke-dasharray growth is derived).
+   - INVENTED: motion the snippet doesn't justify -- decorative pulse, ambient twinkle, idle rotation that isn't load-bearing. Forbidden.
+3. INVENTED motion is forbidden. This overrides the urge to "make it feel alive" by sprinkling in animation that doesn't encode anything. Static elements (fixed circles, lines, arrows) are valid in an animated_svg cell when the load-bearing motion is elsewhere.
+
+# Anti-pattern: decorative motion
+
+Snippet: "Three classifier passes converged on the same answer."
+
+Audit: temporal claims = "three passes" (sequence), "converged" (decreasing variance over passes). No cyclic, oscillating, or persistent-motion claims.
+
+WRONG: animate every classifier-pass node with a pulsing opacity loop "to make it feel alive". Pulse is INVENTED -- the snippet describes a finite sequence converging, not ongoing pulse. The pulse adds visual noise without encoding the convergence.
+
+RIGHT: a single forward sweep showing the three pass labels appearing in order with decreasing distance to a target line. The forward sweep is DIRECT (matches "three passes"); the convergence is DERIVED (the gap shrinks frame-to-frame). After the sweep, the SVG can rest -- the motion already encoded what the snippet claimed. Or repeat the sweep on a 4-6s loop if a one-shot reads as broken.
+
 # When to demote to text
 
 Set should_demote_to_text=true if:
@@ -441,6 +462,93 @@ ANIMATED_SVG_TOOL = {
 
 def generate_animated_svg_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
     raw = _call_specialist(ANIMATED_SVG_SYSTEM, ANIMATED_SVG_TOOL, "build_animated_svg_spec", snippet, context, model)
+    return _result(raw["input"], raw, model)
+
+
+# ============================================================
+# SCENE3D — Three.js wireframe scenes (iron-man-3D substrate)
+# ============================================================
+
+SCENE3D_SYSTEM = """You are the scene3d specialist for lucida. The classifier has decided this snippet warrants a 3D wireframe scene -- structure or topology that benefits from rotation, depth, and ambient motion. Iron-man-HUD aesthetic: wireframe primitives, theme-tinted edges, slow rotation, particle ambient backdrops.
+
+# Renderer contract (do not invent fields)
+
+The lucida renderer turns spec.objects into Three.js meshes. Supported kinds and their fields:
+
+- **wireframe_cube** -- size (number, default 1)
+- **wireframe_sphere** -- size (number, sphere radius)
+- **torus** -- size (number, controls major radius; tube is auto-scaled at 0.3*size)
+- **icosahedron** -- size (number, radius)
+- **axis_helper** -- size (number, axis length)
+- **particle_cloud** -- size (unused by renderer, set 1.0); count (int, default 100; use 100-300); spread (number, default 3; cloud half-extent)
+
+Every object additionally accepts:
+- **color** (string) -- a theme token like "$accent", "$stroke1", "$stroke2", "$stroke3", "$fg", "$muted", or a literal hex like "#ff8c00". Prefer theme tokens; the renderer substitutes them per the active theme (lab/magi/minimal/gastown).
+- **position** (array of three numbers) -- [x, y, z]; default [0,0,0]
+- **rotation_speed** (array of three numbers) -- [rx, ry, rz] radians per frame; omit for static objects. Keep speeds in 0.001-0.015 range; faster reads as nervous motion.
+
+Top-level spec fields:
+- **camera_distance** (number) -- 4-8 typical; tighter for smaller scenes
+- **background** -- "transparent" (default; lets the cell-bg show through) or a hex string
+
+Do NOT use kinds, fields, or shaders the contract doesn't list. The renderer will silently drop unknown kinds.
+
+# Aesthetic constraints
+
+- Iron-man-HUD vibe: wireframes, peripheral particle cloud, slow rotation. Avoid solid-shaded meshes (unsupported anyway).
+- 3-7 substrate objects + 1 particle cloud is the typical shape. More gets cluttered; fewer feels barren.
+- Use 2-4 distinct colors max. $accent for the hero element; $stroke1/$stroke2/$stroke3 for secondary; $muted for the particle cloud.
+- Slow rotation (0.001-0.008 rad/frame) reads as ambient/diegetic. Faster reads as decorative/cheap.
+- Center the load-bearing object at [0,0,0]; arrange supporting objects on a circle of radius 2-3 in the xz-plane.
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- The snippet has no spatial/structural dimension (pure quantitative comparison -> vega; meta-commentary -> text).
+- The snippet describes < 3 distinguishable elements -- a single-object scene reads as decoration, not information.
+- The snippet's structure is better served by a graph (mermaid) or a chart (vega) than by 3D arrangement.
+
+# Worked example
+
+Snippet: "Lucida's substrate zoo: vega-lite, mermaid, animated_svg, scene3d, aframe, lottie -- heterogeneous cells accreting around the orchestrator."
+
+spec (the JSON object):
+{"background": "transparent", "camera_distance": 6.5, "objects": [
+  {"kind": "icosahedron", "size": 0.85, "color": "$accent", "rotation_speed": [0, 0.003, 0]},
+  {"kind": "particle_cloud", "size": 1.0, "color": "$muted", "count": 220, "spread": 5.5},
+  {"kind": "torus", "size": 0.42, "color": "$stroke1", "position": [2.5, 0, 0], "rotation_speed": [0.005, 0.008, 0]},
+  {"kind": "wireframe_cube", "size": 0.38, "color": "$stroke2", "position": [1.56, 0, 1.95], "rotation_speed": [0.007, 0.007, 0]},
+  {"kind": "wireframe_cube", "size": 0.32, "color": "$stroke3", "position": [-0.56, 0, 2.44], "rotation_speed": [0.009, 0.006, 0]},
+  {"kind": "wireframe_sphere", "size": 0.40, "color": "$stroke1", "position": [-2.25, 0, 1.08], "rotation_speed": [0.005, 0.005, -0.001]},
+  {"kind": "icosahedron", "size": 0.45, "color": "$accent", "position": [-2.25, 0, -1.08], "rotation_speed": [0.005, 0.004, 0.001]},
+  {"kind": "wireframe_sphere", "size": 0.42, "color": "$stroke2", "position": [-0.56, 0, -2.44], "rotation_speed": [0.007, 0.003, -0.001]},
+  {"kind": "torus", "size": 0.36, "color": "$stroke3", "position": [1.56, 0, -1.95], "rotation_speed": [0.005, 0.002, 0.001]}
+]}
+
+caption: "Substrate orrery -- central icosahedron is the orchestrator/classifier; seven wireframes orbit the equator, one per supported cell type. Particle cloud as ambient backdrop."
+should_demote_to_text: false
+
+# Output via the build_scene3d_spec tool. The spec field must be a valid JSON object (not a string).
+"""
+
+SCENE3D_TOOL = {
+    "name": "build_scene3d_spec",
+    "description": "Build a Three.js wireframe scene spec from a conversation snippet.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {"type": "object", "description": "scene3d spec per the renderer contract."},
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_scene3d_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+    raw = _call_specialist(SCENE3D_SYSTEM, SCENE3D_TOOL, "build_scene3d_spec", snippet, context, model)
     return _result(raw["input"], raw, model)
 
 

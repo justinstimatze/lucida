@@ -516,3 +516,47 @@ th, td {
     box-shadow: 0 0 0 transparent;
   }
 }
+
+/* Kill-criteria ring gauges — small concentric SVG indicator next to each
+   KILL.* slot. Ring fills proportionally to the kill rate vs its tripped
+   threshold; data-state colors the fill via the --vis-ok/warn/tripped tokens.
+   Concentric-ring move credit: McDermott on Black Mirror, see
+   design-references.md "pushing-pixels.org/fui/" bookmark for McDermott. */
+.hud-ring {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-right: 0.4rem;
+  vertical-align: -0.2rem;
+  flex-shrink: 0;
+  transform: rotate(-90deg);  /* start fill at 12 o'clock */
+}
+.hud-ring-base {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 2;
+  opacity: 0.4;
+}
+.hud-ring-fill {
+  fill: none;
+  stroke: var(--vis-ok);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 0 62.83;  /* JS overrides; default empty */
+  filter: drop-shadow(0 0 2px var(--vis-ok));
+  transition: stroke-dasharray 0.4s ease, stroke 0.3s ease;
+}
+.hud-kills[data-state="warn"] .hud-ring-fill {
+  stroke: var(--vis-warn);
+  filter: drop-shadow(0 0 2px var(--vis-warn));
+}
+.hud-kills[data-state="tripped"] .hud-ring-fill {
+  stroke: var(--vis-tripped);
+  filter: drop-shadow(0 0 4px var(--vis-tripped));
+}
+.hud-kills[data-state="unknown"] .hud-ring-fill {
+  stroke: var(--muted);
+  filter: none;
+}
+.hud-kills[data-state="warn"] .hud-value { color: var(--vis-warn); }
+.hud-kills[data-state="tripped"] .hud-value { color: var(--vis-tripped); }
+.hud-kills[data-state="ok"]      .hud-value { color: var(--vis-ok); }

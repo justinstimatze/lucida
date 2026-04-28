@@ -353,10 +353,10 @@
       "trigger_snippet": "Soil compaction reduces root depth, which decreases water uptake, which stresses plants, which lowers yields, which increases the pressure to till -- which compacts the soil further. Each cycle accelerates the next.",
       "prompt": "Produce an inline <svg> element (no commentary, no outer\nwrapper) with SMIL or CSS-keyframe animation that visualizes\nthe snippet below.\n\nConstraints:\n- Bounded loop, 2-6 seconds per cycle.\n- 1-3 stroke colors max; movie-interface aesthetic (cyan/\n  magenta on dark, or restrained greys); no full-saturation\n  reds.\n- The motion must encode something a static SVG could not\n  (flow direction, growth, decay, pulse). If you cannot\n  identify what the motion encodes, return a static SVG.\n- Do not invent visual elements not implied by the snippet.\n\nSnippet:\nSoil compaction reduces root depth, which decreases water uptake, which stresses plants, which lowers yields, which increases the pressure to till -- which compacts the soil further. Each cycle accelerates the next.\n\nContext:\n(none)",
       "image_path": null,
-      "spec": null,
+      "spec": "\n<svg width=\"420\" height=\"180\" viewBox=\"0 0 420 180\" xmlns=\"http://www.w3.org/2000/svg\">\n  <defs>\n    <!-- Arrowhead marker -->\n    <marker id=\"arr\" markerWidth=\"6\" markerHeight=\"6\" refX=\"5\" refY=\"3\" orient=\"auto\">\n      <path d=\"M0,0 L6,3 L0,6 Z\" fill=\"$stroke2\"/>\n    </marker>\n    <!-- Accent arrowhead -->\n    <marker id=\"arr2\" markerWidth=\"6\" markerHeight=\"6\" refX=\"5\" refY=\"3\" orient=\"auto\">\n      <path d=\"M0,0 L6,3 L0,6 Z\" fill=\"$accent\"/>\n    </marker>\n  </defs>\n\n  <!-- \u2500\u2500 Static hexagonal cycle backbone \u2500\u2500 -->\n  <!-- Six nodes at 60\u00b0 intervals, center (210, 90), radius 68 -->\n  <!-- Node positions (angle measured from top, clockwise):\n       0\u00b0  \u2192 (210, 22)   compaction\n       60\u00b0 \u2192 (270, 56)   root depth\n       120\u00b0\u2192 (270,124)   water uptake\n       180\u00b0\u2192 (210,158)   plant stress\n       240\u00b0\u2192 (150,124)   yield loss\n       300\u00b0\u2192 (150, 56)   till pressure\n  -->\n\n  <!-- Connecting arcs (straight chord lines with arrow markers) -->\n  <line x1=\"210\" y1=\"28\"  x2=\"264\" y2=\"56\"  stroke=\"$stroke1\" stroke-width=\"1.4\" marker-end=\"url(#arr)\"/>\n  <line x1=\"270\" y1=\"64\"  x2=\"270\" y2=\"116\" stroke=\"$stroke1\" stroke-width=\"1.4\" marker-end=\"url(#arr)\"/>\n  <line x1=\"264\" y1=\"124\" x2=\"216\" y2=\"152\" stroke=\"$stroke1\" stroke-width=\"1.4\" marker-end=\"url(#arr)\"/>\n  <line x1=\"204\" y1=\"152\" x2=\"156\" y2=\"124\" stroke=\"$stroke1\" stroke-width=\"1.4\" marker-end=\"url(#arr)\"/>\n  <line x1=\"150\" y1=\"116\" x2=\"150\" y2=\"64\"  stroke=\"$stroke1\" stroke-width=\"1.4\" marker-end=\"url(#arr)\"/>\n  <!-- Final closing edge uses accent to signal the feedback / acceleration -->\n  <line x1=\"156\" y1=\"56\"  x2=\"204\" y2=\"28\"  stroke=\"$accent\"  stroke-width=\"1.8\" marker-end=\"url(#arr2)\"/>\n\n  <!-- \u2500\u2500 Outer rotating dashed orbit \u2014 encodes cycle direction \u2500\u2500 -->\n  <circle cx=\"210\" cy=\"90\" r=\"82\" fill=\"none\" stroke=\"$muted\" stroke-width=\"1\" stroke-dasharray=\"5 8\">\n    <animateTransform attributeName=\"transform\" type=\"rotate\"\n      from=\"0 210 90\" to=\"360 210 90\"\n      dur=\"6s\" repeatCount=\"indefinite\"/>\n  </circle>\n\n  <!-- \u2500\u2500 Signal pulse travelling around the cycle \u2500\u2500\n       A small glowing dot traces the six-node loop, encoding the\n       \"each cycle accelerates the next\" claim via a shrinking dur on repeat.\n       Implemented as animateMotion along a hexagonal path. -->\n  <circle r=\"5\" fill=\"$accent\" opacity=\"0.9\">\n    <animateMotion\n      path=\"M210,22 L270,56 L270,124 L210,158 L150,124 L150,56 Z\"\n      dur=\"3s\"\n      repeatCount=\"indefinite\"\n      rotate=\"none\"\n      calcMode=\"linear\"/>\n    <animate attributeName=\"opacity\" values=\"0.5;1;0.5\" dur=\"3s\" repeatCount=\"indefinite\"/>\n    <animate attributeName=\"r\"       values=\"4;6;4\"       dur=\"3s\" repeatCount=\"indefinite\"/>\n  </circle>\n\n  <!-- \u2500\u2500 Node circles \u2500\u2500 -->\n  <circle cx=\"210\" cy=\"22\"  r=\"7\" fill=\"$stroke2\" stroke=\"$fg\" stroke-width=\"0.8\"/>\n  <circle cx=\"270\" cy=\"56\"  r=\"7\" fill=\"$stroke2\" stroke=\"$fg\" stroke-width=\"0.8\"/>\n  <circle cx=\"270\" cy=\"124\" r=\"7\" fill=\"$stroke2\" stroke=\"$fg\" stroke-width=\"0.8\"/>\n  <circle cx=\"210\" cy=\"158\" r=\"7\" fill=\"$stroke2\" stroke=\"$fg\" stroke-width=\"0.8\"/>\n  <circle cx=\"150\" cy=\"124\" r=\"7\" fill=\"$stroke2\" stroke=\"$fg\" stroke-width=\"0.8\"/>\n  <circle cx=\"150\" cy=\"56\"  r=\"7\" fill=\"$accent\"  stroke=\"$fg\" stroke-width=\"1.2\"/>\n</svg>\n",
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192causal/animated_svg@0.85 [v0\u2192text] cache:hit/2550t]",
+      "caption": "Soil-compaction feedback loop. Six nodes trace the causal chain; the accent pulse travels clockwise encoding signal flow. The rotating dashed orbit marks cycle direction. The closing edge (till pressure \u2192 compaction) is highlighted in accent \u2014 the feedback that restarts and accelerates each turn.",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192causal/animated_svg@0.85 [v0\u2192text] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "causal",
@@ -2234,6 +2234,229 @@
         "cell-0067",
         "cell-0068"
       ],
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
+    },
+    {
+      "id": "cell-0074",
+      "timestamp": "2026-04-28T02:53:39+00:00",
+      "cell_type": "scene3d",
+      "trigger_snippet": "Lucida's cell zoo: vega-lite, mermaid, animated_svg, scene3d, aframe, lottie \u2014 heterogeneous cells accreting around the orchestrator. The unfilled gap competitive sweep identified: passive listener minting heterogeneous cells from conversation, where Cursor Canvas is intentional/skill-driven and Claude Artifacts is replaceable.",
+      "prompt": "(hand-authored scene3d demo \u2014 substrate orrery)",
+      "caption": "Substrate orrery \u2014 central icosahedron is the orchestrator/classifier; seven wireframes orbit the equator, one per supported cell type (vega/mermaid/html/animated_svg/scene3d/aframe/lottie). Particle cloud as ambient backdrop. Theme-aware via $tokens.",
+      "spec": {
+        "background": "transparent",
+        "camera_distance": 6.5,
+        "objects": [
+          {
+            "kind": "icosahedron",
+            "size": 0.85,
+            "color": "$accent",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation_speed": [
+              0.0,
+              0.003,
+              0.0
+            ]
+          },
+          {
+            "kind": "particle_cloud",
+            "size": 1.0,
+            "color": "$muted",
+            "count": 220,
+            "spread": 5.5
+          },
+          {
+            "kind": "torus",
+            "size": 0.42,
+            "color": "$stroke1",
+            "position": [
+              2.5,
+              0,
+              0.0
+            ],
+            "rotation_speed": [
+              0.005,
+              0.008,
+              -0.0015
+            ]
+          },
+          {
+            "kind": "wireframe_cube",
+            "size": 0.38,
+            "color": "$stroke2",
+            "position": [
+              1.559,
+              0,
+              1.955
+            ],
+            "rotation_speed": [
+              0.007,
+              0.007,
+              0.0015
+            ]
+          },
+          {
+            "kind": "wireframe_cube",
+            "size": 0.32,
+            "color": "$stroke3",
+            "position": [
+              -0.556,
+              0,
+              2.437
+            ],
+            "rotation_speed": [
+              0.009,
+              0.006,
+              -0.0015
+            ]
+          },
+          {
+            "kind": "wireframe_sphere",
+            "size": 0.4,
+            "color": "$stroke1",
+            "position": [
+              -2.252,
+              0,
+              1.085
+            ],
+            "rotation_speed": [
+              0.005,
+              0.005,
+              0.0015
+            ]
+          },
+          {
+            "kind": "icosahedron",
+            "size": 0.45,
+            "color": "$accent",
+            "position": [
+              -2.252,
+              0,
+              -1.085
+            ],
+            "rotation_speed": [
+              0.007,
+              0.004,
+              -0.0015
+            ]
+          },
+          {
+            "kind": "wireframe_sphere",
+            "size": 0.42,
+            "color": "$stroke2",
+            "position": [
+              -0.556,
+              0,
+              -2.437
+            ],
+            "rotation_speed": [
+              0.009,
+              0.003,
+              0.0015
+            ]
+          },
+          {
+            "kind": "torus",
+            "size": 0.36,
+            "color": "$stroke3",
+            "position": [
+              1.559,
+              0,
+              -1.955
+            ],
+            "rotation_speed": [
+              0.005,
+              0.002,
+              -0.0015
+            ]
+          }
+        ]
+      },
+      "notes": "(hand-authored demo for iron-man-3D ceiling) [scene3d-demo 2026-04-27]",
+      "classifier_reasoning": "(no classifier; hand-authored)",
+      "discourse_move": "structural",
+      "confidence": null,
+      "image_path": null,
+      "html": null,
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "reflection_source_ids": [],
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
+    },
+    {
+      "id": "cell-0075",
+      "timestamp": "2026-04-28T02:53:39+00:00",
+      "cell_type": "scene3d",
+      "trigger_snippet": "Three kill criteria orbit lucida's release path: aesthetic (image quality, kill #1), mis-routing (classifier accuracy, kill #2), hallucination (substrate fidelity, kill #3). Each gates independently. Sentinel rotates each axis at a different rate so the eye reads them as separate dimensions.",
+      "prompt": "(hand-authored scene3d demo \u2014 kill-criteria sentinel)",
+      "caption": "Kill-criteria sentinel \u2014 three nested tori, one per criterion, rotating on different axes. Outermost ($stroke1) = aesthetic; middle ($stroke2) = mis-routing; innermost ($stroke3) = hallucination. Axis helper at center marks the orchestrator's frame of reference.",
+      "spec": {
+        "background": "transparent",
+        "camera_distance": 5,
+        "objects": [
+          {
+            "kind": "torus",
+            "size": 1.9,
+            "color": "$stroke1",
+            "rotation_speed": [
+              0.001,
+              0.0045,
+              0.0
+            ]
+          },
+          {
+            "kind": "torus",
+            "size": 1.35,
+            "color": "$stroke2",
+            "rotation_speed": [
+              0.005,
+              0.0,
+              0.0035
+            ]
+          },
+          {
+            "kind": "torus",
+            "size": 0.85,
+            "color": "$stroke3",
+            "rotation_speed": [
+              0.0,
+              0.0,
+              0.012
+            ]
+          },
+          {
+            "kind": "particle_cloud",
+            "size": 1.0,
+            "color": "$muted",
+            "count": 150,
+            "spread": 4.0
+          },
+          {
+            "kind": "axis_helper",
+            "size": 0.4,
+            "color": "$accent"
+          }
+        ]
+      },
+      "notes": "(hand-authored demo for iron-man-3D ceiling) [scene3d-demo 2026-04-27]",
+      "classifier_reasoning": "(no classifier; hand-authored)",
+      "discourse_move": "structural",
+      "confidence": null,
+      "image_path": null,
+      "html": null,
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "reflection_source_ids": [],
       "replaces": null,
       "replaced_by": null,
       "retrigger_count": 0,
