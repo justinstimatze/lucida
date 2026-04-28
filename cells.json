@@ -107,7 +107,8 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "generated via gemini-2.5-flash-image (1612966 bytes) [classifier(v0)\u2192mermaid; forced\u2192image]"
+      "notes": "generated via gemini-2.5-flash-image (1612966 bytes) [classifier(v0)\u2192mermaid; forced\u2192image] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
+      "replaced_by": "kill1-sweep-2026-04-27"
     },
     {
       "id": "cell-0011",
@@ -205,12 +206,13 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "generated via gemini-2.5-flash-image (2053153 bytes) [classifier(v0)\u2192text; forced\u2192image]",
+      "notes": "generated via gemini-2.5-flash-image (2053153 bytes) [classifier(v0)\u2192text; forced\u2192image] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": null,
       "confidence": null,
-      "classifier_reasoning": null
+      "classifier_reasoning": null,
+      "replaced_by": "kill1-sweep-2026-04-27"
     },
     {
       "id": "cell-0015",
@@ -222,12 +224,13 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "generated via gemini-2.5-flash-image (1885735 bytes) [classifier(v0)\u2192text; forced\u2192image [imgspec:cache:wrote/2350t]]",
+      "notes": "generated via gemini-2.5-flash-image (1885735 bytes) [classifier(v0)\u2192text; forced\u2192image [imgspec:cache:wrote/2350t]] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": null,
       "confidence": null,
-      "classifier_reasoning": null
+      "classifier_reasoning": null,
+      "replaced_by": "kill1-sweep-2026-04-27"
     },
     {
       "id": "cell-0016",
@@ -374,13 +377,14 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192temporal/image@0.93 [v0\u2192text] cache:hit/2550t]",
+      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192temporal/image@0.93 [v0\u2192text] cache:hit/2550t] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "temporal",
       "confidence": 0.93,
       "classifier_reasoning": "The snippet has dense, concrete visual specificity: a named city (Detroit), a specific building type (textile mill), a specific floor, broken windows with light shafts, rows of Singer sewing machines under dust, and a dateable prop (a 1989 calendar near a foreman's desk). Every element is renderable and spatially grounded \u2014 this is exactly the kind of scene image generation handles well, with no meta-cognitive or abstract load to lose.",
-      "reflection_source_ids": null
+      "reflection_source_ids": null,
+      "replaced_by": "kill1-sweep-2026-04-27"
     },
     {
       "id": "cell-0020",
@@ -428,7 +432,7 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "generated via gemini-2.5-flash-image (1574611 bytes) [classifier(v0)\u2192text; forced\u2192image [imgspec:cache:miss]] [eval@0.82, accepted]",
+      "notes": "generated via gemini-2.5-flash-image (1574611 bytes) [classifier(v0)\u2192text; forced\u2192image [imgspec:cache:miss]] [eval@0.82, accepted] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": null,
@@ -436,7 +440,7 @@
       "classifier_reasoning": null,
       "reflection_source_ids": null,
       "replaces": null,
-      "replaced_by": null,
+      "replaced_by": "kill1-sweep-2026-04-27",
       "retrigger_count": 0,
       "retrigger_reason": null
     },
@@ -494,7 +498,7 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "retrigger 2 via gemini-2.5-flash-image (1427183 bytes) [classifier(v0)\u2192text; forced\u2192image [imgspec:cache:miss]]",
+      "notes": "retrigger 2 via gemini-2.5-flash-image (1427183 bytes) [classifier(v0)\u2192text; forced\u2192image [imgspec:cache:miss]] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": null,
@@ -502,7 +506,7 @@
       "classifier_reasoning": null,
       "reflection_source_ids": null,
       "replaces": "cell-0024",
-      "replaced_by": null,
+      "replaced_by": "kill1-sweep-2026-04-27",
       "retrigger_count": 2,
       "retrigger_reason": ""
     },
@@ -757,7 +761,7 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192temporal/image@0.85 [v0\u2192text] cache:hit/2550t]",
+      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192temporal/image@0.85 [v0\u2192text] cache:hit/2550t] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "temporal",
@@ -765,7 +769,7 @@
       "classifier_reasoning": "The snippet has strong visual specificity: a named real place (Oaxaca highlands), a named character (Do\u00f1a Esperanza), concrete props (terraced milpa, bone-white corn stalks, beans, saved seed), and a grounded sensory scene with depth and color. The temporal framing (1962 to present, 60-year continuous run) is load-bearing but secondary to the scene itself \u2014 an image cell can anchor this human-scale counterpoint to the macro-economic framing far better than prose alone.",
       "reflection_source_ids": null,
       "replaces": null,
-      "replaced_by": null,
+      "replaced_by": "kill1-sweep-2026-04-27",
       "retrigger_count": 0,
       "retrigger_reason": null
     },
@@ -801,7 +805,7 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192temporal/image@0.82 [v0\u2192text] cache:hit/2550t]",
+      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192temporal/image@0.82 [v0\u2192text] cache:hit/2550t] [hidden via kill1-sweep-2026-04-27: scene-illustrative content, not lucida-shaped]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "temporal",
@@ -809,7 +813,7 @@
       "classifier_reasoning": "The snippet has strong visual specificity: a named place (Andean altiplano), a named people (Quechua), a concrete practice (weaving on a loom), and a rich visual subject (intricate Wari-lineage textile motifs). The temporal claim \u2014 1300 years of continuous pattern transmission \u2014 is load-bearing but best surfaced through an evocative scene of a weaver working with ancient motifs rather than a timeline. Image can render the grounded scene without resorting to generic stock imagery.",
       "reflection_source_ids": null,
       "replaces": null,
-      "replaced_by": null,
+      "replaced_by": "kill1-sweep-2026-04-27",
       "retrigger_count": 0,
       "retrigger_reason": null
     },
