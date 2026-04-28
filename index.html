@@ -951,7 +951,18 @@ function ensureThreeOverlay() {
   state.conn.renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
   state.conn.renderer.setPixelRatio(window.devicePixelRatio);
   state.conn.renderer.setClearColor(0x000000, 0);
-  state.conn.renderer.setSize(window.innerWidth, window.innerHeight);
+  // updateStyle:false on init AND on every resize. CSS handles the
+  // canvas's displayed size via `width: 100%; height: 100%`. If we let
+  // Three.js write inline style here, it captures the init-time size,
+  // and later viewport changes never refresh it — buffer downscales
+  // on resize but the stale inline style keeps stretching the buffer
+  // across the (now-different) viewport. That's the "giant green bar"
+  // bug: any pixel rendered at buffer.width=926 became a horizontal
+  // bar across an inline-styled-2060px canvas after the user resized
+  // their window. Per audit 2026-04-28.
+  canvas.style.removeProperty("width");
+  canvas.style.removeProperty("height");
+  state.conn.renderer.setSize(window.innerWidth, window.innerHeight, false);
   state.conn.scene = new T.Scene();
   // Orthographic camera maps viewport pixels directly to scene units.
   // top=0 / bottom=H inverts Y so screen Y increases downward (matches
