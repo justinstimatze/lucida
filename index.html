@@ -226,13 +226,15 @@ function evictWebGLIfOverCap() {
 
 // Lazy mount/unmount for SVG-heavy substrates (mermaid, vega, animated_svg).
 // Starts unmounted; the IntersectionObserver renders on first viewport
-// approach and tears down when the cell drifts beyond ~400px of viewport.
-// Specs are cheap to re-render (no API call). Optional teardown callback
-// runs before innerHTML clears — used for vega view.finalize() to release
-// signal listeners + canvas GPU memory that innerHTML alone leaves dangling.
+// approach and tears down when the cell drifts beyond ~1500px of viewport.
+// The 1500px margin is intentionally generous — earlier 400px tightening
+// caused thrashing leaks (rapid mount/unmount cycles each leaking a vega
+// view through a finalize race, accumulating to +150MB). Specs are cheap
+// to re-render (no API call). Optional teardown callback may be async;
+// returning a Promise lets vega await its embed before finalize().
 function lazyMount(target, render, teardown) {
   let mounted = false;
-  const io = new IntersectionObserver((entries) => {
+  const io = new IntersectionObserver(async (entries) => {
     for (const e of entries) {
       if (e.isIntersecting && !mounted) {
         target.style.minHeight = "";
@@ -241,12 +243,14 @@ function lazyMount(target, render, teardown) {
       } else if (!e.isIntersecting && mounted) {
         const h = target.offsetHeight;
         if (h > 20) target.style.minHeight = h + "px";
-        if (teardown) { try { teardown(); } catch (err) { /* swallow */ } }
+        if (teardown) {
+          try { await teardown(); } catch (err) { /* swallow */ }
+        }
         target.innerHTML = "";
         mounted = false;
       }
     }
-  }, { rootMargin: "400px" });
+  }, { rootMargin: "1500px" });
   io.observe(target);
 }
 
@@ -744,27 +748,41 @@ function renderCell(c, snippetGroups) {
   } else if (c.cell_type === "vega" && c.spec) {
     const target = el("div", "vega-target");
     body.appendChild(target);
+    let currentEmbed = null;
     let currentView = null;
     const renderVega = () => {
-      vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).then(result => {
+      currentEmbed = vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).then(result => {
         currentView = result && result.view;
+        return result;
       }).catch(err => {
         target.textContent = "vega render error: " + err.message;
+        return null;
       });
     };
-    const teardownVega = () => {
+    // Async: await the in-flight embed Promise before finalizing.
+    // Without this, fast scroll-pasts hit teardown while the embed is
+    // still resolving — currentView is null at teardown time, finalize
+    // never fires, and the resolved view (signal graph + canvas backing)
+    // is orphaned. Each leaked view costs a few MB; 80 thrashes = 150MB+.
+    const teardownVega = async () => {
+      if (currentEmbed) {
+        try { await currentEmbed; } catch (e) {}
+      }
       if (currentView) {
         try { currentView.finalize(); } catch (e) {}
         currentView = null;
       }
+      currentEmbed = null;
     };
     lazyMount(target, renderVega, teardownVega);
   } else if (c.cell_type === "mermaid" && c.spec) {
     const target = el("div", "mermaid-target");
     body.appendChild(target);
-    let mermaidNonce = 0;
+    // Stable ID per cell across re-renders. Mermaid 10+ removes its own
+    // temp container after render, so reusing the ID is fine and avoids
+    // accumulating per-ID internal state on each remount.
     const renderMermaid = () => {
-      mermaid.render(`m-${c.id}-${++mermaidNonce}`, c.spec).then(({ svg }) => {
+      mermaid.render(`m-${c.id}`, c.spec).then(({ svg }) => {
         target.innerHTML = svg;
       }).catch(err => {
         target.textContent = "mermaid render error: " + err.message;
