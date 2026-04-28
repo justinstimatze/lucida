@@ -752,3 +752,62 @@ th, td {
 .theme-minimal .hud {
   animation: none;  /* keep minimal flat */
 }
+
+/* Per-substrate entrance animations. Each cell-type gets a slightly
+   different "arrive" feel so the substrate diversity reads visually,
+   not just structurally. data-cell-type attribute is set in renderCell. */
+
+/* HTML cells: paper-unfold from top. Tables especially read as a
+   scrolled-in-from-above strip. */
+.cell.cell-fresh[data-cell-type="html"] {
+  animation: cell-arrive-unfold 1.0s cubic-bezier(0.2, 0.7, 0.3, 1);
+  transform-origin: top center;
+}
+@keyframes cell-arrive-unfold {
+  0%   { opacity: 0; transform: scaleY(0.04); }
+  35%  { opacity: 0.6; transform: scaleY(0.7); }
+  70%  { opacity: 1; transform: scaleY(1.02); }
+  100% { opacity: 1; transform: scaleY(1); box-shadow: 0 0 0 transparent; }
+}
+
+/* scene3d / aframe: slower fade with sustained glow during the WebGL
+   canvas spin-up. The longer window (1.6s) is intentional — the inner
+   render isn't ready until ~600ms in, and a faster slide-up reads as
+   janky if the scene pops in mid-animation. */
+.cell.cell-fresh[data-cell-type="scene3d"],
+.cell.cell-fresh[data-cell-type="aframe"] {
+  animation: cell-arrive-render 1.6s ease-out;
+}
+@keyframes cell-arrive-render {
+  0%   {
+    opacity: 0;
+    transform: translateY(20px);
+    box-shadow: 0 0 48px color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+  35%  { opacity: 0.5; }
+  70%  { opacity: 1; transform: translateY(0); }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 0 transparent;
+  }
+}
+
+/* animated_svg: faster fade + brief horizontal sweep, hinting at the
+   cell's own motion content. */
+.cell.cell-fresh[data-cell-type="animated_svg"] {
+  animation: cell-arrive-sweep 0.95s ease-out;
+}
+@keyframes cell-arrive-sweep {
+  0%   {
+    opacity: 0;
+    transform: translateX(-12px);
+    box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 50%, transparent);
+  }
+  60%  { opacity: 1; transform: translateX(0); }
+  100% { opacity: 1; transform: translateX(0); box-shadow: 0 0 0 transparent; }
+}
+
+/* mermaid + vega + everything else falls through to the default
+   cell-arrive (slide-up + glow). Keeps the diff focused on substrates
+   where a distinct entrance reads as meaningful. */

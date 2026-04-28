@@ -241,6 +241,28 @@ async function fetchJSON(path) {
     return await r.json();
   } catch (e) { return null; }
 }
+
+// Discover the newest substrate-eval audit JSON. Browsers can't glob
+// directories on a static server, so we walk backward from today across a
+// 14-day window. Cached after first lookup so subsequent loadHud polls
+// don't re-issue 14 fetches per cycle. Returns null if no audit is found
+// in the window — kill #3 then displays "n/a".
+let _cachedAudit;  // undefined = not attempted yet; null = no audit; obj = found
+async function loadLatestSubstrateAudit() {
+  if (_cachedAudit !== undefined) return _cachedAudit;
+  const today = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today.getTime() - i * 86400000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const a = await fetchJSON(`audits/substrate_eval_${dateStr}.json`);
+    if (a) {
+      _cachedAudit = a;
+      return a;
+    }
+  }
+  _cachedAudit = null;
+  return null;
+}
 async function fetchText(path) {
   try {
     const r = await fetch(path, { cache: "no-store" });
@@ -450,12 +472,10 @@ async function loadHud() {
   const appended = liveAppendNewCells(cellsData);
   if (appended) flashHud();
 
-  // Pick latest substrate eval if present; renderer doesn't know which date.
-  let substrateAudit = null;
-  for (const d of ["2026-04-27"]) {
-    const a = await fetchJSON(`audits/substrate_eval_${d}.json`);
-    if (a) { substrateAudit = a; break; }
-  }
+  // Pick latest substrate eval if present. Browser can't list directories,
+  // so we walk backward from today across a 14-day window once per page
+  // load and cache the result. Page reload re-discovers.
+  const substrateAudit = await loadLatestSubstrateAudit();
 
   const mintLog = parseMintLog(mintLogText);
   const newest = mintLog.length ? mintLog[mintLog.length - 1] : null;
@@ -593,6 +613,7 @@ function el(tag, cls, text) {
 function renderCell(c, snippetGroups) {
   const card = el("article", "cell");
   if (c.id) card.id = c.id;
+  if (c.cell_type) card.dataset.cellType = c.cell_type;
   const sources = Array.isArray(c.reflection_source_ids) ? c.reflection_source_ids : [];
   if (sources.length > 0) {
     card.classList.add("cell-reflection");
