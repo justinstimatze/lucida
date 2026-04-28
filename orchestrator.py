@@ -74,6 +74,10 @@ class CellProposal:
     replaced_by: str | None = None      # successor (set on the predecessor when retriggered)
     retrigger_count: int = 0            # how many retriggers this cell has gone through
     retrigger_reason: str | None = None # evaluator's corrective guidance from the predecessor
+    # multi-stream arc step 1: which Claude Code session minted this cell.
+    # Watcher stamps from --session-id or transcript-path stem; the renderer
+    # uses it for ?session= filtering (step 2) and N-column layout (step 3).
+    session_id: str | None = None
 
 
 def now_iso() -> str:
@@ -362,7 +366,7 @@ def closed_loop_stats(cells: list[dict]) -> dict:
     }
 
 
-def reflect_and_persist(n: int = 5, write: bool = True) -> "CellProposal":
+def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None = None) -> "CellProposal":
     """Run a reflection pass over the last n visible cells and persist the
     resulting reflection cell. Returns the CellProposal (returned even if
     write=False, for dry-run callers).
@@ -441,6 +445,7 @@ def reflect_and_persist(n: int = 5, write: bool = True) -> "CellProposal":
         notes=f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]",
         classifier_reasoning=result.reasoning,
         reflection_source_ids=result.source_ids,
+        session_id=session_id,
     )
     if write:
         d = asdict(proposal)
@@ -569,7 +574,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     write: bool = False, generate_image: bool = False,
                     use_llm: bool | None = None,
                     auto_retrigger: bool = True,
-                    max_retriggers: int = 3) -> CellProposal:
+                    max_retriggers: int = 3,
+                    session_id: str | None = None) -> CellProposal:
     data = load_cells()
     auto_type_v0 = classify(snippet)  # always run keyword classifier for comparison
 
@@ -723,6 +729,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         discourse_move=discourse_move,
         confidence=confidence,
         classifier_reasoning=classifier_reasoning,
+        session_id=session_id,
     )
 
     # Image generation + autonomous retrigger loop. The loop closes the
@@ -897,6 +904,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     replaces=current.id,
                     retrigger_count=attempt + 1,
                     retrigger_reason=guidance,
+                    session_id=session_id,
                 )
                 current.replaced_by = new_id
 
@@ -958,6 +966,8 @@ def main() -> None:
                    help="path to a document; segment it into salient passages and run each through the orchestrator")
     p.add_argument("--metric", default=None, choices=["closed-loop"],
                    help="report a corpus-level metric and exit")
+    p.add_argument("--session-id", default=None,
+                   help="stamp this id on the minted cell (multi-stream arc step 1)")
     args = p.parse_args()
 
     if args.metric == "closed-loop":
@@ -986,7 +996,7 @@ def main() -> None:
 
     if args.reflect:
         try:
-            proposal = reflect_and_persist(args.reflect_on, write=args.write)
+            proposal = reflect_and_persist(args.reflect_on, write=args.write, session_id=args.session_id)
         except Exception as e:
             print(f"reflect error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -1033,6 +1043,7 @@ def main() -> None:
                 use_llm=use_llm,
                 auto_retrigger=not args.no_auto_retrigger,
                 max_retriggers=args.max_retriggers,
+                session_id=args.session_id,
             )
             proposals.append(proposal)
             print(f"      -> {proposal.id} ({proposal.cell_type})", file=sys.stderr)
@@ -1048,7 +1059,8 @@ def main() -> None:
     proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate,
                                use_llm=use_llm,
                                auto_retrigger=not args.no_auto_retrigger,
-                               max_retriggers=args.max_retriggers)
+                               max_retriggers=args.max_retriggers,
+                               session_id=args.session_id)
     json.dump(asdict(proposal), sys.stdout, indent=2)
     print()
 

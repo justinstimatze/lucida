@@ -98,6 +98,7 @@ def process_once(
     state_path: Path | None = None,
     reflect_every: int | None = None,
     reflect_n: int = 5,
+    session_id: str | None = None,
 ) -> WatcherStep:
     """Read transcript delta, segment, mint non-duplicate cells.
 
@@ -160,6 +161,7 @@ def process_once(
                 use_llm=use_llm,
                 auto_retrigger=auto_retrigger,
                 max_retriggers=max_retriggers,
+                session_id=session_id,
             )
             minted_ids.append(proposal.id)
             existing_snippets.add(s.snippet)  # avoid re-mint within this pass
@@ -177,7 +179,7 @@ def process_once(
         if pending >= reflect_every:
             try:
                 from orchestrator import reflect_and_persist
-                proposal = reflect_and_persist(reflect_n, write=write)
+                proposal = reflect_and_persist(reflect_n, write=write, session_id=session_id)
                 reflection_id = proposal.id
                 pending = 0
             except Exception as e:
@@ -275,9 +277,15 @@ def main() -> None:
                         "Without this, shape A is one-way and the closed-loop ratio only goes down.")
     p.add_argument("--reflect-n", type=int, default=5,
                    help="number of recent visible cells the reflection covers (default 5)")
+    p.add_argument("--session-id", default=None,
+                   help="stamp this id on every minted cell (multi-stream arc step 1). "
+                        "Defaults to the transcript path's filename stem when unset.")
     args = p.parse_args()
 
     use_llm = False if args.no_llm_classify else None
+
+    transcript_path = Path(args.transcript)
+    session_id = args.session_id or transcript_path.stem
 
     kwargs = dict(
         write=args.write,
@@ -288,9 +296,10 @@ def main() -> None:
         min_new_chars=args.min_new_chars,
         reflect_every=args.reflect_every,
         reflect_n=args.reflect_n,
+        session_id=session_id,
     )
 
-    transcript_path = Path(args.transcript)
+
     if args.watch is not None:
         watch(transcript_path, interval=args.watch, **kwargs)
     else:
