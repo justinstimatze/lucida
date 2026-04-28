@@ -224,20 +224,16 @@ main {
   grid-column: 1 / -1;
   max-height: 42vh;
 }
-/* Substrate-aware tiling: cells whose content needs horizontal room
-   to be readable get span 2 in the ambient grid. Mermaid graphs +
-   wide html tables especially crash at narrow columns (cell-0078
-   user-flagged: unreadable at half-width). Substrates that work
-   fine at narrow width (text, animated_svg, single-axis vega)
-   stay at span 1 for density. The hero (:first-child) and reflections
-   already span the full row via grid-column: 1 / -1, so these rules
-   only affect non-hero, non-reflection cells. */
-.cell:not(:first-child):not(.cell-reflection)[data-cell-type="mermaid"],
-.cell:not(:first-child):not(.cell-reflection)[data-cell-type="vega"],
-.cell:not(:first-child):not(.cell-reflection)[data-cell-type="scene3d"],
-.cell:not(:first-child):not(.cell-reflection)[data-cell-type="aframe"] {
-  grid-column: span 2;
-}
+/* Substrate-aware tiling: previously mermaid/vega/scene3d/aframe
+   forced span-2 in ambient slots so wide diagrams stayed readable.
+   Reverted 2026-04-28 because span-2 + span-1 mixing broke the grid:
+   default `row` flow left col-2 holes, `dense` flow created vertical
+   alignment artifacts (~91px row offsets). The freshest mermaid/vega
+   cells already render full-width via the hero (:first-child) and the
+   reflection-promote rule; aging into ambient at half-width is the
+   acceptable trade for a hole-free, top-aligned grid. If a specific
+   ambient diagram is unreadable, lift the trigger snippet to the
+   active conversation so it re-mints into the hero band. */
 /* scene3d / aframe cells host inherently-fixed-size 3D scenes
    (target's min-height is already 360px). The universal 32vh cap
    clips the WebGL canvas, manifesting as a truncated scene. Exempt
@@ -839,18 +835,36 @@ th, td {
 @keyframes cell-arrive {
   0% {
     opacity: 0;
-    transform: translateY(-14px);
+    transform: translate3d(0, -14px, -80px);
     box-shadow: 0 0 32px color-mix(in srgb, var(--accent) 60%, transparent);
   }
   60% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     box-shadow: 0 0 0 transparent;
   }
+}
+
+/* Tier 1 2D/3D depth: ambient cells (4th onward in document order) sit
+   slightly behind the page plane so the perspective: 1500px on #notebook
+   resolves into a soft depth gradient — newest cell forward, older cells
+   receding. Hero (1st) and transitional (2-3) stay at z=0; reflections
+   auto-promote and stay forward. The Z offset is small (-12px) to keep
+   text rendering sharp (forward translateZ blurs sub-pixel anti-alias;
+   backward scales down, which renders cleanly) and to keep the Three.js
+   connection-line endpoints close enough to the 2D layout rect.
+   Per memory/2d_3d_mix_arc.md tier 1. The cell-arrive animation overrides
+   during the 1.0s entrance; when .cell-fresh drops, the cell transitions
+   smoothly to its resting Z. */
+.cell {
+  transition: transform 0.6s cubic-bezier(0.2, 0, 0.2, 1);
+}
+#notebook > .cell:nth-child(n+4):not(.cell-reflection) {
+  transform: translateZ(-12px);
 }
 
 /* Kill-criteria ring gauges — small concentric SVG indicator next to each

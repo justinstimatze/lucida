@@ -117,6 +117,16 @@ Snippet: "The cooperative that pays above-market wages discovers that the compet
 Decision: discourse_move=comparative, cell_type=html, confidence=0.78
 Reasoning: Two entities (cooperative, competitor) compared along multiple dimensions (wages, prices, solvency response). A small comparison table makes the wage/price tradeoff visible. Some cells will be blank where the snippet underspecifies (cooperative's prices, competitor's solvency response) -- that's expected; do not invent values.
 
+## Example 8 -- meta-narration about development work (text, low confidence -- will suppress)
+Snippet: "The developer examines jsonl_to_transcript.py to inform the design of a new module that will house pluggable adapters."
+Decision: discourse_move=none, cell_type=text, confidence=0.4
+Reasoning: This is META-NARRATION about the act of designing, not the artifact being designed. The cognitive verbs ("examines", "inform the design") and irrealis modal ("a new module that WILL house") tell us the structure is hypothetical, not stated. The named entities (jsonl_to_transcript.py, "a new module", "pluggable adapters") look like graph nodes but are referents of cognition, not declared structure -- a mermaid graph would have to invent the edges between them, the directory layout, and the contents of "the new module". Suppress (confidence <0.6 -> orchestrator drops). Re-mint becomes appropriate when the design becomes stated structure ("the new module lives at adapters/__init__.py and exports an ADAPTERS registry mapping {claude-code: extract, aider: extract}") -- that snippet declares nodes and edges and would correctly route to mermaid.
+
+## Example 9 -- meta-narration that crosses to actual content (mermaid, normal confidence)
+Snippet: "The new adapters/__init__.py exports an ADAPTERS registry mapping 'claude-code' -> claude_code.extract, 'aider' -> aider.extract; cli.py reads the registry, dispatches to the chosen extractor, and writes the flat transcript via --out."
+Decision: discourse_move=structural, cell_type=mermaid, confidence=0.86
+Reasoning: Same domain as Example 8, but here the structure is *stated*: three concrete files (adapters/__init__.py, cli.py, the extractors), explicit relationships (registry mapping, dispatch, write). No cognitive verbs framing the whole thing; the snippet describes what the code DOES, not what someone is THINKING about. Mermaid renders this without invention.
+
 # Quality bar
 
 Lucida's quality bar is "the cell adds something the snippet alone doesn't, in a way prose can't." Lucida hovers next to a Claude Code conversation that is already entirely text inline -- a text cell adds nothing the user doesn't already have. The differentiation is rich/dynamic visuals.
@@ -126,6 +136,18 @@ So: do not "default to text when uncertain." Defaulting to text when uncertain i
 - If no viz angle exists and the snippet is genuinely text-shaped (meta-commentary, abstract reflection), pick text with HIGH confidence (>=0.85). This is honest -- text is the right choice, the cell stands on its caption.
 - If no viz angle exists and you're not confident the snippet deserved a cell at all, pick text with LOW confidence (<0.6). The orchestrator's gate will downgrade or suppress; this is the right outcome for an over-eager mint.
 - The middle band (0.6-0.85 + text) should be rare -- if you're picking text with that confidence, your reasoning needs to explain what viz was considered and why it was rejected on substance.
+
+# The meta-narration trap
+
+A failure mode worth naming: snippets that read "developer examines X to design Y", "we considered routing Z through W", "the proposed adapters/ directory will house...". These look structural -- they have technical entities (X, Y, Z, W, files, directories, functions) -- but the snippet is *about thinking about* those entities, not *declaring* their structure. The structural artifact you'd render (a graph of X-->Y, a directory tree of Y) lives in the *referent* of the cognitive verbs, not the snippet itself; the specialist would have to invent the edges, the labels, and the layout.
+
+Cues this trap is firing:
+- Cognitive verbs as the main predicate: examines, considers, designs, evaluates, proposes, discusses, plans, decides
+- Irrealis modals around the structural entities: "WILL house", "WOULD route", "PLANS to dispatch"
+- Self-referential development entities: lucida itself, the watcher, the classifier, "the new module", "the proposed structure"
+- Audit trail / decision log shape: "we picked X over Y because Z" -- this is comparative reasoning, not a stated comparison
+
+When you see these cues, route to text with confidence 0.3-0.5 (suppress). The right cell will be re-minted when the same idea returns as stated structure ("the new adapters/ module exports..." in Example 9).
 
 The orchestrator's confidence gate uses your number: <0.6 = suppress / heavy downgrade; 0.6-0.8 = draft; >0.8 = render normally.
 """

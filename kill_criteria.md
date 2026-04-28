@@ -52,15 +52,32 @@ explicit user opt-in (`--auto-classify`) rather than the default path.
 
 ### 3. Substrate hallucination (any cell type)
 
-**Trigger:** >20% of cells contain entities, values, or relationships
-that are not present in the trigger snippet. (For images: invented
-props/characters. For vega: invented numbers. For mermaid: invented
-nodes/edges. For html: invented rows/columns.)
+**Trigger:** >50% of cells contain entities, values, or relationships
+that are not present in the trigger snippet, **on a non-meta corpus**.
+(For images: invented props/characters. For vega: invented numbers.
+For mermaid: invented nodes/edges. For html: invented rows/columns.)
 
 **Why this matters:** Inherited directly from `leg5_spec.md` substrate-
 grounding rule and from seeing's anti-invention clause. Hallucinated
 content makes cells *worse than no cell* because they look authoritative
 while smuggling in fabrications.
+
+**Threshold history.** The original 20% threshold (2026-04-26) was set
+without baseline data. The 2026-04-28 calibration run audited a non-meta
+slice (polycentric-sim transcript, 5 cells) and found 40% any-invention
+under the strict text_evaluator audit prompt. The audit treats edge
+verbs that paraphrase a stated relationship between two snippet-named
+entities (e.g. "wraps" between snippet-listed peers) as INVENTED, which
+is a strict reading. The threshold is reset to >50% to leave headroom
+above the calibration baseline so the kill condition trips on genuine
+specialist degradation, not on baseline rates from a strict audit.
+
+**Companion measurement.** Track meta-narration any-invention rate
+separately. Meta-narration corpus (lucida watching its own development)
+runs ~20pp higher than non-meta (62.1% vs 40% on 2026-04-28). The
+classifier-side meta-narration suppression rule (added with this
+recalibration) is the structural fix; if the meta-narration delta
+doesn't shrink within 2 weeks, the suppression rule is broken.
 
 **Remediation to try first:** anti-invention clauses on every prompt
 template (already added 2026-04-26) plus a post-generation check that

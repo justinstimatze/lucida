@@ -126,12 +126,24 @@ const state = {
   // session matching cells without a session_id field. Set is
   // mutable at runtime via the HUD dropdown.
   sessions: {
+    // Multi-stream arc step 4: ?session=auto is a sentinel meaning "every
+    // distinct session_id in cells.json should be a column". active is left
+    // empty at parse time; load() populates it from the data, and
+    // liveAppendNewCells() grows it when a fresh cell arrives with a new
+    // session_id. The URL stays `?session=auto` so the share link doesn't
+    // freeze a snapshot of session ids.
     active: (function () {
       try {
         const v = new URLSearchParams(window.location.search).get("session");
-        if (!v) return new Set();
+        if (!v || v.trim() === "auto") return new Set();
         return new Set(v.split(",").map(s => s.trim()).filter(Boolean));
       } catch (e) { return new Set(); }
+    })(),
+    autoMode: (function () {
+      try {
+        const v = new URLSearchParams(window.location.search).get("session");
+        return v != null && v.trim() === "auto";
+      } catch (e) { return false; }
     })(),
   },
   rendering: {
@@ -167,7 +179,9 @@ function matchesActiveSession(cell) {
 // inside a Claude Code session without the user typing a query string.
 function syncSessionFilterToURL() {
   const url = new URL(window.location.href);
-  if (state.sessions.active.size === 0) {
+  if (state.sessions.autoMode) {
+    url.searchParams.set("session", "auto");
+  } else if (state.sessions.active.size === 0) {
     url.searchParams.delete("session");
   } else {
     url.searchParams.set("session", [...state.sessions.active].join(","));
@@ -727,6 +741,25 @@ function parseMintLog(text) {
 // runs at the same 1.5s cadence as the HUD poll.
 function liveAppendNewCells(cellsData) {
   if (!cellsData || !Array.isArray(cellsData.cells)) return 0;
+  // In auto-mode, a fresh cell from a brand-new session_id grows the
+  // active set so its column auto-mounts. The `matchesActiveSession`
+  // filter below then accepts it via the freshly-added id.
+  if (state.sessions.autoMode) {
+    let changed = false;
+    for (const c of cellsData.cells) {
+      if (c.replaced_by) continue;
+      if (c.cell_type === "text" && c.attempted_cell_type) continue;
+      const sid = c.session_id || "untagged";
+      if (!state.sessions.active.has(sid)) {
+        state.sessions.active.add(sid);
+        changed = true;
+      }
+    }
+    if (changed) {
+      // Pre-mount any newly-discovered session columns (mirrors load()).
+      if (isMultiStream()) for (const sid of state.sessions.active) ensureSessionColumn(sid);
+    }
+  }
   const visible = cellsData.cells.filter(c => {
     if (c.cell_type === "text" && c.attempted_cell_type) return false;
     if (c.replaced_by) return false;
@@ -1268,6 +1301,16 @@ function ensureSessionColumn(sid) {
 async function load() {
   const res = await fetch("cells.json", { cache: "no-store" });
   const data = await res.json();
+  // ?session=auto: discover every distinct session_id in the corpus and
+  // mount one column per session. Cells without a session_id collapse
+  // into the "untagged" pseudo-column.
+  if (state.sessions.autoMode) {
+    for (const c of data.cells) {
+      if (c.replaced_by) continue;
+      if (c.cell_type === "text" && c.attempted_cell_type) continue;
+      state.sessions.active.add(c.session_id || "untagged");
+    }
+  }
   const visible = data.cells.filter(c => {
     if (c.cell_type === "text" && c.attempted_cell_type) return false;  // demoted by trivial-filter
     if (c.replaced_by) return false;                                     // superseded by a retrigger

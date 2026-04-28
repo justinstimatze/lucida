@@ -394,11 +394,16 @@ def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None =
         else f"cache:wrote/{result.cache_creation_tokens}t" if result.cache_creation_tokens > 0
         else "cache:miss"
     )
-    # Build a structured html artifact for the reflection cell -- per the
-    # text-anti-differentiation principle (memory/lucida_vision.md), reflection
-    # cells were the last persistent text source. Now they render as an html
-    # table of source cells + a footer block of analysis.
-    by_id = {c.get("id"): c for c in data["cells"]}
+    # Reflection cells now pick their own substrate (mermaid / vega / html)
+    # rather than always rendering as html — see reflect.py SYSTEM_PROMPT
+    # "synthesis is itself a cell" section. The `what_worked`/`what_didn't`
+    # analysis moves to notes so the rendered cell stays focused on the
+    # synthesis itself, not the reflection's own metadata.
+    substrate = result.synthesis_substrate or "html"
+    spec_str = (result.synthesis_spec or "").strip()
+
+    spec_obj: object | None = None
+    html_artifact: str | None = None
 
     def _esc(s: object) -> str:
         return (str(s or "")
@@ -406,51 +411,61 @@ def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None =
                 .replace("<", "&lt;")
                 .replace(">", "&gt;"))
 
-    rows_html = []
-    for sid in result.source_ids:
-        sc = by_id.get(sid)
-        if sc is None:
-            continue
-        sc_type = _esc(sc.get("cell_type", ""))
-        sc_caption = _esc((sc.get("caption") or sc.get("trigger_snippet") or "")[:140])
-        rows_html.append(
-            f"<tr><td>{_esc(sid)}</td><td>{sc_type}</td><td>{sc_caption}</td></tr>"
-        )
+    if substrate == "mermaid":
+        spec_obj = spec_str  # mermaid spec is a string
+    elif substrate == "vega":
+        try:
+            spec_obj = json.loads(spec_str)
+        except json.JSONDecodeError:
+            substrate = "html"
+            html_artifact = f"<p><em>vega spec parse failed; falling back.</em></p><pre>{_esc(spec_str)}</pre>"
+    if substrate == "html" and html_artifact is None:
+        # Either the model picked html, or vega parse failed and we fell back.
+        if spec_str:
+            html_artifact = spec_str
+        else:
+            # Last-resort: rebuild the legacy source-cells table so we never
+            # emit an empty cell.
+            by_id = {c.get("id"): c for c in data["cells"]}
+            rows = []
+            for sid in result.source_ids:
+                sc = by_id.get(sid)
+                if sc is None:
+                    continue
+                sc_type = _esc(sc.get("cell_type", ""))
+                sc_cap = _esc((sc.get("caption") or sc.get("trigger_snippet") or "")[:140])
+                rows.append(f"<tr><td>{_esc(sid)}</td><td>{sc_type}</td><td>{sc_cap}</td></tr>")
+            html_artifact = (
+                "<table><thead><tr><th>source</th><th>type</th><th>caption</th></tr></thead>"
+                f"<tbody>{''.join(rows)}</tbody></table>"
+            )
 
-    footer_blocks = []
+    analysis_lines = []
     if result.what_worked:
-        footer_blocks.append(
-            f"<p><strong>worked:</strong> {_esc(result.what_worked)}</p>"
-        )
+        analysis_lines.append(f"worked: {result.what_worked}")
     if result.what_didnt_work:
-        footer_blocks.append(
-            f"<p><strong>didn&#39;t:</strong> {_esc(result.what_didnt_work)}</p>"
-        )
+        analysis_lines.append(f"didn't: {result.what_didnt_work}")
     if result.proposed_next_cell_type != "none" and result.proposed_next_snippet:
-        footer_blocks.append(
-            f"<p><strong>proposed next ({_esc(result.proposed_next_cell_type)}):</strong> "
-            f"{_esc(result.proposed_next_snippet)}</p>"
+        analysis_lines.append(
+            f"proposed next ({result.proposed_next_cell_type}): {result.proposed_next_snippet}"
         )
 
-    html_artifact = (
-        "<table>"
-        "<thead><tr><th>source</th><th>type</th><th>caption</th></tr></thead>"
-        f"<tbody>{''.join(rows_html)}</tbody>"
-        "</table>"
-        + "".join(footer_blocks)
-    )
-
-    caption = result.reflection  # synthesis sentence(s) only; analysis lives in html
+    caption = result.reflection
     short_model = result.model.replace("claude-", "")
+    notes_parts = [f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]"]
+    if analysis_lines:
+        notes_parts.append(" | ".join(analysis_lines))
+
     proposal = CellProposal(
         id=cell_id,
         timestamp=now_iso(),
-        cell_type="html",
+        cell_type=substrate,
         trigger_snippet=f"(reflection on {len(result.source_ids)} cells: {', '.join(result.source_ids)})",
         prompt="(reflective loop -- system prompt was reflect.SYSTEM_PROMPT; user content was the recent cells as multimodal input)",
         caption=caption,
+        spec=spec_obj,
         html=html_artifact,
-        notes=f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]",
+        notes=" | ".join(notes_parts),
         classifier_reasoning=result.reasoning,
         reflection_source_ids=result.source_ids,
         session_id=session_id,

@@ -54,11 +54,26 @@ This is the Wakisaka loop applied to a notebook: the artifacts re-enter percepti
 - **What the cells got wrong**: image cells that read as generic AI-stock when the snippet wanted specificity; mermaid graphs that read as prose; vega charts on single values; cells where the trivial filter or specialist demoted unfaithfully.
 - **What's missing**: the obvious-next-cell that the conversation is leaning toward but hasn't been generated yet.
 
+# The synthesis is itself a cell — pick the right substrate
+
+Reflections used to always render as html (a source-cells table plus footer blocks). That made every reflection look the same regardless of what it was actually saying. Now the reflection cell picks its substrate based on the synthesis content:
+
+- **mermaid**: when the synthesis is *relational* — naming several cells (or threads across them) and the connections between them. "Cells 0042, 0044, 0048 form a chain: A leads to B, B's audit reveals C." A graph with cell-id nodes and labeled relationship edges renders this faster than prose.
+- **vega**: when the synthesis is *quantitative* — counting, comparing, or trending across the source cells. "4 of the last 5 cells were html; mermaid usage fell from 60% to 20% across the window." A small bar chart renders this faster than prose.
+- **html**: when the synthesis is *genuinely tabular* — a row per source cell, columns of attributes (substrate, what-worked, what-didn't), no relational or quantitative spine. This is the fallback shape, not the default.
+
+Pick the substrate that fits the synthesis you actually have. Don't force a relationship onto cells that just happen to coexist; don't force a number onto a cell list. If neither relationship nor number is there, html is honest.
+
 # Output via the reflect tool
 
 Be specific. Generic observations ('these cells discuss economics') are not useful. Anchor your reflection in things you can point at: a specific image's literalism, a specific mermaid topology, a specific quantitative claim that doesn't have its visual companion yet.
 
 If the cells together reveal a question or tension that no single cell surfaced, name it.
+
+The `synthesis_substrate` you pick must match the `synthesis_spec` you produce:
+- mermaid: a string of valid mermaid graph syntax (graph TD ... or flowchart LR ...). Nodes should typically be cell-ids or short thread labels; edges should be the inter-cell relationships you observed.
+- vega: a JSON-stringified vega-lite spec (with `data.values`, `mark`, `encoding`). Counts/comparisons across the source cells.
+- html: an HTML fragment, typically a `<table>` with `<thead>` and `<tbody>` — same shape as before. Use only when neither relational nor quantitative fits.
 """
 
 
@@ -71,6 +86,15 @@ REFLECT_TOOL = {
             "reflection": {
                 "type": "string",
                 "description": "1-3 sentences: what these cells collectively reveal about the conversation.",
+            },
+            "synthesis_substrate": {
+                "type": "string",
+                "enum": ["mermaid", "vega", "html"],
+                "description": "Which substrate best renders the reflection itself: mermaid (relational), vega (quantitative), or html (tabular fallback). Pick what fits the synthesis content, not a default.",
+            },
+            "synthesis_spec": {
+                "type": "string",
+                "description": "The substrate spec rendering the reflection. mermaid: graph syntax string. vega: JSON-stringified vega-lite spec. html: HTML fragment string. Must match synthesis_substrate.",
             },
             "what_worked": {
                 "type": "string",
@@ -96,7 +120,8 @@ REFLECT_TOOL = {
             },
         },
         "required": [
-            "reflection", "what_worked", "what_didnt_work",
+            "reflection", "synthesis_substrate", "synthesis_spec",
+            "what_worked", "what_didnt_work",
             "proposed_next_cell_type", "proposed_next_snippet", "reasoning",
         ],
     },
@@ -106,6 +131,8 @@ REFLECT_TOOL = {
 @dataclass
 class ReflectionResult:
     reflection: str
+    synthesis_substrate: str
+    synthesis_spec: str
     what_worked: str
     what_didnt_work: str
     proposed_next_cell_type: str
@@ -208,7 +235,7 @@ def reflect_on_recent_cells(
     try:
         response = client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=2048,
             system=[
                 {
                     "type": "text",
@@ -227,12 +254,14 @@ def reflect_on_recent_cells(
         if block.type == "tool_use":
             inp = block.input
             return ReflectionResult(
-                reflection=inp["reflection"],
-                what_worked=inp["what_worked"],
-                what_didnt_work=inp["what_didnt_work"],
-                proposed_next_cell_type=inp["proposed_next_cell_type"],
-                proposed_next_snippet=inp["proposed_next_snippet"],
-                reasoning=inp["reasoning"],
+                reflection=inp.get("reflection", ""),
+                synthesis_substrate=inp.get("synthesis_substrate", "html"),
+                synthesis_spec=inp.get("synthesis_spec", ""),
+                what_worked=inp.get("what_worked", ""),
+                what_didnt_work=inp.get("what_didnt_work", ""),
+                proposed_next_cell_type=inp.get("proposed_next_cell_type", "none"),
+                proposed_next_snippet=inp.get("proposed_next_snippet", ""),
+                reasoning=inp.get("reasoning", ""),
                 source_ids=[c["id"] for c in recent],
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,

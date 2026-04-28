@@ -47,8 +47,8 @@ Mentally execute (do not output):
 
 3. For each atomic claim unit, classify as one of:
    - DIRECT: stated verbatim in the snippet (allow paraphrase of the entity name; numeric values must match).
-   - DERIVED: arithmetic on stated values where the operation is unambiguous (e.g., snippet says "rose from 100 to 165" -- the +65 delta is derived). For mermaid, a chain edge the snippet itself collapses ("A through B leads to C" allows A->B->C).
-   - INVENTED: plausible but the snippet does not state. This is the failure mode you are detecting.
+   - DERIVED: arithmetic on stated values where the operation is unambiguous (e.g., snippet says "rose from 100 to 165" -- the +65 delta is derived). For mermaid, a chain edge the snippet itself collapses ("A through B leads to C" allows A->B->C). Edge verbs that paraphrase a relationship the snippet explicitly states between two snippet-named entities are DERIVED, not INVENTED ("triggers" / "causes" / "feeds" / "leads to" all paraphrase a stated causal or sequential relationship; only flag the verb itself if the snippet does not state any relationship between those entities). Caption rewordings that preserve the snippet's truth conditions are DERIVED ("the gate slips through" -> "bypasses the gate" is a paraphrase, not an invention).
+   - INVENTED: plausible but the snippet does not state. This is the failure mode you are detecting. Examples that REMAIN INVENTED even under the relaxed DERIVED rule: (a) named entities, files, directories, or functions not mentioned in the snippet; (b) numeric values, thresholds, or targets the snippet does not state; (c) reframing an unconfirmed/hypothetical claim as a confirmed fact (e.g., snippet says "20% is the kill threshold, may not hit it" -> calling 20% the "target" is INVENTED framing); (d) nodes referenced in edges but never declared with a label.
 
 4. Compile the list of INVENTED items. Each one is a hallucination.
 

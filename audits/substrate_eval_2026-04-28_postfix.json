@@ -1,0 +1,82 @@
+[
+  {
+    "id": "cell-0108",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "Edge label 'triggers' on S-->O (snippet says 'when ... returns ... the orchestrator demotes', implying causation but the specific verb 'triggers' is a minor paraphrase addition not verbatim in snippet)",
+      "The caption phrase 'bypasses the classifier-level text gate' \u2014 the snippet says the gate 'already passed earlier' and this 'slips through', but 'bypasses' implies an active bypass; the snippet describes a passive slip-through, not an active bypass of the gate by the signal"
+    ],
+    "caption_inv": [
+      "'the specialist's demote-to-text signal bypasses the classifier-level text gate' \u2014 the snippet says the text gate 'already passed earlier' and the situation 'slips through', not that the signal actively bypasses the gate; 'bypasses' introduces a causal relationship not stated in the snippet"
+    ],
+    "demote": false,
+    "summary": "The substrate is largely clean \u2014 all four nodes and their relationships trace directly to the snippet. The one minor issue is that the caption introduces the verb 'bypasses' to describe the gate interaction, which overstates the snippet's more passive 'slips through / already passed' framing; this is a minor but non-trivial recharacterization of the causal chain."
+  },
+  {
+    "id": "cell-0109",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [
+      "adapters/ directory\nscaffolded \u2014 the snippet does not mention any 'adapters/' directory or any scaffolding activity.",
+      "AI -.lives in.-> AD \u2014 the edge claiming the adapter interface 'lives in' the adapters/ directory is not supported by the snippet."
+    ],
+    "caption_inv": [
+      "'which is being scaffolded inside the adapters/ directory' \u2014 the snippet makes no mention of an adapters/ directory or scaffolding."
+    ],
+    "demote": false,
+    "summary": "The two-node chain (JT \u2192 AI) is cleanly supported by the snippet, but the third node (adapters/ directory) and its associated edge and caption claim are fully invented \u2014 the snippet says nothing about an adapters/ directory or any scaffolding step."
+  },
+  {
+    "id": "cell-0110",
+    "ctype": "mermaid",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every node and edge in the graph traces directly to the snippet. The adapters/ directory, claude_code.py (moved logic), aider.py (new), and unified CLI are all explicitly stated. The caption accurately paraphrases these same facts without adding any unsupported claims."
+  },
+  {
+    "id": "cell-0111",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value, row label, and column label traces directly to the snippet. The caption's note about empty cells being due to underspecification is an accurate meta-observation, not an invention. No hallucinations detected."
+  },
+  {
+    "id": "cell-0112",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value, row label, and column label in the table traces directly back to the snippet. The caption's claims \u2014 partial Go port, watcher daemon vs classifier+specialists split, specific deploy-surface trigger, and full rewrite being ruled out \u2014 are all explicitly supported. No inventions detected."
+  },
+  {
+    "id": "cell-0113",
+    "ctype": "vega",
+    "score": 0.4,
+    "substrate_inv": [
+      "data row: state='target after gate', kill_rate=20 \u2014 the snippet frames 20% as an unconfirmed target/hypothesis ('confirms WHETHER kill #3 dropped \u2026 toward 20%'), not a measured post-gate value; presenting it as a concrete bar alongside 62% implies it is an established datum"
+    ],
+    "caption_inv": [
+      "'The $0.50 audit confirms whether the drop is real' \u2014 the snippet says the audit will confirm WHETHER the drop happened; the caption states it 'confirms' it as a fait accompli, inverting the conditional framing"
+    ],
+    "demote": true,
+    "summary": "The 62% figure is DIRECT, but the 20% value is explicitly hypothetical in the snippet ('dropped \u2026 toward 20%' is an unconfirmed outcome). Rendering it as a solid bar of equal visual weight implies it is a measured post-gate result \u2014 a material invention. With only one confirmed data point, the bar chart cannot be coherent without inventing the second bar, so demotion to text is warranted."
+  },
+  {
+    "id": "cell-0114",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [
+      "Node F labeled 'paused work item' \u2014 referenced in an edge (A -->|'closes'| F) but F is never declared as a node with a label in the graph, making it a dangling/implicit node not explicitly defined in the spec",
+      "Edge B -->|'missing'| C \u2014 the snippet does not say the adapters/ directory is 'missing' claude_code.py; it says claude_code.py has not yet been *moved over*, which is a different relationship (pending action, not an absence belonging to B)"
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The graph is mostly grounded in the snippet, but contains two provenance issues: node F (\"paused work item\") is referenced in an edge but never declared as a labeled node, and the edge B\u2192C labeled \"missing\" mischaracterizes the relationship \u2014 the snippet describes a pending move action, not an absence/missing-item relationship between the directory and the file. The caption is clean."
+  }
+]

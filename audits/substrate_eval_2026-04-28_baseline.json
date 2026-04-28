@@ -1,0 +1,57 @@
+[
+  {
+    "id": "cell-0119",
+    "ctype": "mermaid",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every node, edge, and label in the graph traces directly back to the snippet. All four test scenarios, the three files, the internal method chain (act \u2192 _escalate_pending \u2192 LLM \u2192 emit), the hello_world.py introspection edge, and the RegulatorParams reference are explicitly stated in the snippet. The caption is likewise a faithful paraphrase with no added claims. No inventions detected."
+  },
+  {
+    "id": "cell-0120",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every data row, axis label, and caption claim traces directly to the snippet. The three bars (4 regulator fired, 4 no call, 0 parse failures) map to explicit snippet values; the \"No regulator LLM call\" row at 4 is a clean arithmetic derivation (8 \u2212 4 = 4). No inventions detected."
+  },
+  {
+    "id": "cell-0121",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "Edge: LS -->|wraps| SL \u2014 The snippet does not state that the logging shim wraps the serializer layer; it lists the three components as peers, not in a wrapping/containment relationship.",
+      "Edge: LS -->|wraps| RC \u2014 Same issue: the snippet does not state that the logging shim wraps the resolver component.",
+      "Edge label on SL-->OB: 'bridges input to' \u2014 the snippet states the serializer layer exists but does not describe its relationship to observe() in directional/bridging terms; however this is a mild paraphrase.",
+      "Node label on SL: 'dict \u2192 string' \u2014 the snippet implies this direction but does not explicitly state the serializer converts dict to string (it could serialize AgentAction outputs too); this is an inferential addition not directly stated."
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The graph is largely well-grounded: all seven named nodes correspond to snippet-stated entities, and most edges are reasonable paraphrases of stated relationships. However, the two 'LS wraps SL/RC' edges assert a specific containment/wrapping topology between the logging shim and the other two components that the snippet never states \u2014 the snippet lists them as three parallel requirements, not as a wrapping hierarchy. The 'dict \u2192 string' annotation on the serializer layer is also a minor inferential addition. These are minor-to-moderate inventions that slightly misrepresent the architectural relationships."
+  },
+  {
+    "id": "cell-0122",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every atomic claim in the table and caption traces directly to the snippet. The column labels (accumulator/final_pool, regulator/sanctions, regulator/total LLM calls), row values (none/identical to 9 decimals across all 20 runs; 1.0 vs 3.0 mean; 2 vs 7), cause attributions (Session 2 disk cache; rule pipeline responsive), and status labels (locked; functioning) all have explicit support. No inventions detected."
+  },
+  {
+    "id": "cell-0123",
+    "ctype": "vega",
+    "score": 0.7,
+    "substrate_inv": [
+      "response_group label 'Response A' for Seed 2 \u2014 snippet never names or labels the two responses; it only distinguishes by final_pool value",
+      "response_group label 'Response B' for Seeds 0,1,3,4 \u2014 same issue; these group names are invented"
+    ],
+    "caption_inv": [
+      "'nonce fix works' \u2014 the snippet describes observed behavior but does not characterize it as a 'fix' being confirmed; this frames an unconfirmed/interpretive claim as a verified result"
+    ],
+    "demote": false,
+    "summary": "The numeric data (final_pool values per seed) and seed count are all DIRECT from the snippet, keeping the substrate largely clean. The only inventions are the cosmetic response group labels ('Response A' / 'Response B'), which the snippet never uses \u2014 it distinguishes responses purely by final_pool value. These labels are minor because they don't change the quantitative claims, but they do add named categories not present in the source. The caption's 'confirms the nonce fix works' framing is a minor interpretive invention."
+  }
+]
