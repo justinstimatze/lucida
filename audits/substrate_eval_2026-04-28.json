@@ -6,54 +6,51 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every cell value, label, and empty cell in the table traces directly to claims in the snippet. The caption accurately characterizes the table's scope and the deliberate use of empty cells for underspecified dimensions. No inventions detected."
+    "summary": "Every cell value in the table traces directly to the snippet: startup modes, discovery path, alignment claim, and complexity details are all explicitly stated. Empty cells are correctly left blank where the snippet makes no claim for the per-session watcher on those dimensions. The caption is also clean and accurate."
   },
   {
     "id": "cell-0003",
     "ctype": "mermaid",
     "score": 0.7,
     "substrate_inv": [
-      "Edge label 'builds toward' on S1-->S2 and S2-->S3 (snippet says 'in order' and 'independently useful' but never uses the phrase 'builds toward'; minor paraphrase addition that slightly contradicts 'independently useful')"
+      "Edge label 'builds toward' on S1\u2192S2 and S2\u2192S3 \u2014 the snippet implies sequential ordering but never uses this phrase or any explicit dependency verb between the steps; the snippet only lists them in order and says each is independently useful, which could argue against a strict 'builds toward' dependency framing"
     ],
     "caption_inv": [
-      "'multi-session stream viewing in lucida' \u2014 snippet does not mention 'stream viewing' or 'lucida' as the context for this roadmap.",
-      "'mission-control layout' \u2014 snippet says 'N-column' and 'iron-man-HUD aesthetic' but never uses the phrase 'mission-control layout'."
+      "'multi-session stream viewing' \u2014 the snippet never mentions streams or multi-session viewing as the purpose; it describes the build order abstractly",
+      "'mission-control layout' \u2014 the snippet only says 'N-column'; 'mission-control' is an embellishment not present in the snippet"
     ],
     "demote": false,
-    "summary": "The substrate nodes and core edges are well-grounded in the snippet; the only minor substrate issue is the 'builds toward' edge label, which subtly conflicts with the snippet's explicit 'each step is independently useful' framing. The caption introduces two unsupported elaborations ('multi-session stream viewing in lucida' and 'mission-control layout') that are plausible but not stated in the snippet."
+    "summary": "The three nodes and their labels are all DIRECT from the snippet, and the HUD node with 'earns its keep' is DIRECT. The edge label 'builds toward' is a minor invention (the snippet implies order but doesn't assert dependency, and explicitly says steps are independently useful). The caption introduces 'multi-session stream viewing' and 'mission-control layout' as minor invented elaborations not found in the snippet."
   },
   {
     "id": "cell-0007",
     "ctype": "mermaid",
     "score": 0.4,
     "substrate_inv": [
-      "Node: CellProposal data structure",
-      "Node: append_proposal function",
-      "Node: reflect_and_persist function",
-      "Node: watcher function",
-      "Edge: SID -.threads through.-> CP (session_id threads through CellProposal)",
-      "Edge: CP -.passes into.-> AP (CellProposal passes into append_proposal)",
-      "Edge: AP -.passes into.-> RP (append_proposal passes into reflect_and_persist)",
-      "Edge: RP -.passes into.-> W (reflect_and_persist passes into watcher)"
+      "Node: CellProposal (data structure) \u2014 snippet does not name this entity",
+      "Node: append_proposal (function) \u2014 snippet does not name this entity",
+      "Node: reflect_and_persist (function) \u2014 snippet does not name this entity",
+      "Node: watcher (function) \u2014 snippet does not name this entity",
+      "Edge: SID -.threads through.-> CP \u2014 specific threading relationship to CellProposal not stated in snippet",
+      "Edge: CP -.passes into.-> AP \u2014 relationship between CellProposal and append_proposal not stated in snippet",
+      "Edge: AP -.passes into.-> RP \u2014 relationship between append_proposal and reflect_and_persist not stated in snippet",
+      "Edge: RP -.passes into.-> W \u2014 relationship between reflect_and_persist and watcher not stated in snippet"
     ],
     "caption_inv": [
-      "The chain CellProposal \u2192 append_proposal \u2192 reflect_and_persist \u2192 watcher is stated as the cell-persistence path",
-      "session_id needs to be threaded through each stage of that specific chain"
+      "Chain CellProposal \u2192 append_proposal \u2192 reflect_and_persist \u2192 watcher \u2014 none of these named stages appear in the snippet",
+      "session_id needing to be threaded through each stage \u2014 the snippet only says 'where to thread session_id', not that it threads through all of these specific named stages"
     ],
     "demote": true,
-    "summary": "The snippet says only that the author intends to map the cell-persistence path in order to figure out where to thread session_id \u2014 it does not name any nodes (CellProposal, append_proposal, reflect_and_persist, watcher) or any edges between them. Every node label and every directed relationship in the graph is invented. The caption compounds the problem by asserting the full named chain as established fact. Because the substrate requires invented content to exist at all, demotion to plain text is recommended."
+    "summary": "The snippet is a single-sentence intent statement \u2014 it names only session_id and the abstract concept of a \"cell-persistence path,\" providing no named nodes, no functions, and no explicit edges. Every node (CellProposal, append_proposal, reflect_and_persist, watcher) and every edge in the graph is invented. The substrate cannot be made coherent from the snippet alone, so demotion to text is also recommended."
   },
   {
     "id": "cell-0008",
     "ctype": "mermaid",
     "score": 1.0,
     "substrate_inv": [],
-    "caption_inv": [
-      "caption states the threading is 'sequential' \u2014 the snippet implies a chain but does not explicitly assert sequentiality as an ordering constraint",
-      "caption states these are 'three touch-points that must all receive the new field' \u2014 the normative 'must' is not stated in the snippet"
-    ],
+    "caption_inv": [],
     "demote": false,
-    "summary": "The mermaid substrate is clean: every node and every directed edge traces directly to the snippet. The caption introduces two minor inventions \u2014 asserting the threading is \"sequential\" and adding a normative claim (\"must all receive\") \u2014 neither of which are stated in the snippet, though both are low-stakes interpretive glosses rather than material fabrications."
+    "summary": "Every node, edge, and label in the graph traces directly to the snippet. The caption accurately restates the snippet's claims without adding any unsupported detail. No inventions detected."
   },
   {
     "id": "cell-0009",
@@ -62,7 +59,7 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every node, edge, and label in the graph traces directly to an explicit claim in the snippet: watcher.py as the entry-point, transcript path stem as the source of session_id, the derivation relationship, the plumbing-through relationship, and the --session-id CLI override. The caption accurately paraphrases all three sub-tasks without adding unsupported detail. No inventions detected."
+    "summary": "Every node, edge, and label in the graph traces directly to the snippet: watcher.py as the entry-point, transcript path stem as the source of session_id, the derivation relationship, plumbing through, and the --session-id override. The caption faithfully summarises all three sub-tasks without adding unsupported claims."
   },
   {
     "id": "cell-0010",
@@ -71,34 +68,32 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every node label, edge verb, and data point in the graph traces directly to the snippet. The four nodes (segmenter, classifier with <0.6 threshold, orchestrator.py:616-618, text cell) and the three edges (finds \u2192 triggers demotion in \u2192 emits) are all explicitly stated. The caption faithfully restates the causal chain without adding any unsupported claims."
+    "summary": "Every node label, edge verb, and caption claim traces directly to the snippet. The four nodes (segmenter, classifier with <0.6 threshold, orchestrator.py:616-618, emitted text cell) and all three edges (finds \u2192 triggers demotion in \u2192 emits) are explicitly stated in the source. No inventions detected."
   },
   {
     "id": "cell-0011",
     "ctype": "html",
     "score": 0.7,
     "substrate_inv": [
-      "Aggressiveness row label 'Moderate' for Option 1 \u2014 snippet does not assign a relative aggressiveness label to Option 1; it only calls Option 2 'most aggressive'"
+      "Aggressiveness row: Option 1 labeled 'Moderate' \u2014 the snippet does not assign a relative aggressiveness label to Option 1; it only says Option 2 is 'most aggressive', which implies Option 1 is less aggressive, but 'Moderate' as a specific label is an invention."
     ],
     "caption_inv": [],
     "demote": false,
-    "summary": "The table is largely faithful to the snippet. One minor invention: labeling Option 1's aggressiveness as \"Moderate\" \u2014 the snippet never assigns Option 1 a relative aggressiveness tier; it only says Option 2 is \"most aggressive.\" All other cells are directly supported. The caption is clean and correctly notes empty cells where the snippet underspecifies."
+    "summary": "The table is largely clean and faithfully reproduces the snippet's claims. One minor invention exists: the 'Moderate' aggressiveness label for Option 1 \u2014 the snippet only states Option 2 is 'most aggressive' but never assigns a named tier to Option 1. All other cells are directly supported by the snippet, and the empty cell for Option 2's implementation size is correctly handled."
   },
   {
     "id": "cell-0012",
     "ctype": "html",
     "score": 0.4,
     "substrate_inv": [
-      "cell-0007 caption: 'session_id needing to be thread' \u2014 snippet does not state that cell-0007 itself mentions session_id needing to be threaded; that detail belongs to cell-0008",
-      "cell-0008 caption: 'three touch-points' \u2014 the snippet says the three touch-points are append_proposal, reflect_and_persist, and watcher, but does NOT state cell-0008 explicitly labels them as 'three touch-points' in its caption/content",
-      "cell-0009 caption: '--ses' (truncated flag name) \u2014 snippet says '--ses' flag exists but the full flag name is not given; minor truncation invention",
-      "cell-0010 caption: 'orchestrator' truncated \u2014 the caption cuts off before citing orchestrator.py:616-618, which the snippet does support, so the truncation itself is not an invention but the implied completeness is misleading",
-      "cell-0007 caption claims the chain is 'CellProposal \u2192 append_proposal \u2192 reflect_and_persist \u2192 watcher' as a 'cell-persistence path' \u2014 the snippet attributes this topology to BOTH 0007 and 0008 as near-duplicates, but the caption assigns the session_id threading detail specifically to 0007, which the snippet says is 0008's refinement"
+      "cell-0007 caption: 'session_id needing to be thread' \u2014 the snippet says cell-0007 established the pipeline shape/topology but does NOT state session_id was the subject of cell-0007 (that refinement is attributed to cell-0008)",
+      "cell-0008 caption: 'three touch-points' \u2014 the snippet names three nodes (append_proposal, reflect_and_persist, watcher) but does not use the phrase 'three touch-points' as a stated count label; minor but the number 3 is derivable",
+      "cell-0009 caption: 'overridable via a --ses' \u2014 this is a truncated reference to a CLI flag (--session or similar) that is NOT stated anywhere in the snippet; the snippet only says 'override', not the flag name",
+      "cell-0010 caption: 'orchestrator' ending is truncated \u2014 the snippet does reference orchestrator.py:616-618 but the caption omits this anchor, potentially misrepresenting the cell's content"
     ],
     "caption_inv": [
-      "Caption states 'two suppression fixes (cell 11)' comparing Option 1 vs Option 2 \u2014 the snippet does support this, so NOT invented",
-      "Caption says 'classifier threshold' is one of the two intertwined threads \u2014 the snippet supports this via the low-confidence classifier and the proposed <0.6 threshold, so NOT invented",
-      "No materially invented claims found in the caption itself"
+      "'two intertwined threads' \u2014 while inferable, the snippet does not explicitly frame the session as exactly two intertwined threads; this is an interpretive addition",
+      "'both touching the same orchestrator/watcher code' \u2014 the snippet mentions orchestrator.py and watcher.py separately but does not explicitly claim both changes touch the same code files simultaneously"
     ],
     "demote": false,
     "summary": ""
@@ -110,24 +105,23 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every cell value in the table traces directly to the snippet: React Flow's primary unit (node), layout paradigm (manipulable graph), and core interaction strengths (drag nodes, connect them, custom node ports) are all verbatim; Lucida's primary unit (cell/content card) and layout paradigm (feed/grid) are equally direct. The empty Lucida cell for core interaction strength is the correct and honest handling of a gap in the snippet, and the caption accurately explains the absence. No inventions detected."
+    "summary": "Every cell value in the table traces directly to the snippet: React Flow's primary unit (node), layout paradigm (manipulable graph), and core interaction strength (drag nodes, connect them, custom node ports) are all explicit; Lucida's primary unit (cell/content card) and layout paradigm (feed/grid) are both stated. The empty Lucida interaction-strength cell is correctly left blank rather than invented. The caption accurately notes the empty cell and its reason, adding no unsupported claims."
   },
   {
     "id": "cell-0014",
     "ctype": "html",
     "score": 0.4,
     "substrate_inv": [
-      "Row 'Runtime dependencies', cell 'Vanilla-JS + IntersectionObserver': 'none beyond browser APIs' \u2014 the snippet never characterises the dependency footprint of the current approach; it only names the technology.",
-      "Row 'Architectural model', cell 'React Flow': 'component-based / React paradigm' \u2014 the snippet says 'React + a build pipeline' but never uses the label 'component-based' or 'React paradigm'.",
-      "Row 'Architectural model', cell 'Vanilla-JS + IntersectionObserver': 'vanilla JS' \u2014 the snippet names the full stack 'vanilla-JS-with-IntersectionObserver'; stripping it to just 'vanilla JS' drops a named entity, but more critically the cell label omits IntersectionObserver which is the technology actually named in the snippet.",
-      "Row 'Current status', cell 'React Flow': 'proposed' \u2014 the snippet never states React Flow is 'proposed'; it only frames it as a hypothetical adoption scenario.",
-      "Row 'Architectural shift required', cell 'Vanilla-JS + IntersectionObserver': 'none (incumbent)' \u2014 the snippet states no shift is required for the current approach, but the parenthetical '(incumbent)' is an editorial addition not present in the snippet."
+      "Runtime dependencies row, Vanilla-JS column: 'none beyond browser APIs' \u2014 snippet never characterises the dependency footprint of the vanilla approach; it only names it.",
+      "Architectural model row, React Flow column: 'component-based / React paradigm' \u2014 snippet does not describe the paradigm, only names React + build pipeline as a dependency cost.",
+      "Architectural model row, Vanilla-JS column: 'vanilla JS' \u2014 this partially restates the name rather than a described attribute, but more importantly the row label frames it as a distinct architectural model dimension, which the snippet does not articulate.",
+      "Current status row, React Flow column: 'proposed' \u2014 the snippet never says React Flow is merely proposed; it frames it as a decision being considered but does not assign a formal status label."
     ],
     "caption_inv": [
-      "'Empty cells where the snippet underspecifies a dimension for that approach' \u2014 there are no empty cells in the table, making this claim directly false and misleading."
+      "'Empty cells where the snippet underspecifies a dimension for that approach' \u2014 there are no empty cells in the table, making this caption claim actively false and therefore invented."
     ],
-    "demote": false,
-    "summary": "The table's two core facts (React Flow needs React + a build pipeline; the shift is major; the current vanilla-JS + IntersectionObserver model is working well) are grounded in the snippet, but several cells contain material inventions: characterising the current approach's dependencies as 'none beyond browser APIs', labelling React Flow as 'component-based / React paradigm', and tagging React Flow's status as 'proposed' are all editorially added and not supported by the snippet. The caption's claim about empty cells is factually wrong \u2014 no cells are empty."
+    "demote": true,
+    "summary": "The snippet supports only three direct facts (React Flow needs React + build pipeline; this is a major architectural shift; the vanilla-JS/IntersectionObserver model is serving us well), but the table adds four rows, several of which require invented characterisations \u2014 most notably the dependency footprint of vanilla-JS, the paradigm labels, and the 'proposed' status of React Flow. The caption's claim about empty cells is also invented since every cell is populated. The snippet is too thin to support a multi-row comparison table without fabrication; demotion to prose is recommended."
   },
   {
     "id": "cell-0015",
@@ -136,7 +130,7 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every node, edge, and label in the graph traces directly to claims in the snippet: the proportional-font measurement, the magi CSS override to Courier New, the ~15% wider-per-char figure, the foreignObject sizing mismatch, and the resulting clipping. The caption faithfully compresses the same chain without adding any unattested claims."
+    "summary": "Every node label, edge verb, and data point in the graph traces directly to the snippet. The caption accurately restates the root-cause chain without adding unsupported claims. No inventions detected."
   },
   {
     "id": "cell-0023",
@@ -144,25 +138,29 @@
     "score": 1.0,
     "substrate_inv": [],
     "caption_inv": [
-      "trade-offs before direction choice \u2014 the snippet does not frame this as a trade-off or pre-decision comparison; it presents both as wins with different qualities"
+      "'trade-offs before direction choice' \u2014 the snippet does not describe these as trade-offs or frame them as preceding a direction decision; it simply characterises both options positively with different emphases"
     ],
     "demote": false,
-    "summary": "Every cell value in the table traces directly to the snippet: both-wins, Iron HUD brand alignment for bloom, structural meaning and reflection-chain visibility for connections, and empty cells where the snippet is silent. The caption's \"trade-offs before direction choice\" framing is a mild editorial invention \u2014 the snippet presents co-equal wins, not an explicit trade-off decision \u2014 but it is non-load-bearing."
+    "summary": "All four data cells and their row/column labels trace directly to the snippet with no invented values; the only mild concern is the caption's framing of \"trade-offs before direction choice,\" which imposes a decision-context the snippet does not state, but this is a minor interpretive addition rather than a load-bearing factual invention."
   },
   {
     "id": "cell-0025",
     "ctype": "html",
-    "score": 0.7,
+    "score": 0.4,
     "substrate_inv": [
-      "cell-0020 caption in table reads 'all the rendering plumbing solid' \u2014 the snippet says 'solid' but the table silently truncates cell-0021 and cell-0022 captions mid-sentence with no ellipsis indicator, potentially misrepresenting completeness (minor framing issue, not a factual invention)",
-      "The 'worked / didn't / proposed next' body prose asserts cell-0023 leaves 'brand alignment' row empty for inter-cell connections and 'structural meaning' empty for bloom \u2014 these specific row-name labels ('brand alignment', 'structural meaning') do not appear in the trigger snippet and are invented column/row identifiers"
+      "cell-0021 caption truncated with 'Concret' \u2014 partial text, not necessarily invented but unverifiable",
+      "cell-0022 caption truncated with 'this analy' \u2014 partial text, not verifiable",
+      "The table structure asserts that cell-0020 is type 'text', cell-0021 is 'animated_svg', cell-0022 is 'animated_svg', cell-0023 is 'html', cell-0024 is 'text' \u2014 the snippet describes these types but does not explicitly label them as such in a typed schema; 'animated_svg' and 'html' as formal type labels are inferred/invented column values not stated verbatim in the snippet",
+      "The column label 'type' is an invented schema dimension \u2014 the snippet does not define or label cell types in a formal taxonomy"
     ],
     "caption_inv": [
-      "Caption states 'Wakisaka reflection loop' \u2014 the name 'Wakisaka' does not appear anywhere in the trigger snippet and is an invented proper noun / attribution",
-      "Caption describes the arc as 'status check \u2192 two animated FUI artifacts built \u2192 a comparison table weighing them \u2192 a deferral note' \u2014 this sequencing is broadly supported, but 'status check' as a label for cell-0020 is a paraphrase not explicitly stated (minor)"
+      "'Wakisaka reflection loop' \u2014 the name 'Wakisaka' does not appear anywhere in the trigger snippet; this is an invented proper noun / attribution",
+      "'Iron HUD aesthetic' appears in the snippet implicitly (Iron HUD signature animation), so this is borderline DIRECT \u2014 acceptable",
+      "'JARVIS-style provenance' is supported by 'JARVIS-style' in snippet \u2014 acceptable",
+      "The summary characterization 'we built both things, now which direction to push next?' is a reasonable paraphrase of the snippet's arc and is not materially invented"
     ],
     "demote": false,
-    "summary": "The HTML table itself is largely clean \u2014 cell IDs, types, and caption excerpts trace directly to the snippet. However, the inline prose body invents two specific row-name labels ('brand alignment' and 'structural meaning') that never appear in the snippet, and the caption introduces the proper noun 'Wakisaka' (as in 'Wakisaka reflection loop') which has no basis in any of the five cell descriptions. These are material inventions in the prose annotation and caption layers."
+    "summary": "The HTML table is largely grounded in the snippet, but the formal 'type' column (using values like 'animated_svg', 'html', 'text' as a typed schema) is an invented structural layer the snippet does not define. More materially, the caption introduces 'Wakisaka reflection loop' \u2014 a proper noun that appears nowhere in the trigger snippet and is a clear hallucination."
   },
   {
     "id": "cell-0026",
@@ -171,58 +169,58 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every row label, item description, and pass condition in the table maps directly to one of the four explicitly enumerated checklist items in the snippet. The caption's characterization as a \"four-point post-refresh verification checklist for the lucida notebook UI\" is fully supported. No inventions detected."
+    "summary": "All four rows in the HTML table map directly to the four checklist items (a)\u2013(d) in the snippet, with pass conditions faithfully paraphrasing the stated criteria. The caption's characterization of a \"four-point post-refresh verification checklist for the lucida notebook UI\" is well-supported. No inventions detected."
   },
   {
     "id": "cell-0030",
     "ctype": "mermaid",
     "score": 0.4,
     "substrate_inv": [
-      "Node A: 'reverse-chronological cell feed' \u2014 not mentioned in snippet.",
-      "Node B: 'peripheral-to-center bloom animation' \u2014 not mentioned in snippet.",
-      "Node C: 'magi-flavored CSS glow styling' \u2014 not mentioned in snippet.",
-      "Node KS: 'kill-state hook' \u2014 not mentioned in snippet.",
-      "Edge: B -.wired to.-> KS \u2014 relationship not stated in snippet.",
-      "Edge: D -.starts from.-> RC \u2014 'starts from' framing is an invention; snippet only says connections are being looked at re: how reflection cells are identified, not that D starts from RC as a directed dependency."
+      "Node A: 'reverse-chronological cell feed' \u2014 not mentioned in snippet",
+      "Node B: 'peripheral-to-center bloom animation' \u2014 not mentioned in snippet",
+      "Node C: 'magi-flavored CSS glow styling' \u2014 not mentioned in snippet",
+      "Node KS: 'kill-state hook' \u2014 not mentioned in snippet",
+      "Edge B -.wired to.-> KS \u2014 relationship not mentioned in snippet",
+      "Edge D -.starts from.-> RC \u2014 the direction/verb 'starts from' is not stated; only 'looking at how reflection cells are currently identified' is stated",
+      "Node D label 'SVG overlay system' \u2014 SVG is not mentioned in snippet; only 'inter-cell connections' is mentioned",
+      "The framing of four numbered features (1\u20134) with nodes A, B, C, D \u2014 only feature 4 is referenced in the snippet"
     ],
     "caption_inv": [
-      "'reverse-chronological cell feed' as feature 1 \u2014 not in snippet.",
-      "'peripheral-to-center bloom animation' as feature 2 \u2014 not in snippet.",
-      "'bloom animation tied to a kill-state hook' \u2014 not in snippet.",
-      "'CSS glow styling' as feature 3 \u2014 not in snippet.",
-      "'magi-flavored' qualifier \u2014 not in snippet.",
-      "'Four incremental UI/notebook features in a developer's working log' \u2014 the snippet only introduces item 4; items 1\u20133 are entirely invented.",
-      "'the fourth feature begins by examining how reflection cells are identified' \u2014 this part is supported by the snippet."
+      "'a cell feed' (feature 1) \u2014 not in snippet",
+      "'a bloom animation tied to a kill-state hook' (feature 2) \u2014 not in snippet",
+      "'CSS glow styling' (feature 3) \u2014 not in snippet",
+      "'the fourth feature begins by examining how reflection cells are identified' \u2014 this paraphrase is broadly supported, though 'begins by' is a slight invention; 'SVG overlay system' label is invented"
     ],
     "demote": true,
-    "summary": "The snippet provides only two grounded facts: this is item (4) in a series and it concerns inter-cell connections / how reflection cells are identified. Every other node (A, B, C, KS), every edge relationship, and the entire framing of a four-feature list with specific labels are invented wholesale. The substrate cannot be made coherent without those inventions, so demotion to plain text is recommended."
+    "summary": "The snippet provides only a single atomic claim: feature (4) concerns inter-cell connections, and the current work is examining how reflection cells are identified. The graph invents three additional feature nodes (cell feed, bloom animation, CSS glow), a kill-state hook node, an SVG overlay label, and two labeled edges \u2014 none of which appear in the snippet. The substrate requires extensive invention to be coherent and should be demoted to plain text."
   },
   {
     "id": "cell-0031",
     "ctype": "mermaid",
     "score": 0.7,
     "substrate_inv": [
-      "SVG overlay element described as 'full-canvas layer' (snippet does not state this)",
-      "connection drawer described as 'inter-cell line renderer' (snippet does not state this)"
+      "SVG overlay element described as 'full-canvas layer'",
+      "connection drawer described as 'inter-cell line renderer'",
+      "SVG --> CD edge (the snippet does not state a relationship between the SVG overlay and the connection drawer)"
     ],
     "caption_inv": [
-      "connection drawer is 'wired to the SVG layer to render inter-cell connections' \u2014 the wiring/rendering relationship is not stated in the snippet"
+      "'wired to the SVG layer to render inter-cell connections' \u2014 the snippet does not state the connection drawer is wired to SVG or that it renders inter-cell connections"
     ],
-    "demote": false,
-    "summary": "The three nodes and the NR\u2192SVG\u2192CD chain are broadly supported by the snippet, but the node sub-labels ('full-canvas layer', 'inter-cell line renderer') and the caption's assertion of a wiring/rendering relationship are minor elaborations not found in the snippet. No load-bearing numeric or entity inventions exist, so the chart is usable with light caveats."
+    "demote": true,
+    "summary": "The snippet names three entities (notebook root, SVG overlay, connection drawer) and one explicit relationship (notebook root located in body), but does not state how the SVG overlay and connection drawer relate to each other. The graph's SVG\u2192CD edge and the node sub-labels ('full-canvas layer', 'inter-cell line renderer') are invented, and the caption compounds this by asserting a 'wired to' rendering relationship unsupported by the snippet. The snippet is too sparse (only one DIRECT relationship) to sustain a multi-edge graph without invention, so demotion to text is recommended."
   },
   {
     "id": "cell-0034",
     "ctype": "html",
     "score": 0.7,
     "substrate_inv": [
-      "'Session-scoped' label applied to both localhost:8766/?session=lucida_live and localhost:8766/?session=untagged \u2014 the snippet never uses the term 'Session-scoped'; it only labels the first as 'unscoped' and implies the others are filtered but does not coin a scope label for them"
+      "Column label 'Scope' and cell value 'Session-scoped' for both scoped URLs \u2014 the snippet never uses the term 'Session-scoped'; it only distinguishes 'unscoped' vs. the two filtered URLs"
     ],
     "caption_inv": [
-      "'Three canonical test URLs validating session-filter behavior' \u2014 the snippet does not describe these as 'canonical test URLs' or frame them as 'validating session-filter behavior'; this framing is editorially invented"
+      "'Three canonical test URLs validating session-filter behavior' \u2014 the snippet does not describe these as 'canonical test URLs' nor characterize them as 'validating session-filter behavior'"
     ],
     "demote": false,
-    "summary": "The three data rows map cleanly to the snippet's three URLs, with content descriptions accurately paraphrased. However, the 'Session-scoped' label in the Scope column is invented \u2014 the snippet only supplies the term 'unscoped' for the first row and provides no scope label for the other two. The caption also adds invented framing ('canonical test URLs', 'validating session-filter behavior') not present in the snippet."
+    "summary": "The table's core data rows are clean and trace directly to the snippet, but the 'Session-scoped' label applied to both filtered rows is an introduced term \u2014 the snippet only uses 'unscoped' for the first URL and gives no complementary scope label for the other two. The caption also adds characterization ('canonical test URLs', 'validating session-filter behavior') not present in the snippet, making it a minor provenance failure."
   },
   {
     "id": "cell-0035",
@@ -231,29 +229,27 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every cell, row label, and column label in the table traces directly to an explicit claim in the snippet. The caption accurately characterizes the scope of the changes without adding unsupported detail. No inventions detected."
+    "summary": "Every cell value, row label, and column label in the table traces directly to the snippet. The caption is an accurate, non-inventive summary. No hallucinations detected."
   },
   {
     "id": "cell-0036",
     "ctype": "html",
     "score": 0.4,
     "substrate_inv": [
-      "cell-0031 caption claim: 'SVG overlay element is anchored to the notebook root in the DOM body' \u2014 not stated in the snippet",
-      "cell-0031 caption claim: 'connection drawer is then wired to the SVG layer to render int[eractions]' \u2014 not stated in the snippet",
-      "cell-0032 type 'animated_svg' \u2014 not stated in the snippet; the snippet does not name this cell type",
-      "cell-0032 caption claim: 'Scroll + resize event hooks (left) feed signal flow via dashed lines into the draw-connections function (center), which fires and re-renders' \u2014 not stated in the snippet",
-      "cell-0033 caption claim: 'The filter principle is now memory; the implementation already follows it' \u2014 this is a paraphrase of the snippet but the specific framing 'is now memory' is an interpretive invention beyond what the snippet states",
-      "cell-0034 caption claim: 'unscoped default vs. two scoped session views' \u2014 the snippet mentions three URLs but does not specify 'unscoped default vs. two scoped session views' breakdown",
-      "cell-0035 caption claim: 'SESSION slot display logic and kill-gauge scoping' \u2014 partially supported, but the specific framing 'HUD UI changes' is an invention; the snippet only says 'HUD UI changes from session-filter implementation'"
+      "cell-0031 caption: 'The SVG overlay element is anchored to the notebook root in the DOM body; the connection drawer is then wired to the SVG layer to render int' \u2014 the specific architectural claim (SVG anchored to notebook root in DOM body, connection drawer wired to SVG layer) is not stated in the trigger snippet",
+      "cell-0032 caption: 'Scroll + resize event hooks (left) feed signal flow via dashed lines into the draw-connections function (center), which fires and re-renders' \u2014 the specific mechanism (scroll+resize hooks, dashed lines, draw-connections function) is not stated in the trigger snippet",
+      "cell-0033 caption: 'Step 2 landed (`73520bf`). The filter principle is now memory; the implementation already follows it.' \u2014 the commit hash `73520bf`, the phrase 'filter principle is now memory', and the claim 'implementation already follows it' are not stated in the trigger snippet",
+      "cell-0034 caption: 'Three canonical test URLs validating session-filter behavior: unscoped default vs. two scoped session views.' \u2014 the specific claim of three canonical test URLs, unscoped default vs. two scoped session views is not stated in the trigger snippet",
+      "cell-0035 caption: 'HUD UI changes from session-filter implementation: SESSION slot display logic and kill-gauge scoping.' \u2014 the specific claim about SESSION slot display logic and kill-gauge scoping is not stated in the trigger snippet"
     ],
     "caption_inv": [
-      "'From implementation mechanics (SVG overlay wiring, scroll/resize hooks)' \u2014 SVG overlay wiring and scroll/resize hooks are asserted as established facts about cells 0031\u20130032, but the snippet does not confirm these details",
-      "'The thread is now squarely about the live-viewer's session-filter feature' \u2014 'live-viewer' is an invented label not present in the snippet",
-      "'what it does, how its UI exposes it, and how its scoping rules behave in practice' \u2014 characterizes the last three cells in specific behavioral terms not directly supported by the snippet",
-      "'The last three cells are all behavioral/state documentation of a working system' \u2014 'working system' and 'behavioral/state documentation' are interpretive claims not traceable to the snippet"
+      "'from implementation mechanics (SVG overlay wiring, scroll/resize hooks) into operational validation' \u2014 SVG overlay wiring and scroll/resize hooks as specific mechanics are not stated in the trigger snippet",
+      "'commit landed, URLs confirmed, HUD display logic documented' \u2014 these specifics are not stated in the trigger snippet",
+      "'session-filter feature: what it does, how its UI exposes it, and how its scoping rules behave in practice' \u2014 the characterization of the last three cells as behavioral/state documentation of a working system, while plausible, is not stated in the trigger snippet",
+      "'The last three cells are all behavioral/state documentation of a working system' \u2014 not stated in the trigger snippet"
     ],
     "demote": false,
-    "summary": "The table's row labels (cell IDs) and type/caption columns contain several invented claims \u2014 notably the detailed captions for cell-0031 and cell-0032 assert specific DOM anchoring behavior and scroll/resize signal-flow details that the trigger snippet does not state. The caption also introduces the invented label \"live-viewer\" and makes interpretive assertions about the system's operational state not grounded in the snippet. The table structure itself (source/type/caption) is reasonable and the cell IDs are all DIRECT, but the cell-level caption content is substantially invented."
+    "summary": "The HTML table's structure (cell IDs and substrate types) is directly supported by the trigger snippet, but every caption cell contains invented content \u2014 specific architectural claims, commit hashes, URL taxonomies, and HUD mechanics \u2014 none of which appear in the trigger snippet. The overall caption likewise introduces invented specifics about SVG wiring, scroll/resize hooks, and session-filter scoping that the sparse trigger snippet does not supply."
   },
   {
     "id": "cell-0037",
@@ -262,41 +258,41 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every row label and cell value in the table maps directly to an explicit claim in the snippet \u2014 interaction trigger, view effect, dismiss action, deep-link format, shareability context, estimated scope, and design principle are all verbatim or faithful paraphrases. The caption is likewise fully supported. No inventions detected."
+    "summary": "Every row in the table maps directly to an explicit claim in the snippet \u2014 interaction trigger, view effect, dismiss action, deep-link format, shareability, estimated scope, and design principle are all verbatim or faithful paraphrases. The caption accurately summarises the table's content without adding unsupported claims. No inventions detected."
   },
   {
     "id": "cell-0038",
     "ctype": "html",
     "score": 0.4,
     "substrate_inv": [
-      "Column: 'Per-cell focus mode' \u2014 not mentioned in the snippet",
-      "Column: 'Multi-stream mission control' \u2014 not mentioned in the snippet",
-      "Row cell Scope/size for 'Per-cell focus mode': 'small' \u2014 invented, snippet says nothing about this feature",
-      "Row cell Step for 'Per-cell focus mode': 'step 1' \u2014 invented, snippet says nothing about this feature",
-      "Row cell Step for 'Session-discovery dropdown': 'step 2 / toward step 3' \u2014 snippet says 'small step toward step 3', not 'step 2 / toward step 3'; labelling it as step 2 is an invention",
-      "Row cell Scope/size for 'Multi-stream mission control': 'big (sprint)' \u2014 invented, snippet says nothing about this feature",
-      "Row cell Step for 'Multi-stream mission control': 'step 3' \u2014 invented, snippet says nothing about this feature",
-      "Row 'Role' for 'Session-discovery dropdown': 'bridge / prerequisite' \u2014 snippet says 'makes step 2 discoverable', not 'bridge / prerequisite'; the framing is an invention"
+      "Column: 'Per-cell focus mode' \u2014 no such feature is mentioned in the snippet",
+      "Column: 'Multi-stream mission control' \u2014 no such feature is mentioned in the snippet",
+      "Row cell: Per-cell focus mode \u2192 Scope = 'small' \u2014 invented; snippet says nothing about this feature",
+      "Row cell: Per-cell focus mode \u2192 Step = 'step 1' \u2014 invented; snippet says nothing about this feature",
+      "Row cell: Multi-stream mission control \u2192 Scope = 'big (sprint)' \u2014 invented; snippet says nothing about this feature",
+      "Row cell: Multi-stream mission control \u2192 Step = 'step 3' \u2014 invented; snippet says nothing about this feature",
+      "Row cell: Session-discovery dropdown \u2192 Step = 'step 2 / toward step 3' \u2014 snippet says 'toward step 3'; the 'step 2' framing is invented (snippet says it 'makes step 2 discoverable', not that it IS step 2)",
+      "Row cell: Session-discovery dropdown \u2192 Role = 'bridge / prerequisite' \u2014 'prerequisite' is not stated in the snippet; 'bridge' is an inference not directly supported"
     ],
     "caption_inv": [
-      "'Three feature options compared' \u2014 the snippet describes only one feature (Session-discovery dropdown); the other two columns are entirely invented"
+      "'Three feature options compared' \u2014 the snippet describes only one feature; the existence of three comparable options is not stated in the snippet"
     ],
     "demote": true,
-    "summary": "The snippet describes exactly one feature (Session-discovery dropdown); the other two columns ('Per-cell focus mode' and 'Multi-stream mission control') and all their cell values are entirely fabricated. Even within the one real column, the Step label ('step 2 / toward step 3') and Role label ('bridge / prerequisite') misrepresent what the snippet says. The table should be demoted to text, as a comparison table requires at least two snippet-supported subjects to be coherent."
+    "summary": "The snippet describes exactly one feature (Session-discovery dropdown); the two flanking columns ('Per-cell focus mode' and 'Multi-stream mission control') are entirely invented, with all their cell values fabricated. Even the Session-discovery dropdown column contains invented framing ('step 2', 'bridge / prerequisite'). The table cannot be made coherent using only snippet-supported claims, so demotion to plain text is recommended."
   },
   {
     "id": "cell-0039",
     "ctype": "html",
     "score": 0.4,
     "substrate_inv": [
-      "Column header 'Per-cell focus mode' \u2014 the snippet does not name or describe any step called 'Per-cell focus mode'",
-      "Column header 'Session-discovery dropdown' \u2014 the snippet does not name or describe any step called 'Session-discovery dropdown'",
-      "Row cell Step=1 for 'Per-cell focus mode' \u2014 the snippet does not assign a step number to any feature called 'Per-cell focus mode'",
-      "Row cell Step=2 for 'Session-discovery dropdown' \u2014 the snippet does not assign a step number to any feature called 'Session-discovery dropdown'"
+      "Column header: 'Per-cell focus mode' \u2014 the snippet does not name or describe any Step 1 feature",
+      "Column header: 'Session-discovery dropdown' \u2014 the snippet does not name or describe any Step 2 feature",
+      "Row cell Step=1 for 'Per-cell focus mode' \u2014 the snippet does not state Step 1 exists or its step number",
+      "Row cell Step=2 for 'Session-discovery dropdown' \u2014 the snippet does not state Step 2 exists or its step number"
     ],
     "caption_inv": [],
-    "demote": true,
-    "summary": "The snippet exclusively describes Step 3 (multi-stream mission control); it names no other steps, assigns no labels like 'Per-cell focus mode' or 'Session-discovery dropdown', and provides no attributes for steps 1 or 2. The two invented column headers and their step-number cells are material hallucinations. Because the snippet supports only one column of real data, the comparative table format requires invention to be coherent and should be demoted to text."
+    "demote": false,
+    "summary": "The Step 3 column and all its cell values are fully supported by the snippet. However, the two sibling columns ('Per-cell focus mode' / Step 1 and 'Session-discovery dropdown' / Step 2) are materially invented: the snippet never names, describes, or even alludes to those features \u2014 it only mentions the number '3', which implies prior steps exist but provides zero detail about them. Giving those columns named labels and step-number cells fabricates entities the snippet does not support."
   },
   {
     "id": "cell-0043",
@@ -305,75 +301,68 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every atomic claim in the table \u2014 tier names, cell ranges, width, size, visual treatment, and layout values \u2014 traces directly to the snippet. Empty cells are correctly left blank where the snippet genuinely underspecifies a dimension, and the caption accurately characterizes both the structure and the omissions. No inventions detected."
+    "summary": "Every cell value in the table traces directly to the snippet. Blank cells are correctly left empty where the snippet is silent (e.g., transitional width/layout, hero layout), and the caption accurately characterises that restraint. No inventions detected."
   },
   {
     "id": "cell-0044",
     "ctype": "mermaid",
     "score": 0.4,
     "substrate_inv": [
-      "Edge: A (ambient tier) -- 'source tier for promotion' --> P (prominent tier). The snippet states reflections move from ambient to prominent; it does not assert a standalone ambient\u2192prominent relationship or label ambient as a 'source tier for promotion' independent of reflections.",
-      "Node: R -- 'auto-promote via visual weight' --> P as a separate edge from R -- 'auto-promote via connection lines' --> P. The snippet combines both signals into one compound mechanism; splitting them into two parallel directed edges implies they are independent promotion paths, which the snippet does not state."
+      "Edge: A (ambient) -- 'source tier for promotion' --> P (prominent) \u2014 the snippet describes the promotion path as Reflections moving from ambient to prominent; it does not assert a standalone ambient\u2192prominent relationship independent of Reflections. This edge implies a general tier-escalation pathway between ambient and prominent that the snippet does not state.",
+      "Node R is labeled 'reflections\\ncell type' \u2014 the snippet does not call Reflections a 'cell type'; that label addition is an invented descriptor not present in the snippet.",
+      "Node A is labeled 'ambient\\ntier' and Node P is labeled 'prominent\\ntier' \u2014 calling these 'tiers' is a minor paraphrase not directly supported by the snippet, which only uses the words 'ambient' and 'prominent' without the word 'tier'."
     ],
     "caption_inv": [
-      "'break the recency-based demotion pattern' \u2014 the snippet makes no mention of a recency-based demotion pattern; this is an invention."
+      "'break the recency-based demotion pattern' \u2014 the snippet makes no mention of a recency-based demotion pattern; this is an invented claim not present in the snippet."
     ],
     "demote": false,
-    "summary": "The core R\u2192P promotion driven by visual weight and connection lines is supported, but the standalone A\u2192P edge fabricates an ambient-to-prominent relationship not attributed to reflections in the snippet, and the caption introduces an unsupported claim about a 'recency-based demotion pattern'. These are material inventions."
+    "summary": "The substrate correctly captures the two promotion signals (visual weight, connection lines) and the ambient\u2192prominent direction for Reflections, but adds a spurious standalone ambient\u2192prominent edge implying a general tier-escalation rule the snippet never states, and labels Reflections as a \"cell type\" which is invented. The caption materially invents a \"recency-based demotion pattern\" that has no basis in the snippet."
   },
   {
     "id": "cell-0045",
     "ctype": "mermaid",
     "score": 0.7,
     "substrate_inv": [
-      "H node label: 'top of column' \u2014 snippet says hero is part of the column but does not specify positional placement (top)",
-      "A node label: 'bottom of column' \u2014 snippet says ambient is part of the column but does not specify positional placement (bottom)"
+      "H node label: 'hero\\ntop of column' \u2014 the snippet says hero is part of the column but does NOT specify it is at the top",
+      "A node label: 'ambient\\nbottom of column' \u2014 the snippet says ambient is part of the column but does NOT specify it is at the bottom"
     ],
     "caption_inv": [
-      "'existing three-tier hierarchy' \u2014 snippet references 'step 3' but does not describe it as a three-tier hierarchy",
-      "'concurrent sessions' \u2014 snippet says 'each session' but does not explicitly use the word 'concurrent'"
+      "'existing three-tier hierarchy' \u2014 the snippet never describes step 3 as a three-tier hierarchy; it only names it 'step 3'"
     ],
     "demote": false,
-    "summary": "The substrate is largely faithful to the snippet; the two minor inventions are positional labels ('top of column', 'bottom of column') that the snippet does not assert. The caption adds two unsupported characterisations: calling step 3 a 'three-tier hierarchy' and describing sessions as 'concurrent', neither of which appears in the snippet."
+    "summary": "The core graph structure is well-supported by the snippet, but two node labels add positional details ('top of column', 'bottom of column') that the snippet never states, and the caption invents the characterisation of step 3 as a 'three-tier hierarchy'. These are minor-to-moderate inventions that do not fundamentally misrepresent the snippet but add unsupported specificity."
   },
   {
     "id": "cell-0047",
     "ctype": "html",
     "score": 0.0,
     "substrate_inv": [
-      "Column label: hero",
-      "Column label: transitional",
-      "Column label: ambient",
-      "Row: recency rank \u2014 most recent / middle / oldest",
-      "Row: information visibility \u2014 full / foregrounded / partial / background",
-      "Row: click required \u2014 no / no / no (the source supports 'no clicks' generically but assigning it across three named tiers is invented)",
-      "Row: reflections auto-promoted \u2014 yes (for hero)",
-      "Row: demotion trigger \u2014 new cell creation (for hero and transitional)",
-      "Row: demotion animation \u2014 FLIP cascade (for hero and transitional)",
-      "Row: column composition \u2014 multi-stream (for hero and transitional)"
+      "hero / transitional / ambient column labels (three named tiers not in snippet)",
+      "recency rank row: most recent / middle / oldest (not in snippet)",
+      "information visibility row: full/foregrounded / partial / background (not in snippet)",
+      "click required row: no / no / no (only partially traceable; the tier framing is invented)",
+      "reflections auto-promoted row and 'yes' value (not in snippet)",
+      "demotion trigger row: 'new cell creation' values (not in snippet)",
+      "demotion animation row: 'FLIP cascade' values (not in snippet)",
+      "column composition row: 'multi-stream' values (not in snippet)"
     ],
     "caption_inv": [
-      "Three-tier recency hierarchy: hero / transitional / ambient",
-      "All tiers are always visible",
-      "Empty cells where the snippet underspecifies a dimension for that tier"
+      "Three-tier recency hierarchy framing (not in snippet)",
+      "hero / transitional / ambient named tiers (not in snippet)",
+      "'All tiers are always visible' (tiers themselves are invented)",
+      "'Empty cells where the snippet underspecifies a dimension for that tier' (invented framing about underspecification)"
     ],
     "demote": true,
-    "summary": "The snippet contains exactly two claims \u2014 no clicks are needed, and the layout conveys information \u2014 neither of which names any tier (hero/transitional/ambient), any recency ranking, any animation, any demotion trigger, or any other row/column in the table. Virtually every atomic claim in the substrate and caption is invented wholesale."
+    "summary": "The snippet supplies exactly two facts \u2014 no clicks needed, and the layout carries information \u2014 neither of which is enough to populate a multi-row, multi-column comparison table. Every tier name, every row dimension, and every cell value is invented. The substrate should be demoted to a plain text restatement of those two claims."
   },
   {
     "id": "cell-0048",
     "ctype": "html",
     "score": 0.4,
-    "substrate_inv": [
-      "caption column cell for cell-0043 truncates mid-sentence ('hero layo') \u2014 the truncation itself is not an invention, but the table presents this truncated caption as if it is the full caption claim, which misrepresents the source",
-      "caption column cell for cell-0044 truncates mid-sentence ('visual weight ') \u2014 same representation issue",
-      "caption column cell for cell-0045 truncates mid-sentence ('existing thre') \u2014 same",
-      "caption column cell for cell-0047 truncates mid-sentence ('the snippe') \u2014 same"
-    ],
+    "substrate_inv": [],
     "caption_inv": [
-      "The caption describes cell-0046 as covering 'animation mechanic' \u2014 the snippet supports this, no invention.",
-      "The caption claims 'layout itself is the information channel, not interaction' \u2014 this is an interpretive synthesis not explicitly stated in the snippet; it is a plausible inference but goes beyond what the snippet directly asserts.",
-      "The caption describes the five cells as collectively describing 'a single coherent system' \u2014 this is an editorial judgment not directly stated in the snippet, which notes the cells are near-duplicate and have gaps."
+      "Caption describes cell-0044 as covering 'promotion exception' \u2014 the snippet's own text says the demotion pattern is broken by auto-promoting from ambient to prominent (not just 'exception'), and the caption compresses this without invention, but the phrase 'from four different angles' implies a clean taxonomy (attribute table / promotion exception / multi-stream extension / animation mechanic / second attribute table) that the snippet does not explicitly name as four angles \u2014 it identifies five cells and four roles but the framing 'four different angles' mismatches the five cells listed",
+      "Caption states 'The conversation is designing a spatial UI grammar where layout itself is the information channel, not interaction' \u2014 the snippet does say 'no clicks required' and 'layout itself is the information channel', but the characterisation of the entire conversation's design intent is an editorial inference not directly supported by the five-cell reflection snippet alone"
     ],
     "demote": false,
     "summary": ""
@@ -385,7 +374,7 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every cell value in the table \u2014 column count (2), column width (484px each), grid rule (minmax(380px, 1fr)), paths rendered (2, in-viewport pairs only), path style (vertical/S-curves at correct coordinates), and off-screen arcs (none) \u2014 is directly and explicitly stated in the snippet. The caption accurately characterises the table as a browser verification result and correctly notes that unspecified viewports are absent, which is a fair meta-comment rather than an invented claim. No inventions detected."
+    "summary": "Every atomic claim in the table \u2014 column count (2), column width (484px each), grid rule (minmax(380px, 1fr)), paths rendered (2, in-viewport pairs only), path style (vertical/S-curves at correct coordinates), and off-screen arcs (none) \u2014 maps directly to an explicit statement in the snippet. The caption accurately characterises the table as a browser verification result for the 1030px viewport and honestly notes that other viewports are unspecified; no invented claims are present."
   },
   {
     "id": "cell-0052",
@@ -394,7 +383,7 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every atomic claim in the table substrate traces directly to the snippet: all four cell IDs, before/after heights, cap rule (55vh), overflow class values, and fade gradient presence/absence are verbatim from the source. The caption accurately characterises the data without adding any unsupported claims. The empty \"Height After\" cells for short cells are a correct and honest representation \u2014 the snippet provides no capped height for those rows. No inventions detected."
+    "summary": "Every cell value, column header, and row in the table traces directly to the snippet. The cap rule (55vh), before/after heights, overflow class values, and fade gradient presence/absence are all explicitly stated. The caption accurately summarises the table without adding any unsupported claims, and correctly explains the empty \"Height After\" cells for short cells as a deliberate omission rather than missing data."
   },
   {
     "id": "cell-0053",
@@ -403,7 +392,7 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every node label, edge, and edge verb in the graph maps directly to an explicit claim in the snippet. The causal chain (rename \u2192 stale reference \u2192 ReferenceError \u2192 silent catch \u2192 typeInto suppressed) is fully supported. No inventions detected in either the substrate or the caption."
+    "summary": "Every node label, edge, and caption claim traces directly back to the snippet. No inventions detected anywhere in the substrate or caption; the causal chain is faithfully and completely represented."
   },
   {
     "id": "cell-0054",
@@ -412,31 +401,35 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every cell value, row label, column label, and caption claim traces directly back to the snippet. The table cleanly maps all stated facts \u2014 the 507px hero height, the 762px below-HUD space, the 2-cell visibility problem, the 2-tier simplification, the dropped transitional layer, and the ambient grid routing of cells 2+ \u2014 with no inventions or unsupported elaborations."
+    "summary": "Every atomic claim in the table and caption traces directly back to the snippet. The Hero's 507px height, the 762px below-HUD space, the 2-visible-cells problem, the 2-tier simplification, the dropped transitional middle layer, and cells 2+ routing to the ambient grid are all explicitly stated in the snippet. No inventions detected."
   },
   {
     "id": "cell-0055",
     "ctype": "html",
-    "score": 1.0,
-    "substrate_inv": [],
-    "caption_inv": [],
+    "score": 0.7,
+    "substrate_inv": [
+      "Row label 'Typography' \u2014 the snippet does not use the word 'typography'; it says 'letter-spaced monospace data', so the label is a paraphrase that adds a categorical term not present in the snippet"
+    ],
+    "caption_inv": [
+      "'Only one approach is described in this snippet; remaining reads are out of scope here.' \u2014 The snippet describes four distinct CSS techniques within Read 1, not 'only one approach'. This mischaracterizes the snippet's content and is a material caption invention."
+    ],
     "demote": false,
-    "summary": "Every row and cell value in the table maps directly to a claim in the snippet: the CSS-only framing, the FUI goal, and all four named techniques (animated row reveals, amber scan line, border glow, letter-spaced monospace). The caption accurately situates this as Read 1 of 3 and correctly flags the other reads as out of scope. No inventions detected."
+    "summary": "The substrate body is clean: all five data rows trace directly to the snippet, with 'Typography' being a minor label paraphrase that is not load-bearing. However, the caption materially misstates the snippet by claiming 'only one approach is described', when in fact four distinct CSS techniques are enumerated; this is a provenance failure in the caption."
   },
   {
     "id": "cell-0057",
     "ctype": "vega",
     "score": 0.4,
     "substrate_inv": [
-      "Trigger blocks 'before' value = 0 (snippet says 'all 44 collapsed' but does not state the before value was 0)",
-      "Scan lines 'before' value = 0 (snippet does not state a prior count of scan lines; 0 is assumed/invented)"
+      "before=0 for 'Trigger blocks collapsed' (snippet states 44 collapsed now but gives no prior count; 0 is invented)",
+      "before=0 for 'Scan lines active' (snippet states 21 active now but gives no prior count; 0 is invented)"
     ],
     "caption_inv": [
-      "'substrate diversity bias' listed as one of three engineering tasks \u2014 the snippet makes no mention of substrate diversity bias",
-      "'HTML/FUI scan-line injection' \u2014 the snippet says 'magi html scan lines active' but does not name the task 'injection' or use the label 'FUI'"
+      "'substrate diversity bias' as a third engineering task \u2014 the snippet mentions no such task",
+      "'HTML/FUI scan-line injection' label \u2014 snippet says 'magi html scan lines', not 'HTML/FUI'; 'FUI' is invented detail"
     ],
     "demote": false,
-    "summary": "The 'after' values and the visible-cells delta are all directly supported by the snippet, but the 'before' values for trigger blocks (0) and scan lines (0) are invented \u2014 the snippet only states current/after states for those two metrics without providing prior baselines. The caption also introduces a fabricated third task ('substrate diversity bias') and an unsupported label ('FUI') not present in the snippet."
+    "summary": "The 'after' values for all three metrics are correctly sourced from the snippet, and the before-state for visible cells (4\u21925) is also explicit. However, the 'before' values for trigger blocks and scan lines are silently invented as 0 \u2014 the snippet provides no prior counts for those two metrics. The caption additionally invents a third task ('substrate diversity bias') and embellishes the scan-line label with 'FUI', neither of which appear in the snippet."
   },
   {
     "id": "cell-0058",
@@ -445,24 +438,22 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "All three data rows (html=3, mermaid=1, animated_svg=1) map directly to explicit counts in the snippet, and the axis title \"cells in viewport\" faithfully reflects the context. The caption accurately paraphrases both the mix and the diversity-bias behaviour without adding any unsupported claims. No inventions detected."
+    "summary": "All three data rows (html=3, mermaid=1, animated_svg=1) are directly stated in the snippet, and the caption faithfully paraphrases both the counts and the diversity-bias behaviour. No inventions detected anywhere in the substrate or caption."
   },
   {
     "id": "cell-0059",
     "ctype": "html",
     "score": 0.4,
     "substrate_inv": [
-      "tbody row for cell-0054: caption truncated text 'leaving only' \u2014 the snippet states hero at 507px and 762px below HUD but the table caption implies a numeric remainder that is not stated in the snippet",
-      "tbody row for cell-0055: label 'Read 1 of 3' \u2014 snippet says 'Read 1 of 3' in the cell-0055 caption excerpt, this is passable, but the truncation '\u2026Only one approa' invents an implied continuation not verifiable",
-      "tbody row for cell-0056: label 'Task 2 of 3' \u2014 snippet uses this phrasing in the cell-0056 caption excerpt, acceptable; however the truncated tail is unverifiable"
+      "tbody row for cell-0054: caption text truncated mid-sentence ('leaving only') \u2014 the truncation implies a specific numeric completion (e.g., remaining pixel value) that is not verifiable from the snippet and could mislead",
+      "tbody row for cell-0055: caption text truncated mid-sentence ('Only one approa') \u2014 again implying a specific continuation not surfaced in the snippet",
+      "tbody row for cell-0056: caption text truncated mid-sentence ('a scan line sweeps top-to-bo') \u2014 partial claim whose omitted portion is not auditable",
+      "tbody row for cell-0057: caption text truncated mid-sentence ('Grey = bef') \u2014 implies a color-coding scheme detail not stated in the snippet",
+      "tbody row for cell-0058: caption text truncated mid-sentence ('will down-weight back-to-back') \u2014 implies a specific algorithmic rule whose completion is not in the snippet"
     ],
-    "caption_inv": [
-      "'the last 5 cells are all about the notebook's own layout density, FUI styling, and substrate diversity' \u2014 this is a synthesis claim; while supportable from the individual cell descriptions, it is an editorial generalization not directly stated in the snippet",
-      "'cells 54-58 are engineering telemetry for that goal, not content about any external subject' \u2014 'engineering telemetry' framing is an interpretive label not present in the snippet",
-      "'the thread being pulled is make the notebook feel alive and varied' \u2014 this motivational framing is not stated in the snippet; it is an authorial inference"
-    ],
+    "caption_inv": [],
     "demote": false,
-    "summary": "The HTML table's row data (cell IDs, types, caption excerpts) is largely DIRECT or paraphrased from the snippet, but the 'worked/didn't/proposed next' prose blocks introduce several material inventions: the 0\u219244 trigger-block and 0\u219221 scan-line delta values appear in the worked section but are not present in the provided snippet text, making them invented numeric claims. The caption adds interpretive editorial labels ('engineering telemetry', 'make the notebook feel alive') that have no direct basis in the snippet. Quality is materially degraded by these invented specifics."
+    "summary": "The HTML reflection table is largely traceable \u2014 all five cell IDs, types, and partial captions correspond to claims in the snippet. However, every caption cell is truncated mid-sentence, creating five invented-by-omission atomic units: each truncated caption implies a specific factual continuation (numeric values, color-coding schemes, algorithmic rules) that cannot be verified against the snippet, constituting material provenance failures. The standalone caption paragraph is clean and well-grounded."
   },
   {
     "id": "cell-0062",
@@ -471,7 +462,7 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "All four nodes and all three edges trace directly to explicit claims in the snippet. The caption accurately paraphrases the same relationships without adding unsupported detail. No inventions detected."
+    "summary": "All four nodes and all three edges in the graph trace directly to claims in the snippet. The caption faithfully paraphrases those same relationships without adding unsupported detail. No inventions detected."
   },
   {
     "id": "cell-0065",
@@ -479,10 +470,10 @@
     "score": 0.4,
     "substrate_inv": [],
     "caption_inv": [
-      "the updates are part of the N-column mission control layout feature"
+      "the updates are part of an 'N-column mission control layout feature'"
     ],
     "demote": false,
-    "summary": "The substrate itself is clean \u2014 both nodes and both edges trace directly to the snippet. However, the caption invents a material claim: it asserts the updates are \"part of the N-column mission control layout feature,\" which is entirely absent from the snippet. This constitutes a caption-level hallucination that would mislead readers about the broader context of the change."
+    "summary": "The mermaid substrate is clean \u2014 both nodes and both edges trace directly to the snippet. However, the caption invents a specific motivating feature (\"N-column mission control layout feature\") that the snippet never mentions."
   },
   {
     "id": "cell-0067",
@@ -491,6 +482,362 @@
     "substrate_inv": [],
     "caption_inv": [],
     "demote": false,
-    "summary": "Every atomic cell value in the table traces directly back to the snippet. Numeric values (47, 4, 35px), layout descriptor (flex-row / side-by-side), live-stream status, and HUD compression are all DIRECT. Empty cells for untagged stream-active status and untagged HUD height are correctly left blank rather than invented. Caption is equally clean and explicitly acknowledges the deliberate blanks."
+    "summary": "Every atomic claim in the table traces directly to the snippet: cell counts (47, 4), layout (flex-row / side-by-side), live-stream active (yes for lucida_live), and HUD height (35px compressed). Empty cells for untagged stream-active status and untagged HUD height are correctly left blank rather than invented, and the caption accurately describes this conservative handling. No inventions detected."
+  },
+  {
+    "id": "cell-0068",
+    "ctype": "vega",
+    "score": 0.4,
+    "substrate_inv": [
+      "'Clean' row with cells = 19: the snippet states ~7 of 26 were flagged but does NOT state the remaining cells were clean \u2014 they are unaudited/unevaluated at point of partial run",
+      "x-axis title 'cells (of 26 evaluated)': the 26 figure refers to total cells, not all of which were necessarily evaluated and clean; pairing it with a 'Clean' bar of 19 implies 26 were fully resolved"
+    ],
+    "caption_inv": [
+      "'Remaining cells were unaudited at point of failure' \u2014 the snippet does not mention a 'crash' or 'point of failure'; it says 'mid-run partial'",
+      "'at crash' \u2014 the snippet does not mention a crash"
+    ],
+    "demote": true,
+    "summary": "The 'Clean: 19' bar is a material invention \u2014 the snippet only says ~7 of 26 were flagged mid-run; it does not state the remaining 19 are clean, only that evaluation was partial. The caption also invents a 'crash' framing absent from the snippet. Because the stacked/grouped bar requires a complementary segment that the snippet does not support, demotion to plain text is recommended."
+  },
+  {
+    "id": "cell-0069",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "All atomic claims in both the Vega-Lite spec and the caption trace directly back to the snippet. The two data rows (27% invention rate, 20% kill threshold), the axis title, and the bar labels are all explicitly stated. The caption's \"already exceeds the trigger\" is a direct restatement of \"above the kill #3 20% threshold.\" No inventions detected."
+  },
+  {
+    "id": "cell-0070",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "cell-0065 caption text is truncated mid-sentence \u2014 the table presents a partial string ending in 'as part of' with no ellipsis, implying a complete caption was available but is not reproduced faithfully; the implied completeness is an artifact invention",
+      "cell-0066 caption text is truncated mid-sentence ending in '\u2014 the st' with no ellipsis, same issue",
+      "The 'worked' section states cell-0068 shows a '7/19 flagged/clean split across 26 cells' \u2014 7 + 19 = 26, but the snippet only states '~7 of 26 flagged'; the '19 clean' figure is a derived complement not explicitly stated and is presented as a direct table cell fact in the worked prose",
+      "The 'didn't' section states cell-0065 'doesn't show what the single-stream call path looked like before, nor what the N-stream fan-out looks like after' \u2014 this is an evaluative claim about what the cell should have shown; 'single-stream call path' as a prior state is not established in the snippet"
+    ],
+    "caption_inv": [
+      "Caption states 'cells 65\u201367' are the UI architecture thread and are left 'dangling without resolution' \u2014 the snippet does not explicitly state the UI architecture thread is unresolved or dangling; this is an editorial inference beyond what the snippet supports",
+      "Caption describes the multi-stream layout as 'N-column' \u2014 the snippet references multi-stream but does not use the label 'N-column' in the snippet text provided"
+    ],
+    "demote": false,
+    "summary": ""
+  },
+  {
+    "id": "cell-0071",
+    "ctype": "mermaid",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every node, edge, and label in the graph traces directly to the snippet: the gate/unblocking relationship, the three named candidates, the adapter script filename pattern, and the multi-stream composition note are all explicitly stated. The caption faithfully paraphrases the same facts without adding unsupported claims. No inventions detected."
+  },
+  {
+    "id": "cell-0072",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "L node label addition: 'co-evolving notebook interface' \u2014 the snippet never describes lucida as a 'co-evolving notebook interface'; it only says lucida 'already lives in the mix'"
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The graph's structural claims (cells as 2D containers, the five named substrates with their 2D/3D classifications, connection lines as 2D paths in fixed-viewport space, and the containment/hosting relationships) all trace directly to the snippet. The only invention is the elaborating label \"co-evolving notebook interface\" on the lucida node, which the snippet does not assert; this is a minor, non-load-bearing addition. The caption is clean."
+  },
+  {
+    "id": "cell-0073",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every atomic cell value in the table traces directly to the snippet: dimensionality labels (pure 2D / mixed 2D\u20133D / pure 3D), characteristic problems (sterile for MDR, disorienting for Hubs/VR, blank for Iron HUD), and spectrum-position labels. The caption accurately reflects the snippet's reasoning and correctly justifies the empty cell. No inventions detected."
+  },
+  {
+    "id": "cell-0078",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [
+      "Edge: PC --'+ swap to'--> XR (implies PerspectiveCamera sequentially swaps to WebXR; snippet treats PerspectiveCamera + WebXR as a combined simultaneous swap target, not a chain)",
+      "Edge: PC --> VR (PerspectiveCamera alone leads to VR mode; snippet does not state PerspectiveCamera independently enables VR \u2014 it is PerspectiveCamera + WebXR together)",
+      "Node label: PC labeled 'VR prerequisite' \u2014 snippet does not characterize PerspectiveCamera as a prerequisite; it is part of a combined swap",
+      "Node label: XR labeled 'VR runtime' \u2014 snippet does not use the term 'VR runtime' or characterize WebXR this way"
+    ],
+    "caption_inv": [],
+    "demote": true,
+    "summary": "The snippet describes a single, combined swap (OrthographicCamera \u2192 PerspectiveCamera + WebXR) as one mechanical step to reach VR mode. The graph misrepresents this by splitting PerspectiveCamera and WebXR into a sequential chain (PC \u2192 XR \u2192 VR) and adding a spurious direct PC \u2192 VR edge, implying PerspectiveCamera alone enables VR. Node sub-labels ('VR prerequisite', 'VR runtime') are also invented characterizations. The snippet is too sparse for a multi-node flow graph without these inventions, so demotion to text is recommended."
+  },
+  {
+    "id": "cell-0079",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value, row label, and column label in the table traces directly to the snippet. The empty cell for Scene3d's visual result is an honest omission \u2014 the snippet attributes the visual outcome (clipping) to the conflict, not to one rule alone, which the caption accurately notes. No inventions detected."
+  },
+  {
+    "id": "cell-0081",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value in the table \u2014 the ISO 8601 example, its 25-char count, the info-density verdict, the short-time example and its 5-char count, and the relative example \u2014 maps directly to a claim in the snippet. Empty cells are correctly left blank where the snippet provides no data, and the caption explicitly flags this discipline. No inventions detected anywhere in the substrate or caption."
+  },
+  {
+    "id": "cell-0082",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "cell-0077 caption text 'Signal-flow orrery \u2014 hero icosahedron sits proud (+z) of the ambient orbital plane, echoing the 18px z-lift in the commit. Six cells orbit t...' \u2014 the snippet references this content, but the table is presenting this as a column value derived from the cell itself, not from the reflection snippet; 'signal-flow orrery' and 'ambient orbital plane' terminology are not stated in the reflection snippet",
+      "cell-0078 caption text 'Camera architecture upgrade path: OrthographicCamera swaps to PerspectiveCamera + WebXR as a mechanical step to enable VR mode.' \u2014 framing as 'mechanical step' is not stated in the reflection snippet",
+      "cell-0079 caption text ending '...causing the 3D viewport to...' is truncated but the causal framing '360px min-height exceeds ~270px max-height cap' is attributed as a caption value; '28vh \u2248 270px' is a specific numeric derivation not explicitly in the reflection snippet text as a table cell value",
+      "cell-0081 caption truncated '...Character count and info-density verdict sourced directly from s...' \u2014 'sourced directly from s[nippet]' is a meta-claim about provenance inserted as a caption cell value, not a content description from the snippet"
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": ""
+  },
+  {
+    "id": "cell-0083",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "Edge label 'not accounted for by' on TZ --> TJS: the snippet says Three.js lines don't account for hero's Z, but the causal arrow goes from translateZ directly to Three.js anchors; more precisely the snippet says the anchors fail to account for the Z, making the direction of the edge slightly misleading/invented \u2014 minor, but the snippet frames it as a property of the anchors, not a direct action of translateZ on the anchors"
+    ],
+    "caption_inv": [
+      "'viewport-edge clipping' \u2014 the snippet says the cell is pushed into the viewport-edge region, but never uses the word 'clipping'; this is an added inference not explicitly stated"
+    ],
+    "demote": false,
+    "summary": "The graph is largely clean and well-grounded in the snippet. One minor edge-direction/label nuance exists (TZ 'not accounted for by' TJS slightly inverts the snippet's framing), and the caption adds 'clipping' as an inference the snippet does not make \u2014 both are minor, non-load-bearing inventions that do not materially change the reader's understanding."
+  },
+  {
+    "id": "cell-0085",
+    "ctype": "mermaid",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every node, edge, and numeric value in the graph traces directly to the snippet: the five stubs below cell-0082, X=507, the saturated green bar, startY=1004, viewport=967, and canvas extending past the viewport are all explicitly stated. The caption faithfully summarises the same facts without adding any unsupported claims. No inventions detected."
+  },
+  {
+    "id": "cell-0087",
+    "ctype": "mermaid",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every node, edge, and label in the graph traces directly back to the snippet: the load() function, the prepend loop, the isMultiStream() check, the multi-stream branch re-running the prepend, and the double-DOM-insertion outcome are all explicitly stated. The caption is a faithful paraphrase with no added claims. No inventions detected."
+  },
+  {
+    "id": "cell-0088",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell in the table traces directly to an explicit claim in the snippet: both selector strings, their specificity values (3 and 2), the max-height values (28vh / none), the winner of the specificity race, the clipping effect on the WebGL canvas, and the note that a prior fix exists only for single-stream. The empty cell for the generic rule's prior-fix status is an honest gap rather than an invention. The caption accurately summarises all of the above without adding unsupported claims."
+  },
+  {
+    "id": "cell-0089",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "Track A / Mermaid rendering cell: 'consolidate mermaid CSS via custom properties' \u2014 the snippet assigns CSS consolidation exclusively to Track B, not Track A"
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The table is largely well-formed, but one material invention is present: the Track A / Mermaid rendering cell incorrectly lists 'consolidate mermaid CSS via custom properties' as a Track A task \u2014 the snippet places that item exclusively in Track B. All other cells correctly reflect the snippet's assignments."
+  },
+  {
+    "id": "cell-0090",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "GB node label includes '(CSS bug)' \u2014 the snippet does not characterize the green bar fix as a CSS bug"
+    ],
+    "caption_inv": [
+      "Caption describes the green bar fix as 'CSS green-bar fix' \u2014 snippet does not identify it as a CSS bug"
+    ],
+    "demote": false,
+    "summary": "The graph is almost entirely clean \u2014 all five nodes, their order, the biggest-leverage label, and the conditional dashed edge for liveAppend are all directly supported by the snippet. The one minor invention is the characterization of the mermaid green bar fix as a 'CSS bug' in both the node label and the caption; the snippet names the step but does not diagnose its cause."
+  },
+  {
+    "id": "cell-0092",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [
+      "Node label: 'IntersectionObserver\\nlifecycle cleanup' \u2014 the snippet says 'observers' generically; 'IntersectionObserver' is a specific type not stated in the snippet",
+      "Edge: 'IO -.governs.-> RN' \u2014 no governing relationship between any observer type and rerenderNotebook is stated in the snippet"
+    ],
+    "caption_inv": [
+      "'IntersectionObservers' \u2014 the snippet says 'observers', not specifically IntersectionObservers",
+      "'step two of the two-step observer cleanup sequence' \u2014 the snippet makes no mention of a multi-step sequence or that this is step two of anything"
+    ],
+    "demote": true,
+    "summary": "The snippet supports only three claims: rerenderNotebook is the patch target, observers are disconnected, and disconnection happens before the DOM nuke. The graph invents a specific observer type (IntersectionObserver) and an unsupported 'governs' relationship from IO to RN; the caption compounds this with an invented 'two-step sequence' framing. With only ~1\u20132 DIRECT atomic units and material inventions present, demotion to text is warranted."
+  },
+  {
+    "id": "cell-0093",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [],
+    "caption_inv": [
+      "commit 9e51764 \u2014 no commit hash is mentioned in the snippet"
+    ],
+    "demote": false,
+    "summary": "The mermaid graph itself is fully clean \u2014 every node label and every edge traces directly to the snippet. However, the caption invents a specific commit hash (\"9e51764\") that does not appear anywhere in the snippet, which is a material fabricated claim. Quality is docked accordingly."
+  },
+  {
+    "id": "cell-0094",
+    "ctype": "html",
+    "score": 0.7,
+    "substrate_inv": [],
+    "caption_inv": [
+      "commit 9e51764 \u2014 the snippet mentions no commit hash; this is an invented specific identifier"
+    ],
+    "demote": false,
+    "summary": "The HTML table body is fully grounded in the snippet: all four rows (overflow-x, edge stroke, drop-shadow, green bar) trace directly to stated claims with correct before/after values. The only invention is in the caption, where a specific commit hash (\"9e51764\") is asserted that does not appear anywhere in the snippet \u2014 a minor but material fabrication of a named entity."
+  },
+  {
+    "id": "cell-0096",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "cell-0091 caption text 'encoding the ren' \u2014 the caption is truncated mid-word, making it impossible to verify the full claim; the truncation itself may misrepresent the actual caption content",
+      "cell-0092 caption text 'step two of the two-step observer cleanu' \u2014 truncated mid-word, unverifiable as a complete claim and potentially misrepresenting the original",
+      "cell-0093 caption text 'organized across five n' \u2014 truncated mid-word; 'five namespaces' is consistent with the snippet but the truncation is not a faithful representation",
+      "cell-0095 caption text 'still on the table for a' \u2014 truncated mid-sentence, partial claim unverifiable from snippet"
+    ],
+    "caption_inv": [
+      "'The notebook has reached a natural pause point, and the user is being asked whether to continue or land here.' \u2014 this framing is not stated in the snippet; the snippet describes ongoing proposed work (a next mermaid cell) with no explicit 'pause point' framing or question to the user about stopping"
+    ],
+    "demote": false,
+    "summary": "The table's structure (source, type, caption) is directionally supported, but all four truncated caption cells are rendered mid-word/mid-sentence \u2014 this is a systematic provenance failure because no atomic cell value can be verified as complete or accurate against the snippet. The caption additionally invents a 'natural pause point / continue-or-land' framing that the snippet does not assert."
+  },
+  {
+    "id": "cell-0097",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [
+      "Node D label 'stale inline style remains after resize / root cause of green bar artifact' \u2014 the snippet never mentions a 'green bar artifact'; no causal link to any visual artifact is stated",
+      "Edge A -->|'causes'| D \u2014 the snippet does not state that the stale inline style causes any artifact; this causal relationship is invented"
+    ],
+    "caption_inv": [
+      "'floating green bar artifact' \u2014 the snippet does not mention any green bar or visual artifact",
+      "'leaving a stale dimension that produces the artifact' \u2014 causal link to an artifact is not stated in the snippet"
+    ],
+    "demote": false,
+    "summary": "The three core nodes (A, B, C) and their edges faithfully reflect the snippet, but Node D and its incoming edge fabricate a causal consequence \u2014 a 'green bar artifact' \u2014 that the snippet never mentions. The caption repeats this invented claim, making it a material provenance failure."
+  },
+  {
+    "id": "cell-0099",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [
+      "IS node label: 'initial viewport size (stale on resize)' \u2014 snippet does not describe what the inline style contains or that it captures viewport size",
+      "IS node label: 'stale on resize' \u2014 snippet implies staleness by saying to drop it, but never states this explicitly as a property of the inline style",
+      "GB node: 'floating green bar artifact' \u2014 snippet never mentions a green bar, a floating element, or any visual artifact",
+      "IS --causes--> GB edge \u2014 snippet does not state the inline style causes a green bar artifact",
+      "IS --drop--> CSS edge \u2014 direction/verb is misleading; snippet says drop IS and let CSS handle size, not that IS 'drops to' CSS",
+      "CSS --handles--> GB edge \u2014 snippet says CSS handles displayed size, not that it handles/fixes the green bar artifact",
+      "BUF --updated on--> GB edge \u2014 snippet says buffer is updated on resize, not that buffer acts on a green bar artifact"
+    ],
+    "caption_inv": [
+      "'the stale inline style causes the green bar artifact' \u2014 snippet never mentions staleness of inline style as a described property, nor any green bar artifact",
+      "'Root-cause and fix map' \u2014 the snippet describes a fix, not a diagnosed root cause of a named artifact"
+    ],
+    "demote": true,
+    "summary": "The snippet is a terse fix instruction with three atomic claims (drop inline style, let CSS handle displayed size, update buffer on resize); the graph invents a central 'floating green bar artifact' node that appears nowhere in the snippet, then constructs multiple causal/fix edges around this fabricated entity. Both the substrate and caption contain material inventions. The snippet is also too sparse (only 3 direct facts) to coherently populate a 4-node causal graph without invention, so demotion to plain text is warranted."
+  },
+  {
+    "id": "cell-0102",
+    "ctype": "html",
+    "score": 0.7,
+    "substrate_inv": [
+      "Status column value 'present (should remove)' for all three rows \u2014 the snippet says reduce to ONE effect, not remove all three; it does not specify which one(s) to remove"
+    ],
+    "caption_inv": [
+      "'remove the other two' \u2014 the snippet says keep one, but does not specify removing exactly two specific ones; this is a minor paraphrase that is technically correct in count but frames the decision as already made when the snippet only says 'should be one effect, not three'"
+    ],
+    "demote": false,
+    "summary": "The three effect names and types (border, pulse, sweep) are all DIRECT from the snippet and the table structure is coherent. However, the Status column universally labels all three as 'should remove', which the snippet does not support \u2014 it only says the hero should be left with one effect, leaving the choice of which to keep unspecified. This is a minor but material framing invention."
+  },
+  {
+    "id": "cell-0103",
+    "ctype": "mermaid",
+    "score": 0.4,
+    "substrate_inv": [
+      "Node A label: 'decouple loadHud into pollAll + updateHud' \u2014 the snippet says only 'decouple'; 'loadHud', 'pollAll', and 'updateHud' are not mentioned.",
+      "Node D label: 'multi-assistant adapter wiring' \u2014 the snippet says only 'multi-assistant'; 'adapter wiring' is not mentioned.",
+      "Node B label: 'mermaid CSS consolidation to theme tokens' \u2014 the snippet says 'mermaid CSS consolidation'; 'to theme tokens' is not mentioned."
+    ],
+    "caption_inv": [
+      "Caption says 1a and 1b 'run in parallel' \u2014 the snippet says 'done together', which does not explicitly assert parallelism vs. sequential co-grouping."
+    ],
+    "demote": false,
+    "summary": "The overall graph structure (1a+1b \u2192 3 \u2192 2) faithfully mirrors the snippet, but three node labels append implementation details not found in the snippet ('loadHud/pollAll/updateHud', 'adapter wiring', 'to theme tokens'), constituting material inventions. The caption also upgrades 'done together' to 'run in parallel', a claim the snippet does not make."
+  },
+  {
+    "id": "cell-0104",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "Edge: PA --feeds--> UH (the snippet states loadHud is split into pollAll + updateHud so layering is explicit, but does not explicitly state that pollAll feeds into updateHud as a directed data-flow relationship)"
+    ],
+    "caption_inv": [
+      "'with pollAll feeding into updateHud' \u2014 this directional data-flow relationship is not stated in the snippet; it is a plausible inference but not an explicit claim"
+    ],
+    "demote": false,
+    "summary": "The two split edges (LH \u2192 PA, LH \u2192 UH) and all node labels are directly supported by the snippet. However, the third edge (PA --feeds--> UH) and its caption echo are an inference \u2014 the snippet says the split makes layering explicit but never asserts a data-flow dependency from pollAll into updateHud. This is a minor but real invention that changes what a reader would believe the snippet claims about runtime data flow."
+  },
+  {
+    "id": "cell-0105",
+    "ctype": "vega",
+    "score": 0.7,
+    "substrate_inv": [
+      "x-axis scale domain upper bound of 0.85 (snippet provides no scale range; minor but not stated)"
+    ],
+    "caption_inv": [
+      "'original greenlight threshold' implies a specific named threshold value; snippet says 'above the original greenlight' but never names it a 'threshold' \u2014 minor framing addition, not a numeric invention"
+    ],
+    "demote": false,
+    "summary": "The two data rows (Prior audit: $0.43/36 cells; Current estimate: $0.73/61 cells) are all DIRECT from the snippet, and the caption faithfully paraphrases it. The only non-snippet element is the axis scale ceiling of 0.85, which is a minor layout choice with no semantic claim; no material inventions are present."
+  },
+  {
+    "id": "cell-0106",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "coverage row, full audit cell: 'complete' \u2014 snippet does not state coverage for full audit",
+      "coverage row, sample-30 cell: '30 cells (random sample)' \u2014 snippet does not state what sample-30 covers or that it is a random sample of cells",
+      "cost row, skip cell: '$0.00' \u2014 snippet does not state the cost of skipping is $0.00"
+    ],
+    "caption_inv": [
+      "'Empty cells where the snippet underspecifies coverage/next-step for full and sample-30' \u2014 this framing is partially correct but implicitly ratifies the invented coverage and $0.00 cost values as legitimate inferences rather than flagging them as inventions"
+    ],
+    "demote": false,
+    "summary": "Three atomic values in the substrate are invented: the coverage descriptions for 'full audit' ('complete') and 'sample-30' ('30 cells (random sample)'), and the cost of 'skip' ('$0.00'). The snippet provides only the dollar costs for full and sample-30, and names the skip destination; it states nothing about coverage scope or that skipping is free."
+  },
+  {
+    "id": "cell-0107",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "caption for cell-0102 states 'remove the other two to eliminate visual' \u2014 the table caption here paraphrases correctly, but the truncation obscures whether 'which effect survives' is identified; no fabricated entity, this is acceptable truncation",
+      "caption for cell-0103 truncated at 'multi-assistant wiring (' \u2014 no invented claim, just truncation",
+      "caption for cell-0104 truncated at 'layering explicit, w' \u2014 no invented claim, just truncation",
+      "caption for cell-0105 truncated at 'above the original greenlight thresho' \u2014 no invented claim, just truncation",
+      "caption for cell-0106 truncated at 'Empty cells where the snippet underspecifies cove' \u2014 no invented claim, just truncation"
+    ],
+    "caption_inv": [
+      "'1b CSS consolidation' \u2014 the snippet mentions step 1b only as running in parallel with 1a and feeding into step 3; it does not label step 1b as 'CSS consolidation'",
+      "'hero indicator de-noising' \u2014 the snippet describes amber effects on the hero cell but never uses the phrase 'de-noising' or 'hero indicator de-noising' as a label for that task",
+      "'The notebook is now sitting at an open decision gate waiting for the user's pick' \u2014 plausible inference but the snippet does not state this; it is an editorially invented framing not supported by any explicit claim in the trigger"
+    ],
+    "demote": false,
+    "summary": ""
   }
 ]
