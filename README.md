@@ -280,6 +280,29 @@ worth knowing:
 - `no_react_flow.md` — vanilla JS sufficient; reach for graph libs
   only if the user starts manipulating the cell graph itself.
 
+## Development
+
+```bash
+# Install with dev tooling
+pip install -e .[dev]
+
+# Run tests
+pytest tests/
+
+# Lint + format
+ruff check .
+ruff format --check .
+
+# Pre-commit hooks (run once after first install)
+pre-commit install
+```
+
+CI runs on every push: lint (ruff), test (pytest), security
+(bandit + pip-audit). See `.github/workflows/ci.yml`. Tooling
+config (ruff + mypy + pytest + coverage) lives in `pyproject.toml`,
+lifted from sibling repos per
+`memory/python_conventions_adoption.md`.
+
 ## Cost notes
 
 - Classifier: Sonnet 4.6 with caching, ~$0.005 per snippet
