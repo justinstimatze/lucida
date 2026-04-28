@@ -47,6 +47,13 @@ def _log_mints(cell_dicts: list[dict]) -> None:
         pass  # mint_log is best-effort; never block a write on it
 
 
+class SuppressedMintError(Exception):
+    """Raised when the classifier is too uncertain to commit to a viz substrate.
+    Per memory/feedback_text_cells_uninteresting.md, low-confidence picks no
+    longer demote to text — they suppress the mint entirely. Silent > text."""
+    pass
+
+
 @dataclass
 class CellProposal:
     id: str
@@ -614,19 +621,25 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 f"{llm.discourse_move}/{llm.cell_type}@{llm.confidence:.2f} "
                 f"[v0→{auto_type_v0}] {cache_info}"
             )
-            # Confidence gate (leg5_spec.md lines 117-122). Spec says
-            # "no viz update; panel holds last good" at <0.6 — i.e. suppress.
-            # lucida diverges: demote to text rather than suppress, since
-            # text cells still carry information and lucida has no "panel"
-            # to hold-last-good. The cell mints, just without viz authority.
+            # Confidence gate. Originally inherited from leg5_spec.md:117-122
+            # ("no viz update; panel holds last good" at <0.6 → suppress).
+            # Lucida initially diverged to demote-to-text, but per
+            # memory/feedback_text_cells_uninteresting.md, text cells are the
+            # value-prop failure mode and the user explicitly preferred silent
+            # over text. Now: <0.6 raises SuppressedMintError; the watcher
+            # counts these as suppressed (logged to stderr, not persisted).
             if llm.confidence < 0.6:
-                chosen_type = "text"
-                gate_note = f" [confidence-gate <0.6 → text; was {llm.cell_type}]"
+                raise SuppressedMintError(
+                    f"classifier confidence {llm.confidence:.2f} < 0.6 "
+                    f"(would-be {llm.cell_type}); silent > text"
+                )
             elif llm.confidence < 0.8:
                 chosen_type = llm.cell_type
                 gate_note = " [draft, confidence 0.6-0.8]"
             else:
                 chosen_type = llm.cell_type
+        except SuppressedMintError:
+            raise  # propagate; watcher counts these as suppressed, not minted
         except Exception as e:
             chosen_type = auto_type_v0
             gate_note = f" [LLM classifier failed: {e}]"

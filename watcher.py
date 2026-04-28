@@ -81,6 +81,7 @@ class WatcherStep:
     segments_found: int
     cells_minted: int
     cells_skipped_dup: int
+    cells_suppressed: int = 0  # classifier confidence < 0.6; silent > text
     minted_ids: list[str] = field(default_factory=list)
     reflection_id: str | None = None
     note: str = ""
@@ -129,7 +130,7 @@ def process_once(
 
     # Lazy imports so the watcher module loads even without the deps
     import segmenter as _seg
-    from orchestrator import append_proposal, load_cells
+    from orchestrator import append_proposal, load_cells, SuppressedMintError
 
     try:
         seg_result = _seg.segment_document(new_text)
@@ -144,6 +145,7 @@ def process_once(
 
     minted_ids: list[str] = []
     skipped = 0
+    suppressed = 0
     for s in seg_result.segments:
         if _is_dup(s.snippet, existing_snippets):
             skipped += 1
@@ -165,6 +167,10 @@ def process_once(
             )
             minted_ids.append(proposal.id)
             existing_snippets.add(s.snippet)  # avoid re-mint within this pass
+        except SuppressedMintError as e:
+            suppressed += 1
+            existing_snippets.add(s.snippet)  # don't reconsider on next pass either
+            print(f"  suppressed: {e}", file=sys.stderr)
         except Exception as e:
             skipped += 1
             print(f"  failed to mint segment: {e}", file=sys.stderr)
@@ -196,6 +202,7 @@ def process_once(
         segments_found=len(seg_result.segments),
         cells_minted=len(minted_ids),
         cells_skipped_dup=skipped,
+        cells_suppressed=suppressed,
         minted_ids=minted_ids,
         reflection_id=reflection_id,
         note=seg_result.summary,
@@ -221,7 +228,7 @@ def watch(
             # surface the metric live during shape-A operation so we can
             # tell whether new cells are participating in loops or just
             # piling up.
-            if step.cells_minted:
+            if step.cells_minted or step.cells_suppressed:
                 try:
                     from orchestrator import closed_loop_stats, load_cells
                     cl = closed_loop_stats(load_cells()["cells"])
@@ -232,9 +239,10 @@ def watch(
                 except Exception:
                     metric = ""
                 refl = f" + reflection {step.reflection_id}" if step.reflection_id else ""
+                supp = f", {step.cells_suppressed} suppressed (<0.6)" if step.cells_suppressed else ""
                 print(
                     f"[watcher {ts}] +{step.cells_minted} cells "
-                    f"({step.cells_skipped_dup} dups skipped, "
+                    f"({step.cells_skipped_dup} dups skipped{supp}, "
                     f"{step.new_chars} new chars){metric}{refl}: {step.minted_ids}",
                     file=sys.stderr,
                 )
@@ -309,6 +317,7 @@ def main() -> None:
             "segments_found": step.segments_found,
             "cells_minted": step.cells_minted,
             "cells_skipped_dup": step.cells_skipped_dup,
+            "cells_suppressed": step.cells_suppressed,
             "minted_ids": step.minted_ids,
             "reflection_id": step.reflection_id,
             "note": step.note,
