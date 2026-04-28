@@ -923,89 +923,129 @@ th, td {
 }
 
 /* ============================================================
-   MAGI mermaid refinement — push the rendered SVG further into
-   the FUI dialect. Mermaid's themeVariables only set colors;
-   stroke widths, glow filters, and edge animation need to be
-   applied post-render via CSS targeting the produced SVG.
+   Mermaid post-render styling via CSS custom properties.
+
+   Mermaid's themeVariables only set colors; stroke widths, glow
+   filters, and edge animation need post-render CSS. Pre-2026-04-28
+   these were ~9 .theme-magi-prefixed rules with hardcoded values +
+   !important. Now consolidated: theme-agnostic selectors consume
+   --mermaid-* tokens, themes redefine the tokens. Adding a new theme
+   is one block of var declarations, not a copy-paste of every rule.
+
+   The !important is still required because mermaid emits inline
+   styles per node/edge — we have to win specificity. But there's now
+   one !important per property, not one per (theme × property).
    ============================================================ */
 
-/* Node glow + stronger stroke. !important needed to override the
-   inline styles mermaid emits per node. */
-.theme-magi .mermaid-target .node rect,
-.theme-magi .mermaid-target .node polygon,
-.theme-magi .mermaid-target .node circle,
-.theme-magi .mermaid-target .node ellipse {
-  stroke-width: 1.6px !important;
-  filter: drop-shadow(0 0 4px rgba(255, 140, 0, 0.42));
+:root {
+  --mermaid-edge-stroke-width: 1.5px;
+  --mermaid-edge-color: #66ccff;
+  --mermaid-edge-glow: rgba(102, 204, 255, 0.35);
+  --mermaid-node-stroke-width: 1.5px;
+  --mermaid-node-glow: rgba(102, 204, 255, 0.3);
+  --mermaid-node-glow-hover: rgba(102, 204, 255, 0.55);
+  --mermaid-edge-label-bg: rgba(20, 20, 28, 0.96);
+  --mermaid-edge-label-border: rgba(102, 204, 255, 0.3);
+  --mermaid-edge-label-font: ui-monospace, "SF Mono", Menlo, monospace;
+  --mermaid-cluster-glow: rgba(102, 204, 255, 0.25);
+  --mermaid-dash-anim: none;
 }
-.theme-magi .mermaid-target .node:hover rect,
-.theme-magi .mermaid-target .node:hover polygon,
-.theme-magi .mermaid-target .node:hover circle {
-  filter: drop-shadow(0 0 7px rgba(255, 140, 0, 0.7));
+.theme-magi {
+  --mermaid-edge-stroke-width: 1.4px;
+  --mermaid-edge-color: #00ff41;
+  --mermaid-edge-glow: rgba(0, 255, 65, 0.4);
+  --mermaid-node-stroke-width: 1.6px;
+  --mermaid-node-glow: rgba(255, 140, 0, 0.42);
+  --mermaid-node-glow-hover: rgba(255, 140, 0, 0.7);
+  --mermaid-edge-label-bg: rgba(12, 12, 12, 0.96);
+  --mermaid-edge-label-border: rgba(255, 140, 0, 0.35);
+  --mermaid-edge-label-font: "Courier New", "Lucida Console", monospace;
+  --mermaid-cluster-glow: rgba(255, 140, 0, 0.3);
+  --mermaid-dash-anim: magi-dash-march 1.4s linear infinite;
+}
+.theme-minimal {
+  --mermaid-edge-color: #0070f3;
+  --mermaid-edge-glow: transparent;
+  --mermaid-node-glow: transparent;
+  --mermaid-node-glow-hover: rgba(0, 112, 243, 0.25);
+  --mermaid-edge-label-bg: #ffffff;
+  --mermaid-edge-label-border: #d4d4d4;
+}
+.theme-gastown {
+  --mermaid-edge-color: #8b5e3c;
+  --mermaid-edge-glow: rgba(139, 94, 60, 0.3);
+  --mermaid-node-glow: rgba(205, 127, 50, 0.4);
+  --mermaid-node-glow-hover: rgba(205, 127, 50, 0.65);
+  --mermaid-edge-label-bg: #f5e6d3;
+  --mermaid-edge-label-border: #cd7f32;
+  --mermaid-edge-label-font: "Crimson Text", Georgia, serif;
+}
+
+/* Node glow + stroke. */
+.mermaid-target .node rect,
+.mermaid-target .node polygon,
+.mermaid-target .node circle,
+.mermaid-target .node ellipse {
+  stroke-width: var(--mermaid-node-stroke-width) !important;
+  filter: drop-shadow(0 0 4px var(--mermaid-node-glow));
   transition: filter 0.2s ease;
 }
-
-/* Bolder edges in green; subtle drop-shadow gives the "circuit-line"
-   feel. The class .flowchart-link or path inside .edgePath both work
-   across mermaid versions. */
-.theme-magi .mermaid-target .edgePath path,
-.theme-magi .mermaid-target .flowchart-link {
-  /* stroke-width 2.2 → 1.4 + filter dialed back. Combined with
-     overflow:hidden on .mermaid-target this kills the green-banding
-     artifact at non-100% browser zoom; the edges still read as
-     prominent FUI green, just less likely to bloom into solid bands
-     when the SVG is composited at fractional pixel ratios. */
-  stroke-width: 1.4px !important;
-  filter: drop-shadow(0 0 1px rgba(0, 255, 65, 0.4));
+.mermaid-target .node:hover rect,
+.mermaid-target .node:hover polygon,
+.mermaid-target .node:hover circle,
+.mermaid-target .node:hover ellipse {
+  filter: drop-shadow(0 0 7px var(--mermaid-node-glow-hover));
 }
 
-/* Dashed edges (created by `-.->` in mermaid syntax) get an animated
-   dash-march so the relationship reads as live/in-flight. */
-.theme-magi .mermaid-target .edgePath path[style*="stroke-dasharray"],
-.theme-magi .mermaid-target path.flowchart-link[stroke-dasharray] {
-  animation: magi-dash-march 1.4s linear infinite;
+/* Edges. The .flowchart-link or path inside .edgePath both work
+   across mermaid versions. */
+.mermaid-target .edgePath path,
+.mermaid-target .flowchart-link {
+  stroke-width: var(--mermaid-edge-stroke-width) !important;
+  filter: drop-shadow(0 0 1px var(--mermaid-edge-glow));
+}
+
+/* Dashed edges (`-.->` in mermaid syntax). Per-theme animation
+   token: magi gets the live "dash-march"; other themes get static. */
+.mermaid-target .edgePath path[style*="stroke-dasharray"],
+.mermaid-target path.flowchart-link[stroke-dasharray] {
+  animation: var(--mermaid-dash-anim);
 }
 @keyframes magi-dash-march {
   to { stroke-dashoffset: -16; }
 }
 
-/* Edge labels in monospace; slight panel background so they read
-   against the edge stroke crossing them. With flowchart.htmlLabels:
-   false (set in index.html), labels are SVG <text> elements rather
-   than foreignObject+div — both targets covered for forward/back-
-   compat across mermaid versions. */
-.theme-magi .mermaid-target .edgeLabel,
-.theme-magi .mermaid-target .edgeLabel text,
-.theme-magi .mermaid-target .edgeLabel rect {
-  font-family: "Courier New", "Lucida Console", monospace !important;
+/* Edge labels. With flowchart.htmlLabels: false (in index.html) the
+   labels are SVG <text> elements; the SVG <rect> behind them gets
+   themed via tokens. foreignObject path covered for older mermaid
+   versions / themes that flip htmlLabels back on. */
+.mermaid-target .edgeLabel,
+.mermaid-target .edgeLabel text,
+.mermaid-target .edgeLabel rect {
+  font-family: var(--mermaid-edge-label-font) !important;
 }
-.theme-magi .mermaid-target .edgeLabel rect {
-  /* Backing opacity bumped from 0.8 → 0.96 — at 0.8 the green edge
-     line shone through enough to make the amber label text hard
-     to parse. 0.96 keeps a subtle cell-bg-blend while still cleanly
-     occluding the edge stroke. */
-  fill: rgba(12, 12, 12, 0.96) !important;
-  stroke: rgba(255, 140, 0, 0.35) !important;
+.mermaid-target .edgeLabel rect {
+  fill: var(--mermaid-edge-label-bg) !important;
+  stroke: var(--mermaid-edge-label-border) !important;
   stroke-width: 1px !important;
 }
-.theme-magi .mermaid-target .edgeLabel foreignObject div {
-  background-color: rgba(12, 12, 12, 0.96) !important;
+.mermaid-target .edgeLabel foreignObject div {
+  background-color: var(--mermaid-edge-label-bg) !important;
   padding: 0.05rem 0.25rem;
-  border: 1px solid rgba(255, 140, 0, 0.35);
+  border: 1px solid var(--mermaid-edge-label-border);
 }
 
-/* Arrowheads — magi green to match the line color. Mermaid v10 uses
-   markers; targeting them by class lets us keep theme parity. */
-.theme-magi .mermaid-target .marker.flowchart path,
-.theme-magi .mermaid-target marker path {
-  fill: #00ff41 !important;
-  stroke: #00ff41 !important;
+/* Arrowheads inherit the edge color. */
+.mermaid-target .marker.flowchart path,
+.mermaid-target marker path {
+  fill: var(--mermaid-edge-color) !important;
+  stroke: var(--mermaid-edge-color) !important;
 }
 
-/* Cluster (subgraph) borders get the same treatment as node borders. */
-.theme-magi .mermaid-target .cluster rect {
-  stroke-width: 1.4px !important;
-  filter: drop-shadow(0 0 3px rgba(255, 140, 0, 0.3));
+/* Cluster (subgraph) borders share the node glow vocabulary. */
+.mermaid-target .cluster rect {
+  stroke-width: var(--mermaid-edge-stroke-width) !important;
+  filter: drop-shadow(0 0 3px var(--mermaid-cluster-glow));
 }
 
 /* "Still warm" hero treatment: the most-recent cell gets a subtle accent

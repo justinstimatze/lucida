@@ -785,18 +785,33 @@ function liveAppendNewCells(cellsData) {
   return fresh.length;
 }
 
-async function loadHud() {
+// Single shared poll. Fetches cells.json + mint_log once per cadence,
+// then dispatches to (a) live cell-append, then (b) HUD update. The
+// audit's "control flow inversion" critique was that minting was
+// gated by HUD render — that's still partially true (single fetch
+// loop), but the layering is now explicit and we can split into
+// independent cadences if mint latency ever bites: just call
+// pollCells() and pollHud() from separate intervals with different
+// cache keys for cellsData / mintLogText. Per audit 2026-04-28.
+async function pollAll() {
   const [cellsData, mintLogText] = await Promise.all([
     fetchJSON("cells.json"),
     fetchText("mint_log.jsonl"),
   ]);
   if (!cellsData) return;
 
-  // Live append before computing HUD metrics so the cell count + flash
-  // reflect the new state.
+  // (a) Cell append first — this is the "what just landed" signal,
+  // load-bearing for the live-stream feel. HUD updates derive from
+  // the same cellsData so cell counts + flashes reflect post-append.
   const appended = liveAppendNewCells(cellsData);
   if (appended) flashHud();
 
+  // (b) HUD update from the same fetched data. Synchronous compute
+  // + typeInto-driven repaint of HUD slots.
+  await updateHud(cellsData, mintLogText);
+}
+
+async function updateHud(cellsData, mintLogText) {
   // Pick latest substrate eval if present. Browser can't list directories,
   // so we walk backward from today across a 14-day window once per page
   // load and cache the result. Page reload re-discovers.
@@ -805,7 +820,7 @@ async function loadHud() {
   const mintLog = parseMintLog(mintLogText);
   const newest = mintLog.length ? mintLog[mintLog.length - 1] : null;
 
-  // Detect new mint vs. last poll → flash HUD and re-render notebook tail.
+  // Detect new mint vs. last poll → flash HUD.
   if (newest && newest.cell_id && newest.cell_id !== state.hud.lastSeenMint) {
     if (state.hud.lastSeenMint !== null) flashHud();  // skip flash on first paint
     state.hud.lastSeenMint = newest.cell_id;
@@ -826,16 +841,16 @@ async function loadHud() {
   hud.dataset.status = m.status.toLowerCase();
   // Mirror the status onto #notebook so the hero cell can pulse a
   // continuous "live stream" border while the watcher is active.
-  // Persistent visual indicator beyond cell-still-warm's 60s decay —
-  // tells the user "the system is listening *now*", not "this cell
-  // was just minted".
   document.getElementById("notebook").dataset.stream = m.status.toLowerCase();
-  // KILL.* color-escalation + ring fill — thresholds from kill_criteria.md.
-  // ok / warn / tripped tokens already in CSS as --vis-ok/warn/tripped.
   applyKillState("hud-kill1-slot", parsePct(m.kill1), 30, 50);
   applyKillState("hud-kill2-slot", parsePct(m.kill2), 25, 40);
   applyKillState("hud-kill3-slot", parsePct(m.kill3), 12, 20);
 }
+
+// Backward-compat alias: existing call sites (rerenderNotebook,
+// bootstrap loop) still call loadHud(). Same behavior; just dispatches
+// to the split form so a future cadence change is local.
+const loadHud = pollAll;
 
 // Parse a % value out of strings like "11.5% (7/61)" / "n/a" / "img 6 (audit Δ pending)".
 function parsePct(s) {
