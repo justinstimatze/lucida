@@ -93,12 +93,13 @@
   </div>
 </header>
 <main id="notebook"></main>
-<!-- Inter-cell connections overlay: glowing SVG paths drawn between
-     reflection cells and their source cells. Fixed-position so it
-     redraws on scroll cheaply; pointer-events:none so it never
-     interferes with cell interaction. See drawConnections() below. -->
-<svg id="connection-overlay" aria-hidden="true"
-     xmlns="http://www.w3.org/2000/svg"></svg>
+<!-- Inter-cell connections overlay (WebGL via Three.js).
+     Replaces the prior SVG implementation. Fixed-position canvas;
+     pointer-events:none. The Three.js scene is structured so a future
+     VR-loopback (PerspectiveCamera + WebXRManager) is a mechanical
+     swap of the camera and renderer, not a rewrite. See
+     drawConnections() below. -->
+<canvas id="connection-overlay" aria-hidden="true"></canvas>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
 
@@ -885,15 +886,58 @@ window.lucidaBloomDemo = function (slotId = "hud-kill3-slot") {
   if (slot) bloomKillTrip(slot, 99);
 };
 
-// Inter-cell connections: glowing SVG paths drawn from each visible
-// reflection cell to each of its source cells. Makes the JARVIS-style
-// "this analysis is fed by these inputs" relationship visible at a
-// glance. Pure SVG overlay, vanilla JS — no graph lib (per
-// memory/no_react_flow.md).
+// Inter-cell connections: WebGL via Three.js. Replaces the prior SVG
+// implementation. Lines are real 3D paths in a Three.js scene with a
+// forward Z-arc through the middle, giving the connections genuine
+// depth (the user's "the lines imply 3D-ness" intuition). Per
+// memory/2d_3d_mix_arc.md — Tier 3 partial. Structure is VR-loopback-
+// ready: future swap of OrthographicCamera → PerspectiveCamera +
+// WebXRManager keeps everything else mechanical.
 //
-// Skips draws when either endpoint is far off-screen (>1500px from
-// viewport) so we don't generate paths spanning the entire document.
-// Throttled via rAF on scroll to stay cheap.
+// gemotvis lesson (memory/2d_3d_mix_arc.md, anchored 2026-04-28): the
+// brittleness wasn't CSS-3D-specific — it was multiple async animation
+// systems trampling each other. Lucida is vanilla, single source of
+// truth (Three.js render on rAF), so the trampling vector doesn't
+// apply.
+let _connRenderer = null;
+let _connScene = null;
+let _connCamera = null;
+let _connLines = [];
+let _connAnimating = false;
+let _connStartTime = 0;
+
+function ensureThreeOverlay() {
+  if (_connRenderer) return _connRenderer;
+  const canvas = document.getElementById("connection-overlay");
+  if (!canvas || !window.THREE) return null;
+  const T = window.THREE;
+  _connRenderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  _connRenderer.setPixelRatio(window.devicePixelRatio);
+  _connRenderer.setClearColor(0x000000, 0);
+  _connRenderer.setSize(window.innerWidth, window.innerHeight);
+  _connScene = new T.Scene();
+  // Orthographic camera maps viewport pixels directly to scene units.
+  // top=0 / bottom=H inverts Y so screen Y increases downward (matches
+  // DOM getBoundingClientRect coordinates). Z range allows ±1000px
+  // depth for connection arcs; near/far will tighten when this becomes
+  // a PerspectiveCamera in VR mode.
+  _connCamera = new T.OrthographicCamera(
+    0, window.innerWidth,
+    0, window.innerHeight,
+    -2000, 2000,
+  );
+  _connCamera.position.z = 100;
+  return _connRenderer;
+}
+
+function _connAccent() {
+  // Read live --accent from current theme. Cheap (cached in browser
+  // computed-style); ensures connections re-color on theme switch.
+  const c = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent").trim();
+  return new window.THREE.Color(c || "#66ccff");
+}
+
 let _connectionsRAFPending = false;
 function scheduleRedrawConnections() {
   if (_connectionsRAFPending) return;
@@ -905,81 +949,143 @@ function scheduleRedrawConnections() {
 }
 
 function drawConnections() {
-  const svg = document.getElementById("connection-overlay");
-  if (!svg) return;
+  if (!ensureThreeOverlay()) return;
+  const T = window.THREE;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  svg.setAttribute("width", vw);
-  svg.setAttribute("height", vh);
-  svg.setAttribute("viewBox", `0 0 ${vw} ${vh}`);
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  // Resync camera + renderer to current viewport (cheap; both mostly
+  // no-ops if dimensions unchanged).
+  _connRenderer.setSize(vw, vh, false);
+  _connCamera.left = 0;
+  _connCamera.right = vw;
+  _connCamera.top = 0;
+  _connCamera.bottom = vh;
+  _connCamera.updateProjectionMatrix();
+
+  // Dispose previous lines. Three.js holds GPU buffers for geometry +
+  // materials that don't auto-release; this loop is the price for
+  // redrawing on every scroll tick.
+  for (const line of _connLines) {
+    _connScene.remove(line);
+    if (line.geometry) line.geometry.dispose();
+    if (line.material) line.material.dispose();
+  }
+  _connLines.length = 0;
 
   const reflections = document.querySelectorAll(".cell-reflection[data-source-ids]");
-  if (!reflections.length) return;
+  if (!reflections.length) {
+    _connRenderer.render(_connScene, _connCamera);
+    return;
+  }
 
-  // Helper: is rect at least partially in viewport?
   const inView = (r) => r.bottom > 0 && r.top < vh;
+  const accent = _connAccent();
 
   for (const refl of reflections) {
     const reflRect = refl.getBoundingClientRect();
     if (!inView(reflRect)) continue;
     const reflCx = reflRect.left + reflRect.width / 2;
 
-    const sourceIds = (refl.dataset.sourceIds || "").split(",").filter(Boolean);
-    for (const sid of sourceIds) {
+    for (const sid of (refl.dataset.sourceIds || "").split(",").filter(Boolean)) {
       const src = document.getElementById(sid);
       if (!src) continue;
       const srcRect = src.getBoundingClientRect();
       const srcInView = inView(srcRect);
 
       if (!srcInView) {
-        // Source is off-screen — draw a short stub from the reflection's
-        // nearest edge pointing toward where the source lives. Gives
-        // visual confirmation that the reflection has off-screen kin
-        // without the path arcing across unrelated cells.
+        // Off-screen-source stub. Short vertical line at slight forward
+        // Z (so it reads as floating closer than the cell plane).
         const goingDown = srcRect.top >= reflRect.bottom;
         const startY = goingDown ? reflRect.bottom : reflRect.top;
         const endY = goingDown ? Math.min(vh, startY + 60) : Math.max(0, startY - 60);
-        const stub = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        stub.setAttribute("d", `M ${reflCx} ${startY} L ${reflCx} ${endY}`);
-        stub.setAttribute("class", "connection-path connection-stub");
-        svg.appendChild(stub);
+        const stubPoints = [
+          new T.Vector3(reflCx, startY, 8),
+          new T.Vector3(reflCx, endY, 8),
+        ];
+        const stubGeo = new T.BufferGeometry().setFromPoints(stubPoints);
+        const stubMat = new T.LineBasicMaterial({
+          color: accent, transparent: true, opacity: 0.6,
+        });
+        const stubLine = new T.Line(stubGeo, stubMat);
+        _connScene.add(stubLine);
+        _connLines.push(stubLine);
         continue;
       }
 
-      // Both endpoints visible. Anchor reflection at source-aligned X
-      // (clamped within reflection's horizontal bounds) so multiple
-      // sources fan across the reflection's edge instead of converging
-      // at one center point.
+      // Full curve. Anchor reflection at source-aligned X (clamped to
+      // its bounds), pick nearest vertical edges, sample a cubic
+      // bezier in XY with a forward Z-arc through the middle.
       const srcCx = srcRect.left + srcRect.width / 2;
       const reflAnchorX = Math.max(
         reflRect.left + 24,
-        Math.min(reflRect.right - 24, srcCx)
+        Math.min(reflRect.right - 24, srcCx),
       );
       let srcY, reflY;
       if (srcRect.top >= reflRect.bottom) {
-        srcY = srcRect.top;
-        reflY = reflRect.bottom;
+        srcY = srcRect.top; reflY = reflRect.bottom;
       } else if (srcRect.bottom <= reflRect.top) {
-        srcY = srcRect.bottom;
-        reflY = reflRect.top;
+        srcY = srcRect.bottom; reflY = reflRect.top;
       } else {
         srcY = srcRect.top + srcRect.height / 2;
         reflY = reflRect.top + reflRect.height / 2;
       }
-      // Skip glitch-short paths (adjacent cells separated only by the
-      // grid gap). Sub-50px curves look like rendering artifacts.
       if (Math.abs(srcY - reflY) < 50) continue;
       const midY = (srcY + reflY) / 2;
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute(
-        "d",
-        `M ${srcCx} ${srcY} C ${srcCx} ${midY}, ${reflAnchorX} ${midY}, ${reflAnchorX} ${reflY}`
-      );
-      path.setAttribute("class", "connection-path");
-      svg.appendChild(path);
+
+      const points = [];
+      const steps = 28;
+      const maxZ = 40;  // px of forward arc; tune for parallax feel
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        // Cubic bezier with control points anchoring near each endpoint X.
+        const u = 1 - t;
+        const x = u*u*u*srcCx + 3*u*u*t*srcCx + 3*u*t*t*reflAnchorX + t*t*t*reflAnchorX;
+        const y = u*u*u*srcY + 3*u*u*t*midY + 3*u*t*t*midY + t*t*t*reflY;
+        const z = maxZ * Math.sin(t * Math.PI);  // bow forward in middle
+        points.push(new T.Vector3(x, y, z));
+      }
+      const geo = new T.BufferGeometry().setFromPoints(points);
+      const mat = new T.LineBasicMaterial({
+        color: accent, transparent: true, opacity: 0.45,
+      });
+      const line = new T.Line(geo, mat);
+      _connScene.add(line);
+      _connLines.push(line);
     }
   }
+
+  _connRenderer.render(_connScene, _connCamera);
+  // Kick the continuous animation loop if there's anything to animate.
+  if (_connLines.length && !_connAnimating) {
+    _connAnimating = true;
+    _connStartTime = performance.now();
+    requestAnimationFrame(_connAnimate);
+  }
+}
+
+// Continuous animation: pulse line opacity over time so the connections
+// feel alive (signal flow). Stops automatically when the line set is
+// empty (no reflections in viewport) and resumes on next draw.
+function _connAnimate(now) {
+  if (!_connLines.length) {
+    _connAnimating = false;
+    return;
+  }
+  const elapsed = (now - _connStartTime) / 1000;
+  for (const line of _connLines) {
+    if (!line.material) continue;
+    // Slow opacity wobble, +/- 0.15 around base. Phase offset by line
+    // index would be nicer but keeping simple — uniform pulse reads
+    // as "the whole network is alive".
+    const base = line.material.userData?.baseOpacity ?? line.material.opacity;
+    if (line.material.userData?.baseOpacity === undefined) {
+      line.material.userData.baseOpacity = base;
+    }
+    line.material.opacity = base + 0.15 * Math.sin(elapsed * 1.8);
+  }
+  _connRenderer.render(_connScene, _connCamera);
+  requestAnimationFrame(_connAnimate);
 }
 
 window.addEventListener("scroll", scheduleRedrawConnections, { passive: true });
