@@ -50,10 +50,15 @@
         <span class="hud-value" id="hud-cells-val">—</span>
         <svg class="hud-cells-bar" id="hud-cells-bar" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true"></svg>
       </span>
-      <span class="hud-cell">
+      <span class="hud-cell hud-session-trigger" id="hud-session-cell"
+            role="button" tabindex="0" aria-haspopup="true"
+            aria-controls="session-dropdown"
+            title="click to filter by session(s)">
         <span class="hud-label">SESSION</span>
         <span class="hud-value" id="hud-session-val">—</span>
+        <span class="hud-caret" aria-hidden="true">▾</span>
       </span>
+      <div id="session-dropdown" class="session-dropdown" hidden></div>
       <span class="hud-cell">
         <span class="hud-label">THEME</span>
         <span class="hud-value" id="hud-theme-val">—</span>
@@ -98,21 +103,136 @@ import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.mi
 // Active theme is set by the inline head script -> window.__LUCIDA_THEME.
 const ACTIVE = window.__LUCIDA_THEME || "lab";
 
-// Multi-stream arc step 2: ?session=<id> filter. Read once at module
-// load. null/undefined = unscoped view (show every cell, current
-// default). The literal string "untagged" is a pseudo-session that
-// shows only cells without a session_id (everything before step 1
-// landed). Otherwise: filter to cells whose session_id matches.
-const ACTIVE_SESSION = (function () {
+// Multi-stream arc step 2: ?session=<id1>,<id2>,... filter. Multi-
+// select via comma-separated list. Empty / no param = unscoped (show
+// every cell, intuitive default). The literal "untagged" is a pseudo-
+// session matching cells without a session_id field. The set is
+// mutable at runtime via the HUD dropdown (toggleSessionFilter).
+let ACTIVE_SESSIONS = (function () {
   try {
     const v = new URLSearchParams(window.location.search).get("session");
-    return v || null;
-  } catch (e) { return null; }
+    if (!v) return new Set();
+    return new Set(v.split(",").map(s => s.trim()).filter(Boolean));
+  } catch (e) { return new Set(); }
 })();
 function matchesActiveSession(cell) {
-  if (ACTIVE_SESSION == null) return true;
-  if (ACTIVE_SESSION === "untagged") return !cell.session_id;
-  return cell.session_id === ACTIVE_SESSION;
+  if (ACTIVE_SESSIONS.size === 0) return true;
+  if (ACTIVE_SESSIONS.has("untagged") && !cell.session_id) return true;
+  return ACTIVE_SESSIONS.has(cell.session_id);
+}
+// Persist the current filter to the URL so the view is shareable from
+// inside a Claude Code session without the user typing a query string.
+function syncSessionFilterToURL() {
+  const url = new URL(window.location.href);
+  if (ACTIVE_SESSIONS.size === 0) {
+    url.searchParams.delete("session");
+  } else {
+    url.searchParams.set("session", [...ACTIVE_SESSIONS].join(","));
+  }
+  window.history.replaceState(null, "", url.toString());
+}
+
+// Re-render the notebook from cells.json under the current filter.
+// Called after a session-filter toggle. Clears the existing notebook
+// + render-id baseline so the next pass treats every visible cell as
+// fresh; live-append continues from there.
+async function rerenderNotebook() {
+  document.getElementById("notebook").innerHTML = "";
+  _renderedCellIds.clear();
+  await load();
+  loadHud().catch(() => {});
+  scheduleRedrawConnections();
+}
+
+// Build the session-filter dropdown contents. Reads unique session_id
+// values from cells.json (plus an "untagged" pseudo-session for cells
+// missing the field) and renders a checkbox list. Each toggle updates
+// ACTIVE_SESSIONS, syncs the URL, and re-renders the notebook.
+function buildSessionDropdown(cellsData) {
+  const dropdown = document.getElementById("session-dropdown");
+  if (!dropdown) return;
+  const cells = (cellsData && cellsData.cells) || [];
+  const sessionCounts = new Map();
+  let untaggedCount = 0;
+  for (const c of cells) {
+    if (c.replaced_by) continue;
+    if (c.session_id) {
+      sessionCounts.set(c.session_id, (sessionCounts.get(c.session_id) || 0) + 1);
+    } else {
+      untaggedCount++;
+    }
+  }
+  const entries = [...sessionCounts.entries()].sort((a, b) => b[1] - a[1]);
+  if (untaggedCount > 0) entries.push(["untagged", untaggedCount]);
+
+  const header = `
+    <div class="session-dropdown-header">
+      <span>FILTER BY SESSION</span>
+      <button type="button" class="session-dropdown-clear">show all</button>
+    </div>
+  `;
+  const rows = entries.map(([sid, count]) => {
+    const checked = ACTIVE_SESSIONS.has(sid) ? "checked" : "";
+    const safeId = sid.replace(/[^a-zA-Z0-9_-]/g, "_");
+    return `
+      <label class="session-dropdown-row">
+        <input type="checkbox" data-session="${sid}" id="sess-cb-${safeId}" ${checked}>
+        <span class="session-dropdown-id">${sid}</span>
+        <span class="session-dropdown-count">${count}</span>
+      </label>
+    `;
+  }).join("");
+  dropdown.innerHTML = header + (rows || '<div class="session-dropdown-empty">no sessions yet</div>');
+
+  dropdown.querySelector(".session-dropdown-clear")?.addEventListener("click", () => {
+    ACTIVE_SESSIONS.clear();
+    syncSessionFilterToURL();
+    buildSessionDropdown(cellsData);
+    rerenderNotebook();
+  });
+  dropdown.querySelectorAll('input[type="checkbox"][data-session]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      const sid = cb.dataset.session;
+      if (cb.checked) ACTIVE_SESSIONS.add(sid);
+      else ACTIVE_SESSIONS.delete(sid);
+      syncSessionFilterToURL();
+      rerenderNotebook();
+    });
+  });
+}
+
+// Wire the SESSION HUD slot to toggle the dropdown. Click outside or
+// ESC dismisses. Per memory/feedback_glanceable_no_clicks.md the
+// dropdown is power-user-config (clicked once to scope), not a
+// default-path interaction; the empty default keeps the glanceable
+// principle intact.
+function initSessionDropdownTrigger() {
+  const trigger = document.getElementById("hud-session-cell");
+  const dropdown = document.getElementById("session-dropdown");
+  if (!trigger || !dropdown) return;
+
+  const open = async () => {
+    const cellsData = await fetchJSON("cells.json");
+    buildSessionDropdown(cellsData);
+    dropdown.hidden = false;
+    const r = trigger.getBoundingClientRect();
+    dropdown.style.top = (r.bottom + 4) + "px";
+    dropdown.style.left = r.left + "px";
+  };
+  const close = () => { dropdown.hidden = true; };
+  const toggle = () => { dropdown.hidden ? open() : close(); };
+
+  trigger.addEventListener("click", toggle);
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (dropdown.hidden) return;
+    if (!dropdown.contains(e.target) && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dropdown.hidden) close();
+  });
 }
 
 const THEME_CONFIG = {
@@ -1291,6 +1411,8 @@ load().catch(err => {
   document.getElementById("notebook").textContent =
     "load error: " + err.message;
 });
+
+initSessionDropdownTrigger();
 
 // HUD bootstraps and polls fast. Hackertyper-feel reveal happens
 // inside typeInto() but only on actual value changes (cached), so the

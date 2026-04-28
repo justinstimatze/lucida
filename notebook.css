@@ -821,6 +821,94 @@ th, td {
    cell-arrive (slide-up + glow). Keeps the diff focused on substrates
    where a distinct entrance reads as meaningful. */
 
+/* Session-filter dropdown: clicking the SESSION HUD slot opens a
+   floating popover with a checkbox per unique session_id. Power-user
+   config surface per memory/feedback_intuitive_defaults_with_config.md;
+   the default-path (no clicks, full corpus shown) stays intact. */
+.hud-session-trigger {
+  cursor: pointer;
+  user-select: none;
+}
+.hud-session-trigger:hover .hud-value {
+  color: var(--accent, #66ccff);
+}
+.hud-caret {
+  font-size: 0.7rem;
+  margin-left: 0.3rem;
+  opacity: 0.5;
+}
+.session-dropdown {
+  position: fixed;
+  z-index: 900;
+  min-width: 240px;
+  max-width: 360px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--panel, #131318);
+  border: 1px solid var(--accent, #66ccff);
+  border-radius: 4px;
+  padding: 0.5rem 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+.session-dropdown[hidden] { display: none; }
+.session-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.75rem 0.4rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--line, #2a2a2a);
+  letter-spacing: 0.15em;
+  font-size: 0.7rem;
+  color: var(--muted, #8a8a92);
+}
+.session-dropdown-clear {
+  background: transparent;
+  border: none;
+  color: var(--accent, #66ccff);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  padding: 0;
+}
+.session-dropdown-clear:hover { text-decoration: underline; }
+.session-dropdown-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+}
+.session-dropdown-row:hover {
+  background: color-mix(in srgb, var(--accent, #66ccff) 8%, transparent);
+}
+.session-dropdown-row input[type="checkbox"] {
+  cursor: pointer;
+  margin: 0;
+}
+.session-dropdown-id {
+  flex: 1;
+  font-family: "Courier New", monospace;
+  color: var(--fg, #e5e5e5);
+}
+.session-dropdown-count {
+  color: var(--muted, #8a8a92);
+  font-size: 0.75rem;
+}
+.session-dropdown-empty {
+  padding: 0.5rem 0.75rem;
+  color: var(--muted, #8a8a92);
+  font-style: italic;
+}
+.theme-magi .session-dropdown {
+  background: #050505;
+  border-color: var(--vis-amber-glow, #ff8c00);
+  box-shadow: 0 0 12px var(--vis-amber-glow, rgba(255,140,0,0.3));
+}
+
 /* Inter-cell connections: SVG overlay that draws glowing paths between
    reflection cells and their source cells (drawConnections in index.html).
    Pointer-events: none means it never blocks cell interaction. The
