@@ -71,18 +71,12 @@ main {
   perspective: 1500px;
   transform-style: preserve-3d;
 }
-.cell {
-  /* GPU-promote cells so depth transforms don't repaint layout. */
-  transform: translate3d(0, 0, 0);
-  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.3, 1);
-}
-.cell:first-child {
-  /* Hero pushed slightly forward in Z. The connection lines arcing
-     up to z=40 mid-curve will read as bridging from the ambient plane
-     up toward the hero. Web Animations API handles cell-fresh /
-     cell-still-warm separately, so this transform doesn't conflict. */
-  transform: translate3d(0, 0, 18px);
-}
+/* Hero translateZ(18px) was tried 2026-04-28 and reverted: caused
+   sub-pixel anti-alias blur on text + clipped at viewport top + made
+   the Three.js connection lines misalign (lines anchor to 2D
+   getBoundingClientRect, which doesn't account for the hero's Z).
+   The depth axis comes from connection-line arcs alone, not cell
+   translateZ. Per memory/2d_3d_mix_arc.md gemotvis lesson updated. */
 /* Multi-stream mode: when 2+ sessions are selected via the HUD
    dropdown, the notebook re-shapes into a flex-row of per-session
    columns. Each column = vertical stack of that session's cells with
@@ -133,11 +127,13 @@ main {
   margin: 0;  /* gap on the grid handles spacing instead of margin */
   padding: 0.75rem 1rem;
   min-width: 0;  /* let grid items shrink below their intrinsic width */
-  /* Universal height cap. Ambient cells stay short so the grid stays
-     dense; reflections override to ~38vh; hero overrides to 42vh.
-     Per memory/feedback_glanceable_no_clicks.md the user shouldn't
-     have to scroll past one tall cell to see the next. */
-  max-height: 28vh;
+  /* Universal height cap. Tightened from 28vh → 38vh after user
+     observed html cells clipping their last row. Reflections override
+     to 50vh; hero overrides to 55vh. Per memory/
+     feedback_glanceable_no_clicks.md the user shouldn't have to
+     scroll past one tall cell to see the next, but cells need enough
+     room to actually carry the content the LLM packed in. */
+  max-height: 38vh;
   overflow: hidden;
   position: relative;
 }
@@ -162,7 +158,7 @@ main {
   grid-column: 1 / -1;
   padding: clamp(0.9rem, 1.5vw, 1.4rem) clamp(1rem, 2vw, 1.6rem);
   font-size: clamp(0.95rem, 1vw + 0.4rem, 1.05rem);
-  max-height: 42vh;  /* hero is bounded so ambient row fits below */
+  max-height: 55vh;  /* bumped from 42vh — hero needs room without forced clip */
 }
 .cell:first-child .cell-head {
   font-size: clamp(0.85rem, 0.9vw + 0.3rem, 1rem);
@@ -223,7 +219,21 @@ main {
    ambient cells deserves the same prominence as a fresh hero. */
 .cell.cell-reflection {
   grid-column: 1 / -1;
-  max-height: 38vh;
+  max-height: 50vh;
+}
+/* Substrate-aware tiling: cells whose content needs horizontal room
+   to be readable get span 2 in the ambient grid. Mermaid graphs +
+   wide html tables especially crash at narrow columns (cell-0078
+   user-flagged: unreadable at half-width). Substrates that work
+   fine at narrow width (text, animated_svg, single-axis vega)
+   stay at span 1 for density. The hero (:first-child) and reflections
+   already span the full row via grid-column: 1 / -1, so these rules
+   only affect non-hero, non-reflection cells. */
+.cell:not(:first-child):not(.cell-reflection)[data-cell-type="mermaid"],
+.cell:not(:first-child):not(.cell-reflection)[data-cell-type="vega"],
+.cell:not(:first-child):not(.cell-reflection)[data-cell-type="scene3d"],
+.cell:not(:first-child):not(.cell-reflection)[data-cell-type="aframe"] {
+  grid-column: span 2;
 }
 /* scene3d / aframe cells host inherently-fixed-size 3D scenes
    (target's min-height is already 360px). The universal 28vh cap
