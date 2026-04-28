@@ -62,8 +62,25 @@ def now_iso() -> str:
 
 
 def next_id(cells: list[dict]) -> str:
-    n = len(cells) + 1
-    return f"cell-{n:04d}"
+    """Return the next unused cell-NNNN id.
+
+    Uses max(numeric_id) + 1 rather than len(cells) + 1 — the latter is racy
+    when two writers see the same length and mint colliding IDs (observed
+    2026-04-27: 4 ID collisions between a 10:58 batch and a 19:30 batch
+    that both saw len=59 and minted cell-0060..0063 twice).
+    """
+    max_n = 0
+    for c in cells:
+        cid = c.get("id") if isinstance(c, dict) else getattr(c, "id", None)
+        if not cid or not cid.startswith("cell-"):
+            continue
+        try:
+            n = int(cid.split("-", 1)[1])
+        except ValueError:
+            continue
+        if n > max_n:
+            max_n = n
+    return f"cell-{max_n + 1:04d}"
 
 
 def _guidance_too_similar(a: str, b: str, threshold: float = 0.7) -> bool:

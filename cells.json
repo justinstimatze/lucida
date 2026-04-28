@@ -1582,7 +1582,7 @@
       "retrigger_reason": null
     },
     {
-      "id": "cell-0060",
+      "id": "cell-0070",
       "timestamp": "2026-04-27T19:30:36+00:00",
       "cell_type": "vega",
       "trigger_snippet": "Current baseline closed-loop ratio: **21.4%** (6/28). Target: \u226550% over the next 30 content cells.",
@@ -1667,7 +1667,7 @@
       },
       "html": null,
       "caption": "Closed-loop ratio: current baseline 21.4% (6/28) vs. \u226550% target over next 30 content cells.",
-      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.82 [v0\u2192vega] cache:wrote/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.82 [v0\u2192vega] cache:wrote/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)] [renumbered cell-0060\u2192cell-0070 2026-04-27: next_id race fix]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -1680,7 +1680,7 @@
       "retrigger_reason": null
     },
     {
-      "id": "cell-0061",
+      "id": "cell-0071",
       "timestamp": "2026-04-27T19:30:40+00:00",
       "cell_type": "vega",
       "trigger_snippet": "Honest result: **the ratio went DOWN, 21.4% \u2192 17.1%.** Why: the watcher mints (6 closed / 28 content \u2192 6 closed / 35 content), but the closed-loop machinery doesn't fire autonomously. Numerator stayed at 6, denominator grew by 7. Every fresh cell dilutes the ratio.",
@@ -1789,7 +1789,7 @@
       },
       "html": null,
       "caption": "Closed-loop ratio dropped from 21.4% (6/28) to 17.1% (6/35). Numerator held flat at 6; 7 new content cells diluted the denominator.",
-      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.87 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.87 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)] [renumbered cell-0061\u2192cell-0071 2026-04-27: next_id race fix]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -1802,7 +1802,7 @@
       "retrigger_reason": null
     },
     {
-      "id": "cell-0062",
+      "id": "cell-0072",
       "timestamp": "2026-04-27T19:30:47+00:00",
       "cell_type": "mermaid",
       "trigger_snippet": "Two architecture gaps this exposed: 1. **Reflection is not wired into the watcher loop.** `reflect.py` is operator-driven; shape A never invokes it. 2. **Retrigger requires `--generate`.** Without image generation there's no evaluator and no retrigger lineage.",
@@ -1811,7 +1811,7 @@
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192causal/mermaid@0.82 [v0\u2192vega] cache:hit/2550t]",
+      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192causal/mermaid@0.82 [v0\u2192vega] cache:hit/2550t] [renumbered cell-0062\u2192cell-0072 2026-04-27: next_id race fix]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "causal",
@@ -1824,7 +1824,7 @@
       "retrigger_reason": null
     },
     {
-      "id": "cell-0063",
+      "id": "cell-0073",
       "timestamp": "2026-04-27T19:30:51+00:00",
       "cell_type": "vega",
       "trigger_snippet": "Three substantive findings from these two passes: 1. **Asymptote confirmed:** 17.1% \u2192 26.7% \u2192 32.1% \u2192 35.8%. With K=3 N=5, deltas-toward-zero predicted ~54.5% asymptote. 50% target is structurally reachable. 2. **Retrigger band never exercised under shape A on engineering conversation:** zero image cells minted across 4 watcher passes. 3. **Shape A naively segments skill/system-prompt content from JSONL transcripts.**",
@@ -2003,7 +2003,7 @@
       },
       "html": null,
       "caption": "Coverage asymptote progression across 4 watcher passes (17.1% \u2192 26.7% \u2192 32.1% \u2192 35.8%), with the predicted K=3 N=5 asymptote at ~54.5% and the 50% structural target shown for reference.",
-      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.85 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.85 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)] [renumbered cell-0063\u2192cell-0073 2026-04-27: next_id race fix]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
