@@ -632,7 +632,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     non_image_html = None
     non_image_caption = ""
     if (llm_available and generate_image
-            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "aframe")
+            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "aframe", "lottie")
             and os.environ.get("ANTHROPIC_API_KEY")):
         try:
             import specialists as _specs
@@ -643,6 +643,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 "animated_svg": _specs.generate_animated_svg_spec,
                 "scene3d": _specs.generate_scene3d_spec,
                 "aframe": _specs.generate_aframe_spec,
+                "lottie": _specs.generate_lottie_spec,
             }
             spec_result = fns[chosen_type](snippet, context)
             spec_cache_info = (

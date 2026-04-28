@@ -560,3 +560,28 @@ th, td {
 .hud-kills[data-state="warn"] .hud-value { color: var(--vis-warn); }
 .hud-kills[data-state="tripped"] .hud-value { color: var(--vis-tripped); }
 .hud-kills[data-state="ok"]      .hud-value { color: var(--vis-ok); }
+
+/* Substrate-distribution stacked bar inside the CELLS HUD slot.
+   Each segment colored by substrate type via SUBSTRATE_COLORS in JS;
+   subtle glow + transition so a count change reads as live. */
+.hud-cells-cell {
+  align-items: center;
+}
+.hud-cells-bar {
+  display: inline-block;
+  width: 7rem;
+  height: 0.42rem;
+  margin-left: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 1px;
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 30%, transparent));
+}
+.hud-cells-bar rect {
+  transition: width 0.4s ease;
+}
+.theme-magi .hud-cells-bar {
+  filter: drop-shadow(0 0 3px rgba(255, 140, 0, 0.45));
+}
+.theme-minimal .hud-cells-bar {
+  filter: none;
+}

@@ -43,9 +43,10 @@
         <span class="hud-label">SINCE.LAST</span>
         <span class="hud-value" id="hud-elapsed-val">—</span>
       </span>
-      <span class="hud-cell">
+      <span class="hud-cell hud-cells-cell">
         <span class="hud-label">CELLS</span>
         <span class="hud-value" id="hud-cells-val">—</span>
+        <svg class="hud-cells-bar" id="hud-cells-bar" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true"></svg>
       </span>
       <span class="hud-cell">
         <span class="hud-label">SESSION</span>
@@ -301,11 +302,72 @@ function computeHud(data, substrateAudit, mintLog) {
 
   return {
     status,
-    cells: `${visible.length}  [${Object.entries(byType).map(([t, n]) => `${t}:${n}`).join("·")}]`,
+    cells: `${visible.length}`,
+    cellsByType: byType,
+    cellsTotal: visible.length,
     session: (data.session_id || "—").slice(0, 8),
     theme: (window.__LUCIDA_THEME || "lab").toUpperCase(),
     kill1, kill2, kill3, recent,
   };
+}
+
+// Substrate-type → theme-token color mapping for the CELLS stacked bar.
+// Higher-value substrates get bright tokens; text + image get de-emphasized
+// since they're either anti-differentiation (text) or demoted (image).
+const SUBSTRATE_COLORS = {
+  vega:         "var(--accent)",
+  mermaid:      "var(--vis-ok, #4ade80)",
+  html:         "var(--vis-warn, #fbbf24)",
+  animated_svg: "var(--accent)",
+  scene3d:      "var(--vis-ok, #4ade80)",
+  aframe:       "var(--vis-warn, #fbbf24)",
+  lottie:       "var(--muted)",
+  text:         "var(--muted)",
+  image:        "var(--vis-tripped, #f87171)",
+};
+
+// Render the stacked-bar of substrate distribution. Idempotent: clears
+// previous segments + rebuilds. Uses a small cache so we don't repaint
+// when the breakdown is unchanged.
+let _lastCellsBarKey = null;
+function renderCellsBar(byType, total) {
+  const svg = document.getElementById("hud-cells-bar");
+  if (!svg) return;
+  if (!total || total <= 0) {
+    svg.innerHTML = "";
+    _lastCellsBarKey = null;
+    return;
+  }
+  // Stable order: prioritize visible/high-value substrates first so the
+  // bar reads left-to-right by importance.
+  const order = ["vega", "mermaid", "html", "animated_svg", "scene3d",
+                 "aframe", "lottie", "image", "text"];
+  const present = order.filter(t => byType[t]);
+  for (const t of Object.keys(byType)) {
+    if (!present.includes(t)) present.push(t);
+  }
+  const key = present.map(t => `${t}:${byType[t]}`).join(",") + `=${total}`;
+  if (key === _lastCellsBarKey) return;
+  _lastCellsBarKey = key;
+
+  svg.innerHTML = "";
+  let x = 0;
+  for (const t of present) {
+    const n = byType[t];
+    const w = (n / total) * 100;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", x.toFixed(3));
+    rect.setAttribute("y", "0");
+    rect.setAttribute("width", w.toFixed(3));
+    rect.setAttribute("height", "6");
+    rect.setAttribute("fill", SUBSTRATE_COLORS[t] || "var(--muted)");
+    rect.setAttribute("opacity", t === "text" || t === "lottie" ? "0.5" : "0.92");
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent = `${t}: ${n}`;
+    rect.appendChild(title);
+    svg.appendChild(rect);
+    x += w;
+  }
 }
 
 // Parse mint_log.jsonl (one JSON object per line) into an array.
@@ -405,6 +467,7 @@ async function loadHud() {
   const m = computeHud(cellsData, substrateAudit, mintLog);
   typeInto("hud-status-val", m.status);
   typeInto("hud-cells-val", m.cells);
+  renderCellsBar(m.cellsByType, m.cellsTotal);
   typeInto("hud-session-val", m.session);
   typeInto("hud-theme-val", m.theme);
   typeInto("hud-kill1-val", m.kill1);

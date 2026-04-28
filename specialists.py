@@ -645,6 +645,61 @@ def generate_aframe_spec(snippet: str, context: str = "", model: str = DEFAULT_M
     return _result(raw["input"], raw, model)
 
 
+# ============================================================
+# LOTTIE — placeholder specialist; almost always demotes
+# ============================================================
+
+LOTTIE_SYSTEM = """You are the lottie specialist for lucida. The classifier picked lottie, but Lottie animations are designer-authored JSON (After Effects export via Bodymovin) -- not realistically generatable from prose. Your job is to be honest about that limit and route the cell elsewhere.
+
+# Decision rule
+
+In nearly all cases, set should_demote_to_text=true and explain in demotion_reason which alternate substrate would actually serve the snippet:
+
+- If the snippet has temporal/dynamic content (cycle, flow, growth, decay, pulse) → demotion_reason should say "Better served by animated_svg -- inline SVG with SMIL animations encodes this motion class without designer tooling. Re-classify as animated_svg."
+- If the snippet has structural relationships (entities + edges) → "Better served by mermaid (static graph) or scene3d/aframe (3D structure)."
+- If the snippet has multi-point quantitative data → "Better served by vega-lite."
+- If the snippet is meta-commentary or pure prose → "No viz substrate fits; text is honest here."
+
+A "_skip" spec output is a fallback — only emit it if the orchestrator forced lottie (--type lottie) and the cell must render as a placeholder. Format:
+
+spec: {"_skip": true, "reason": "Lottie requires pre-authored designer JSON; this snippet should have been routed to <alt>"}
+
+caption (in skip case): "(lottie skipped — see notes)"
+
+# Pattern: do not invent Lottie JSON
+
+Lottie's schema includes layers, shapes, keyframes, timing curves, and matte references. An LLM-generated Lottie JSON will be syntactically near-Lottie but semantically broken (missing layer references, invalid bezier handles, etc.). Do NOT emit such output -- it produces a render error in the cell. Always either demote to text or emit a `_skip` placeholder.
+
+# Worked example (the typical case)
+
+Snippet: "The closed-loop ratio climbed from 21.4% to 35.8% over four passes; the asymptote sits near 54.5%."
+
+Decision: demote_to_text = true. demotion_reason = "Multi-point quantitative time-series with a known asymptote -- this is a vega-lite line chart, not a Lottie animation. Re-classify."
+
+# Output via the build_lottie_spec tool.
+"""
+
+LOTTIE_TOOL = {
+    "name": "build_lottie_spec",
+    "description": "Honest Lottie specialist -- nearly always demotes with a substrate-redirect reason.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {"type": "object", "description": "Either a valid Lottie JSON, or a {_skip: true, reason: ...} placeholder. Empty {} when demoting."},
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string", "description": "Required when demoting. Should name the better-fit substrate."},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_lottie_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+    raw = _call_specialist(LOTTIE_SYSTEM, LOTTIE_TOOL, "build_lottie_spec", snippet, context, model)
+    return _result(raw["input"], raw, model)
+
+
 def main() -> None:
     """CLI for testing a specialist in isolation."""
     import argparse
