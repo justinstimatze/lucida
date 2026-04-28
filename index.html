@@ -98,6 +98,23 @@ import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.mi
 // Active theme is set by the inline head script -> window.__LUCIDA_THEME.
 const ACTIVE = window.__LUCIDA_THEME || "lab";
 
+// Multi-stream arc step 2: ?session=<id> filter. Read once at module
+// load. null/undefined = unscoped view (show every cell, current
+// default). The literal string "untagged" is a pseudo-session that
+// shows only cells without a session_id (everything before step 1
+// landed). Otherwise: filter to cells whose session_id matches.
+const ACTIVE_SESSION = (function () {
+  try {
+    const v = new URLSearchParams(window.location.search).get("session");
+    return v || null;
+  } catch (e) { return null; }
+})();
+function matchesActiveSession(cell) {
+  if (ACTIVE_SESSION == null) return true;
+  if (ACTIVE_SESSION === "untagged") return !cell.session_id;
+  return cell.session_id === ACTIVE_SESSION;
+}
+
 const THEME_CONFIG = {
   lab: {
     mermaid: { theme: "dark" },
@@ -371,7 +388,11 @@ async function fetchText(path) {
 // regex / proxy heuristics so the strip never reads "—".
 function computeHud(data, substrateAudit, mintLog) {
   const cells = data.cells || [];
-  const active = cells.filter(c => !c.replaced_by);
+  // Scope to the active session if ?session= is set; otherwise global.
+  // Kill-criteria gauges then reflect the current session's rates, not
+  // a cross-session aggregate that would be misleading in a session view.
+  const scoped = cells.filter(matchesActiveSession);
+  const active = scoped.filter(c => !c.replaced_by);
   const visible = active.filter(c => !(c.cell_type === "text" && c.attempted_cell_type));
   const byType = {};
   for (const c of visible) byType[c.cell_type] = (byType[c.cell_type] || 0) + 1;
@@ -422,7 +443,11 @@ function computeHud(data, substrateAudit, mintLog) {
     cells: `${visible.length}`,
     cellsByType: byType,
     cellsTotal: visible.length,
-    session: (data.session_id || "—").slice(0, 8),
+    // Session display: prefer the active ?session= filter when set,
+    // else fall back to the corpus-level session_id field. The literal
+    // "untagged" view shows that explicitly. Truncated to 8 chars to
+    // fit the HUD slot.
+    session: (ACTIVE_SESSION || data.session_id || "—").slice(0, 8),
     theme: (window.__LUCIDA_THEME || "lab").toUpperCase(),
     kill1, kill2, kill3, recent,
   };
@@ -512,6 +537,7 @@ function liveAppendNewCells(cellsData) {
   const visible = cellsData.cells.filter(c => {
     if (c.cell_type === "text" && c.attempted_cell_type) return false;
     if (c.replaced_by) return false;
+    if (!matchesActiveSession(c)) return false;  // ?session=<id> filter (step 2)
     return true;
   });
   // First poll establishes the baseline; subsequent polls detect deltas.
@@ -806,6 +832,7 @@ async function load() {
   const visible = data.cells.filter(c => {
     if (c.cell_type === "text" && c.attempted_cell_type) return false;  // demoted by trivial-filter
     if (c.replaced_by) return false;                                     // superseded by a retrigger
+    if (!matchesActiveSession(c)) return false;                          // ?session=<id> filter (step 2)
     return true;
   });
 
