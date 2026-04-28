@@ -127,6 +127,8 @@ MERMAID_SYSTEM = """You are the mermaid specialist for lucida. The classifier ha
 - Only edges for relationships the snippet claims. Edge labels should reflect the snippet's actual verb (e.g. "complements", "depends on", "cites", "supersedes") -- not invented.
 - Use directed edges (-->, -.->) for asymmetric relationships, undirected (---) only when the snippet really doesn't claim direction.
 - Use \\n for line breaks within node labels (mermaid syntax).
+- **Graph well-formedness**: every edge endpoint must be declared as a labeled node BEFORE the edge appears. `A -->|closes| F` is invalid if F has no `F["..."]` declaration above. The audit treats undeclared endpoints as INVENTED nodes. If you reference a node ID, declare it.
+- **Planning-paragraph trap**: if the snippet's main predicate is a cognitive verb (examines, considers, designs, proposes, evaluates) and the structural entities are referents of that cognition rather than declared actors, the structural artifact lives in the snippet's *referent*, not the snippet itself. The specialist would have to invent edges, hierarchy, or directory layout the snippet doesn't state. In this case set should_demote_to_text=true with a one-line demotion_reason. The classifier-side meta-narration gate catches most of these upstream, but trust your own audit when it slips through.
 
 # Required pre-spec step: entity & relationship enumeration
 
@@ -217,6 +219,8 @@ VEGA_SYSTEM = """You are the vega specialist for lucida. The classifier has deci
 - Set "background": "transparent" so the cell-bg shows through (the lucida theme provides background color).
 - Width 400-600, height 60-200 typical for a single-claim chart.
 - Mark choices: use "bar" for comparisons, "line" for trends, "point" for distributions. Single-value charts (one bar) usually warrant demotion to text instead.
+- **Preserve epistemic markers.** If the snippet uses "may", "if", "unconfirmed", "hypothetical", "target vs. observed", or frames a number as a hypothesis, the chart and caption must preserve that hedge. Rendering an unconfirmed claim as a confirmed data row (row label `target` for a value the snippet calls a hypothetical destination) is INVENTED framing, not DIRECT. If the snippet says "20% is the kill threshold, may not hit it", the chart row for 20 is labeled `kill threshold (unconfirmed)` or similar — never `target`. Caption phrasing must match: "the audit confirms WHETHER the drop is real" stays hypothetical; do not paraphrase as "the audit confirms the drop is real". When the snippet's epistemic markers can't fit in row labels, demote to text.
+- **Don't invent group labels.** If the snippet distinguishes data points only by their numeric values (e.g., "seed 2 produced 23.38, seeds 0,1,3,4 produced 18.71"), do NOT add a categorical group label like `Response A` / `Response B` to encode the distinction. The snippet does not name the groups; naming them invents structure. Encode the distinction visually (color, shape) without inventing string labels.
 
 # Required pre-spec step: numeric enumeration
 
@@ -309,6 +313,8 @@ HTML_SYSTEM = """You are the html specialist for lucida. The classifier has deci
 - Empty cells where the snippet underspecifies a dimension. Do NOT fill with plausible-looking guesses; an empty cell is more honest than an invented one.
 - Use <th> for header rows and column labels.
 - Keep the table compact: single line of HTML if possible (no extraneous whitespace inside tags).
+- **Planning-paragraph trap**: same as mermaid — if the snippet's main predicate is a cognitive verb (examines, considers, designs, proposes) and the table's rows would be projections of *what someone is thinking about* rather than *declared entities*, the table's content lives in the snippet's referent, not the snippet itself. Demote to text. The classifier-side meta-narration gate catches most of these; trust your own audit when one slips through.
+- **Preserve epistemic markers.** If a snippet describes "before X / after Y" where Y is hypothetical or unconfirmed, the cell value must carry the hedge ("Y (target)", "Y (proposed)") — do not present it as a stated state.
 
 # Required pre-spec step: cell-level provenance audit
 
