@@ -572,3 +572,43 @@ N=5 re-test before committing the prompt change to main —
 specifically against cells where the named-entity rule should NOT
 fire (cells with no named entities), to check the forcing step
 doesn't over-correct generic snippets downward.
+
+### Followup: i2i remediation under auto-generated guidance (N=4, $0.32)
+
+The N=5 i2i finding above (line ~380) used **hand-authored** corrective
+briefs targeting each snippet's named compromise. The shipped retrigger
+loop uses the evaluator's auto-generated `retrigger_guidance` field
+instead. Re-tested 4 of the original cells under the shipped pipeline
+(`retest_remediation.py`, results in `/tmp/lucida_retest/`):
+
+| Cell | Mode | Route | Before | After | Δ | Verdict |
+|---|---|---|---|---|---|---|
+| 0022 (Singer) | missed_detail | i2i | 0.62 | 0.82 | +0.20 | **fixed** |
+| 0025 (lighthouse) | missed_detail | i2i | 0.62 | 0.62 | 0.00 | unchanged |
+| 0014 (corn) | literal_simile_color | i2i | 0.62 | 0.62 | 0.00 | unchanged |
+| 0010 (COSTCO) | literal_simile_metaphor | fresh | 0.45 | 0.55 | +0.10 | unchanged |
+
+**Disconfirmation: 1 of 4 cells crossed the 0.7 line.** Same modes,
+same routes, but the mode taxonomy doesn't predict reliable remediation
+under the shipped pipeline — only one same-mode/same-route pair (Singer)
+moved. Lighthouse with identical procedure didn't budge.
+
+**Refined claim:** the modes (`missed_detail`, `literal_simile_color`)
+identify cases where i2i is *worth attempting* — never made anything
+worse, no catastrophic over-corrections like the wrong_genre N=1 — but
+the original "i2i works when…" reads stronger than the shipped pipeline
+delivers.
+
+**Most likely cause of the gap:** hand-authored briefs ≠ auto-generated
+`retrigger_guidance`. The N=5 briefs in line ~380 named the specific
+compromise ("corn is living"; "Singer machines visible, calendar
+present"). The auto-generated guidance is shorter and more generic —
+sometimes a single sentence. The mode taxonomy is doing real work, but
+the guidance content is the load-bearing variable, not the mode.
+
+**Carry-forward:** when guidance quality matters, the next intervention
+isn't a richer mode taxonomy — it's a more pointed `retrigger_guidance`
+prompt in the evaluator. The forcing-step pattern that worked on
+named-entity audits and on the vega specialist's numeric enumeration
+applies here too: enumerate the missed compromises before composing
+the corrective brief.

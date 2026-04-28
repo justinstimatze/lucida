@@ -128,6 +128,31 @@ MERMAID_SYSTEM = """You are the mermaid specialist for lucida. The classifier ha
 - Use directed edges (-->, -.->) for asymmetric relationships, undirected (---) only when the snippet really doesn't claim direction.
 - Use \\n for line breaks within node labels (mermaid syntax).
 
+# Required pre-spec step: entity & relationship enumeration
+
+Before producing spec, mentally execute this audit (do not output it):
+
+1. Enumerate every entity the snippet names. These are NODE candidates -- concrete subjects, projects, concepts, or actors named in the prose.
+2. Enumerate every relationship the snippet asserts between two named entities, including the verb the snippet uses ("complements", "supersedes", "cites", "depends on"). These are EDGE candidates.
+3. For every node in your spec, classify as one of:
+   - DIRECT: the snippet names this entity explicitly.
+   - INVENTED: plausible but the snippet does not name it.
+4. For every edge in your spec, classify as one of:
+   - DIRECT: the snippet asserts this exact relationship between these two entities.
+   - DERIVED: a chain the snippet itself collapses (e.g., the snippet says "A through B leads to C" -- A->B->C are direct, A->C is not). Mere conceptual adjacency is NOT derived.
+   - INVENTED: plausible but the snippet does not assert this relationship. Forbidden.
+5. INVENTED nodes and edges are forbidden. This is non-negotiable. It overrides the urge to "round out" a graph that has visual asymmetry or feels under-connected.
+
+# Anti-pattern: invented edges between real nodes
+
+Snippet: "ballast and sisyphus both complement zerosum's argument."
+
+Audit: nodes ballast (DIRECT), sisyphus (DIRECT), zerosum (DIRECT). Edges ballast--complements-->zerosum (DIRECT), sisyphus--complements-->zerosum (DIRECT).
+
+WRONG: add a `ballast <--> sisyphus "siblings"` edge because the prose puts them in the same sentence. The snippet does not claim a ballast-sisyphus relationship; the only claim is that each independently complements zerosum. The sibling edge is INVENTED.
+
+RIGHT: two edges, both pointing into zerosum. Visual asymmetry is acceptable -- the graph reflects the snippet's actual claim structure.
+
 # When to demote to text
 
 Set should_demote_to_text=true if:
@@ -284,6 +309,30 @@ HTML_SYSTEM = """You are the html specialist for lucida. The classifier has deci
 - Empty cells where the snippet underspecifies a dimension. Do NOT fill with plausible-looking guesses; an empty cell is more honest than an invented one.
 - Use <th> for header rows and column labels.
 - Keep the table compact: single line of HTML if possible (no extraneous whitespace inside tags).
+
+# Required pre-spec step: cell-level provenance audit
+
+Before producing the table, mentally execute this audit (do not output it):
+
+1. Enumerate every entity the snippet names. These are ROW candidates.
+2. Enumerate every dimension or attribute the snippet uses to compare entities. These are COLUMN candidates.
+3. For every row label (<th> in tbody) and every column label (<th> in thead), confirm it traces to a snippet-named entity or dimension. Invented row/column labels are forbidden -- adding a "cost" column when the snippet only discusses pace and quality is the failure mode.
+4. For every <td> data cell, classify the value as:
+   - DIRECT: stated verbatim in the snippet for that entity-dimension pair.
+   - DERIVED: arithmetic on stated values where the operation is unambiguous.
+   - EMPTY: the snippet does not specify this cell. Leave it empty -- empty cells are honest.
+   - INVENTED: a plausible-looking value the snippet does not state. Forbidden.
+5. INVENTED row labels, column labels, and cell values are all forbidden. This overrides the urge to "complete" a sparse table by inferring values from genre conventions.
+
+If the resulting table is more empty than full (count(EMPTY) > count(DIRECT) + count(DERIVED)), demote to text -- a mostly-empty table reads as a list of missing data rather than a comparison.
+
+# Anti-pattern: invented column
+
+Snippet: "The cooperative pays above-market wages; the competitor pays below-market wages."
+
+Audit: rows = cooperative (DIRECT), competitor (DIRECT). Columns = wages (DIRECT). Cells: cooperative-wages = "above-market" (DIRECT), competitor-wages = "below-market" (DIRECT).
+
+WRONG: add a "size" column or "tenure" column because comparison tables "usually" have multiple dimensions. The snippet states one dimension; that's a 2x1 table or a demotion to text, not a 2x3 table with INVENTED columns.
 
 # When to demote to text
 
