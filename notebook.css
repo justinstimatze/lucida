@@ -821,6 +821,49 @@ th, td {
    cell-arrive (slide-up + glow). Keeps the diff focused on substrates
    where a distinct entrance reads as meaningful. */
 
+/* Inter-cell connections: SVG overlay that draws glowing paths between
+   reflection cells and their source cells (drawConnections in index.html).
+   Pointer-events: none means it never blocks cell interaction. The
+   overlay itself is fixed-position so scroll just shifts the page
+   underneath while paths redraw on rAF-throttled scroll listener. */
+#connection-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+.connection-path {
+  fill: none;
+  stroke: var(--accent, #66ccff);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 8;
+  opacity: 0.35;
+  filter: drop-shadow(0 0 2px var(--accent, #66ccff));
+  animation: connection-flow 3.5s linear infinite;
+}
+@keyframes connection-flow {
+  to { stroke-dashoffset: -28; }
+}
+.theme-magi .connection-path {
+  stroke: #00ff41;
+  opacity: 0.45;
+  filter: drop-shadow(0 0 3px #00ff41) drop-shadow(0 0 6px rgba(0, 255, 65, 0.4));
+}
+.theme-minimal .connection-path {
+  stroke: #0070f3;
+  stroke-dasharray: 4 6;
+  opacity: 0.4;
+  filter: none;
+}
+.theme-gastown .connection-path {
+  stroke: #8b5e3c;
+  opacity: 0.5;
+  filter: drop-shadow(0 0 1px rgba(139, 94, 60, 0.5));
+}
+
 /* Peripheral-to-center bloom: a kill-criteria slot that just transitioned
    to "tripped" clones a hero card to center via Web Animations API
    (see bloomKillTrip in index.html). The Iron HUD signature move per

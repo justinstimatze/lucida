@@ -84,6 +84,12 @@
   </div>
 </header>
 <main id="notebook"></main>
+<!-- Inter-cell connections overlay: glowing SVG paths drawn between
+     reflection cells and their source cells. Fixed-position so it
+     redraws on scroll cheaply; pointer-events:none so it never
+     interferes with cell interaction. See drawConnections() below. -->
+<svg id="connection-overlay" aria-hidden="true"
+     xmlns="http://www.w3.org/2000/svg"></svg>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
 
@@ -546,6 +552,9 @@ function liveAppendNewCells(cellsData) {
   }
   // Transfer the "still warm" hero glow to the newest appended cell.
   if (firstNode) applyStillWarmToLatest();
+  // Redraw inter-cell connections — a fresh reflection cell or a fresh
+  // source cell can both invalidate existing paths.
+  if (firstNode) scheduleRedrawConnections();
   return fresh.length;
 }
 
@@ -690,6 +699,79 @@ window.lucidaBloomDemo = function (slotId = "hud-kill3-slot") {
   if (slot) bloomKillTrip(slot, 99);
 };
 
+// Inter-cell connections: glowing SVG paths drawn from each visible
+// reflection cell to each of its source cells. Makes the JARVIS-style
+// "this analysis is fed by these inputs" relationship visible at a
+// glance. Pure SVG overlay, vanilla JS — no graph lib (per
+// memory/no_react_flow.md).
+//
+// Skips draws when either endpoint is far off-screen (>1500px from
+// viewport) so we don't generate paths spanning the entire document.
+// Throttled via rAF on scroll to stay cheap.
+let _connectionsRAFPending = false;
+function scheduleRedrawConnections() {
+  if (_connectionsRAFPending) return;
+  _connectionsRAFPending = true;
+  requestAnimationFrame(() => {
+    _connectionsRAFPending = false;
+    drawConnections();
+  });
+}
+
+function drawConnections() {
+  const svg = document.getElementById("connection-overlay");
+  if (!svg) return;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  svg.setAttribute("width", vw);
+  svg.setAttribute("height", vh);
+  svg.setAttribute("viewBox", `0 0 ${vw} ${vh}`);
+  // Clear and redraw all paths each frame — cheap because reflection
+  // cells are rare; the path count is small (typically 0-5).
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const reflections = document.querySelectorAll(".cell-reflection[data-source-ids]");
+  if (!reflections.length) return;
+
+  for (const refl of reflections) {
+    const reflRect = refl.getBoundingClientRect();
+    // Skip if reflection is far above or below viewport — the paths
+    // would span huge distances and visually clutter without insight.
+    if (reflRect.bottom < -1500 || reflRect.top > vh + 1500) continue;
+    const reflX = reflRect.left + 12;  // anchor near top-left of reflection card
+    const reflY = reflRect.top + reflRect.height / 2;
+
+    const sourceIds = (refl.dataset.sourceIds || "").split(",").filter(Boolean);
+    for (const sid of sourceIds) {
+      const src = document.getElementById(sid);
+      if (!src) continue;
+      const srcRect = src.getBoundingClientRect();
+      if (srcRect.bottom < -1500 || srcRect.top > vh + 1500) continue;
+      const srcX = srcRect.right - 12;
+      const srcY = srcRect.top + srcRect.height / 2;
+
+      // Quadratic bezier curving outward to the right of the column,
+      // so multiple paths fan rather than overlap. The outward bulge
+      // distance scales with vertical distance between endpoints.
+      const dy = Math.abs(reflY - srcY);
+      const bulge = Math.min(180, 60 + dy * 0.25);
+      const ctrlX = Math.max(srcX, reflX) + bulge;
+      const ctrlY = (srcY + reflY) / 2;
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute(
+        "d",
+        `M ${srcX} ${srcY} Q ${ctrlX} ${ctrlY} ${reflX} ${reflY}`
+      );
+      path.setAttribute("class", "connection-path");
+      svg.appendChild(path);
+    }
+  }
+}
+
+window.addEventListener("scroll", scheduleRedrawConnections, { passive: true });
+window.addEventListener("resize", scheduleRedrawConnections);
+
 function flashHud() {
   const hud = document.getElementById("hud");
   hud.classList.add("hud-flash");
@@ -749,6 +831,9 @@ async function load() {
   // subtle glow that fades over ~60s. Survives across renders by
   // looking at timestamp on each load.
   applyStillWarmToLatest();
+  // Initial draw of inter-cell connections; subsequent redraws fire
+  // on scroll/resize and after liveAppendNewCells.
+  scheduleRedrawConnections();
 }
 
 // Tag the most-recent cell with .cell-still-warm. The CSS animates the
@@ -777,6 +862,7 @@ function renderCell(c, snippetGroups) {
   const sources = Array.isArray(c.reflection_source_ids) ? c.reflection_source_ids : [];
   if (sources.length > 0) {
     card.classList.add("cell-reflection");
+    card.dataset.sourceIds = sources.join(",");
   }
   const head = el("div", "cell-head");
   head.appendChild(el("span", "cell-type", c.cell_type));
