@@ -127,24 +127,27 @@ main {
   margin: 0;  /* gap on the grid handles spacing instead of margin */
   padding: 0.75rem 1rem;
   min-width: 0;  /* let grid items shrink below their intrinsic width */
-  /* Universal height cap. Tightened from 28vh → 38vh after user
-     observed html cells clipping their last row. Reflections override
-     to 50vh; hero overrides to 55vh. Per memory/
-     feedback_glanceable_no_clicks.md the user shouldn't have to
-     scroll past one tall cell to see the next, but cells need enough
-     room to actually carry the content the LLM packed in. */
-  max-height: 38vh;
+  /* Universal height cap. 32vh balances density (4-5 cells visible
+     in a typical 1000px viewport) against content-fit (most html
+     tables + mermaid graphs fit at this height). When content
+     genuinely exceeds, the bottom fade gradient hints at clipped
+     rows. Per memory/feedback_glanceable_no_clicks.md. */
+  max-height: 32vh;
   overflow: hidden;
   position: relative;
 }
 .cell::after {
+  /* Fade gradient height shrunk from 3rem → 1.4rem after user
+     observation that the fade was hiding ~one row of legitimate
+     content on cells that barely overflowed. Now the fade only
+     visually softens the very last sliver. */
   content: "";
   position: absolute;
   inset: auto 0 0 0;
-  height: 3rem;
+  height: 1.4rem;
   background: linear-gradient(to bottom,
     transparent,
-    color-mix(in srgb, var(--cell-bg) 90%, transparent) 55%,
+    color-mix(in srgb, var(--cell-bg) 75%, transparent) 50%,
     var(--cell-bg));
   pointer-events: none;
   opacity: 0;
@@ -158,7 +161,7 @@ main {
   grid-column: 1 / -1;
   padding: clamp(0.9rem, 1.5vw, 1.4rem) clamp(1rem, 2vw, 1.6rem);
   font-size: clamp(0.95rem, 1vw + 0.4rem, 1.05rem);
-  max-height: 55vh;  /* bumped from 42vh — hero needs room without forced clip */
+  max-height: 45vh;  /* hero gets more headroom than ambient (32vh) */
 }
 .cell:first-child .cell-head {
   font-size: clamp(0.85rem, 0.9vw + 0.3rem, 1rem);
@@ -219,7 +222,7 @@ main {
    ambient cells deserves the same prominence as a fresh hero. */
 .cell.cell-reflection {
   grid-column: 1 / -1;
-  max-height: 50vh;
+  max-height: 42vh;
 }
 /* Substrate-aware tiling: cells whose content needs horizontal room
    to be readable get span 2 in the ambient grid. Mermaid graphs +
@@ -958,14 +961,18 @@ th, td {
   font-family: "Courier New", "Lucida Console", monospace !important;
 }
 .theme-magi .mermaid-target .edgeLabel rect {
-  fill: rgba(12, 12, 12, 0.8) !important;
-  stroke: rgba(255, 140, 0, 0.25) !important;
+  /* Backing opacity bumped from 0.8 → 0.96 — at 0.8 the green edge
+     line shone through enough to make the amber label text hard
+     to parse. 0.96 keeps a subtle cell-bg-blend while still cleanly
+     occluding the edge stroke. */
+  fill: rgba(12, 12, 12, 0.96) !important;
+  stroke: rgba(255, 140, 0, 0.35) !important;
   stroke-width: 1px !important;
 }
 .theme-magi .mermaid-target .edgeLabel foreignObject div {
-  background-color: rgba(12, 12, 12, 0.8) !important;
+  background-color: rgba(12, 12, 12, 0.96) !important;
   padding: 0.05rem 0.25rem;
-  border: 1px solid rgba(255, 140, 0, 0.25);
+  border: 1px solid rgba(255, 140, 0, 0.35);
 }
 
 /* Arrowheads — magi green to match the line color. Mermaid v10 uses
