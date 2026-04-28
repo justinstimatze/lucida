@@ -701,6 +701,13 @@ function liveAppendNewCells(cellsData) {
   // Redraw inter-cell connections — a fresh reflection cell or a fresh
   // source cell can both invalidate existing paths.
   if (firstNode) scheduleRedrawConnections();
+  // Re-tag overflow on any cells that may have changed size from the
+  // append (and async-loaded content settling in for fresh cells).
+  if (firstNode) {
+    scheduleCheckOverflow();
+    setTimeout(scheduleCheckOverflow, 800);
+    setTimeout(scheduleCheckOverflow, 2200);
+  }
   return fresh.length;
 }
 
@@ -931,6 +938,24 @@ function drawConnections() {
 window.addEventListener("scroll", scheduleRedrawConnections, { passive: true });
 window.addEventListener("resize", scheduleRedrawConnections);
 
+// Tag cells that overflow their height cap so the bottom-fade gradient
+// only renders where it's needed. Without this, every short cell gets
+// a spurious fade. Re-runs on resize and on retries after fresh mints
+// (async vega/mermaid/scene3d content settles in over a few seconds).
+let _overflowCheckPending = false;
+function scheduleCheckOverflow() {
+  if (_overflowCheckPending) return;
+  _overflowCheckPending = true;
+  requestAnimationFrame(() => {
+    _overflowCheckPending = false;
+    document.querySelectorAll("#notebook .cell").forEach(c => {
+      const overflows = c.scrollHeight > c.clientHeight + 2;
+      c.classList.toggle("cell-overflow", overflows);
+    });
+  });
+}
+window.addEventListener("resize", scheduleCheckOverflow);
+
 function flashHud() {
   const hud = document.getElementById("hud");
   hud.classList.add("hud-flash");
@@ -994,6 +1019,15 @@ async function load() {
   // Initial draw of inter-cell connections; subsequent redraws fire
   // on scroll/resize and after liveAppendNewCells.
   scheduleRedrawConnections();
+  // Tag cells whose content exceeds the height cap so the fade
+  // gradient renders only where needed.
+  scheduleCheckOverflow();
+  // Catch async-loaded content (vega/mermaid/scene3d) that resolves
+  // after first layout — re-check at intervals during the first
+  // few seconds of page life.
+  setTimeout(scheduleCheckOverflow, 500);
+  setTimeout(scheduleCheckOverflow, 1500);
+  setTimeout(scheduleCheckOverflow, 3000);
 }
 
 // Tag the most-recent cell with .cell-still-warm. The CSS animates the

@@ -73,14 +73,38 @@ main {
   margin: 0;  /* gap on the grid handles spacing instead of margin */
   padding: 0.75rem 1rem;
   min-width: 0;  /* let grid items shrink below their intrinsic width */
+  /* Universal height cap: no single cell may dominate the viewport,
+     regardless of its DOM position or whether it's a reflection.
+     Per memory/feedback_glanceable_no_clicks.md the user shouldn't
+     have to scroll past one tall cell to see the next. The fade
+     gradient hints "more content if scrolled" without requiring a
+     click-to-expand interaction. */
+  max-height: 55vh;
+  overflow: hidden;
+  position: relative;
 }
+.cell::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3rem;
+  background: linear-gradient(to bottom,
+    transparent,
+    color-mix(in srgb, var(--cell-bg) 90%, transparent) 55%,
+    var(--cell-bg));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.cell.cell-overflow::after { opacity: 1; }
 /* Tier 1: hero — newest cell. Full row, larger padding + font, more
-   prominent. The cell-still-warm glow already differentiates this
-   cell visually; size differential reinforces. */
+   prominent. Allowed slightly more vertical room than ambient cells
+   because the hero is the load-bearing focus of the glance. */
 .cell:first-child {
   grid-column: 1 / -1;
   padding: clamp(0.9rem, 1.5vw, 1.4rem) clamp(1rem, 2vw, 1.6rem);
   font-size: clamp(0.95rem, 1vw + 0.4rem, 1.05rem);
+  max-height: 70vh;
 }
 .cell:first-child .cell-head {
   font-size: clamp(0.85rem, 0.9vw + 0.3rem, 1rem);
