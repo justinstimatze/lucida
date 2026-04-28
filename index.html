@@ -1262,12 +1262,20 @@ function renderCell(c, snippetGroups) {
     card.classList.add("cell-reflection");
     card.dataset.sourceIds = sources.join(",");
   }
+  // Top-left cell head: dense, dynamic-content-only. The type label
+  // ("vega" / "html" / etc.) is dropped — the cell's visual rendering
+  // already tells the user what substrate it is, and the label costs
+  // a slot that should carry actual signal. Per memory/
+  // feedback_dynamic_only_chrome.md.
+  // Order (left-to-right): cell-id (clickable to copy) ·
+  //   discourse_move (causal/comparative/...) · confidence · attempt-
+  //   badge if any · timestamp.
   const head = el("div", "cell-head");
-  head.appendChild(el("span", "cell-type", c.cell_type));
   if (c.id) {
     const idEl = el("button", "cell-id", c.id);
     idEl.type = "button";
     idEl.title = "click to copy";
+    idEl.dataset.cellType = c.cell_type;  // for substrate-based color hint
     idEl.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(c.id);
@@ -1284,12 +1292,20 @@ function renderCell(c, snippetGroups) {
     });
     head.appendChild(idEl);
   }
+  if (c.discourse_move) {
+    head.appendChild(el("span", "cell-move", c.discourse_move));
+  }
+  if (typeof c.confidence === "number") {
+    const conf = el("span", "cell-conf", c.confidence.toFixed(2));
+    conf.title = `classifier confidence: ${c.confidence}`;
+    head.appendChild(conf);
+  }
   if (snippetGroups && c.trigger_snippet) {
     const group = snippetGroups.get(c.trigger_snippet);
     if (group && group.length > 1) {
       const idx = group.indexOf(c.id);
       head.appendChild(el("span", "cell-attempt-badge",
-        `attempt ${idx + 1} of ${group.length}`));
+        `${idx + 1}/${group.length}`));
     }
   }
   head.appendChild(el("span", "cell-time", c.timestamp || ""));
@@ -1304,22 +1320,6 @@ function renderCell(c, snippetGroups) {
       srcRow.appendChild(a);
     }
     card.appendChild(srcRow);
-  }
-
-  if (c.trigger_snippet) {
-    // Collapsed by default for density; reference info, not load-bearing
-    // for the glance. Pattern matches the prompt collapse below.
-    const trig = el("details", "cell-trigger");
-    trig.appendChild(el("summary", null, "trigger snippet"));
-    trig.appendChild(el("pre", null, c.trigger_snippet));
-    card.appendChild(trig);
-  }
-
-  if (c.prompt) {
-    const p = el("details", "cell-prompt");
-    p.appendChild(el("summary", null, "prompt"));
-    p.appendChild(el("pre", null, c.prompt));
-    card.appendChild(p);
   }
 
   const body = el("div", "cell-body");
@@ -1555,6 +1555,23 @@ function renderCell(c, snippetGroups) {
       }
     }
     card.appendChild(n);
+  }
+
+  // Trigger snippet + prompt: bottom of cell, collapsed by default.
+  // Reference info — load-bearing only when debugging or auditing
+  // a specific cell. Per memory/feedback_dynamic_only_chrome.md, kept
+  // out of the prime visual real estate at the top.
+  if (c.trigger_snippet) {
+    const trig = el("details", "cell-trigger");
+    trig.appendChild(el("summary", null, "trigger snippet"));
+    trig.appendChild(el("pre", null, c.trigger_snippet));
+    card.appendChild(trig);
+  }
+  if (c.prompt) {
+    const p = el("details", "cell-prompt");
+    p.appendChild(el("summary", null, "prompt"));
+    p.appendChild(el("pre", null, c.prompt));
+    card.appendChild(p);
   }
 
   return card;
