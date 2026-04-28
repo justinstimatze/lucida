@@ -1004,26 +1004,25 @@ function drawConnections() {
 
     const stubsBelow = sources.filter(s => s.bucket === "below");
     const stubsAbove = sources.filter(s => s.bucket === "above");
-    const stubBaseY = (dir) => {
-      if (dir === "below") {
-        // Anchor at min(reflRect.bottom, vh) — never draw outside the
-        // viewport. Without this clamp, stubs stack at y=reflRect.bottom
-        // which can be below vh when the reflection extends past the
-        // fold, producing the "giant green line below the screen" bug.
-        return Math.min(vh, reflRect.bottom);
-      }
-      return Math.max(0, reflRect.top);
-    };
     const drawStubFan = (stubs, dir) => {
       if (!stubs.length) return;
-      const baseY = stubBaseY(dir);
+      // Anchor at the reflection's edge in the direction-of-source.
+      // Skip when that edge isn't visible — no useful place to draw
+      // a directional indicator the user can see.
+      const refEdge = dir === "below" ? reflRect.bottom : reflRect.top;
+      if (dir === "below" && (refEdge >= vh || refEdge < 0)) return;
+      if (dir === "above" && (refEdge <= 0 || refEdge > vh)) return;
+      const baseY = refEdge;
       const endY = dir === "below"
         ? Math.min(vh - 2, baseY + 60)
         : Math.max(2, baseY - 60);
-      if (Math.abs(endY - baseY) < 8) return;  // not enough viewport room
-      const fanWidth = Math.min(reflRect.width - 32, stubs.length * 22);
+      if (Math.abs(endY - baseY) < 16) return;  // too short — would read as a glitch
+      // Fan stubs across the reflection's edge so multiple off-screen
+      // sources don't stack at the same X. Width capped at the
+      // reflection's own width minus padding.
+      const fanWidth = Math.min(reflRect.width - 48, stubs.length * 26);
       const fanLeft = reflCx - fanWidth / 2;
-      stubs.forEach((s, i) => {
+      stubs.forEach((_, i) => {
         const x = stubs.length === 1
           ? reflCx
           : fanLeft + (i + 0.5) * (fanWidth / stubs.length);
