@@ -872,42 +872,55 @@ function drawConnections() {
   svg.setAttribute("width", vw);
   svg.setAttribute("height", vh);
   svg.setAttribute("viewBox", `0 0 ${vw} ${vh}`);
-  // Clear and redraw all paths each frame — cheap because reflection
-  // cells are rare; the path count is small (typically 0-5).
   while (svg.firstChild) svg.removeChild(svg.firstChild);
 
   const reflections = document.querySelectorAll(".cell-reflection[data-source-ids]");
   if (!reflections.length) return;
 
+  // Helper: is rect at least partially in viewport?
+  const inView = (r) => r.bottom > 0 && r.top < vh;
+
   for (const refl of reflections) {
     const reflRect = refl.getBoundingClientRect();
-    // Skip if reflection is far above or below viewport — the paths
-    // would span huge distances and visually clutter without insight.
-    if (reflRect.bottom < -1500 || reflRect.top > vh + 1500) continue;
-    const reflX = reflRect.left + 12;  // anchor near top-left of reflection card
-    const reflY = reflRect.top + reflRect.height / 2;
+    if (!inView(reflRect)) continue;
 
     const sourceIds = (refl.dataset.sourceIds || "").split(",").filter(Boolean);
     for (const sid of sourceIds) {
       const src = document.getElementById(sid);
       if (!src) continue;
       const srcRect = src.getBoundingClientRect();
-      if (srcRect.bottom < -1500 || srcRect.top > vh + 1500) continue;
-      const srcX = srcRect.right - 12;
-      const srcY = srcRect.top + srcRect.height / 2;
+      if (!inView(srcRect)) continue;
 
-      // Quadratic bezier curving outward to the right of the column,
-      // so multiple paths fan rather than overlap. The outward bulge
-      // distance scales with vertical distance between endpoints.
-      const dy = Math.abs(reflY - srcY);
-      const bulge = Math.min(180, 60 + dy * 0.25);
-      const ctrlX = Math.max(srcX, reflX) + bulge;
-      const ctrlY = (srcY + reflY) / 2;
+      // Anchor at horizontal centers; pick the nearest edge of each
+      // rect along the vertical axis. With reverse-chrono + hero/
+      // ambient layout, source is typically *below* reflection
+      // (older), so we connect refl.bottom → src.top. The reverse
+      // case (older reflection above newer source) is rare but
+      // handled.
+      const srcCx = srcRect.left + srcRect.width / 2;
+      const reflCx = reflRect.left + reflRect.width / 2;
+      let srcY, reflY;
+      if (srcRect.top >= reflRect.bottom) {
+        srcY = srcRect.top;
+        reflY = reflRect.bottom;
+      } else if (srcRect.bottom <= reflRect.top) {
+        srcY = srcRect.bottom;
+        reflY = reflRect.top;
+      } else {
+        // Overlapping vertically — connect midpoints, less ideal but
+        // avoids zero-length or backwards paths.
+        srcY = srcRect.top + srcRect.height / 2;
+        reflY = reflRect.top + reflRect.height / 2;
+      }
 
+      // Gentle S-curve: control points pulled toward each endpoint's
+      // own X but pushed slightly past the midpoint Y. Caps the
+      // horizontal sweep so curves don't arc across unrelated cells.
+      const midY = (srcY + reflY) / 2;
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute(
         "d",
-        `M ${srcX} ${srcY} Q ${ctrlX} ${ctrlY} ${reflX} ${reflY}`
+        `M ${srcCx} ${srcY} C ${srcCx} ${midY}, ${reflCx} ${midY}, ${reflCx} ${reflY}`
       );
       path.setAttribute("class", "connection-path");
       svg.appendChild(path);
