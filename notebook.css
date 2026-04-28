@@ -43,16 +43,67 @@ header h1 {
   font-family: ui-monospace, SF Mono, Menlo, monospace;
 }
 main {
-  max-width: 920px;
+  max-width: 1280px;  /* widened from 920px to accommodate the ambient
+                         2-column grid; hero/transitional cells still
+                         span the full 1280px row, ambient cells get
+                         ~620px each */
   margin: 1rem auto;
   padding: 0 1rem;
+}
+/* Hero/ambient auto-arrangement: newest cell fills the row at hero
+   scale, cells 2-3 are transitional (full-width, slightly smaller),
+   cells 4+ flow into a 2-column ambient grid. Reflections promote
+   themselves back to full-width regardless of position via the
+   .cell-reflection override below. Per
+   memory/feedback_glanceable_no_clicks.md — layout carries the
+   hierarchy, no clicks required. */
+#notebook {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-items: start;
 }
 .cell {
   background: var(--cell-bg);
   border: 1px solid var(--line);
   border-radius: 4px;
-  margin: 0.75rem 0;
+  margin: 0;  /* gap on the grid handles spacing instead of margin */
   padding: 0.75rem 1rem;
+  min-width: 0;  /* let grid items shrink below their intrinsic width */
+}
+/* Tier 1: hero — newest cell. Full row, larger padding + font, more
+   prominent. The cell-still-warm glow already differentiates this
+   cell visually; size differential reinforces. */
+.cell:first-child {
+  grid-column: 1 / -1;
+  padding: 1.2rem 1.4rem;
+  font-size: 1.02rem;
+}
+.cell:first-child .cell-head {
+  font-size: 0.95rem;
+}
+/* Tier 2: transitional — cells 2 and 3. Still full row, slightly
+   downsized. Smooths the visual jump from hero to ambient. */
+.cell:nth-child(2),
+.cell:nth-child(3) {
+  grid-column: 1 / -1;
+}
+/* Tier 3: ambient — cells 4+. Flow naturally in the 2-column grid,
+   smaller padding, smaller body font. Density-packed; the user
+   glances and parses the column rather than reads each cell. */
+.cell:nth-child(n+4) {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.88rem;
+}
+.cell:nth-child(n+4) .cell-head {
+  font-size: 0.7rem;
+}
+/* Reflections auto-promote: even when their DOM position would put
+   them in the ambient grid, they take a full row. The connection
+   lines drawn from sources still land — and a reflection synthesizing
+   ambient cells deserves the same prominence as a fresh hero. */
+.cell.cell-reflection {
+  grid-column: 1 / -1;
 }
 .cell-head {
   display: flex;
