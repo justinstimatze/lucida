@@ -1267,10 +1267,13 @@ function renderCell(c, snippetGroups) {
   // already tells the user what substrate it is, and the label costs
   // a slot that should carry actual signal. Per memory/
   // feedback_dynamic_only_chrome.md.
-  // Order (left-to-right): cell-id (clickable to copy) ·
-  //   discourse_move (causal/comparative/...) · confidence · attempt-
-  //   badge if any · timestamp.
+  // Order (left-to-right): generated title (prominent) · discourse_move
+  // · confidence · attempt-badge if any · cell-id (small, clickable to
+  // copy) · timestamp.
   const head = el("div", "cell-head");
+  if (c.title) {
+    head.appendChild(el("span", "cell-title", c.title));
+  }
   if (c.id) {
     const idEl = el("button", "cell-id", c.id);
     idEl.type = "button";

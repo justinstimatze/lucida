@@ -271,6 +271,25 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.cell-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--fg);
+  letter-spacing: 0.01em;
+  flex: 1;  /* takes leftover row space; pushes the metadata chips right */
+  margin-right: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.theme-magi .cell-title {
+  color: #ff8c00;
+  text-shadow: 0 0 4px rgba(255, 140, 0, 0.35);
+}
+.cell-id {
+  font-size: 0.7rem;  /* demoted now that title carries the load */
+  opacity: 0.7;
+}
 .cell-move {
   font-size: 0.65rem;
   letter-spacing: 0.12em;

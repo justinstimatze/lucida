@@ -152,8 +152,13 @@ CLASSIFY_TOOL = {
                 "type": "string",
                 "description": "1-2 sentences explaining the classification.",
             },
+            "title": {
+                "type": "string",
+                "description": "Short title (3-6 words, sentence case, no trailing punctuation) summarizing the cell's content. Title must be grounded in the snippet — no metaphor, no decoration. Examples: 'Tier 3 WebGL swap', 'Multi-stream column layout', 'HUD bug root cause'. Distinct from the long-form reasoning field; this is the at-a-glance label that replaces the opaque cell-XXXX id in the renderer head.",
+                "maxLength": 60,
+            },
         },
-        "required": ["discourse_move", "cell_type", "confidence", "reasoning"],
+        "required": ["discourse_move", "cell_type", "confidence", "reasoning", "title"],
     },
 }
 
@@ -168,6 +173,7 @@ class ClassifierResult:
     cell_type: str
     confidence: float
     reasoning: str
+    title: str
     model: str
     cache_read_tokens: int
     cache_creation_tokens: int
@@ -218,6 +224,7 @@ def classify(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> Cla
                 cell_type=inp["cell_type"],
                 confidence=float(inp["confidence"]),
                 reasoning=inp["reasoning"],
+                title=inp.get("title", "").strip()[:60],
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
                 cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,

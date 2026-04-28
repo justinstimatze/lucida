@@ -74,6 +74,7 @@ class CellProposal:
     discourse_move: str | None = None
     confidence: float | None = None
     classifier_reasoning: str | None = None
+    title: str | None = None  # short generated title (3-6 words) for the cell head
     # populated when this cell is a reflection -- ids of the cells reflected on
     reflection_source_ids: list[str] | None = None
     # populated by the autonomous retrigger loop (image cells only):
@@ -598,6 +599,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     discourse_move = None
     confidence = None
     classifier_reasoning = None
+    cell_title = None
     classifier_label = f"classifier(v0)→{auto_type_v0}"
     gate_note = ""
     chosen_type = cell_type or auto_type_v0
@@ -609,6 +611,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             discourse_move = llm.discourse_move
             confidence = llm.confidence
             classifier_reasoning = llm.reasoning
+            cell_title = llm.title
             short_model = llm.model.replace("claude-", "")
             if llm.cache_read_tokens > 0:
                 cache_info = f"cache:hit/{llm.cache_read_tokens}t"
@@ -777,6 +780,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         discourse_move=discourse_move,
         confidence=confidence,
         classifier_reasoning=classifier_reasoning,
+        title=cell_title,
         session_id=session_id,
     )
 
