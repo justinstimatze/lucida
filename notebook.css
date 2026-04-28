@@ -1264,22 +1264,85 @@ th, td {
   background:
     linear-gradient(180deg, transparent 0%, rgba(255, 140, 0, 0.02) 50%, transparent 100%);
 }
+/* Scanline visual signature: a faint horizontal sweep that suggests
+   "live readout being scanned." User feedback: original 2px solid
+   amber line was too close to the table border in both color and
+   brightness; the sweep blurred into the border. Refinement: a wider
+   soft-edged gradient band that's brighter in the middle and fades
+   out at the row edges, with a subtle blur that distinguishes it
+   from solid borders. Theme-scoped (.theme-magi) — other themes
+   (Bladerunner, Severance, Tron etc) won't inherit; they pick their
+   own visual signatures via the --vis-* token vocabulary. */
 .theme-magi .html-target::before {
   content: "";
   position: absolute;
-  left: 0; right: 0;
+  left: 5%; right: 5%;  /* inset so the band reads as floating, not a border replacement */
   top: 0;
-  height: 2px;
-  background: linear-gradient(to bottom,
-    rgba(255, 140, 0, 0.5),
-    rgba(255, 140, 0, 0.05));
+  height: 12px;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 200, 100, 0.35) 0%,
+    rgba(255, 140, 0, 0.18) 40%,
+    transparent 75%);
+  filter: blur(1px);
   pointer-events: none;
-  animation: html-scan 11s linear infinite;
+  animation: html-scan 13s linear infinite;
 }
 @keyframes html-scan {
-  0%   { transform: translateY(0); opacity: 0.7; }
-  90%  { transform: translateY(800%); opacity: 0.5; }
-  100% { transform: translateY(800%); opacity: 0; }
+  0%   { transform: translateY(-12px); opacity: 0; }
+  8%   { opacity: 1; }
+  90%  { transform: translateY(70vh); opacity: 0.85; }
+  100% { transform: translateY(70vh); opacity: 0; }
+}
+
+/* Hero-cell scanline (magi only): a slower, more subtle ambient
+   sweep on whatever cell is currently in the hero slot. Reinforces
+   "this is the active focus" without competing with the html
+   scanline. Different rhythm (17s, slower) so the two scans don't
+   visually phase-lock. */
+.theme-magi .cell:first-child::before {
+  content: "";
+  position: absolute;
+  left: 8%; right: 8%;
+  top: 0;
+  height: 18px;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 200, 100, 0.22) 0%,
+    rgba(255, 140, 0, 0.08) 50%,
+    transparent 80%);
+  filter: blur(1.5px);
+  pointer-events: none;
+  z-index: 1;
+  animation: hero-scan 17s linear infinite;
+}
+.theme-magi .cell:first-child {
+  position: relative;  /* anchor for the ::before scanline */
+}
+@keyframes hero-scan {
+  0%   { transform: translateY(-18px); opacity: 0; }
+  6%   { opacity: 1; }
+  92%  { transform: translateY(45vh); opacity: 0.7; }
+  100% { transform: translateY(45vh); opacity: 0; }
+}
+
+/* Page-level CRT phosphor scan (magi only): faint repeating
+   horizontal lines across the entire viewport. Adds a uniform
+   "everything is on a CRT" texture without ever being a focal
+   element. Theme-scoped; other themes opt in by adding their own
+   body::after / scanline rules. */
+.theme-magi body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 140, 0, 0.025) 0px,
+    rgba(255, 140, 0, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
 }
 .theme-magi .html-target th {
   background: rgba(255, 140, 0, 0.1);
