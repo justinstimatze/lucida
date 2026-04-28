@@ -1298,21 +1298,21 @@ th, td {
 .theme-magi .html-target::before {
   content: "";
   position: absolute;
-  left: 5%; right: 5%;  /* inset so the band reads as floating, not a border replacement */
+  left: 15%; right: 15%;  /* tighter inset — the band is a hint, not a width */
   top: 0;
-  height: 12px;
+  height: 8px;            /* was 12 */
   background: radial-gradient(ellipse at center,
-    rgba(255, 200, 100, 0.35) 0%,
-    rgba(255, 140, 0, 0.18) 40%,
+    rgba(255, 200, 100, 0.14) 0%,    /* was 0.35 */
+    rgba(255, 140, 0, 0.06) 40%,     /* was 0.18 */
     transparent 75%);
-  filter: blur(1px);
+  filter: blur(1.5px);
   pointer-events: none;
-  animation: html-scan 13s linear infinite;
+  animation: html-scan 22s linear infinite;  /* was 13s — slower */
 }
 @keyframes html-scan {
-  0%   { transform: translateY(-12px); opacity: 0; }
-  8%   { opacity: 1; }
-  90%  { transform: translateY(70vh); opacity: 0.85; }
+  0%   { transform: translateY(-8px); opacity: 0; }
+  10%  { opacity: 1; }
+  88%  { transform: translateY(70vh); opacity: 0.55; }  /* was 0.85 — dimmer at end */
   100% { transform: translateY(70vh); opacity: 0; }
 }
 
