@@ -165,11 +165,25 @@ Or one-pass:
 python watcher.py --transcript /path/to/transcript.txt --write --generate
 ```
 
-For Claude Code session logs (jsonl), pre-process via:
+## Adapters (multi-AI source support)
+
+Each AI tool's session log/history needs to be flattened into the
+prose format the watcher consumes. Adapters live in `adapters/`,
+share one interface, and dispatch via the unified CLI:
 
 ```bash
-python jsonl_to_transcript.py /path/to/session.jsonl --out /tmp/transcript.txt
+python -m adapters.cli --source claude-code <jsonl>     --out /tmp/transcript.txt
+python -m adapters.cli --source aider       <chat.md>   --out /tmp/transcript.txt
 ```
+
+Currently shipped: `claude-code` (Claude Code .jsonl) and `aider`
+(`.aider.chat.history.md`). Adding a new adapter is one Python file
+in `adapters/` plus an entry in `adapters/__init__.py`'s `ADAPTERS`
+registry. See `memory/multi_assistant_dashboard.md` for the broader
+arc (Hermes, Cursor agent mode, etc.).
+
+`jsonl_to_transcript.py` remains as a backward-compat shim for
+existing scripts (hooks/recent_mints.sh, the live watcher loop).
 
 Multi-session (passive dashboard for multiple Claude Code windows):
 launch one watcher per session, each with a distinct `--session-id`,
