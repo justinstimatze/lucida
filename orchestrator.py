@@ -708,11 +708,18 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 else "cache:miss"
             )
             if brief.should_demote_to_text:
-                chosen_type = "text"
-                gate_note += f" [imgspec demoted to text: {spec_cache_info}]"
+                # Same rule as non-image specialists: image-specialist
+                # demote-to-text bypasses the classifier text gate.
+                # Suppress instead.
+                raise SuppressedMintError(
+                    f"image-specialist could not ground brief in snippet "
+                    f"({spec_cache_info}); silent > forced viz"
+                )
             else:
                 image_prompt_override = _imgspec.build_gemini_prompt(brief, snippet)
                 classifier_label += f" [imgspec:{spec_cache_info}]"
+        except SuppressedMintError:
+            raise  # propagate out — watcher counts as suppressed
         except Exception as e:
             classifier_label += f" [imgspec failed: {e}]"
 
@@ -746,9 +753,17 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 else "cache:miss"
             )
             if spec_result.should_demote_to_text:
-                old_type = chosen_type
-                chosen_type = "text"
-                gate_note += f" [{old_type}-specialist demoted to text: {spec_result.demotion_reason}]"
+                # Per audit 2026-04-28 #2: when a specialist can't ground
+                # the spec in the snippet, demote-to-text leaks an
+                # un-grounded text cell (the classifier-level text gate
+                # already passed; the demote bypasses the suppression
+                # check). Suppress instead. The specialist is the most
+                # qualified judge of "is there a viz here" — if it says
+                # no, silent > forced text.
+                raise SuppressedMintError(
+                    f"{chosen_type}-specialist could not ground spec: "
+                    f"{spec_result.demotion_reason}; silent > forced viz"
+                )
             else:
                 if chosen_type == "html":
                     non_image_html = spec_result.spec
@@ -756,6 +771,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     non_image_spec = spec_result.spec
                 non_image_caption = spec_result.caption
                 classifier_label += f" [{chosen_type}-specialist:{spec_cache_info}]"
+        except SuppressedMintError:
+            raise  # propagate out — watcher counts as suppressed, not error
         except Exception as e:
             classifier_label += f" [{chosen_type}-specialist failed: {e}]"
 
