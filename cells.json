@@ -4,14 +4,14 @@
     {
       "id": "cell-0005",
       "timestamp": "2026-04-27T05:27:19+00:00",
-      "cell_type": "image",
+      "cell_type": "text",
       "trigger_snippet": "The Margaret moment is not a break \u2014 Margaret appears as a detail the narrator celebrates as a successful pensioner, and the reader's recognition of what Margaret is inside the celebration is the essay's emotional center.",
       "prompt": "(nano banana prompt)\nConceptual scene illustrating: The Margaret moment is not a break \u2014 Margaret appears as a detail the narrator celebrates as a successful pensioner, and the reader's recognition of what Margaret is inside the celebration is the essay's emotional center.\nStyle: warm, restrained, low-saturation, painterly.\nNo text, no captions in the image.\n\nContext:\n(none)",
       "image_path": "cells/cell-0005.png",
       "spec": null,
       "html": null,
       "caption": "",
-      "notes": "generated via gemini-2.5-flash-image (1781371 bytes)"
+      "notes": "generated via gemini-2.5-flash-image (1781371 bytes) [retyped image\u2192text 2026-04-27: wrong_genre \u2014 meta-commentary, image was wrong cell type; image_path retained as evidence]"
     },
     {
       "id": "cell-0006",
@@ -260,10 +260,91 @@
       "trigger_snippet": "Between 1979 and 2019, the top 10% of US households captured 56% of total income growth, while the bottom 50% captured 4%. The middle 40% saw their share fall by 8 percentage points.",
       "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nBetween 1979 and 2019, the top 10% of US households captured 56% of total income growth, while the bottom 50% captured 4%. The middle 40% saw their share fall by 8 percentage points.\n\nContext:\n(none)",
       "image_path": null,
-      "spec": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "data": {
+          "values": [
+            {
+              "group": "Top 10%",
+              "share_pct": 56
+            },
+            {
+              "group": "Middle 40%",
+              "share_pct": 36
+            },
+            {
+              "group": "Bottom 50%",
+              "share_pct": 4
+            }
+          ]
+        },
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 3
+        },
+        "encoding": {
+          "y": {
+            "field": "group",
+            "type": "nominal",
+            "sort": [
+              "-share_pct"
+            ],
+            "axis": {
+              "title": null,
+              "labelFontSize": 12
+            }
+          },
+          "x": {
+            "field": "share_pct",
+            "type": "quantitative",
+            "axis": {
+              "title": "Share of total income growth (%)",
+              "titleFontSize": 11
+            },
+            "scale": {
+              "domain": [
+                0,
+                65
+              ]
+            }
+          },
+          "color": {
+            "field": "group",
+            "type": "nominal",
+            "legend": null,
+            "scale": {
+              "domain": [
+                "Top 10%",
+                "Middle 40%",
+                "Bottom 50%"
+              ],
+              "range": [
+                "#c0392b",
+                "#8e9fc5",
+                "#4a7fa5"
+              ]
+            }
+          },
+          "tooltip": [
+            {
+              "field": "group",
+              "type": "nominal",
+              "title": "Group"
+            },
+            {
+              "field": "share_pct",
+              "type": "quantitative",
+              "title": "Share (%)"
+            }
+          ]
+        },
+        "width": 480,
+        "height": 120
+      },
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192quantitative/vega@0.93 [v0\u2192vega] cache:wrote/2550t]",
+      "caption": "Share of total US income growth captured by each group, 1979\u20132019. The top 10% took 56%; the bottom 50% took just 4%.",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.93 [v0\u2192vega] cache:wrote/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -585,10 +666,84 @@
       "trigger_snippet": "Between 1979 and 2019, US labor productivity rose roughly 65 percent. Median real hourly compensation rose roughly 14 percent. The gap is not a margin of error -- it is the entire empirical fact this essay must explain.",
       "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nBetween 1979 and 2019, US labor productivity rose roughly 65 percent. Median real hourly compensation rose roughly 14 percent. The gap is not a margin of error -- it is the entire empirical fact this essay must explain.\n\nContext:\nDocument: lucida_seg_test.md. Document summary: A short essay on mid-century agrarian knowledge that weaves together structural economic arguments (the productivity-compensation gap, unequal exchange) with a grounded scene of traditional farming in Oaxaca, Mexico.. Surrounding context: Opening paragraph; introduced as 'the productivity-compensation gap,' framed as the empirical anchor for the essay's structural argument.",
       "image_path": null,
-      "spec": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "data": {
+          "values": [
+            {
+              "series": "Labor Productivity",
+              "growth_pct": 65
+            },
+            {
+              "series": "Median Real Hourly Compensation",
+              "growth_pct": 14
+            }
+          ]
+        },
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 4
+        },
+        "encoding": {
+          "y": {
+            "field": "series",
+            "type": "nominal",
+            "axis": {
+              "title": null,
+              "labelFontSize": 12
+            },
+            "sort": "-x"
+          },
+          "x": {
+            "field": "growth_pct",
+            "type": "quantitative",
+            "axis": {
+              "title": "Cumulative Growth (%)",
+              "titleFontSize": 11
+            },
+            "scale": {
+              "domain": [
+                0,
+                75
+              ]
+            }
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "legend": null,
+            "scale": {
+              "domain": [
+                "Labor Productivity",
+                "Median Real Hourly Compensation"
+              ],
+              "range": [
+                "#6ab0de",
+                "#b0c4b1"
+              ]
+            }
+          },
+          "tooltip": [
+            {
+              "field": "series",
+              "type": "nominal",
+              "title": "Metric"
+            },
+            {
+              "field": "growth_pct",
+              "type": "quantitative",
+              "title": "Growth (%)",
+              "format": ".0f"
+            }
+          ]
+        },
+        "width": 480,
+        "height": 110
+      },
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192quantitative/vega@0.92 [v0\u2192vega] cache:hit/2550t]",
+      "caption": "US labor productivity vs. median real hourly compensation growth, 1979\u20132019. Productivity rose ~65%; compensation rose ~14% \u2014 a 51-point gap that is the essay's central empirical fact.",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.92 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -717,10 +872,76 @@
       "trigger_snippet": "Between 1979 and 2019 the median price of housing in the United States rose by roughly 121 percent in real terms while median renter income rose by approximately 8 percent.",
       "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nBetween 1979 and 2019 the median price of housing in the United States rose by roughly 121 percent in real terms while median renter income rose by approximately 8 percent.\n\nContext:\nTranscript: lucida_transcript_test.md. Recent context: A brief quantitative note asserting that US median housing prices rose ~121% in real terms between 1979 and 2019 while median renter income rose only ~8%, framing the resulting affordability gap as structural rather than cyclical.. Surrounding: A standalone quantitative note establishing a structural housing affordability gap in the US over a 40-year period. No preceding argument; this is the anchor claim.",
       "image_path": null,
-      "spec": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "data": {
+          "values": [
+            {
+              "series": "Median housing price",
+              "growth_pct": 121
+            },
+            {
+              "series": "Median renter income",
+              "growth_pct": 8
+            }
+          ]
+        },
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 3
+        },
+        "encoding": {
+          "y": {
+            "field": "series",
+            "type": "nominal",
+            "axis": {
+              "title": null,
+              "labelFontSize": 12
+            }
+          },
+          "x": {
+            "field": "growth_pct",
+            "type": "quantitative",
+            "axis": {
+              "title": "Real growth, 1979\u20132019 (%)",
+              "titleFontSize": 11
+            }
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "Median housing price",
+                "Median renter income"
+              ],
+              "range": [
+                "#c0717c",
+                "#6a9fb5"
+              ]
+            },
+            "legend": null
+          },
+          "tooltip": [
+            {
+              "field": "series",
+              "type": "nominal",
+              "title": "Series"
+            },
+            {
+              "field": "growth_pct",
+              "type": "quantitative",
+              "title": "Growth (%)"
+            }
+          ]
+        },
+        "width": 480,
+        "height": 110
+      },
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192quantitative/vega@0.95 [v0\u2192text] cache:hit/2550t]",
+      "caption": "Real growth in U.S. median housing prices vs. median renter income, 1979\u20132019. Housing prices rose ~121% while renter incomes grew just ~8%.",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.95 [v0\u2192text] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -1367,10 +1588,86 @@
       "trigger_snippet": "Current baseline closed-loop ratio: **21.4%** (6/28). Target: \u226550% over the next 30 content cells.",
       "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nCurrent baseline closed-loop ratio: **21.4%** (6/28). Target: \u226550% over the next 30 content cells.\n\nContext:\nTranscript: lucida_transcript_filtered.txt. Recent context: A session handoff document and live development log for \"lucida,\" a co-evolving AI notebook. It covers three recent commits (honesty pass, retrigger gate, and closed-loop metric), a live watcher experiment that exposed architecture gaps, a reflection-cadence fix, JSONL extraction bugs, and evolving quantitative claims about the closed-loop ratio target.. Surrounding: End of commit-summary table listing three recent fixes; sets the project's quantitative goal going into the next session.",
       "image_path": null,
-      "spec": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "width": 480,
+        "height": 100,
+        "data": {
+          "values": [
+            {
+              "label": "Current (baseline)",
+              "ratio_pct": 21.4
+            },
+            {
+              "label": "Target",
+              "ratio_pct": 50
+            }
+          ]
+        },
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 4
+        },
+        "encoding": {
+          "y": {
+            "field": "label",
+            "type": "nominal",
+            "axis": {
+              "title": null,
+              "labelFontSize": 12
+            },
+            "sort": [
+              "Target",
+              "Current (baseline)"
+            ]
+          },
+          "x": {
+            "field": "ratio_pct",
+            "type": "quantitative",
+            "scale": {
+              "domain": [
+                0,
+                100
+              ]
+            },
+            "axis": {
+              "title": "Closed-loop ratio (%)",
+              "tickCount": 5
+            }
+          },
+          "color": {
+            "field": "label",
+            "type": "nominal",
+            "legend": null,
+            "scale": {
+              "domain": [
+                "Current (baseline)",
+                "Target"
+              ],
+              "range": [
+                "#5b8db8",
+                "#a0c878"
+              ]
+            }
+          },
+          "tooltip": [
+            {
+              "field": "label",
+              "type": "nominal",
+              "title": "Stage"
+            },
+            {
+              "field": "ratio_pct",
+              "type": "quantitative",
+              "title": "Ratio (%)"
+            }
+          ]
+        }
+      },
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192quantitative/vega@0.82 [v0\u2192vega] cache:wrote/2550t]",
+      "caption": "Closed-loop ratio: current baseline 21.4% (6/28) vs. \u226550% target over next 30 content cells.",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.82 [v0\u2192vega] cache:wrote/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -1389,10 +1686,110 @@
       "trigger_snippet": "Honest result: **the ratio went DOWN, 21.4% \u2192 17.1%.** Why: the watcher mints (6 closed / 28 content \u2192 6 closed / 35 content), but the closed-loop machinery doesn't fire autonomously. Numerator stayed at 6, denominator grew by 7. Every fresh cell dilutes the ratio.",
       "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nHonest result: **the ratio went DOWN, 21.4% \u2192 17.1%.** Why: the watcher mints (6 closed / 28 content \u2192 6 closed / 35 content), but the closed-loop machinery doesn't fire autonomously. Numerator stayed at 6, denominator grew by 7. Every fresh cell dilutes the ratio.\n\nContext:\nTranscript: lucida_transcript_filtered.txt. Recent context: A session handoff document and live development log for \"lucida,\" a co-evolving AI notebook. It covers three recent commits (honesty pass, retrigger gate, and closed-loop metric), a live watcher experiment that exposed architecture gaps, a reflection-cadence fix, JSONL extraction bugs, and evolving quantitative claims about the closed-loop ratio target.. Surrounding: After running the watcher on a 30K transcript chunk without reflection; first empirical test of the live metric.",
       "image_path": null,
-      "spec": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "data": {
+          "values": [
+            {
+              "state": "Before",
+              "closed": 6,
+              "total": 28,
+              "ratio": 21.4
+            },
+            {
+              "state": "After",
+              "closed": 6,
+              "total": 35,
+              "ratio": 17.1
+            }
+          ]
+        },
+        "width": 480,
+        "height": 130,
+        "layer": [
+          {
+            "mark": {
+              "type": "bar",
+              "cornerRadiusEnd": 3
+            },
+            "encoding": {
+              "x": {
+                "field": "state",
+                "type": "nominal",
+                "axis": {
+                  "title": null,
+                  "labelFontSize": 13
+                },
+                "sort": [
+                  "Before",
+                  "After"
+                ]
+              },
+              "y": {
+                "field": "ratio",
+                "type": "quantitative",
+                "axis": {
+                  "title": "closed-loop ratio (%)",
+                  "titleFontSize": 11
+                },
+                "scale": {
+                  "domain": [
+                    0,
+                    30
+                  ]
+                }
+              },
+              "color": {
+                "field": "state",
+                "type": "nominal",
+                "scale": {
+                  "domain": [
+                    "Before",
+                    "After"
+                  ],
+                  "range": [
+                    "#6a9fb5",
+                    "#a0738a"
+                  ]
+                },
+                "legend": null
+              }
+            }
+          },
+          {
+            "mark": {
+              "type": "text",
+              "dy": -8,
+              "fontSize": 13,
+              "fontWeight": "bold",
+              "color": "#e0e0e0"
+            },
+            "encoding": {
+              "x": {
+                "field": "state",
+                "type": "nominal",
+                "sort": [
+                  "Before",
+                  "After"
+                ]
+              },
+              "y": {
+                "field": "ratio",
+                "type": "quantitative"
+              },
+              "text": {
+                "field": "ratio",
+                "type": "quantitative",
+                "format": ".1f"
+              }
+            }
+          }
+        ]
+      },
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192quantitative/vega@0.87 [v0\u2192vega] cache:hit/2550t]",
+      "caption": "Closed-loop ratio dropped from 21.4% (6/28) to 17.1% (6/35). Numerator held flat at 6; 7 new content cells diluted the denominator.",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.87 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -1433,10 +1830,180 @@
       "trigger_snippet": "Three substantive findings from these two passes: 1. **Asymptote confirmed:** 17.1% \u2192 26.7% \u2192 32.1% \u2192 35.8%. With K=3 N=5, deltas-toward-zero predicted ~54.5% asymptote. 50% target is structurally reachable. 2. **Retrigger band never exercised under shape A on engineering conversation:** zero image cells minted across 4 watcher passes. 3. **Shape A naively segments skill/system-prompt content from JSONL transcripts.**",
       "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nThree substantive findings from these two passes: 1. **Asymptote confirmed:** 17.1% \u2192 26.7% \u2192 32.1% \u2192 35.8%. With K=3 N=5, deltas-toward-zero predicted ~54.5% asymptote. 50% target is structurally reachable. 2. **Retrigger band never exercised under shape A on engineering conversation:** zero image cells minted across 4 watcher passes. 3. **Shape A naively segments skill/system-prompt content from JSONL transcripts.**\n\nContext:\nTranscript: lucida_transcript_filtered.txt. Recent context: A session handoff document and live development log for \"lucida,\" a co-evolving AI notebook. It covers three recent commits (honesty pass, retrigger gate, and closed-loop metric), a live watcher experiment that exposed architecture gaps, a reflection-cadence fix, JSONL extraction bugs, and evolving quantitative claims about the closed-loop ratio target.. Surrounding: After completing two watcher passes (one without --generate, one with); multi-point empirical result summary.",
       "image_path": null,
-      "spec": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "width": 480,
+        "height": 140,
+        "data": {
+          "values": [
+            {
+              "pass": "Pass 1",
+              "pct": 17.1
+            },
+            {
+              "pass": "Pass 2",
+              "pct": 26.7
+            },
+            {
+              "pass": "Pass 3",
+              "pct": 32.1
+            },
+            {
+              "pass": "Pass 4",
+              "pct": 35.8
+            },
+            {
+              "pass": "Predicted asymptote",
+              "pct": 54.5
+            },
+            {
+              "pass": "50% target",
+              "pct": 50.0
+            }
+          ]
+        },
+        "layer": [
+          {
+            "mark": {
+              "type": "line",
+              "point": true,
+              "color": "#7eb8c9",
+              "strokeWidth": 2
+            },
+            "transform": [
+              {
+                "filter": "datum.pass !== 'Predicted asymptote' && datum.pass !== '50% target'"
+              }
+            ],
+            "encoding": {
+              "x": {
+                "field": "pass",
+                "type": "ordinal",
+                "axis": {
+                  "title": null
+                },
+                "sort": null
+              },
+              "y": {
+                "field": "pct",
+                "type": "quantitative",
+                "axis": {
+                  "title": "% coverage",
+                  "grid": true
+                },
+                "scale": {
+                  "domain": [
+                    0,
+                    60
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "mark": {
+              "type": "rule",
+              "strokeDash": [
+                6,
+                4
+              ],
+              "color": "#a0c8a0",
+              "strokeWidth": 1.5
+            },
+            "transform": [
+              {
+                "filter": "datum.pass === '50% target'"
+              }
+            ],
+            "encoding": {
+              "y": {
+                "field": "pct",
+                "type": "quantitative"
+              }
+            }
+          },
+          {
+            "mark": {
+              "type": "rule",
+              "strokeDash": [
+                4,
+                4
+              ],
+              "color": "#c8a87e",
+              "strokeWidth": 1.5
+            },
+            "transform": [
+              {
+                "filter": "datum.pass === 'Predicted asymptote'"
+              }
+            ],
+            "encoding": {
+              "y": {
+                "field": "pct",
+                "type": "quantitative"
+              }
+            }
+          },
+          {
+            "mark": {
+              "type": "text",
+              "align": "left",
+              "dx": 6,
+              "dy": -4,
+              "fontSize": 11,
+              "color": "#c8a87e"
+            },
+            "transform": [
+              {
+                "filter": "datum.pass === 'Predicted asymptote'"
+              }
+            ],
+            "encoding": {
+              "x": {
+                "value": 0
+              },
+              "y": {
+                "field": "pct",
+                "type": "quantitative"
+              },
+              "text": {
+                "value": "~54.5% asymptote"
+              }
+            }
+          },
+          {
+            "mark": {
+              "type": "text",
+              "align": "left",
+              "dx": 6,
+              "dy": -4,
+              "fontSize": 11,
+              "color": "#a0c8a0"
+            },
+            "transform": [
+              {
+                "filter": "datum.pass === '50% target'"
+              }
+            ],
+            "encoding": {
+              "x": {
+                "value": 0
+              },
+              "y": {
+                "field": "pct",
+                "type": "quantitative"
+              },
+              "text": {
+                "value": "50% target"
+              }
+            }
+          }
+        ]
+      },
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192quantitative/vega@0.85 [v0\u2192vega] cache:hit/2550t]",
+      "caption": "Coverage asymptote progression across 4 watcher passes (17.1% \u2192 26.7% \u2192 32.1% \u2192 35.8%), with the predicted K=3 N=5 asymptote at ~54.5% and the 50% structural target shown for reference.",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.85 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -1455,10 +2022,104 @@
       "trigger_snippet": "Quick math on the asymptote: each pass adds ~11 cells to denominator and ~6 closures to numerator (5 reflected_on + 1 reflection_output), so delta-zero is at **6/11 \u2248 54.5%**. The 50% target is reachable \u2014 1-2 more passes gets us there with default K=3 N=5.",
       "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nQuick math on the asymptote: each pass adds ~11 cells to denominator and ~6 closures to numerator (5 reflected_on + 1 reflection_output), so delta-zero is at **6/11 \u2248 54.5%**. The 50% target is reachable \u2014 1-2 more passes gets us there with default K=3 N=5.\n\nContext:\nTranscript: lucida_transcript_filtered.txt. Recent context: A session handoff document and live development log for \"lucida,\" a co-evolving AI notebook. It covers three recent commits (honesty pass, retrigger gate, and closed-loop metric), a live watcher experiment that exposed architecture gaps, a reflection-cadence fix, JSONL extraction bugs, and evolving quantitative claims about the closed-loop ratio target.. Surrounding: After Pass 1 result of 32.1%; analytical projection of steady-state behavior.",
       "image_path": null,
-      "spec": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "data": {
+          "values": [
+            {
+              "label": "numerator gain (closures / pass)",
+              "value": 6
+            },
+            {
+              "label": "denominator gain (cells / pass)",
+              "value": 11
+            }
+          ]
+        },
+        "layer": [
+          {
+            "mark": {
+              "type": "bar",
+              "cornerRadiusEnd": 3
+            },
+            "encoding": {
+              "y": {
+                "field": "label",
+                "type": "nominal",
+                "axis": {
+                  "title": null,
+                  "labelLimit": 260
+                }
+              },
+              "x": {
+                "field": "value",
+                "type": "quantitative",
+                "axis": {
+                  "title": "units per pass",
+                  "tickMinStep": 1
+                },
+                "scale": {
+                  "domain": [
+                    0,
+                    12
+                  ]
+                }
+              },
+              "color": {
+                "field": "label",
+                "type": "nominal",
+                "scale": {
+                  "range": [
+                    "#7ec8c8",
+                    "#b08fc4"
+                  ]
+                },
+                "legend": null
+              }
+            }
+          },
+          {
+            "mark": {
+              "type": "rule",
+              "color": "#e8c97a",
+              "strokeDash": [
+                4,
+                3
+              ],
+              "strokeWidth": 2
+            },
+            "encoding": {
+              "x": {
+                "datum": 6.545
+              }
+            }
+          },
+          {
+            "mark": {
+              "type": "text",
+              "align": "left",
+              "dx": 6,
+              "dy": -28,
+              "color": "#e8c97a",
+              "fontSize": 11
+            },
+            "encoding": {
+              "x": {
+                "datum": 6.545
+              },
+              "text": {
+                "value": "asymptote 6/11 \u2248 54.5%"
+              }
+            }
+          }
+        ],
+        "width": 480,
+        "height": 110
+      },
       "html": null,
-      "caption": "",
-      "notes": "(awaiting generation) [classifier(sonnet-4-6)\u2192quantitative/vega@0.85 [v0\u2192vega] cache:hit/2550t]",
+      "caption": "Per-pass delta: +6 closures to numerator vs. +11 cells to denominator \u2192 asymptotic closure rate of 6/11 \u2248 54.5%. The 50% target sits below the asymptote, so convergence is achievable in 1\u20132 more passes (K=3, N=5).",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.85 [v0\u2192vega] cache:hit/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
