@@ -101,11 +101,12 @@ def classify(snippet: str) -> str:
         return "mermaid"
     if any(k in s for k in ["chart", "trend", "distribution", "percentage", "%", "gap", "vs."]):
         return "vega"
-    if any(k in s for k in ["scene", "image", "picture", "looks like", "visualize literally", "evoke"]):
-        return "image"
     if any(k in s for k in ["matrix", "heatmap", "table", "grid"]):
         return "html"
     return "text"
+    # image removed from auto-routing 2026-04-27 per kill_criteria.md #1 kill
+    # action (5/6 image cells failed snippet-fidelity at week-1 audit; only 1/4
+    # remediations clearly worked). Image cells require explicit --type image.
 
 
 def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
@@ -550,6 +551,13 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             gate_note = f" [LLM classifier failed: {e}]"
     elif cell_type and cell_type != auto_type_v0:
         classifier_label += f"; forced→{cell_type}"
+
+    # kill_criteria.md #1 kill action enacted 2026-04-27: image cells must be
+    # explicit opt-in. If neither the keyword nor LLM classifier was overridden
+    # by --type image, demote any image recommendation to text.
+    if chosen_type == "image" and cell_type != "image":
+        gate_note += " [image-demote per kill #1; pass --type image to opt-in]"
+        chosen_type = "text"
 
     # v0.5 image specialist: when we're about to generate an image cell,
     # run a 2-step prompt (Claude extracts the load-bearing visual brief,
