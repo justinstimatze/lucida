@@ -188,17 +188,14 @@ main {
   margin: 0.4rem 0;
   font-size: 0.85rem;
 }
-.cell-trigger-label {
+.cell-trigger summary, .cell-prompt summary {
+  cursor: pointer;
   color: var(--muted);
+  user-select: none;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 0.2rem;
-}
-.cell-prompt summary {
-  cursor: pointer;
-  color: var(--muted);
-  user-select: none;
 }
 .cell-trigger pre, .cell-prompt pre {
   background: var(--code-bg);
@@ -997,6 +994,109 @@ th, td {
   background: #050505;
   border-color: var(--vis-amber-glow, #ff8c00);
   box-shadow: 0 0 12px var(--vis-amber-glow, rgba(255,140,0,0.3));
+}
+
+/* HTML cell visual enrichment. The classifier honestly picks html for
+   comparison-shaped content; the user feedback was that successive html
+   cells visually felt uniform. These rules give html tables more FUI
+   weight without changing what gets minted. Per
+   memory/feedback_glanceable_no_clicks.md — passive enrichment only,
+   no required interaction. */
+.html-target {
+  display: block;
+  margin: 0.25rem 0;
+  position: relative;
+  overflow: hidden;
+}
+.html-target table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  font-size: 0.85rem;
+}
+.html-target th, .html-target td {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  transition: background-color 0.15s, box-shadow 0.15s;
+}
+.html-target th {
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.html-target tr:hover td {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.html-target td:first-child {
+  color: var(--accent);
+  font-weight: 500;
+}
+/* Row-reveal animation on fresh mints: rows cascade in with staggered
+   delays so a new html cell reads as accreting rather than appearing
+   all at once. Only triggers during the .cell-fresh window (1.4s);
+   after that the table sits static. */
+.cell.cell-fresh .html-target tr {
+  animation: html-row-reveal 0.45s ease-out backwards;
+}
+.cell.cell-fresh .html-target tr:nth-child(1) { animation-delay: 0.05s; }
+.cell.cell-fresh .html-target tr:nth-child(2) { animation-delay: 0.12s; }
+.cell.cell-fresh .html-target tr:nth-child(3) { animation-delay: 0.19s; }
+.cell.cell-fresh .html-target tr:nth-child(4) { animation-delay: 0.26s; }
+.cell.cell-fresh .html-target tr:nth-child(5) { animation-delay: 0.33s; }
+.cell.cell-fresh .html-target tr:nth-child(6) { animation-delay: 0.40s; }
+.cell.cell-fresh .html-target tr:nth-child(7) { animation-delay: 0.47s; }
+.cell.cell-fresh .html-target tr:nth-child(n+8) { animation-delay: 0.54s; }
+@keyframes html-row-reveal {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+/* Magi-specific: scan line sweeping vertically across the table, plus
+   amber accents on borders and the first-row header. Reads as a live
+   FUI readout rather than a static spreadsheet. */
+.theme-magi .html-target {
+  border: 1px solid rgba(255, 140, 0, 0.25);
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(255, 140, 0, 0.02) 50%, transparent 100%);
+}
+.theme-magi .html-target::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(to bottom,
+    rgba(255, 140, 0, 0.5),
+    rgba(255, 140, 0, 0.05));
+  pointer-events: none;
+  animation: html-scan 11s linear infinite;
+}
+@keyframes html-scan {
+  0%   { transform: translateY(0); opacity: 0.7; }
+  90%  { transform: translateY(800%); opacity: 0.5; }
+  100% { transform: translateY(800%); opacity: 0; }
+}
+.theme-magi .html-target th {
+  background: rgba(255, 140, 0, 0.1);
+  color: #ff8c00;
+  text-shadow: 0 0 4px rgba(255, 140, 0, 0.4);
+  border-color: rgba(255, 140, 0, 0.3);
+}
+.theme-magi .html-target td {
+  border-color: rgba(255, 140, 0, 0.12);
+}
+.theme-magi .html-target td:first-child {
+  color: #ff8c00;
+  text-shadow: 0 0 2px rgba(255, 140, 0, 0.3);
+}
+.theme-magi .html-target tr:hover td {
+  background: rgba(255, 140, 0, 0.05);
+  box-shadow: inset 0 0 4px rgba(255, 140, 0, 0.15);
 }
 
 /* Inter-cell connections: SVG overlay that draws glowing paths between

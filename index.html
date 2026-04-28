@@ -1110,8 +1110,10 @@ function renderCell(c, snippetGroups) {
   }
 
   if (c.trigger_snippet) {
-    const trig = el("div", "cell-trigger");
-    trig.appendChild(el("div", "cell-trigger-label", "trigger snippet"));
+    // Collapsed by default for density; reference info, not load-bearing
+    // for the glance. Pattern matches the prompt collapse below.
+    const trig = el("details", "cell-trigger");
+    trig.appendChild(el("summary", null, "trigger snippet"));
     trig.appendChild(el("pre", null, c.trigger_snippet));
     card.appendChild(trig);
   }

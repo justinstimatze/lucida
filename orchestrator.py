@@ -663,6 +663,27 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         gate_note += " [image-demote per kill #1; pass --type image to opt-in]"
         chosen_type = "text"
 
+    # Substrate diversity bias. The classifier honestly picks the
+    # best-fit substrate, but successive cells of the same type
+    # (especially html for comparison-shaped content) read as visually
+    # uniform. If this pick repeats the most recent K cells' dominant
+    # substrate beyond a threshold, suppress unless confidence is very
+    # high. Forces variety in the visible stream without driving the
+    # classifier toward substrate hallucination.
+    if cell_type is None and chosen_type and confidence is not None:
+        recent_active = [
+            c for c in data["cells"]
+            if not c.get("replaced_by")
+            and not (c.get("cell_type") == "text" and c.get("attempted_cell_type"))
+        ][-4:]
+        same_recent = sum(1 for c in recent_active if c.get("cell_type") == chosen_type)
+        if same_recent >= 2 and confidence < 0.85:
+            raise SuppressedMintError(
+                f"diversity bias: {chosen_type} appeared {same_recent}/4 in "
+                f"recent stream and confidence {confidence:.2f} < 0.85; "
+                f"hold for a more varied substrate"
+            )
+
     # v0.5 image specialist: when we're about to generate an image cell,
     # run a 2-step prompt (Claude extracts the load-bearing visual brief,
     # we compose it into a grounded Gemini prompt). The specialist may
