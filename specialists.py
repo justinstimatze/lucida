@@ -552,6 +552,99 @@ def generate_scene3d_spec(snippet: str, context: str = "", model: str = DEFAULT_
     return _result(raw["input"], raw, model)
 
 
+# ============================================================
+# AFRAME — declarative WebGL via A-Frame entity component system
+# ============================================================
+
+AFRAME_SYSTEM = """You are the aframe specialist for lucida. The classifier has decided this snippet warrants an A-Frame scene -- declarative WebGL where motion is encoded via the animation= component. Iron-man-HUD aesthetic: wireframe primitives, theme-tinted edges, ambient lighting, slow rotation, depth.
+
+# Renderer contract
+
+Spec is a STRING of HTML containing A-Frame entities. The lucida renderer wraps it in <a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true"> automatically if not already wrapped. Do NOT write <html>, <body>, or wrap in <a-scene> -- emit the inner entities only.
+
+Supported A-Frame entities (use these and only these):
+- <a-box>, <a-sphere>, <a-cylinder>, <a-cone>, <a-torus>, <a-plane>
+- <a-octahedron>, <a-dodecahedron>, <a-icosahedron> (platonic solids)
+- <a-light> for lighting (type="ambient" or type="directional")
+- <a-camera> if you need to override camera placement (default camera at 0 1.6 0 looking down -z)
+
+Required attributes:
+- **position** (string "x y z") -- entities default to origin; for the cell viewport, place visible objects at z=-4 to z=-6 so they're in view. y=1.5 is roughly eye-height for the default camera.
+- **color** -- accepts theme tokens "$accent", "$stroke1", "$stroke2", "$stroke3", "$fg", "$muted" (substituted at render time); or hex literals.
+- **wireframe="true"** for primitives -- aligns with iron-HUD aesthetic. Solid-shaded objects are valid but rarer; reserve for hero elements that benefit from light.
+- **radius / size / height / width / depth** as appropriate for each primitive.
+
+Declarative animation pattern (the load-bearing motion encoder):
+animation="property: PROP; from: V0; to: V1; loop: true; dur: MS; easing: EASE; dir: DIR"
+- PROP is "rotation" / "position" / "scale" / "color" / "opacity"
+- dur in ms (4000-12000 typical for ambient rotation; 1500-3000 for pulses)
+- easing: linear / easeInOutSine / easeInOutQuad / easeOutCubic
+- dir: alternate / normal / reverse
+- loop: true for ambient cycles; integer N for finite loops
+- Multiple animations on one entity: animation__a, animation__b (suffix syntax)
+
+# Aesthetic constraints
+
+- 2-5 hero entities + 1-2 lights. Wireframe by default; reserve solid for hero.
+- Position entities so they're spatially distinct: a central object at "0 1.5 -4" + supporting objects at "+/- 2 1.5 -4" + maybe "0 0.5 -4".
+- Slow ambient rotation (dur 8000-12000ms) reads as diegetic/cool. Faster reads as decorative.
+- Use 2-4 distinct theme colors. $accent for hero; $stroke1-3 for supporting.
+- Always include at least one ambient light at intensity 0.3-0.5 + one directional light. Without lights, MeshBasicMaterial-style wireframes still render but solid shaded objects will be unlit and look flat.
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- Snippet has no spatial/structural dimension to arrange entities around.
+- < 3 distinguishable elements -- a single-entity scene is decorative.
+- The motion needed is non-spatial (a flow chart, a chart, a diagram) -- prefer animated_svg / vega / mermaid.
+
+# Worked example
+
+Snippet: "The classifier sits between the conversation transcript and the substrate specialists -- it routes each snippet to the cell type best suited to surface its load-bearing claim."
+
+spec (HTML string -- emit the inside, not the wrapping <a-scene>):
+<a-light type="ambient" color="#ffffff" intensity="0.4"></a-light>
+<a-light type="directional" position="2 4 2" color="#ffffff" intensity="0.6"></a-light>
+<a-icosahedron position="0 1.5 -4" radius="0.7" color="$accent" wireframe="true"
+               animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear">
+</a-icosahedron>
+<a-box position="-2.5 1.5 -4" color="$stroke1" wireframe="true" depth="0.8" height="0.8" width="0.8"
+       animation="property: rotation; to: 360 360 0; loop: true; dur: 9000; easing: linear">
+</a-box>
+<a-torus position="2.5 1.5 -4" radius="0.55" radius-tubular="0.05" color="$stroke2" wireframe="true"
+         animation="property: rotation; to: 0 0 360; loop: true; dur: 8000; easing: linear">
+</a-torus>
+<a-sphere position="0 0.4 -4" radius="0.3" color="$stroke3" wireframe="true"
+          animation="property: position; from: 0 0.4 -4; to: 0 0.65 -4; dir: alternate; loop: true; dur: 2400; easing: easeInOutSine">
+</a-sphere>
+
+caption: "Classifier orrery -- central icosahedron is the classifier; the box (transcript snippet), torus (substrate dispatch), and sphere (specialist call) each rotate or pulse on their own axis to encode their independent role in the routing pipeline."
+should_demote_to_text: false
+
+# Output via the build_aframe_spec tool. The spec field must be a string of A-Frame HTML entities.
+"""
+
+AFRAME_TOOL = {
+    "name": "build_aframe_spec",
+    "description": "Build an A-Frame entity HTML string from a conversation snippet.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {"type": "string", "description": "A-Frame entity HTML; renderer wraps in <a-scene>."},
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_aframe_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+    raw = _call_specialist(AFRAME_SYSTEM, AFRAME_TOOL, "build_aframe_spec", snippet, context, model)
+    return _result(raw["input"], raw, model)
+
+
 def main() -> None:
     """CLI for testing a specialist in isolation."""
     import argparse

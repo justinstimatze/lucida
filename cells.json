@@ -2461,6 +2461,28 @@
       "replaced_by": null,
       "retrigger_count": 0,
       "retrigger_reason": null
+    },
+    {
+      "id": "cell-0076",
+      "timestamp": "2026-04-28T03:08:47+00:00",
+      "cell_type": "aframe",
+      "trigger_snippet": "Lucida intercepts the conversation transcript, classifies snippets, dispatches to substrate specialists, and renders the resulting cells live in an accreting notebook -- four stages, each running on its own loop.",
+      "prompt": "(specialist-generated; smoke-test snippet for aframe specialist demo)",
+      "caption": "Lucida pipeline orrery \u2014 four stages orbit the viewport in sequence: the torus (transcript intercept loop), icosahedron (classifier), octahedron (substrate dispatch), and box (accreting notebook) each spin on independent axes and timings, encoding their parallel autonomy. The pulsing central sphere marks the live render heartbeat threading them all together.",
+      "spec": "\n<a-light type=\"ambient\" color=\"#ffffff\" intensity=\"0.35\"></a-light>\n<a-light type=\"directional\" position=\"3 5 2\" color=\"#ffffff\" intensity=\"0.65\"></a-light>\n\n<!-- Stage 1: Intercept -- torus orbiting at left, represents the transcript feed loop -->\n<a-torus position=\"-3 1.5 -5\" radius=\"0.55\" radius-tubular=\"0.06\" color=\"$stroke1\" wireframe=\"true\"\n  animation__rot=\"property: rotation; from: 0 0 0; to: 360 180 0; loop: true; dur: 9000; easing: linear\"\n  animation__pulse=\"property: scale; from: 1 1 1; to: 1.12 1.12 1.12; dir: alternate; loop: true; dur: 2200; easing: easeInOutSine\">\n</a-torus>\n\n<!-- Stage 2: Classifier -- icosahedron at center-left, the routing brain -->\n<a-icosahedron position=\"-1 1.5 -4.5\" radius=\"0.62\" color=\"$accent\" wireframe=\"true\"\n  animation=\"property: rotation; from: 0 0 0; to: 0 360 180; loop: true; dur: 11000; easing: linear\">\n</a-icosahedron>\n\n<!-- Stage 3: Substrate dispatch -- octahedron at center-right, the specialist router -->\n<a-octahedron position=\"1 1.5 -4.5\" radius=\"0.62\" color=\"$stroke2\" wireframe=\"true\"\n  animation=\"property: rotation; from: 0 0 0; to: 180 360 0; loop: true; dur: 10000; easing: linear\">\n</a-octahedron>\n\n<!-- Stage 4: Accreting notebook -- box at right, growing/pulsing to suggest accumulation -->\n<a-box position=\"3 1.5 -5\" width=\"0.85\" height=\"0.85\" depth=\"0.85\" color=\"$stroke3\" wireframe=\"true\"\n  animation__rot=\"property: rotation; from: 0 0 0; to: 360 360 0; loop: true; dur: 8000; easing: linear\"\n  animation__grow=\"property: scale; from: 1 1 1; to: 1.18 1.18 1.18; dir: alternate; loop: true; dur: 3000; easing: easeInOutQuad\">\n</a-box>\n\n<!-- Central connecting sphere -- the live render pipeline heartbeat -->\n<a-sphere position=\"0 0.35 -4.5\" radius=\"0.22\" color=\"$accent\" wireframe=\"true\"\n  animation=\"property: position; from: 0 0.35 -4.5; to: 0 0.6 -4.5; dir: alternate; loop: true; dur: 1800; easing: easeInOutSine\">\n</a-sphere>\n",
+      "notes": "(demo for aframe specialist) [aframe-specialist:cache-test 2026-04-27 (claude-sonnet-4-6)]",
+      "classifier_reasoning": "(no classifier; specialist invoked directly)",
+      "discourse_move": "structural",
+      "confidence": null,
+      "image_path": null,
+      "html": null,
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "reflection_source_ids": [],
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
     }
   ]
 }
