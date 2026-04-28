@@ -633,7 +633,17 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     f"classifier confidence {llm.confidence:.2f} < 0.6 "
                     f"(would-be {llm.cell_type}); silent > text"
                 )
-            elif llm.confidence < 0.8:
+            # Higher-standards text gate: even at high confidence, text
+            # cells contribute zero glanceable value (lucida is a viz
+            # surface; Claude Code already shows text inline). Suppress
+            # any text classification regardless of confidence. Per
+            # memory/feedback_text_cells_uninteresting.md (strengthened).
+            if llm.cell_type == "text":
+                raise SuppressedMintError(
+                    f"classifier picked text @{llm.confidence:.2f}; "
+                    f"text is the value-prop failure mode — silent > text"
+                )
+            if llm.confidence < 0.8:
                 chosen_type = llm.cell_type
                 gate_note = " [draft, confidence 0.6-0.8]"
             else:
