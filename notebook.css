@@ -325,6 +325,15 @@ body > .a-orientation-modal {
   --muted: #737373;
   --accent: #0070f3;
   --code-bg: #f0f0f0;
+  /* Minimal theme: no glow, no FUI texture. Status colors stay legible
+     but flat — Vercel/Linear vibe, not Eva-MAGI. */
+  --vis-amber-glow: transparent;
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --vis-ok: #16a34a;
+  --vis-warn: #d97706;
+  --vis-tripped: #dc2626;
 }
 .theme-minimal body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -340,7 +349,17 @@ body > .a-orientation-modal {
   --muted: #5d4037;
   --accent: #cd7f32;
   --code-bg: #d8cab2;
+  /* No FUI glow on gastown — brass/cream serif theme reads as printed
+     blueprint, not amber CRT. Mirrors gemotvis's gastown block. */
+  --vis-amber-glow: transparent;
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --vis-ok: #5d7a1f;
+  --vis-warn: #b8860b;
+  --vis-tripped: #8b2500;
 }
+.theme-gastown .hud-scanline { display: none; }
 .theme-gastown body {
   font-family: "Crimson Text", "Georgia", serif;
 }
@@ -672,4 +691,64 @@ th, td {
 .theme-magi .mermaid-target .cluster rect {
   stroke-width: 1.4px !important;
   filter: drop-shadow(0 0 3px rgba(255, 140, 0, 0.3));
+}
+
+/* "Still warm" hero treatment: the most-recent cell gets a subtle accent
+   glow on its border that fades to nothing over ~60s. Distinct from the
+   sharper cell-fresh slide-in (~1s) — this is the longer "settling" cue
+   that lets the eye find the latest cell when scrolling back to the page.
+   Theme-aware: lab/magi glow strongly; minimal/gastown stay subtle/absent. */
+.cell.cell-still-warm {
+  position: relative;
+}
+.cell.cell-still-warm::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
+  animation: cell-still-warm-fade 60s ease-out forwards;
+}
+@keyframes cell-still-warm-fade {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+.theme-magi .cell.cell-still-warm::before {
+  border-color: #00ff41;
+  box-shadow: 0 0 24px rgba(0, 255, 65, 0.42), 0 0 6px rgba(255, 140, 0, 0.18);
+}
+.theme-minimal .cell.cell-still-warm::before {
+  box-shadow: 0 0 0 transparent;
+  border-color: var(--accent);
+  opacity: 0.4;
+}
+.theme-gastown .cell.cell-still-warm::before {
+  display: none;
+}
+
+/* Bootup reveal: brief fade-in for #notebook on first paint, plus a
+   subtle border-flash on the HUD as the system "comes online".
+   Driven entirely by CSS animation (no JS required) so the reveal
+   happens whether or not loadHud has fired its first cycle. */
+@keyframes notebook-boot {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+#notebook {
+  animation: notebook-boot 0.45s ease-out;
+}
+@keyframes hud-boot {
+  0%   { box-shadow: 0 0 0 0 var(--accent); }
+  40%  { box-shadow: 0 0 12px 2px color-mix(in srgb, var(--accent) 50%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.hud {
+  animation: hud-boot 1.1s ease-out;
+}
+.theme-minimal #notebook,
+.theme-minimal .hud {
+  animation: none;  /* keep minimal flat */
 }

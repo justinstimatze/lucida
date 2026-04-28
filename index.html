@@ -432,6 +432,9 @@ function liveAppendNewCells(cellsData) {
     // pre-animation position.
     setTimeout(() => lastNode.scrollIntoView({ behavior: "smooth", block: "end" }), 80);
   }
+  // Transfer the "still warm" hero glow to the newest appended cell, since
+  // that's now the most recent in the corpus.
+  if (lastNode) applyStillWarmToLatest();
   return fresh.length;
 }
 
@@ -562,6 +565,22 @@ async function load() {
     root.appendChild(renderCell(c, snippetGroups));
     _renderedCellIds.add(c.id);  // seed live-append baseline
   }
+
+  // Hero "still warm" treatment: the most-recent visible cell gets a
+  // subtle glow that fades over ~60s. Survives across renders by
+  // looking at timestamp on each load.
+  applyStillWarmToLatest();
+}
+
+// Tag the most-recent cell with .cell-still-warm. The CSS animates the
+// glow's opacity from full → none over ~60s, so a "fresh-on-load" cell
+// reads as still settling. New cells from liveAppendNewCells also get
+// this treatment via the cell-fresh path.
+function applyStillWarmToLatest() {
+  const cells = document.querySelectorAll(".cell");
+  if (!cells.length) return;
+  document.querySelectorAll(".cell.cell-still-warm").forEach(n => n.classList.remove("cell-still-warm"));
+  cells[cells.length - 1].classList.add("cell-still-warm");
 }
 
 function el(tag, cls, text) {

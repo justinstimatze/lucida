@@ -2527,6 +2527,158 @@
       "replaced_by": null,
       "retrigger_count": 0,
       "retrigger_reason": null
+    },
+    {
+      "id": "cell-0079",
+      "timestamp": "2026-04-28T04:17:49+00:00",
+      "cell_type": "mermaid",
+      "trigger_snippet": "The lucida pipeline has three core stages: classifier, specialist, and renderer. The classifier picks a substrate type from the snippet's content; the specialist generates a concrete spec for that type; the renderer materializes the spec in the browser. Each stage feeds the next, with a feedback loop from renderer back to classifier when retrigger fires.",
+      "prompt": "Produce a Mermaid diagram (graph LR or flowchart, no extra text)\nillustrating the structure described below. Keep it readable; \u226412\nnodes; label edges where it adds clarity.\nDo not add nodes or edges for entities/relationships not\nmentioned in the snippet \u2014 the diagram should be a faithful\nstructural map, not an embellished one.\n\nSnippet:\nThe lucida pipeline has three core stages: classifier, specialist, and renderer. The classifier picks a substrate type from the snippet's content; the specialist generates a concrete spec for that type; the renderer materializes the spec in the browser. Each stage feeds the next, with a feedback loop from renderer back to classifier when retrigger fires.\n\nContext:\nTranscript: lucida_watcher_test_transcript.txt. Recent context: A technical overview of the lucida pipeline architecture, hallucination rate measurements across substrate types, and a competitive landscape comparison of generative-UI tools as of April 2026.. Surrounding: Opening passage; introduces the document's subject. No prior context.",
+      "image_path": null,
+      "spec": "graph LR\n  C[\"classifier\\npicks substrate type\\nfrom snippet content\"]\n  S[\"specialist\\ngenerates concrete spec\\nfor substrate type\"]\n  R[\"renderer\\nmaterializes spec\\nin browser\"]\n  C -->|\"feeds\"| S\n  S -->|\"feeds\"| R\n  R -.->|\"feedback on retrigger\"| C",
+      "html": null,
+      "caption": "The lucida pipeline's three core stages \u2014 classifier, specialist, and renderer \u2014 form a linear feed-forward chain with a conditional feedback loop from renderer back to classifier when retrigger fires.",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192structural/mermaid@0.91 [v0\u2192text] cache:wrote/3121t [mermaid-specialist:cache:miss]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": "structural",
+      "confidence": 0.91,
+      "classifier_reasoning": "Four distinct named entities (classifier, specialist, renderer, retrigger feedback loop) with explicit directed relationships: classifier\u2192specialist\u2192renderer, and renderer\u2192classifier on retrigger. This is precisely the topology mermaid handles well \u2014 a pipeline with a back-edge that prose describes awkwardly but a directed graph makes immediately legible.",
+      "reflection_source_ids": null,
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
+    },
+    {
+      "id": "cell-0080",
+      "timestamp": "2026-04-28T04:17:59+00:00",
+      "cell_type": "vega",
+      "trigger_snippet": "Substrate hallucination rates measured 2026-04-27: vega 0%, mermaid 50%, html 22%. Vega's forcing-step was anchored on a real observed bug (cell-0017 income inequality); mermaid and html forcing-steps were preemptive structural prompts. The 0% vs 50% gap is the anchoring signal.",
+      "prompt": "Produce a Vega-Lite v5 spec (JSON only, no commentary) that\nvisualizes the quantitative claim described below. Use real\nnumbers from the snippet \u2014 do not invent values.\n\nSnippet:\nSubstrate hallucination rates measured 2026-04-27: vega 0%, mermaid 50%, html 22%. Vega's forcing-step was anchored on a real observed bug (cell-0017 income inequality); mermaid and html forcing-steps were preemptive structural prompts. The 0% vs 50% gap is the anchoring signal.\n\nContext:\nTranscript: lucida_watcher_test_transcript.txt. Recent context: A technical overview of the lucida pipeline architecture, hallucination rate measurements across substrate types, and a competitive landscape comparison of generative-UI tools as of April 2026.. Surrounding: Follows the pipeline architecture description; introduces empirical measurement of failure modes across substrate types.",
+      "image_path": null,
+      "spec": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "background": "transparent",
+        "width": 480,
+        "height": 130,
+        "data": {
+          "values": [
+            {
+              "substrate": "vega",
+              "hallucination_rate": 0
+            },
+            {
+              "substrate": "html",
+              "hallucination_rate": 22
+            },
+            {
+              "substrate": "mermaid",
+              "hallucination_rate": 50
+            }
+          ]
+        },
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 3
+        },
+        "encoding": {
+          "y": {
+            "field": "substrate",
+            "type": "nominal",
+            "sort": [
+              "vega",
+              "html",
+              "mermaid"
+            ],
+            "axis": {
+              "title": null,
+              "labelFont": "monospace",
+              "labelFontSize": 12
+            }
+          },
+          "x": {
+            "field": "hallucination_rate",
+            "type": "quantitative",
+            "scale": {
+              "domain": [
+                0,
+                55
+              ]
+            },
+            "axis": {
+              "title": "hallucination rate (%)",
+              "titleFontSize": 11,
+              "grid": true,
+              "gridOpacity": 0.2
+            }
+          },
+          "color": {
+            "field": "substrate",
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "vega",
+                "html",
+                "mermaid"
+              ],
+              "range": [
+                "#4a9eca",
+                "#8fbcbb",
+                "#c0856a"
+              ]
+            },
+            "legend": null
+          },
+          "tooltip": [
+            {
+              "field": "substrate",
+              "type": "nominal",
+              "title": "substrate"
+            },
+            {
+              "field": "hallucination_rate",
+              "type": "quantitative",
+              "title": "hallucination rate (%)"
+            }
+          ]
+        }
+      },
+      "html": null,
+      "caption": "Substrate hallucination rates measured 2026-04-27. Vega's 0% reflects a forcing-step anchored on a real observed bug; mermaid and html used preemptive structural prompts. The 0% vs 50% gap is the primary anchoring signal.",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192quantitative/vega@0.92 [v0\u2192vega] cache:hit/3121t [vega-specialist:cache:miss]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": "quantitative",
+      "confidence": 0.92,
+      "classifier_reasoning": "Three precise hallucination-rate values (0%, 50%, 22%) across three named substrate types, explicitly framed as a comparison with a load-bearing interpretive claim (the 0% vs 50% gap as anchoring signal). A bar chart renders the gap viscerally and lets the annotation about anchoring vs. preemptive prompting sit as a caption \u2014 something prose alone flattens into a list of numbers.",
+      "reflection_source_ids": null,
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
+    },
+    {
+      "id": "cell-0081",
+      "timestamp": "2026-04-28T04:18:09+00:00",
+      "cell_type": "html",
+      "trigger_snippet": "Cursor Canvas (April 2026) is intentional/skill-driven and bound to a first-party React component catalog. Claude Artifacts is broad on substrate but one-at-a-time replaceable. Mermaid plugins are single-substrate. Each fills a slice of generative-UI space, but none is a passive listener for heterogeneous cells minted from conversation.",
+      "prompt": "Produce an HTML <table> (no inline styles; CSS is in\nnotebook.css) that surfaces the comparison described below.\nDo not invent rows, columns, or values not present in the\nsnippet. If the snippet underspecifies a dimension, leave\nthat cell blank rather than filling it with a plausible-\nlooking guess.\n\nSnippet:\nCursor Canvas (April 2026) is intentional/skill-driven and bound to a first-party React component catalog. Claude Artifacts is broad on substrate but one-at-a-time replaceable. Mermaid plugins are single-substrate. Each fills a slice of generative-UI space, but none is a passive listener for heterogeneous cells minted from conversation.\n\nContext:\nTranscript: lucida_watcher_test_transcript.txt. Recent context: A technical overview of the lucida pipeline architecture, hallucination rate measurements across substrate types, and a competitive landscape comparison of generative-UI tools as of April 2026.. Surrounding: Follows the hallucination rate data; pivots to competitive landscape. The closing sentence frames lucida's differentiation.",
+      "image_path": null,
+      "spec": null,
+      "html": "<table><thead><tr><th></th><th>Cursor Canvas</th><th>Claude Artifacts</th><th>Mermaid plugins</th></tr></thead><tbody><tr><th>Approach / orientation</th><td>Intentional / skill-driven</td><td></td><td></td></tr><tr><th>Substrate breadth</th><td>Bound to first-party React component catalog</td><td>Broad on substrate</td><td>Single-substrate</td></tr><tr><th>Replaceability</th><td></td><td>One-at-a-time replaceable</td><td></td></tr><tr><th>Passive listener for heterogeneous cells from conversation</th><td>No</td><td>No</td><td>No</td></tr></tbody></table>",
+      "caption": "Generative-UI tool comparison as of April 2026. Each fills a slice of generative-UI space but none acts as a passive listener for heterogeneous cells minted from conversation. Empty cells where the snippet underspecifies a dimension for that tool.",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192comparative/html@0.85 [v0\u2192text] cache:hit/3121t [html-specialist:cache:miss]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": "comparative",
+      "confidence": 0.85,
+      "classifier_reasoning": "Three named competitors (Cursor Canvas, Claude Artifacts, Mermaid plugins) compared across multiple dimensions: substrate scope, replaceability, first-party vs. open binding, and passivity/listener behavior. An html comparison table makes the competitive slice-coverage visible and sets up lucida's differentiation claim structurally \u2014 the final column (passive listener for heterogeneous cells) is the blank that only lucida fills.",
+      "reflection_source_ids": null,
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
     }
   ]
 }
