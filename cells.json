@@ -2483,6 +2483,28 @@
       "replaced_by": null,
       "retrigger_count": 0,
       "retrigger_reason": null
+    },
+    {
+      "id": "cell-0077",
+      "timestamp": "2026-04-28T03:18:01+00:00",
+      "cell_type": "mermaid",
+      "trigger_snippet": "Lucida's specialist coverage now spans 7 substrates: vega, mermaid, html, animated_svg, scene3d, aframe, and lottie. Each specialist produces snippet-grounded specs; the classifier dispatches by inferred substrate fit; the orchestrator routes to the matching function in the dispatch dict.",
+      "prompt": "Produce a Mermaid diagram (graph LR or flowchart, no extra text)\nillustrating the structure described below. Keep it readable; \u226412\nnodes; label edges where it adds clarity.\nDo not add nodes or edges for entities/relationships not\nmentioned in the snippet \u2014 the diagram should be a faithful\nstructural map, not an embellished one.\n\nSnippet:\nLucida's specialist coverage now spans 7 substrates: vega, mermaid, html, animated_svg, scene3d, aframe, and lottie. Each specialist produces snippet-grounded specs; the classifier dispatches by inferred substrate fit; the orchestrator routes to the matching function in the dispatch dict.\n\nContext:\n(none)",
+      "image_path": null,
+      "spec": "graph TD\n  CL[\"classifier\\ninfers substrate fit\"]\n  OR[\"orchestrator\\nroutes via dispatch dict\"]\n  CL -->|\"dispatches to\"| OR\n\n  SP_V[\"vega specialist\\nproduces snippet-grounded specs\"]\n  SP_M[\"mermaid specialist\\nproduces snippet-grounded specs\"]\n  SP_H[\"html specialist\\nproduces snippet-grounded specs\"]\n  SP_A[\"animated_svg specialist\\nproduces snippet-grounded specs\"]\n  SP_S[\"scene3d specialist\\nproduces snippet-grounded specs\"]\n  SP_AF[\"aframe specialist\\nproduces snippet-grounded specs\"]\n  SP_L[\"lottie specialist\\nproduces snippet-grounded specs\"]\n\n  OR -->|\"routes to\"| SP_V\n  OR -->|\"routes to\"| SP_M\n  OR -->|\"routes to\"| SP_H\n  OR -->|\"routes to\"| SP_A\n  OR -->|\"routes to\"| SP_S\n  OR -->|\"routes to\"| SP_AF\n  OR -->|\"routes to\"| SP_L",
+      "html": null,
+      "caption": "Lucida's dispatch architecture: the classifier infers substrate fit and sends to the orchestrator, which routes to one of 7 substrate specialists (vega, mermaid, html, animated_svg, scene3d, aframe, lottie), each producing snippet-grounded specs.",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192structural/mermaid@0.82 [v0\u2192text] cache:wrote/3121t [mermaid-specialist:cache:miss]]",
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "discourse_move": "structural",
+      "confidence": 0.82,
+      "classifier_reasoning": "Three distinct named architectural layers (classifier, orchestrator, specialists) with explicit directed relationships: classifier dispatches \u2192 orchestrator routes \u2192 specialist functions in a dispatch dict. Seven substrate nodes hang off the specialist layer. The topology \u2014 a routing pipeline with a fan-out \u2014 is awkward in prose but natural as a directed graph; mermaid surfaces the dispatch flow clearly.",
+      "reflection_source_ids": null,
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
     }
   ]
 }
