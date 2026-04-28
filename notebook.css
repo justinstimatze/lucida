@@ -1324,26 +1324,13 @@ th, td {
   100% { transform: translateY(45vh); opacity: 0; }
 }
 
-/* Page-level CRT phosphor scan (magi only): faint repeating
-   horizontal lines across the entire viewport. Adds a uniform
-   "everything is on a CRT" texture without ever being a focal
-   element. Theme-scoped; other themes opt in by adding their own
-   body::after / scanline rules. */
-.theme-magi body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9999;
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(255, 140, 0, 0.025) 0px,
-    rgba(255, 140, 0, 0.025) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  mix-blend-mode: overlay;
-}
+/* Page-level CRT phosphor scan removed — was causing a "giant green
+   line" artifact under certain zoom/resolution combinations. The
+   mix-blend-mode: overlay over a 1px-on/2px-off pattern at fractional
+   device-pixel-ratios produced visible solid bands instead of the
+   intended fine texture. The hud-scanline + html-target scanline +
+   hero-scan still provide localized CRT feel without the full-
+   viewport blend hazard. */
 .theme-magi .html-target th {
   background: rgba(255, 140, 0, 0.1);
   color: #ff8c00;
