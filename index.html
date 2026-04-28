@@ -184,7 +184,18 @@ const THEME_CONFIG = {
 
 const TC = THEME_CONFIG[ACTIVE] || THEME_CONFIG.lab;
 
-mermaid.initialize({ startOnLoad: false, ...TC.mermaid });
+// flowchart.htmlLabels: false renders edge labels as native SVG <text>
+// instead of foreignObject+HTML. The foreignObject path measures label
+// width with mermaid's default proportional font but renders with our
+// theme CSS (Courier New monospace under magi), and the wider monospace
+// chars overflow the pre-measured foreignObject — manifesting as
+// truncated labels like "fin" or "triggers demot". SVG text labels
+// measure and render with the same font, so they size correctly.
+mermaid.initialize({
+  startOnLoad: false,
+  flowchart: { htmlLabels: false },
+  ...TC.mermaid,
+});
 
 // Pause off-screen 3D content (Three.js render loops, A-Frame scenes) via
 // IntersectionObserver. Multiple live WebGL contexts in one page wedge the

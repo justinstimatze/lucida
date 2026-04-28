@@ -668,10 +668,19 @@ th, td {
 }
 
 /* Edge labels in monospace; slight panel background so they read
-   against the edge stroke crossing them. */
+   against the edge stroke crossing them. With flowchart.htmlLabels:
+   false (set in index.html), labels are SVG <text> elements rather
+   than foreignObject+div — both targets covered for forward/back-
+   compat across mermaid versions. */
 .theme-magi .mermaid-target .edgeLabel,
+.theme-magi .mermaid-target .edgeLabel text,
 .theme-magi .mermaid-target .edgeLabel rect {
   font-family: "Courier New", "Lucida Console", monospace !important;
+}
+.theme-magi .mermaid-target .edgeLabel rect {
+  fill: rgba(12, 12, 12, 0.8) !important;
+  stroke: rgba(255, 140, 0, 0.25) !important;
+  stroke-width: 1px !important;
 }
 .theme-magi .mermaid-target .edgeLabel foreignObject div {
   background-color: rgba(12, 12, 12, 0.8) !important;
