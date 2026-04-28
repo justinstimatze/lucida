@@ -917,8 +917,15 @@ function drawConnections() {
         continue;
       }
 
-      // Both endpoints visible — full S-curve.
+      // Both endpoints visible. Anchor reflection at source-aligned X
+      // (clamped within reflection's horizontal bounds) so multiple
+      // sources fan across the reflection's edge instead of converging
+      // at one center point.
       const srcCx = srcRect.left + srcRect.width / 2;
+      const reflAnchorX = Math.max(
+        reflRect.left + 24,
+        Math.min(reflRect.right - 24, srcCx)
+      );
       let srcY, reflY;
       if (srcRect.top >= reflRect.bottom) {
         srcY = srcRect.top;
@@ -930,11 +937,14 @@ function drawConnections() {
         srcY = srcRect.top + srcRect.height / 2;
         reflY = reflRect.top + reflRect.height / 2;
       }
+      // Skip glitch-short paths (adjacent cells separated only by the
+      // grid gap). Sub-50px curves look like rendering artifacts.
+      if (Math.abs(srcY - reflY) < 50) continue;
       const midY = (srcY + reflY) / 2;
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute(
         "d",
-        `M ${srcCx} ${srcY} C ${srcCx} ${midY}, ${reflCx} ${midY}, ${reflCx} ${reflY}`
+        `M ${srcCx} ${srcY} C ${srcCx} ${midY}, ${reflAnchorX} ${midY}, ${reflAnchorX} ${reflY}`
       );
       path.setAttribute("class", "connection-path");
       svg.appendChild(path);
@@ -1469,6 +1479,20 @@ load().catch(err => {
 });
 
 initSessionDropdownTrigger();
+
+// HUD click-to-pin: clicking the HUD toggles data-expanded so it stays
+// open without requiring continuous hover. Click the HUD again to
+// collapse. Avoid toggling when the click landed on the SESSION
+// dropdown or its trigger (those have their own handlers).
+document.getElementById("hud")?.addEventListener("click", (e) => {
+  // Skip if click bubbled from the session-dropdown trigger or its popover
+  const sessionCell = document.getElementById("hud-session-cell");
+  const dropdown = document.getElementById("session-dropdown");
+  if (sessionCell?.contains(e.target)) return;
+  if (dropdown && dropdown.contains(e.target)) return;
+  const hud = e.currentTarget;
+  hud.dataset.expanded = hud.dataset.expanded === "true" ? "false" : "true";
+});
 
 // HUD bootstraps and polls fast. Hackertyper-feel reveal happens
 // inside typeInto() but only on actual value changes (cached), so the

@@ -503,7 +503,33 @@ th, td {
     linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 60%),
     var(--code-bg);
   overflow: hidden;
+  /* Compressed by default; expands on hover or when click-pinned via
+     [data-expanded="true"] (toggled by clicking the HUD). Frees vertical
+     space for cells per memory/feedback_layout_density_validated.md. */
+  max-height: 1.55rem;
+  padding: 0.25rem 0.7rem;
+  transition: max-height 0.25s ease-out, padding 0.25s ease-out;
+  cursor: pointer;
 }
+.hud:hover,
+.hud[data-expanded="true"] {
+  max-height: 12rem;
+  padding: 0.55rem 0.7rem 0.6rem;
+}
+/* Compressed-state hint: a tiny "▾" caret + status indicator in the
+   bottom-right corner, hidden when expanded. */
+.hud::after {
+  content: "▾  hover for full HUD";
+  position: absolute;
+  bottom: 0.15rem;
+  right: 0.5rem;
+  font-size: 0.6rem;
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.hud:hover::after,
+.hud[data-expanded="true"]::after { opacity: 0; }
 .hud-row {
   display: flex;
   flex-wrap: wrap;
