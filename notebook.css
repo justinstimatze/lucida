@@ -71,8 +71,28 @@ main {
 }
 .cell-id {
   color: var(--fg);
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.95rem;
   font-family: ui-monospace, SF Mono, Menlo, monospace;
+  letter-spacing: 0.02em;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.cell-id:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.cell-id.cell-id-copied {
+  border-color: var(--vis-ok, var(--accent));
+  background: color-mix(in srgb, var(--vis-ok, var(--accent)) 14%, transparent);
+  color: var(--vis-ok, var(--accent));
+}
+.theme-magi .cell-id {
+  text-shadow: 0 0 3px rgba(255, 140, 0, 0.4);
 }
 .cell-trigger, .cell-prompt {
   margin: 0.4rem 0;

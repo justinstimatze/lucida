@@ -580,7 +580,26 @@ function renderCell(c, snippetGroups) {
   }
   const head = el("div", "cell-head");
   head.appendChild(el("span", "cell-type", c.cell_type));
-  head.appendChild(el("span", "cell-id", c.id || ""));
+  if (c.id) {
+    const idEl = el("button", "cell-id", c.id);
+    idEl.type = "button";
+    idEl.title = "click to copy";
+    idEl.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(c.id);
+        idEl.classList.add("cell-id-copied");
+        const prev = idEl.textContent;
+        idEl.textContent = "copied · " + c.id;
+        setTimeout(() => {
+          idEl.classList.remove("cell-id-copied");
+          idEl.textContent = prev;
+        }, 900);
+      } catch (e) {
+        idEl.title = "copy failed: " + (e && e.message || "no clipboard access");
+      }
+    });
+    head.appendChild(idEl);
+  }
   if (snippetGroups && c.trigger_snippet) {
     const group = snippetGroups.get(c.trigger_snippet);
     if (group && group.length > 1) {
