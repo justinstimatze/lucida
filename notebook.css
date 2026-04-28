@@ -542,7 +542,7 @@ th, td {
 @keyframes cell-arrive {
   0% {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(-14px);
     box-shadow: 0 0 32px color-mix(in srgb, var(--accent) 60%, transparent);
   }
   60% {
@@ -781,7 +781,7 @@ th, td {
 @keyframes cell-arrive-render {
   0%   {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(-20px);
     box-shadow: 0 0 48px color-mix(in srgb, var(--accent) 70%, transparent);
   }
   35%  { opacity: 0.5; }

@@ -197,6 +197,59 @@ function pauseOffScreen(targetEl, onShow, onHide) {
   io.observe(targetEl);
 }
 
+// Browsers cap live WebGL contexts at ~16; with 84 cells minted over a
+// session, a few scene3d + aframe demos eat that budget and leak GPU memory
+// even when paused. This registry keeps at most WEBGL_CAP scenes alive at
+// once, evicting the least-recently-visible non-visible scene when a new
+// one initializes. Evicted scenes call their teardown to dispose Three.js
+// geometry/materials/renderer + drop the canvas; they re-init from spec
+// when scrolled back into view.
+const WEBGL_CAP = 3;
+const webglRegistry = [];
+function registerWebGL(entry) {
+  webglRegistry.push(entry);
+  evictWebGLIfOverCap();
+}
+function touchWebGL(entry) { entry.lastVisible = performance.now(); }
+function evictWebGLIfOverCap() {
+  while (webglRegistry.length > WEBGL_CAP) {
+    const evictable = webglRegistry
+      .filter(e => !e.visible)
+      .sort((a, b) => a.lastVisible - b.lastVisible);
+    if (evictable.length === 0) break;
+    const victim = evictable[0];
+    try { victim.teardown(); } catch (err) { /* swallow */ }
+    const idx = webglRegistry.indexOf(victim);
+    if (idx >= 0) webglRegistry.splice(idx, 1);
+  }
+}
+
+// Lazy mount/unmount for SVG-heavy substrates (mermaid, vega, animated_svg).
+// Starts unmounted; the IntersectionObserver renders on first viewport
+// approach and tears down when the cell drifts beyond ~400px of viewport.
+// Specs are cheap to re-render (no API call). Optional teardown callback
+// runs before innerHTML clears — used for vega view.finalize() to release
+// signal listeners + canvas GPU memory that innerHTML alone leaves dangling.
+function lazyMount(target, render, teardown) {
+  let mounted = false;
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting && !mounted) {
+        target.style.minHeight = "";
+        try { render(); } catch (err) { /* swallow */ }
+        mounted = true;
+      } else if (!e.isIntersecting && mounted) {
+        const h = target.offsetHeight;
+        if (h > 20) target.style.minHeight = h + "px";
+        if (teardown) { try { teardown(); } catch (err) { /* swallow */ } }
+        target.innerHTML = "";
+        mounted = false;
+      }
+    }
+  }, { rootMargin: "400px" });
+  io.observe(target);
+}
+
 // Token expansion for cell specs: $accent, $stroke1, $stroke2, $stroke3,
 // $fg, $muted, $bg, $panel. Substituted before innerHTML / scene3d render
 // so cell content re-colors with theme.
@@ -434,29 +487,29 @@ function liveAppendNewCells(cellsData) {
   }
 
   const root = document.getElementById("notebook");
-  // Decide whether to follow new mints with smooth-scroll: only if the user
-  // is already near the bottom (within ~280px). Avoids yanking when they're
-  // reading earlier cells.
-  const nearBottom = (window.innerHeight + window.scrollY) >=
-    (document.body.offsetHeight - 280);
-  let lastNode = null;
+  // Reverse-chrono prepend: newest cell ends up at top. Preserve the
+  // user's current viewport position when they're not at the top —
+  // prepending grows the document upward, so without compensation a
+  // user reading older cells would suddenly see different content.
+  // When the user IS at the top, let the new cell push everything down
+  // naturally so they see it immediately.
+  const wasAtTop = window.scrollY < 100;
+  const oldDocHeight = document.body.offsetHeight;
+  let firstNode = null;
   for (const c of fresh) {
     const node = renderCell(c, snippetGroups);
     node.classList.add("cell-fresh");
-    root.appendChild(node);
+    root.prepend(node);
     _renderedCellIds.add(c.id);
-    lastNode = node;
+    firstNode = node;
     setTimeout(() => node.classList.remove("cell-fresh"), 1400);
   }
-  if (lastNode && nearBottom) {
-    // Slight delay so the slide-in animation has time to start before we
-    // commit to the scroll target -- otherwise scrollIntoView lands on the
-    // pre-animation position.
-    setTimeout(() => lastNode.scrollIntoView({ behavior: "smooth", block: "end" }), 80);
+  if (!wasAtTop && firstNode) {
+    const delta = document.body.offsetHeight - oldDocHeight;
+    if (delta > 0) window.scrollBy(0, delta);
   }
-  // Transfer the "still warm" hero glow to the newest appended cell, since
-  // that's now the most recent in the corpus.
-  if (lastNode) applyStillWarmToLatest();
+  // Transfer the "still warm" hero glow to the newest appended cell.
+  if (firstNode) applyStillWarmToLatest();
   return fresh.length;
 }
 
@@ -581,8 +634,11 @@ async function load() {
   }
 
   const root = document.getElementById("notebook");
+  // Reverse-chrono render: newest cells live at the top so they're
+  // immediately visible without autoscroll. Iterating chronologically
+  // and prepending each puts the last (newest) cell at the very top.
   for (const c of visible) {
-    root.appendChild(renderCell(c, snippetGroups));
+    root.prepend(renderCell(c, snippetGroups));
     _renderedCellIds.add(c.id);  // seed live-append baseline
   }
 
@@ -595,12 +651,13 @@ async function load() {
 // Tag the most-recent cell with .cell-still-warm. The CSS animates the
 // glow's opacity from full → none over ~60s, so a "fresh-on-load" cell
 // reads as still settling. New cells from liveAppendNewCells also get
-// this treatment via the cell-fresh path.
+// this treatment via the cell-fresh path. Reverse-chrono: newest is at
+// index 0 (the first .cell in document order is the most-recent mint).
 function applyStillWarmToLatest() {
   const cells = document.querySelectorAll(".cell");
   if (!cells.length) return;
   document.querySelectorAll(".cell.cell-still-warm").forEach(n => n.classList.remove("cell-still-warm"));
-  cells[cells.length - 1].classList.add("cell-still-warm");
+  cells[0].classList.add("cell-still-warm");
 }
 
 function el(tag, cls, text) {
@@ -687,73 +744,138 @@ function renderCell(c, snippetGroups) {
   } else if (c.cell_type === "vega" && c.spec) {
     const target = el("div", "vega-target");
     body.appendChild(target);
-    vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).catch(err => {
-      target.textContent = "vega render error: " + err.message;
-    });
+    let currentView = null;
+    const renderVega = () => {
+      vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).then(result => {
+        currentView = result && result.view;
+      }).catch(err => {
+        target.textContent = "vega render error: " + err.message;
+      });
+    };
+    const teardownVega = () => {
+      if (currentView) {
+        try { currentView.finalize(); } catch (e) {}
+        currentView = null;
+      }
+    };
+    lazyMount(target, renderVega, teardownVega);
   } else if (c.cell_type === "mermaid" && c.spec) {
     const target = el("div", "mermaid-target");
     body.appendChild(target);
-    mermaid.render(`m-${c.id}`, c.spec).then(({ svg }) => {
-      target.innerHTML = svg;
-    }).catch(err => {
-      target.textContent = "mermaid render error: " + err.message;
-    });
+    let mermaidNonce = 0;
+    const renderMermaid = () => {
+      mermaid.render(`m-${c.id}-${++mermaidNonce}`, c.spec).then(({ svg }) => {
+        target.innerHTML = svg;
+      }).catch(err => {
+        target.textContent = "mermaid render error: " + err.message;
+      });
+    };
+    lazyMount(target, renderMermaid);
   } else if (c.cell_type === "html" && c.html) {
     body.innerHTML = c.html;
   } else if (c.cell_type === "animated_svg" && c.spec) {
     const target = el("div", "svg-target");
-    target.innerHTML = expandTokens(c.spec);
     body.appendChild(target);
+    const renderSVG = () => { target.innerHTML = expandTokens(c.spec); };
+    lazyMount(target, renderSVG);
   } else if (c.cell_type === "scene3d" && c.spec) {
-    // Lazy: only create the Three.js renderer + scene when the cell
-    // first scrolls into viewport. Off-screen cells stay as empty divs
-    // so initial-load GPU pressure scales with what's visible, not with
-    // total cells in the notebook.
+    // Lazy + LRU-capped: Three.js renderer + scene are created on first
+    // viewport entry, paused when scrolled past, and fully disposed if
+    // the cell remains the least-recently-visible non-visible scene when
+    // a new scene needs to init. Re-init from spec on scroll-back.
     const target = el("div", "scene3d-target");
     body.appendChild(target);
     let ctrl = null;
+    const entry = {
+      visible: false,
+      lastVisible: 0,
+      teardown: () => {
+        const h = target.offsetHeight;
+        if (ctrl) { ctrl.dispose(); ctrl = null; }
+        if (h > 20) target.style.minHeight = h + "px";
+      },
+    };
     pauseOffScreen(
       target,
       () => {
-        if (!ctrl) ctrl = initScene3D(target, c.spec);
+        entry.visible = true;
+        touchWebGL(entry);
+        if (!ctrl) {
+          target.style.minHeight = "";
+          ctrl = initScene3D(target, c.spec);
+          if (ctrl) registerWebGL(entry);
+        }
         if (ctrl) ctrl.play();
       },
-      () => { if (ctrl) ctrl.pause(); },
+      () => {
+        entry.visible = false;
+        touchWebGL(entry);
+        if (ctrl) ctrl.pause();
+        evictWebGLIfOverCap();
+      },
     );
   } else if (c.cell_type === "aframe" && c.spec) {
-    // Lazy: defer the <a-scene> insertion (and the implicit A-Frame
-    // initialization that follows) until the cell enters viewport.
+    // Lazy + LRU-capped: defer <a-scene> insertion until the cell enters
+    // viewport, pause on scroll-out, and tear the scene out of the DOM
+    // entirely if evicted by the WebGL cap (releases the GPU context).
+    // Re-mount from spec on scroll-back; height preserved via minHeight.
     const target = el("div", "aframe-target");
     body.appendChild(target);
     let initialized = false;
     let sceneEl = null;
+    const mount = () => {
+      initialized = true;
+      target.style.minHeight = "";
+      const trimmed = expandTokens(c.spec).trim();
+      const wrapped = trimmed.startsWith("<a-scene")
+        ? trimmed
+        : `<a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true">${trimmed}</a-scene>`;
+      target.innerHTML = wrapped;
+      setTimeout(() => {
+        const stripSel = ".a-enter-vr, .a-orientation-modal, .a-loader-title, .a-modal, .a-fullscreen-button";
+        target.querySelectorAll(stripSel).forEach(el => el.remove());
+        sceneEl = target.querySelector("a-scene");
+        if (sceneEl) {
+          sceneEl.querySelectorAll(stripSel).forEach(el => el.remove());
+        }
+      }, 500);
+    };
+    const entry = {
+      visible: false,
+      lastVisible: 0,
+      teardown: () => {
+        const h = target.offsetHeight;
+        if (sceneEl) {
+          try { sceneEl.pause && sceneEl.pause(); } catch (e) {}
+          if (sceneEl.renderer && sceneEl.renderer.forceContextLoss) {
+            try { sceneEl.renderer.forceContextLoss(); } catch (e) {}
+          }
+        }
+        target.innerHTML = "";
+        if (h > 20) target.style.minHeight = h + "px";
+        sceneEl = null;
+        initialized = false;
+      },
+    };
     pauseOffScreen(
       target,
       () => {
+        entry.visible = true;
+        touchWebGL(entry);
         if (!initialized) {
-          initialized = true;
-          const trimmed = expandTokens(c.spec).trim();
-          const wrapped = trimmed.startsWith("<a-scene")
-            ? trimmed
-            : `<a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true">${trimmed}</a-scene>`;
-          target.innerHTML = wrapped;
-          // After A-Frame parses + initializes, strip its UI chrome.
-          setTimeout(() => {
-            const stripSel = ".a-enter-vr, .a-orientation-modal, .a-loader-title, .a-modal, .a-fullscreen-button";
-            target.querySelectorAll(stripSel).forEach(el => el.remove());
-            sceneEl = target.querySelector("a-scene");
-            if (sceneEl) {
-              sceneEl.querySelectorAll(stripSel).forEach(el => el.remove());
-            }
-          }, 500);
+          mount();
+          registerWebGL(entry);
         } else if (sceneEl) {
           try { sceneEl.play && sceneEl.play(); } catch (e) {}
         }
       },
       () => {
+        entry.visible = false;
+        touchWebGL(entry);
         if (sceneEl) {
           try { sceneEl.pause && sceneEl.pause(); } catch (e) {}
         }
+        evictWebGLIfOverCap();
       },
     );
   } else if (c.cell_type === "lottie" && c.spec) {
@@ -904,6 +1026,21 @@ function initScene3D(container, spec) {
   return {
     play() { if (!running) { running = true; animate(); } },
     pause() { running = false; },
+    dispose() {
+      running = false;
+      scene.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+      renderer.dispose();
+      if (renderer.forceContextLoss) renderer.forceContextLoss();
+      if (renderer.domElement && renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
+      }
+    },
   };
 }
 
