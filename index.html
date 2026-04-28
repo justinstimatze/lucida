@@ -7,8 +7,10 @@
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-<!-- A-Frame bundles Three.js; we reuse window.THREE from it for scene3d cells -->
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<!-- Three.js loaded eagerly for scene3d cells. A-Frame is lazy-loaded by
+     ensureAFrameLoaded() on first aframe-cell mount; sessions without
+     aframe cells skip A-Frame's ~1.5MB bundle + ECS runtime entirely. -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js"></script>
 <script>
   // Theme bootstrap -- runs synchronously in head to avoid FOUC.
@@ -195,6 +197,25 @@ function pauseOffScreen(targetEl, onShow, onHide) {
     }
   }, { rootMargin: "200px" });
   io.observe(targetEl);
+}
+
+// Lazy-load A-Frame on first aframe-cell mount. The script tag and its
+// ECS runtime are skipped entirely in sessions with no aframe cells.
+// All concurrent first-mounts share the same Promise so we only fetch
+// + parse once. A-Frame brings its own Three.js — that's fine; the
+// eagerly-loaded window.THREE was already grabbed by any scene3d cells.
+let _aframeLoadPromise = null;
+function ensureAFrameLoaded() {
+  if (window.AFRAME) return Promise.resolve();
+  if (_aframeLoadPromise) return _aframeLoadPromise;
+  _aframeLoadPromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://aframe.io/releases/1.5.0/aframe.min.js";
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("A-Frame failed to load"));
+    document.head.appendChild(s);
+  });
+  return _aframeLoadPromise;
 }
 
 // Browsers cap live WebGL contexts at ~16; with 84 cells minted over a
@@ -847,9 +868,16 @@ function renderCell(c, snippetGroups) {
     body.appendChild(target);
     let initialized = false;
     let sceneEl = null;
-    const mount = () => {
+    const mount = async () => {
       initialized = true;
       target.style.minHeight = "";
+      try {
+        await ensureAFrameLoaded();
+      } catch (err) {
+        target.textContent = "A-Frame failed to load: " + err.message;
+        initialized = false;
+        return;
+      }
       const trimmed = expandTokens(c.spec).trim();
       const wrapped = trimmed.startsWith("<a-scene")
         ? trimmed
