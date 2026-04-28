@@ -944,9 +944,11 @@ th, td {
   --mermaid-node-stroke-width: 1.5px;
   --mermaid-node-glow: rgba(102, 204, 255, 0.3);
   --mermaid-node-glow-hover: rgba(102, 204, 255, 0.55);
-  --mermaid-edge-label-bg: rgba(20, 20, 28, 0.96);
+  --mermaid-edge-label-bg: #14141c;       /* fully opaque — translucent
+                                              backing let edge strokes
+                                              shine through and made labels
+                                              hard to read */
   --mermaid-edge-label-border: rgba(102, 204, 255, 0.3);
-  --mermaid-edge-label-font: ui-monospace, "SF Mono", Menlo, monospace;
   --mermaid-cluster-glow: rgba(102, 204, 255, 0.25);
   --mermaid-dash-anim: none;
 }
@@ -957,9 +959,11 @@ th, td {
   --mermaid-node-stroke-width: 1.6px;
   --mermaid-node-glow: rgba(255, 140, 0, 0.42);
   --mermaid-node-glow-hover: rgba(255, 140, 0, 0.7);
-  --mermaid-edge-label-bg: rgba(12, 12, 12, 0.96);
-  --mermaid-edge-label-border: rgba(255, 140, 0, 0.35);
-  --mermaid-edge-label-font: "Courier New", "Lucida Console", monospace;
+  --mermaid-edge-label-bg: #050505;       /* fully opaque so the green
+                                              edge stroke can't show
+                                              through and clash with
+                                              the amber label text */
+  --mermaid-edge-label-border: rgba(255, 140, 0, 0.4);
   --mermaid-cluster-glow: rgba(255, 140, 0, 0.3);
   --mermaid-dash-anim: magi-dash-march 1.4s linear infinite;
 }
@@ -978,7 +982,6 @@ th, td {
   --mermaid-node-glow-hover: rgba(205, 127, 50, 0.65);
   --mermaid-edge-label-bg: #f5e6d3;
   --mermaid-edge-label-border: #cd7f32;
-  --mermaid-edge-label-font: "Crimson Text", Georgia, serif;
 }
 
 /* Node glow + stroke. */
@@ -1017,13 +1020,10 @@ th, td {
 
 /* Edge labels. With flowchart.htmlLabels: false (in index.html) the
    labels are SVG <text> elements; the SVG <rect> behind them gets
-   themed via tokens. foreignObject path covered for older mermaid
-   versions / themes that flip htmlLabels back on. */
-.mermaid-target .edgeLabel,
-.mermaid-target .edgeLabel text,
-.mermaid-target .edgeLabel rect {
-  font-family: var(--mermaid-edge-label-font) !important;
-}
+   themed via tokens. Font is now set on the mermaid side via
+   themeVariables.fontFamily so measurement + render use the same
+   font (older approach overrode font in CSS only, which left the
+   pre-measured rect too narrow and labels overflowed it). */
 .mermaid-target .edgeLabel rect {
   fill: var(--mermaid-edge-label-bg) !important;
   stroke: var(--mermaid-edge-label-border) !important;
@@ -1033,6 +1033,12 @@ th, td {
   background-color: var(--mermaid-edge-label-bg) !important;
   padding: 0.05rem 0.25rem;
   border: 1px solid var(--mermaid-edge-label-border);
+}
+.mermaid-target .edgeLabel rect + foreignObject {
+  /* On versions where mermaid emits BOTH the SVG rect AND the
+     foreignObject (rare, but observed), hide the now-redundant
+     foreignObject so the rect alone backs the label. */
+  display: none;
 }
 
 /* Arrowheads inherit the edge color. */

@@ -323,6 +323,12 @@ const THEME_CONFIG = {
         textColor: "#ff8c00",
         secondaryTextColor: "#ff8c00",
         tertiaryTextColor: "#ff8c00",
+        // fontFamily here governs mermaid's text-width measurement
+        // when sizing the edge-label backing rect. Without this,
+        // mermaid measures with its default font and our CSS overrides
+        // to monospace at render time — wider chars overflow the rect.
+        // See identical font for measurement + render in CSS rule.
+        fontFamily: '"Courier New", "Lucida Console", monospace',
       },
     },
     vega: {
@@ -369,6 +375,7 @@ const THEME_CONFIG = {
         textColor: "#2c1810",
         mainBkg: "#f5e6d3",
         secondaryColor: "#e8dcc8",
+        fontFamily: '"Crimson Text", Georgia, serif',
       },
     },
     vega: {
