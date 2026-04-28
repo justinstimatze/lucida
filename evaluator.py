@@ -106,13 +106,40 @@ Pick the SINGLE most-load-bearing mode if more than one applies. Defer to missed
 
 # Retrigger guidance
 
-If you recommend retriggering, write retrigger_guidance as a SHORT corrective brief that the image specialist will pass to Gemini on the next attempt. Be specific about what to fix:
-- 'corn should be pale cream/heritage variety, not chalk-white skeletal'
-- 'beans must be visible climbing the corn stalks (intercrop)'
-- 'terraces should be Oaxacan stone-walled, not Andean'
-- 'figure should be actively planting with a tool, not crouched in bare dirt'
+If you recommend retriggering, retrigger_guidance is the corrective brief that the image specialist will pass to Gemini on the next attempt. **This field is the load-bearing variable for whether retrigger succeeds** (observed: under generic auto-generated guidance, 1 of 4 retriggered cells crossed the 0.7 line; the rest stayed unchanged because the brief was too vague to anchor the next attempt).
 
-Avoid generic advice ('make it better'). The orchestrator passes your guidance as additional context to the specialist, so it should read like a corrective addendum to the brief.
+Write the brief via this two-step process:
+
+## Step 1: enumerate compromises (mentally, do not output)
+
+From your named-entity audit and general check above, list every specific compromise that needs fixing. Each item must name a concrete prop, attribute, or detail.
+
+SPECIFIC (good):
+- "Singer-branded sewing machines absent — only unbranded treadle bases visible"
+- "1989 wall calendar absent — should be a visible prop on the wall"
+- "corn rendered as skeletal pale stalks; should be living corn whose kernels happen to be cream/heritage-white"
+- "intercropped beans absent — must be visible climbing the corn stalks"
+
+GENERIC (bad — these do not survive into a useful brief):
+- "the image is generic"
+- "missing snippet-specific details"
+- "looks like stock illustration"
+- "needs better lighting"
+
+## Step 2: compose the brief
+
+For each enumerated compromise, write ONE imperative sentence that names the specific prop, attribute, or detail to add or change. Concatenate them with periods. Do not editorialize ("the original was too generic"), do not explain mode taxonomy, do not summarize the snippet.
+
+Examples (good — every sentence names a specific compromise):
+- "Show Singer-branded treadle sewing machines (visible logo on the machine body). Add a 1989 wall calendar as a visible workshop prop. Preserve the existing dusty-workshop atmosphere and lighting."
+- "Render corn as living standing stalks with cream/heritage-white kernels, not chalk-white skeletal stalks. Beans must be visible climbing the corn stalks (intercrop). Keep the field setting."
+
+Examples (bad — generic, untestable):
+- "Make the image more specific to the snippet."
+- "Add the named entities from the snippet."
+- "Improve compositional fidelity."
+
+If you cannot enumerate at least one specific compromise in Step 1, you do not have enough audit signal to produce useful guidance — set should_retrigger=false instead of writing a vague brief that wastes a generation cycle.
 
 Output via the evaluate_cell tool.
 """

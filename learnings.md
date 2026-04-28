@@ -612,3 +612,50 @@ prompt in the evaluator. The forcing-step pattern that worked on
 named-entity audits and on the vega specialist's numeric enumeration
 applies here too: enumerate the missed compromises before composing
 the corrective brief.
+
+### Followup: enumerate-then-compose forcing step on retrigger_guidance — disconfirmed (N=4, $0.32)
+
+Tested the carry-forward above. Replaced evaluator.py's retrigger_guidance
+section (~10 lines) with a two-step block: Step 1 enumerates specific
+compromises (with SPECIFIC vs GENERIC examples), Step 2 composes
+imperative sentences from the enumerated list, with a "no enumerable
+compromise → set should_retrigger=false" escape clause.
+
+The produced briefs *are* meaningfully more specific. Singer brief became
+"Add visible Singer branding to the sewing machine bodies — the Singer
+name or logo should be legible on the machine head"; lighthouse became
+"Paint the lighthouse tower with multiple alternating red-and-white
+horizontal bands of clearly unequal widths". Both name the missed
+compromise concretely.
+
+But the remediation delta did not shift:
+
+| Cell | Mode | Route | Prior Δ | New Δ |
+|---|---|---|---|---|
+| 0022 (Singer) | missed_detail | i2i | +0.20 | +0.10 |
+| 0014 (corn) | literal_simile_color | i2i | 0.00 | +0.10 |
+| 0025 (lighthouse) | missed_detail | i2i | 0.00 | +0.04 |
+| 0010 (COSTCO) | literal_simile_metaphor | fresh | +0.10 | +0.07 |
+
+mean Δ: +0.075 → +0.078. **Cells crossing 0.7: 1 of 4 → 1 of 4.**
+
+The carry-forward "guidance content is the load-bearing variable" is
+**disconfirmed.** Improving guidance specificity gives more uniform
+small lifts (every cell moved this run; last run only Singer moved) but
+does not move more cells across the 0.7 threshold.
+
+**Real load-bearing variable (revised):** generation-side variability +
+score saturation in the 0.6-0.8 band. Each retrigger produces a new
+image with broadly similar quality; the evaluator's named-entity audit
+finds *some* nit-worthy issue at 0.62-0.72 even when the named compromise
+is fixed. This is the same 0.82-cluster pathology from earlier (line
+~457) re-asserting itself one band lower.
+
+**The guidance-prompt change is kept** — strictly improved brief content
+is worth having even when remediation rate doesn't shift, and the "no
+enumerable compromise → don't retrigger" escape clause prevents a class
+of useless retriggers we didn't have a stop for before. But the kill #1
+gap is structural, not prompt-tunable from this side. If kill #1
+becomes load-bearing again, the next intervention is on the generation
+substrate (Gemini settings, multi-sample-and-pick, alternative model)
+or the evaluator's score band rules — not on the guidance prompt.

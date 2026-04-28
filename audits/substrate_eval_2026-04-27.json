@@ -1,0 +1,288 @@
+[
+  {
+    "id": "cell-0008",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every populated cell in the table traces directly to the snippet: cooperative=above-market wages, competitor=below-market wages and lower prices, cooperative solvency response=match wages OR lose customer. Empty cells are correctly left blank rather than filled with invented values. The caption accurately characterises the deliberate omissions and adds no ungrounded claims."
+  },
+  {
+    "id": "cell-0017",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "All data points in the spec (Top 10% = 56%, Bottom 50% = 4%) are directly stated in the snippet. The middle 40% delta is correctly withheld from the bar chart and transparently noted in the caption as a non-comparable delta, avoiding any invented level value. No provenance failures detected."
+  },
+  {
+    "id": "cell-0021",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value, row label, and column label in the table traces directly to an explicit claim in the snippet. The caption accurately summarizes the table's scope without adding unsupported details."
+  },
+  {
+    "id": "cell-0026",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value in the table maps directly to an explicit claim in the snippet, with no numeric values, extra entities, or relationships introduced beyond what the snippet states. The caption accurately summarizes the three comparison axes without adding unsupported claims."
+  },
+  {
+    "id": "cell-0027",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "All two data rows (Top 10%: 56, Bottom 50%: 4) are directly stated in the snippet, axis labels are faithful, and the caption correctly explains why the middle 40% is omitted (only a delta is available, not an absolute level). No inventions detected in either the substrate or the caption."
+  },
+  {
+    "id": "cell-0028",
+    "ctype": "mermaid",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every node, edge, and edge label in the graph maps directly to an explicit causal claim in the snippet, including the closing feedback loop. The caption faithfully paraphrases the snippet's reinforcing-cycle language without adding unsupported claims. No inventions detected."
+  },
+  {
+    "id": "cell-0029",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "All atomic claims in the spec and caption trace directly to the snippet. The two data rows (65% productivity, 14% compensation), the time-period label (1979\u20132019), the axis title, and the 51-point gap figure in the caption (DERIVED: 65 \u2212 14 = 51) are all fully supported. No inventions detected."
+  },
+  {
+    "id": "cell-0033",
+    "ctype": "html",
+    "score": 0.7,
+    "substrate_inv": [
+      "Query cost driver for Relational database = 'topology of the data' \u2014 the snippet attributes topology as the cost driver specifically for graph databases; it does not state that relational databases are also governed by topology. The relational cost driver implied by the snippet is table/row scale (multi-million-row tables), not topology."
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The table is largely well-grounded, but one cell is a material invention: assigning 'topology of the data' as the query cost driver for the relational database. The snippet explicitly frames topology as the graph database's differentiator and implies row/table scale drives relational cost \u2014 it never attributes topology as a relational cost driver."
+  },
+  {
+    "id": "cell-0035",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every data point, axis label, and caption claim traces directly to the snippet. Both numeric values (121% and 8%), the real-terms qualifier, the time range (1979\u20132019), and the two named series are all explicitly stated in the snippet with no inventions."
+  },
+  {
+    "id": "cell-0036",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value in the table traces directly to the snippet: input sources, output surfaces, and loop latency for ambient image generation are all stated explicitly, and the lucida loop-latency cell is correctly left blank because the snippet does not specify it. The caption accurately characterises the comparison without adding any unsupported claims. No inventions detected."
+  },
+  {
+    "id": "cell-0037",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "role row, Orchestrator-as-editor cell: 'decides when a cell should happen' \u2014 the snippet frames 'who decides when a cell should happen' as the shared axis/question, not as the role of Orchestrator-as-editor specifically.",
+      "role row, Claude-as-editor cell: 'decides when a cell should happen' \u2014 same invention; the snippet does not assign this as Claude-as-editor's role either. Assigning an identical role to both entities is not supported and flattens a distinction the snippet does not make."
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The 'key strength' row is clean (both cells are verbatim from the snippet), but the 'role' row is materially invented: the snippet poses 'who decides when a cell should happen' as the framing question / shared axis, not as the stated role of either decision-maker. Populating both cells with that phrase implies the snippet assigns it as a role to each entity, which it does not, and erases any role distinction between them."
+  },
+  {
+    "id": "cell-0038",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every atomic claim in the table \u2014 the three source field values and the shared cells.json substrate \u2014 traces directly to the snippet. The caption faithfully reproduces the empirical question verbatim and adds no unsupported claims. No inventions detected."
+  },
+  {
+    "id": "cell-0039",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "All six table rows trace directly to the snippet: model name, per-image cost, daily cap with env var name, derived max daily cost, and both lines of defense. The caption's multiplication (200 \u00d7 $0.039 = ~$8) is a clean DERIVED value from snippet-stated figures. No inventions detected."
+  },
+  {
+    "id": "cell-0045",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value, row label, and column label in the table traces directly to explicit claims in the snippet. The caption accurately paraphrases the same claims without adding anything unsupported. No inventions detected."
+  },
+  {
+    "id": "cell-0047",
+    "ctype": "mermaid",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every node and edge in the graph traces directly to the snippet: the five named categories, the discourse-move taxonomy as classifier target, grounding as a co-determining input, and cell type as the derived output. The caption faithfully restates only what the snippet asserts, with no additions."
+  },
+  {
+    "id": "cell-0048",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell, row label, and column label in the table traces directly to explicit claims in the snippet. The caption accurately summarises the structural conclusion stated in the snippet without adding unsupported detail. No inventions detected."
+  },
+  {
+    "id": "cell-0049",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value, row label, and column label in the table traces directly to the snippet. Empty cells for cell-0005 on the anti-hallucination and \"no text\" rows are correct and conservative \u2014 the snippet attributes both findings only to the new prompt. The caption accurately characterises the comparison axes and correctly explains the empty cells without inventing any additional claims."
+  },
+  {
+    "id": "cell-0051",
+    "ctype": "html",
+    "score": 0.4,
+    "substrate_inv": [
+      "Assigning 'judge filter before displaying' exclusively to the first viz (mermaid diagram) \u2014 the snippet does not pair specific fixes to specific vizzes; both fixes are posed as general alternatives",
+      "Assigning 'better complexity thresholding' exclusively to the second viz (bar graph) \u2014 same reason; the snippet poses both as open alternatives, not matched to individual cases",
+      "Leaving the 'equivalent to' cell empty for the mermaid case \u2014 while the snippet does not use that exact phrase, assigning the pairing of fixes to rows structurally implies the mermaid has no text-equivalence problem, which is an invented structural claim"
+    ],
+    "caption_inv": [],
+    "demote": true,
+    "summary": "The table materially invents a one-to-one mapping between each trivial viz and a specific proposed fix ('judge filter' \u2192 mermaid; 'complexity thresholding' \u2192 bar graph), but the snippet presents both fixes as joint, undifferentiated alternatives ('Or\u2026'), with no pairing to individual cases. Because the snippet is also thin enough that the table requires only ~4 DIRECT atomic units and forces invention to fill the 'proposed fix' column meaningfully, demotion to plain text is recommended."
+  },
+  {
+    "id": "cell-0054",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value, row label, column label, and data point in the table traces directly back to the snippet. The caption accurately summarizes what the snippet states \u2014 including the intentional empty cell for image's trivial condition and the shared fallback behavior \u2014 without adding any unsupported claims."
+  },
+  {
+    "id": "cell-0059",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every row, cell value, and label in the table traces directly to the snippet. The Sora 2 cost range is correctly left blank rather than fabricated, and the caption accurately explains why. No inventions detected anywhere in the artifact or caption."
+  },
+  {
+    "id": "cell-0060",
+    "ctype": "html",
+    "score": 0.7,
+    "substrate_inv": [
+      "gastown Primary Color cell value 'brass' \u2014 the snippet says 'Cream + brass' as a combined color description, not a single primary color called 'brass'; treating it as a distinct primary color for one column while 'cream' is placed in Background is a structural split the snippet does not make",
+      "minimal Background cell value 'clean light' \u2014 snippet says 'Clean light' as part of the overall vibe description ('Clean light, Inter, no glows'), not explicitly labelled as a background color"
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The table is largely faithful to the snippet. Two minor interpretive inventions appear: (1) the snippet gives 'Cream + brass' as a single combined color description for gastown, but the table splits this into Background='cream' and Primary Color='brass' \u2014 a structural decomposition the snippet does not explicitly authorize; (2) 'clean light' is treated as minimal's background value, but in the snippet it is part of an overall vibe/style descriptor rather than a dedicated background specification. These are minor, not load-bearing fabrications, so the score is docked slightly but demotion is not warranted."
+  },
+  {
+    "id": "cell-0061",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every row label, mechanism cell, and property cell traces directly to a corresponding claim in the snippet. The table correctly leaves the \"Specific properties\" cells empty for mermaid, aframe, and animated_svg \u2014 precisely where the snippet provides no individual property names. The caption accurately characterises the table and its intentional empty cells. No inventions detected."
+  },
+  {
+    "id": "cell-0062",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every cell value in the table traces directly to the snippet: the mechanism labels, the 0/5 zerosum routing result, kill criterion #2 being tripped, the Claude call return signature, and all three confidence-gate thresholds and actions. Empty cells correctly reflect that the snippet only specifies one side of those comparisons. No inventions detected in substrate or caption."
+  },
+  {
+    "id": "cell-0070",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "All data points in the spec (21.4% baseline, 50% target) and all labels trace directly to the snippet. The caption faithfully reproduces every stated claim, including the 6/28 breakdown and the 30-content-cell horizon, without adding any unsupported details. No inventions detected."
+  },
+  {
+    "id": "cell-0071",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every atomic claim in the spec and caption \u2014 both ratio values (21.4%, 17.1%), both raw counts (6 closed, 28 and 35 total), the direction of change, and the +7 denominator growth \u2014 is directly stated in the snippet. No inventions detected."
+  },
+  {
+    "id": "cell-0072",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "EV -->|'required for'| RT (the snippet states both evaluator and retrigger lineage are absent without --generate, but does not explicitly state that the evaluator is itself a prerequisite for retrigger lineage as a direct causal edge; the snippet only says 'no evaluator AND no retrigger lineage', not that evaluator causes retrigger lineage)"
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The graph is largely faithful to the snippet. Five of the six edges are DIRECT. The one minor invention is the edge EV \u2192 RT (\"evaluator required for retrigger lineage\"): the snippet says both are absent together when --generate is missing, but does not assert a causal dependency between evaluator and retrigger lineage \u2014 that relationship is inferred, not stated. The caption is clean."
+  },
+  {
+    "id": "cell-0073",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every atomic claim in the spec and caption traces directly to the snippet. The four pass values (17.1%, 26.7%, 32.1%, 35.8%), the ~54.5% predicted asymptote (K=3 N=5), and the 50% structural target are all explicitly stated in the snippet. No inventions detected."
+  },
+  {
+    "id": "cell-0064",
+    "ctype": "vega",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every atomic claim in the substrate and caption traces directly back to the snippet. The two bar values (+6 closures, +11 cells), the asymptote rule at 6/11 \u2248 54.5%, the label text, and the caption's mention of 50% target, 1\u20132 passes, K=3, and N=5 are all explicitly stated in the snippet. No inventions detected."
+  },
+  {
+    "id": "cell-0065",
+    "ctype": "mermaid",
+    "score": 0.7,
+    "substrate_inv": [
+      "FIX1, FIX2, FIX3 all point to EXT (the extractor node) \u2014 the snippet presents the three fixes as alternatives targeting different pipeline stages (extractor, segmenter prompt, trivial filter), not all targeting the extractor node"
+    ],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "The graph is largely clean and well-supported by the snippet, but there is one structural invention: all three fix edges terminate at the EXT (extractor) node, whereas the snippet clearly assigns FIX2 to the segmenter prompt and FIX3 to the trivial filter \u2014 distinct pipeline stages, not the extractor. This misrouting is a minor-to-moderate provenance error that could mislead readers about where each fix is applied."
+  },
+  {
+    "id": "cell-0066",
+    "ctype": "html",
+    "score": 1.0,
+    "substrate_inv": [],
+    "caption_inv": [],
+    "demote": false,
+    "summary": "Every row label, example cell, and empty-cell pattern in the table traces directly to the snippet. The four failure modes, their anecdotal examples, and the three absent research activities (rate measurement, typology, retrigger testing) are all explicitly stated in the snippet. The caption faithfully restates these same facts without adding any unsupported claims."
+  }
+]
