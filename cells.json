@@ -2505,6 +2505,28 @@
       "replaced_by": null,
       "retrigger_count": 0,
       "retrigger_reason": null
+    },
+    {
+      "id": "cell-0078",
+      "timestamp": "2026-04-28T04:05:07+00:00",
+      "cell_type": "aframe",
+      "trigger_snippet": "Lucida's three core feedback loops: the classifier inferring substrate fit, the specialist generating snippet-grounded specs, and the evaluator retriggering on disappointment. Each runs on its own cadence; together they form the autonomous Wakisaka pattern that closes the conversation-to-cell loop.",
+      "prompt": "(specialist-generated; demonstrating aframe's depth + multi-light capability)",
+      "caption": "Wakisaka pattern orrery \u2014 the central torus is the autonomous feedback closure loop; the icosahedron (left, classifier), octahedron (right, specialist), and dodecahedron (bottom, evaluator) each spin on independent cadences, encoding their distinct rhythms. The pulsing accent sphere traces the live signal that orbits the loop.",
+      "spec": "\n<a-light type=\"ambient\" color=\"#ffffff\" intensity=\"0.35\"></a-light>\n<a-light type=\"directional\" position=\"3 5 2\" color=\"#ffffff\" intensity=\"0.65\"></a-light>\n\n<!-- Hero: central torus knot stand-in via torus -- the Wakisaka pattern closure ring -->\n<a-torus position=\"0 1.5 -5\" radius=\"0.9\" radius-tubular=\"0.04\" color=\"$accent\" wireframe=\"true\"\n         animation__spin=\"property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 12000; easing: linear\"\n         animation__pulse=\"property: scale; from: 1 1 1; to: 1.08 1.08 1.08; dir: alternate; loop: true; dur: 3200; easing: easeInOutSine\">\n</a-torus>\n\n<!-- Classifier: icosahedron, left -- inferring substrate fit -->\n<a-icosahedron position=\"-2.4 1.5 -5\" radius=\"0.55\" color=\"$stroke1\" wireframe=\"true\"\n               animation=\"property: rotation; to: 360 180 0; loop: true; dur: 9000; easing: linear\">\n</a-icosahedron>\n\n<!-- Specialist: octahedron, right -- generating snippet-grounded specs -->\n<a-octahedron position=\"2.4 1.5 -5\" radius=\"0.55\" color=\"$stroke2\" wireframe=\"true\"\n              animation=\"property: rotation; to: 0 360 180; loop: true; dur: 10500; easing: linear\">\n</a-octahedron>\n\n<!-- Evaluator: dodecahedron, bottom -- retriggering on disappointment -->\n<a-dodecahedron position=\"0 0.3 -5\" radius=\"0.42\" color=\"$stroke3\" wireframe=\"true\"\n                animation__spin=\"property: rotation; to: 180 360 0; loop: true; dur: 8000; easing: linear\"\n                animation__bob=\"property: position; from: 0 0.3 -5; to: 0 0.55 -5; dir: alternate; loop: true; dur: 2600; easing: easeInOutSine\">\n</a-dodecahedron>\n\n<!-- Connecting orbit sphere: cadence pulse, orbiting the hero torus -->\n<a-sphere position=\"0 2.5 -5\" radius=\"0.12\" color=\"$accent\" wireframe=\"true\"\n          animation__orbit=\"property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 5500; easing: linear\"\n          animation__pop=\"property: scale; from: 1 1 1; to: 1.5 1.5 1.5; dir: alternate; loop: true; dur: 1800; easing: easeInOutQuad\">\n</a-sphere>\n",
+      "notes": "(aframe demo #2; richer surface than cell-0076) [aframe-specialist:cache-test 2026-04-28 (claude-sonnet-4-6)]",
+      "classifier_reasoning": "(no classifier; specialist invoked directly)",
+      "discourse_move": "structural",
+      "confidence": null,
+      "image_path": null,
+      "html": null,
+      "attempted_cell_type": null,
+      "attempted_spec": null,
+      "reflection_source_ids": [],
+      "replaces": null,
+      "replaced_by": null,
+      "retrigger_count": 0,
+      "retrigger_reason": null
     }
   ]
 }

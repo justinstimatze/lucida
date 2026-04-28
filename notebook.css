@@ -605,3 +605,71 @@ th, td {
 .theme-minimal .hud-cells-bar {
   filter: none;
 }
+
+/* ============================================================
+   MAGI mermaid refinement — push the rendered SVG further into
+   the FUI dialect. Mermaid's themeVariables only set colors;
+   stroke widths, glow filters, and edge animation need to be
+   applied post-render via CSS targeting the produced SVG.
+   ============================================================ */
+
+/* Node glow + stronger stroke. !important needed to override the
+   inline styles mermaid emits per node. */
+.theme-magi .mermaid-target .node rect,
+.theme-magi .mermaid-target .node polygon,
+.theme-magi .mermaid-target .node circle,
+.theme-magi .mermaid-target .node ellipse {
+  stroke-width: 1.6px !important;
+  filter: drop-shadow(0 0 4px rgba(255, 140, 0, 0.42));
+}
+.theme-magi .mermaid-target .node:hover rect,
+.theme-magi .mermaid-target .node:hover polygon,
+.theme-magi .mermaid-target .node:hover circle {
+  filter: drop-shadow(0 0 7px rgba(255, 140, 0, 0.7));
+  transition: filter 0.2s ease;
+}
+
+/* Bolder edges in green; subtle drop-shadow gives the "circuit-line"
+   feel. The class .flowchart-link or path inside .edgePath both work
+   across mermaid versions. */
+.theme-magi .mermaid-target .edgePath path,
+.theme-magi .mermaid-target .flowchart-link {
+  stroke-width: 2.2px !important;
+  filter: drop-shadow(0 0 2px rgba(0, 255, 65, 0.5));
+}
+
+/* Dashed edges (created by `-.->` in mermaid syntax) get an animated
+   dash-march so the relationship reads as live/in-flight. */
+.theme-magi .mermaid-target .edgePath path[style*="stroke-dasharray"],
+.theme-magi .mermaid-target path.flowchart-link[stroke-dasharray] {
+  animation: magi-dash-march 1.4s linear infinite;
+}
+@keyframes magi-dash-march {
+  to { stroke-dashoffset: -16; }
+}
+
+/* Edge labels in monospace; slight panel background so they read
+   against the edge stroke crossing them. */
+.theme-magi .mermaid-target .edgeLabel,
+.theme-magi .mermaid-target .edgeLabel rect {
+  font-family: "Courier New", "Lucida Console", monospace !important;
+}
+.theme-magi .mermaid-target .edgeLabel foreignObject div {
+  background-color: rgba(12, 12, 12, 0.8) !important;
+  padding: 0.05rem 0.25rem;
+  border: 1px solid rgba(255, 140, 0, 0.25);
+}
+
+/* Arrowheads — magi green to match the line color. Mermaid v10 uses
+   markers; targeting them by class lets us keep theme parity. */
+.theme-magi .mermaid-target .marker.flowchart path,
+.theme-magi .mermaid-target marker path {
+  fill: #00ff41 !important;
+  stroke: #00ff41 !important;
+}
+
+/* Cluster (subgraph) borders get the same treatment as node borders. */
+.theme-magi .mermaid-target .cluster rect {
+  stroke-width: 1.4px !important;
+  filter: drop-shadow(0 0 3px rgba(255, 140, 0, 0.3));
+}
