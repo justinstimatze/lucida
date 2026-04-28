@@ -604,6 +604,14 @@ function parsePct(s) {
 
 // Set data-state on a kill slot from a % vs warn/tripped thresholds, and
 // fill the ring in proportion. Ring uses stroke-dasharray on a 2*pi*r=62.83 path.
+// Track each kill slot's previous state so we can detect non-tripped →
+// tripped transitions and trigger the peripheral-to-center bloom (Iron
+// HUD signature: peripheral gauges escalate to center when their data
+// becomes load-bearing — see design-references.md "peripheral-to-center
+// attention move"). First-paint state is treated as established
+// (no bloom on initial load if a kill is already tripped).
+const _killStateHistory = new Map();
+
 function applyKillState(slotId, pct, warnAt, trippedAt) {
   const slot = document.getElementById(slotId);
   if (!slot) return;
@@ -611,7 +619,12 @@ function applyKillState(slotId, pct, warnAt, trippedAt) {
   if (pct == null) state = "unknown";
   else if (pct >= trippedAt) state = "tripped";
   else if (pct >= warnAt) state = "warn";
+  const prev = _killStateHistory.get(slotId);
   slot.dataset.state = state;
+  if (prev !== undefined && prev !== "tripped" && state === "tripped") {
+    bloomKillTrip(slot, pct);
+  }
+  _killStateHistory.set(slotId, state);
   const fill = slot.querySelector(".hud-ring-fill");
   if (!fill) return;
   const circ = 2 * Math.PI * 10;  // r=10
@@ -622,6 +635,60 @@ function applyKillState(slotId, pct, warnAt, trippedAt) {
   }
   fill.style.strokeDasharray = `${(frac * circ).toFixed(2)} ${circ.toFixed(2)}`;
 }
+
+// Peripheral-to-center bloom. Clones a kill slot's content into a
+// fixed-position hero card, animates it from its peripheral HUD position
+// to the viewport center (scaled up, glowing), holds, then animates
+// back. Pure Web Animations API — no React Flow / no animation library.
+// Triggered automatically by applyKillState on a tripped transition;
+// can also be invoked manually via window.lucidaBloomDemo() for testing.
+function bloomKillTrip(slot, pct) {
+  const sourceRect = slot.getBoundingClientRect();
+  const label = slot.querySelector(".hud-label")?.textContent || "KILL";
+  const value = slot.querySelector(".hud-value")?.textContent || `${pct}%`;
+
+  const hero = el("div", "kill-bloom-hero");
+  hero.dataset.killState = "tripped";
+  hero.innerHTML = `
+    <div class="kill-bloom-label">${label}</div>
+    <div class="kill-bloom-value">${value}</div>
+    <div class="kill-bloom-status">TRIPPED</div>
+  `;
+  document.body.appendChild(hero);
+
+  // Position at source first; layout pass; then animate to center.
+  const heroW = 280, heroH = 160;
+  const sourceX = sourceRect.left + sourceRect.width / 2 - heroW / 2;
+  const sourceY = sourceRect.top + sourceRect.height / 2 - heroH / 2;
+  const centerX = window.innerWidth / 2 - heroW / 2;
+  const centerY = window.innerHeight / 2 - heroH / 2;
+  hero.style.left = sourceX + "px";
+  hero.style.top = sourceY + "px";
+  hero.style.width = heroW + "px";
+  hero.style.height = heroH + "px";
+
+  const dx = centerX - sourceX;
+  const dy = centerY - sourceY;
+
+  hero.animate(
+    [
+      { transform: "translate(0, 0) scale(0.2)", opacity: 0 },
+      { transform: `translate(${dx * 0.5}px, ${dy * 0.5}px) scale(0.7)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1, offset: 0.6 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1, offset: 0.85 },
+      { transform: "translate(0, 0) scale(0.2)", opacity: 0 },
+    ],
+    { duration: 3500, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)", fill: "forwards" }
+  ).onfinish = () => hero.remove();
+}
+
+// Console-accessible demo: window.lucidaBloomDemo() fakes a tripped
+// transition on KILL.HALLUC so the bloom can be eyeballed without
+// waiting for a real kill-criteria trip.
+window.lucidaBloomDemo = function (slotId = "hud-kill3-slot") {
+  const slot = document.getElementById(slotId);
+  if (slot) bloomKillTrip(slot, 99);
+};
 
 function flashHud() {
   const hud = document.getElementById("hud");

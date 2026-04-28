@@ -820,3 +820,55 @@ th, td {
 /* mermaid + vega + everything else falls through to the default
    cell-arrive (slide-up + glow). Keeps the diff focused on substrates
    where a distinct entrance reads as meaningful. */
+
+/* Peripheral-to-center bloom: a kill-criteria slot that just transitioned
+   to "tripped" clones a hero card to center via Web Animations API
+   (see bloomKillTrip in index.html). The Iron HUD signature move per
+   design-references.md — peripheral gauges escalate when their data
+   becomes load-bearing. */
+.kill-bloom-hero {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  background: var(--panel, #131318);
+  border: 2px solid var(--vis-tripped);
+  border-radius: 4px;
+  padding: 1.2rem 1.4rem;
+  box-shadow:
+    0 0 32px color-mix(in srgb, var(--vis-tripped) 60%, transparent),
+    0 0 80px color-mix(in srgb, var(--vis-tripped) 30%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--vis-tripped) 20%, transparent);
+  font-family: inherit;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+  will-change: transform, opacity;
+}
+.kill-bloom-label {
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  color: var(--vis-tripped);
+  font-weight: 600;
+}
+.kill-bloom-value {
+  font-size: 2.4rem;
+  color: var(--fg, #e5e5e5);
+  font-family: "Courier New", "Lucida Console", monospace;
+  font-weight: 700;
+}
+.kill-bloom-status {
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  color: var(--vis-tripped);
+  text-shadow: 0 0 4px var(--vis-tripped);
+}
+.theme-magi .kill-bloom-hero {
+  background: #050505;
+  border-color: var(--vis-tripped);
+  box-shadow:
+    0 0 24px var(--vis-tripped),
+    0 0 60px color-mix(in srgb, var(--vis-tripped) 50%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--vis-tripped) 25%, transparent);
+}
