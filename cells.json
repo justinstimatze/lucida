@@ -270,10 +270,6 @@
               "share_pct": 56
             },
             {
-              "group": "Middle 40%",
-              "share_pct": 36
-            },
-            {
               "group": "Bottom 50%",
               "share_pct": 4
             }
@@ -281,19 +277,19 @@
         },
         "mark": {
           "type": "bar",
-          "cornerRadiusEnd": 3
+          "cornerRadiusEnd": 4
         },
         "encoding": {
           "y": {
             "field": "group",
             "type": "nominal",
-            "sort": [
-              "-share_pct"
-            ],
             "axis": {
               "title": null,
-              "labelFontSize": 12
-            }
+              "labelFontSize": 13
+            },
+            "sort": [
+              "-x"
+            ]
           },
           "x": {
             "field": "share_pct",
@@ -316,13 +312,11 @@
             "scale": {
               "domain": [
                 "Top 10%",
-                "Middle 40%",
                 "Bottom 50%"
               ],
               "range": [
-                "#c0392b",
-                "#8e9fc5",
-                "#4a7fa5"
+                "#6a8fd8",
+                "#a0bfa8"
               ]
             }
           },
@@ -335,16 +329,16 @@
             {
               "field": "share_pct",
               "type": "quantitative",
-              "title": "Share (%)"
+              "title": "Share of growth (%)"
             }
           ]
         },
         "width": 480,
-        "height": 120
+        "height": 110
       },
       "html": null,
-      "caption": "Share of total US income growth captured by each group, 1979\u20132019. The top 10% took 56%; the bottom 50% took just 4%.",
-      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.93 [v0\u2192vega] cache:wrote/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
+      "caption": "Share of total US income growth captured, 1979\u20132019. The top 10% took 56%; the bottom 50% took just 4%. (The middle 40%'s share fell by 8 percentage points over the same period \u2014 a delta, not directly comparable on this scale.)",
+      "notes": "(generated) [classifier(sonnet-4-6)\u2192quantitative/vega@0.93 [v0\u2192vega] cache:wrote/2550t] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
@@ -548,64 +542,61 @@
           "values": [
             {
               "group": "Top 10%",
-              "share_pct": 56
-            },
-            {
-              "group": "Middle 40%",
-              "share_pct": 36
+              "share": 56
             },
             {
               "group": "Bottom 50%",
-              "share_pct": 4
+              "share": 4
             }
           ]
         },
         "mark": {
           "type": "bar",
-          "cornerRadiusEnd": 3
+          "cornerRadiusEnd": 4
         },
         "encoding": {
           "y": {
             "field": "group",
             "type": "nominal",
             "sort": [
-              "-share_pct"
+              "-share"
             ],
             "axis": {
               "title": null,
-              "labelFontSize": 12
+              "labelFontSize": 13,
+              "labelColor": "#c9d1d9"
             }
           },
           "x": {
-            "field": "share_pct",
+            "field": "share",
             "type": "quantitative",
             "axis": {
               "title": "Share of total income growth (%)",
-              "titleFontSize": 11
+              "titleColor": "#8b949e",
+              "labelColor": "#8b949e",
+              "gridColor": "#30363d"
             },
             "scale": {
               "domain": [
                 0,
-                65
+                60
               ]
             }
           },
           "color": {
             "field": "group",
             "type": "nominal",
-            "legend": null,
             "scale": {
               "domain": [
                 "Top 10%",
-                "Middle 40%",
                 "Bottom 50%"
               ],
               "range": [
-                "#c0392b",
-                "#7f8c8d",
-                "#2980b9"
+                "#58a6ff",
+                "#6e7681"
               ]
-            }
+            },
+            "legend": null
           },
           "tooltip": [
             {
@@ -614,18 +605,19 @@
               "title": "Group"
             },
             {
-              "field": "share_pct",
+              "field": "share",
               "type": "quantitative",
-              "title": "Share of growth (%)"
+              "title": "Share of growth (%)",
+              "format": ".0f"
             }
           ]
         },
         "width": 480,
-        "height": 120
+        "height": 110
       },
       "html": null,
-      "caption": "Share of total US income growth captured by each group, 1979\u20132019. The top 10% took 56%; the bottom 50% took just 4%.",
-      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192quantitative/vega@0.93 [v0\u2192vega] cache:hit/2550t [vega-specialist:cache:miss]]",
+      "caption": "Share of total US income growth captured, 1979\u20132019. The top 10% took 56%; the bottom 50% took just 4%. The middle 40%'s share fell by 8 percentage points over the same period (not shown as an absolute level, since the snippet reports only a change for that group).",
+      "notes": "generated via specialist [classifier(sonnet-4-6)\u2192quantitative/vega@0.93 [v0\u2192vega] cache:hit/2550t [vega-specialist:cache:miss]] [backfilled via specialist 2026-04-27 (claude-sonnet-4-6)]",
       "attempted_cell_type": null,
       "attempted_spec": null,
       "discourse_move": "quantitative",
