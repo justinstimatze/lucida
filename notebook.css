@@ -239,11 +239,18 @@ main {
   grid-column: span 2;
 }
 /* scene3d / aframe cells host inherently-fixed-size 3D scenes
-   (target's min-height is already 360px). The universal 28vh cap
+   (target's min-height is already 360px). The universal 32vh cap
    clips the WebGL canvas, manifesting as a truncated scene. Exempt
-   them — they'll occupy their natural height without overflow. */
+   them — they'll occupy their natural height without overflow.
+   Multi-stream column variant added too: .session-column .cell
+   :not(:first-of-type) (specificity 3) was beating the
+   .cell[data-cell-type="scene3d"] (specificity 2), so scene3d
+   in column position 2+ was being capped at 28vh. Per audit
+   2026-04-28. */
 .cell[data-cell-type="scene3d"],
-.cell[data-cell-type="aframe"] {
+.cell[data-cell-type="aframe"],
+.session-column .cell[data-cell-type="scene3d"],
+.session-column .cell[data-cell-type="aframe"] {
   max-height: none;
 }
 .cell[data-cell-type="scene3d"]::after,
@@ -388,7 +395,14 @@ main {
 .vega-target, .mermaid-target {
   display: block;
   margin: 0.25rem 0;
-  overflow-x: auto;
+  /* overflow-x: auto produced a "giant green line" artifact in
+     magi theme: when a mermaid graph's SVG was wider than the cell,
+     the scroll context combined with the green stroke + drop-shadow
+     filter banded into a saturated vertical bar at certain
+     zoom/DPR combos. overflow: hidden clips overwide SVGs cleanly;
+     mermaid auto-fits most graphs to container width via SVG
+     viewBox, so visible loss is minimal. Per audit 2026-04-28. */
+  overflow: hidden;
 }
 .svg-target, .lottie-target {
   display: block;
@@ -936,8 +950,13 @@ th, td {
    across mermaid versions. */
 .theme-magi .mermaid-target .edgePath path,
 .theme-magi .mermaid-target .flowchart-link {
-  stroke-width: 2.2px !important;
-  filter: drop-shadow(0 0 2px rgba(0, 255, 65, 0.5));
+  /* stroke-width 2.2 → 1.4 + filter dialed back. Combined with
+     overflow:hidden on .mermaid-target this kills the green-banding
+     artifact at non-100% browser zoom; the edges still read as
+     prominent FUI green, just less likely to bloom into solid bands
+     when the SVG is composited at fractional pixel ratios. */
+  stroke-width: 1.4px !important;
+  filter: drop-shadow(0 0 1px rgba(0, 255, 65, 0.4));
 }
 
 /* Dashed edges (created by `-.->` in mermaid syntax) get an animated

@@ -108,31 +108,69 @@ import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.mi
 // Active theme is set by the inline head script -> window.__LUCIDA_THEME.
 const ACTIVE = window.__LUCIDA_THEME || "lab";
 
-// Multi-stream arc step 2: ?session=<id1>,<id2>,... filter. Multi-
-// select via comma-separated list. Empty / no param = unscoped (show
-// every cell, intuitive default). The literal "untagged" is a pseudo-
-// session matching cells without a session_id field. The set is
-// mutable at runtime via the HUD dropdown (toggleSessionFilter).
-let ACTIVE_SESSIONS = (function () {
-  try {
-    const v = new URLSearchParams(window.location.search).get("session");
-    if (!v) return new Set();
-    return new Set(v.split(",").map(s => s.trim()).filter(Boolean));
-  } catch (e) { return new Set(); }
-})();
+// Centralized mutable state. Pre-2026-04-28 the renderer had ~15
+// disconnected `let` variables scattered through the module —
+// state.rendering.renderedIds / state.hud.lastTyped / state.conn.renderer / state.hud.killHistory etc.
+// Made "what is currently rendered?" hard to answer and led to
+// observer-leak bugs where scrolled-out cells never disconnected
+// their IntersectionObservers. This object is the single source of
+// mutable state; every subsystem reads/writes named paths.
+//
+// Per memory/feedback_layout_density_validated.md don't drift back
+// into module-scope let leakage on future feature work — add to
+// state, don't sprinkle.
+const state = {
+  // Multi-stream arc step 2: ?session=<id1>,<id2>,... filter. Multi-
+  // select via comma-separated list. Empty / no param = unscoped (show
+  // every cell, intuitive default). The literal "untagged" is a pseudo-
+  // session matching cells without a session_id field. Set is
+  // mutable at runtime via the HUD dropdown.
+  sessions: {
+    active: (function () {
+      try {
+        const v = new URLSearchParams(window.location.search).get("session");
+        if (!v) return new Set();
+        return new Set(v.split(",").map(s => s.trim()).filter(Boolean));
+      } catch (e) { return new Set(); }
+    })(),
+  },
+  rendering: {
+    renderedIds: new Set(),       // cells already mounted in the notebook
+    overflowPending: false,       // overflow-check rAF throttle
+    cellsBarKey: null,            // memo key for HUD substrate-bar repaint
+  },
+  hud: {
+    lastTyped: new Map(),         // typeInto cache (suppress re-animation)
+    lastSeenMint: null,           // most-recent cell_id surfaced in HUD recent ticker
+    lastMintTs: null,             // for the live seconds-since-last counter
+    killHistory: new Map(),       // kill-slot data-state history → bloom triggers
+    cachedAudit: undefined,       // undefined = not attempted; null = none found; obj = result
+  },
+  webgl: {
+    aframeLoad: null,             // lazy A-Frame import promise (deduped)
+    registry: [],                 // active scene3d/aframe contexts (LRU eviction)
+  },
+  conn: {
+    renderer: null, scene: null, camera: null,  // Three.js connection-overlay
+    lines: [],                    // current line meshes (re-disposed each redraw)
+    animating: false,             // continuous-pulse rAF running flag
+    startTime: 0,                 // animation epoch
+    rafPending: false,            // redraw rAF throttle
+  },
+};
 function matchesActiveSession(cell) {
-  if (ACTIVE_SESSIONS.size === 0) return true;
-  if (ACTIVE_SESSIONS.has("untagged") && !cell.session_id) return true;
-  return ACTIVE_SESSIONS.has(cell.session_id);
+  if (state.sessions.active.size === 0) return true;
+  if (state.sessions.active.has("untagged") && !cell.session_id) return true;
+  return state.sessions.active.has(cell.session_id);
 }
 // Persist the current filter to the URL so the view is shareable from
 // inside a Claude Code session without the user typing a query string.
 function syncSessionFilterToURL() {
   const url = new URL(window.location.href);
-  if (ACTIVE_SESSIONS.size === 0) {
+  if (state.sessions.active.size === 0) {
     url.searchParams.delete("session");
   } else {
-    url.searchParams.set("session", [...ACTIVE_SESSIONS].join(","));
+    url.searchParams.set("session", [...state.sessions.active].join(","));
   }
   window.history.replaceState(null, "", url.toString());
 }
@@ -142,17 +180,29 @@ function syncSessionFilterToURL() {
 // + render-id baseline so the next pass treats every visible cell as
 // fresh; live-append continues from there.
 async function rerenderNotebook() {
+  disconnectAllCellObservers();
   document.getElementById("notebook").innerHTML = "";
-  _renderedCellIds.clear();
+  state.rendering.renderedIds.clear();
   await load();
   loadHud().catch(() => {});
   scheduleRedrawConnections();
 }
 
+// Walk the notebook DOM and disconnect every per-element observer
+// stashed by pauseOffScreen / lazyMount. Without this, rerenders
+// leave behind live IntersectionObservers that keep firing into
+// torn-down state. Per audit 2026-04-28.
+function disconnectAllCellObservers() {
+  document.querySelectorAll("#notebook *").forEach(el => {
+    if (el._pauseObserver) { el._pauseObserver.disconnect(); el._pauseObserver = null; }
+    if (el._lazyObserver)  { el._lazyObserver.disconnect();  el._lazyObserver = null; }
+  });
+}
+
 // Build the session-filter dropdown contents. Reads unique session_id
 // values from cells.json (plus an "untagged" pseudo-session for cells
 // missing the field) and renders a checkbox list. Each toggle updates
-// ACTIVE_SESSIONS, syncs the URL, and re-renders the notebook.
+// state.sessions.active, syncs the URL, and re-renders the notebook.
 function buildSessionDropdown(cellsData) {
   const dropdown = document.getElementById("session-dropdown");
   if (!dropdown) return;
@@ -177,7 +227,7 @@ function buildSessionDropdown(cellsData) {
     </div>
   `;
   const rows = entries.map(([sid, count]) => {
-    const checked = ACTIVE_SESSIONS.has(sid) ? "checked" : "";
+    const checked = state.sessions.active.has(sid) ? "checked" : "";
     const safeId = sid.replace(/[^a-zA-Z0-9_-]/g, "_");
     return `
       <label class="session-dropdown-row">
@@ -190,7 +240,7 @@ function buildSessionDropdown(cellsData) {
   dropdown.innerHTML = header + (rows || '<div class="session-dropdown-empty">no sessions yet</div>');
 
   dropdown.querySelector(".session-dropdown-clear")?.addEventListener("click", () => {
-    ACTIVE_SESSIONS.clear();
+    state.sessions.active.clear();
     syncSessionFilterToURL();
     buildSessionDropdown(cellsData);
     rerenderNotebook();
@@ -198,8 +248,8 @@ function buildSessionDropdown(cellsData) {
   dropdown.querySelectorAll('input[type="checkbox"][data-session]').forEach(cb => {
     cb.addEventListener("change", () => {
       const sid = cb.dataset.session;
-      if (cb.checked) ACTIVE_SESSIONS.add(sid);
-      else ACTIVE_SESSIONS.delete(sid);
+      if (cb.checked) state.sessions.active.add(sid);
+      else state.sessions.active.delete(sid);
       syncSessionFilterToURL();
       rerenderNotebook();
     });
@@ -367,6 +417,11 @@ function pauseOffScreen(targetEl, onShow, onHide) {
       else onHide();
     }
   }, { rootMargin: "200px" });
+  // Stash on the element so rerenderNotebook can disconnect on teardown.
+  // Without this, every cell that's ever scrolled out of view leaves a
+  // live IntersectionObserver behind across rerenders. Per audit
+  // 2026-04-28.
+  targetEl._pauseObserver = io;
   io.observe(targetEl);
 }
 
@@ -375,18 +430,17 @@ function pauseOffScreen(targetEl, onShow, onHide) {
 // All concurrent first-mounts share the same Promise so we only fetch
 // + parse once. A-Frame brings its own Three.js — that's fine; the
 // eagerly-loaded window.THREE was already grabbed by any scene3d cells.
-let _aframeLoadPromise = null;
 function ensureAFrameLoaded() {
   if (window.AFRAME) return Promise.resolve();
-  if (_aframeLoadPromise) return _aframeLoadPromise;
-  _aframeLoadPromise = new Promise((resolve, reject) => {
+  if (state.webgl.aframeLoad) return state.webgl.aframeLoad;
+  state.webgl.aframeLoad = new Promise((resolve, reject) => {
     const s = document.createElement("script");
     s.src = "https://aframe.io/releases/1.5.0/aframe.min.js";
     s.onload = () => resolve();
     s.onerror = () => reject(new Error("A-Frame failed to load"));
     document.head.appendChild(s);
   });
-  return _aframeLoadPromise;
+  return state.webgl.aframeLoad;
 }
 
 // Browsers cap live WebGL contexts at ~16; with 84 cells minted over a
@@ -397,22 +451,21 @@ function ensureAFrameLoaded() {
 // geometry/materials/renderer + drop the canvas; they re-init from spec
 // when scrolled back into view.
 const WEBGL_CAP = 2;
-const webglRegistry = [];
 function registerWebGL(entry) {
-  webglRegistry.push(entry);
+  state.webgl.registry.push(entry);
   evictWebGLIfOverCap();
 }
 function touchWebGL(entry) { entry.lastVisible = performance.now(); }
 function evictWebGLIfOverCap() {
-  while (webglRegistry.length > WEBGL_CAP) {
-    const evictable = webglRegistry
+  while (state.webgl.registry.length > WEBGL_CAP) {
+    const evictable = state.webgl.registry
       .filter(e => !e.visible)
       .sort((a, b) => a.lastVisible - b.lastVisible);
     if (evictable.length === 0) break;
     const victim = evictable[0];
     try { victim.teardown(); } catch (err) { /* swallow */ }
-    const idx = webglRegistry.indexOf(victim);
-    if (idx >= 0) webglRegistry.splice(idx, 1);
+    const idx = state.webgl.registry.indexOf(victim);
+    if (idx >= 0) state.webgl.registry.splice(idx, 1);
   }
 }
 
@@ -443,6 +496,7 @@ function lazyMount(target, render, teardown) {
       }
     }
   }, { rootMargin: "1500px" });
+  target._lazyObserver = io;  // see rerenderNotebook for cleanup
   io.observe(target);
 }
 
@@ -467,13 +521,12 @@ function resolveColor(c) {
 // Critical: only animates when the value actually CHANGES — otherwise
 // the 5s HUD poll would re-type the entire header every tick, which
 // reads as nervous flicker, not signal.
-const _lastTyped = new Map();
 function typeInto(elId, text, perChar = 18, maxChars = 200) {
   const e = document.getElementById(elId);
   if (!e) return;
   const t = String(text).slice(0, maxChars);
-  if (_lastTyped.get(elId) === t) return;  // unchanged → leave it alone
-  _lastTyped.set(elId, t);
+  if (state.hud.lastTyped.get(elId) === t) return;  // unchanged → leave it alone
+  state.hud.lastTyped.set(elId, t);
   e.textContent = "";
   let i = 0;
   const tick = () => {
@@ -496,20 +549,19 @@ async function fetchJSON(path) {
 // 14-day window. Cached after first lookup so subsequent loadHud polls
 // don't re-issue 14 fetches per cycle. Returns null if no audit is found
 // in the window — kill #3 then displays "n/a".
-let _cachedAudit;  // undefined = not attempted yet; null = no audit; obj = found
 async function loadLatestSubstrateAudit() {
-  if (_cachedAudit !== undefined) return _cachedAudit;
+  if (state.hud.cachedAudit !== undefined) return state.hud.cachedAudit;
   const today = new Date();
   for (let i = 0; i < 14; i++) {
     const d = new Date(today.getTime() - i * 86400000);
     const dateStr = d.toISOString().slice(0, 10);
     const a = await fetchJSON(`audits/substrate_eval_${dateStr}.json`);
     if (a) {
-      _cachedAudit = a;
+      state.hud.cachedAudit = a;
       return a;
     }
   }
-  _cachedAudit = null;
+  state.hud.cachedAudit = null;
   return null;
 }
 async function fetchText(path) {
@@ -583,10 +635,10 @@ function computeHud(data, substrateAudit, mintLog) {
     // Session display: prefer the active ?session= filter when set.
     // Single id → show truncated; multiple → show "Nsess"; none →
     // fall back to corpus-level session_id field.
-    session: (ACTIVE_SESSIONS.size === 1
-              ? [...ACTIVE_SESSIONS][0].slice(0, 8)
-              : ACTIVE_SESSIONS.size > 1
-                ? `${ACTIVE_SESSIONS.size}sess`
+    session: (state.sessions.active.size === 1
+              ? [...state.sessions.active][0].slice(0, 8)
+              : state.sessions.active.size > 1
+                ? `${state.sessions.active.size}sess`
                 : (data.session_id || "—").slice(0, 8)),
     theme: (window.__LUCIDA_THEME || "lab").toUpperCase(),
     kill1, kill2, kill3, recent,
@@ -611,13 +663,12 @@ const SUBSTRATE_COLORS = {
 // Render the stacked-bar of substrate distribution. Idempotent: clears
 // previous segments + rebuilds. Uses a small cache so we don't repaint
 // when the breakdown is unchanged.
-let _lastCellsBarKey = null;
 function renderCellsBar(byType, total) {
   const svg = document.getElementById("hud-cells-bar");
   if (!svg) return;
   if (!total || total <= 0) {
     svg.innerHTML = "";
-    _lastCellsBarKey = null;
+    state.rendering.cellsBarKey = null;
     return;
   }
   // Stable order: prioritize visible/high-value substrates first so the
@@ -629,8 +680,8 @@ function renderCellsBar(byType, total) {
     if (!present.includes(t)) present.push(t);
   }
   const key = present.map(t => `${t}:${byType[t]}`).join(",") + `=${total}`;
-  if (key === _lastCellsBarKey) return;
-  _lastCellsBarKey = key;
+  if (key === state.rendering.cellsBarKey) return;
+  state.rendering.cellsBarKey = key;
 
   svg.innerHTML = "";
   let x = 0;
@@ -662,14 +713,9 @@ function parseMintLog(text) {
 
 // Track latest seen mint so we can detect *new* events between polls
 // and flash the HUD to announce them. Persists across loadHud calls.
-let _lastSeenMintCellId = null;
-let _lastMintTimestamp = null;  // for the live seconds-since-last counter
 
 // Set of cell IDs already rendered in the notebook. Initialized by the
 // first load() pass and grown by liveAppendNewCells() as fresh cells arrive.
-const _renderedCellIds = new Set();
-
-// Detect cells in cells.json that haven't been rendered yet, append them
 // to the notebook with a slide-in animation. Called from loadHud() so it
 // runs at the same 1.5s cadence as the HUD poll.
 function liveAppendNewCells(cellsData) {
@@ -681,8 +727,8 @@ function liveAppendNewCells(cellsData) {
     return true;
   });
   // First poll establishes the baseline; subsequent polls detect deltas.
-  // load() seeds _renderedCellIds before the first poll fires.
-  const fresh = visible.filter(c => !_renderedCellIds.has(c.id));
+  // load() seeds state.rendering.renderedIds before the first poll fires.
+  const fresh = visible.filter(c => !state.rendering.renderedIds.has(c.id));
   if (!fresh.length) return 0;
 
   // Rebuild snippetGroups from the full visible set so attempt-N-of-M
@@ -716,7 +762,7 @@ function liveAppendNewCells(cellsData) {
     } else {
       root.prepend(node);
     }
-    _renderedCellIds.add(c.id);
+    state.rendering.renderedIds.add(c.id);
     firstNode = node;
     setTimeout(() => node.classList.remove("cell-fresh"), 1400);
   }
@@ -760,11 +806,11 @@ async function loadHud() {
   const newest = mintLog.length ? mintLog[mintLog.length - 1] : null;
 
   // Detect new mint vs. last poll → flash HUD and re-render notebook tail.
-  if (newest && newest.cell_id && newest.cell_id !== _lastSeenMintCellId) {
-    if (_lastSeenMintCellId !== null) flashHud();  // skip flash on first paint
-    _lastSeenMintCellId = newest.cell_id;
+  if (newest && newest.cell_id && newest.cell_id !== state.hud.lastSeenMint) {
+    if (state.hud.lastSeenMint !== null) flashHud();  // skip flash on first paint
+    state.hud.lastSeenMint = newest.cell_id;
   }
-  _lastMintTimestamp = newest ? newest.timestamp : null;
+  state.hud.lastMintTs = newest ? newest.timestamp : null;
 
   const m = computeHud(cellsData, substrateAudit, mintLog);
   typeInto("hud-status-val", m.status);
@@ -806,8 +852,6 @@ function parsePct(s) {
 // becomes load-bearing — see design-references.md "peripheral-to-center
 // attention move"). First-paint state is treated as established
 // (no bloom on initial load if a kill is already tripped).
-const _killStateHistory = new Map();
-
 function applyKillState(slotId, pct, warnAt, trippedAt) {
   const slot = document.getElementById(slotId);
   if (!slot) return;
@@ -815,12 +859,12 @@ function applyKillState(slotId, pct, warnAt, trippedAt) {
   if (pct == null) state = "unknown";
   else if (pct >= trippedAt) state = "tripped";
   else if (pct >= warnAt) state = "warn";
-  const prev = _killStateHistory.get(slotId);
+  const prev = state.hud.killHistory.get(slotId);
   slot.dataset.state = state;
   if (prev !== undefined && prev !== "tripped" && state === "tripped") {
     bloomKillTrip(slot, pct);
   }
-  _killStateHistory.set(slotId, state);
+  state.hud.killHistory.set(slotId, state);
   const fill = slot.querySelector(".hud-ring-fill");
   if (!fill) return;
   const circ = 2 * Math.PI * 10;  // r=10
@@ -899,35 +943,28 @@ window.lucidaBloomDemo = function (slotId = "hud-kill3-slot") {
 // systems trampling each other. Lucida is vanilla, single source of
 // truth (Three.js render on rAF), so the trampling vector doesn't
 // apply.
-let _connRenderer = null;
-let _connScene = null;
-let _connCamera = null;
-let _connLines = [];
-let _connAnimating = false;
-let _connStartTime = 0;
-
 function ensureThreeOverlay() {
-  if (_connRenderer) return _connRenderer;
+  if (state.conn.renderer) return state.conn.renderer;
   const canvas = document.getElementById("connection-overlay");
   if (!canvas || !window.THREE) return null;
   const T = window.THREE;
-  _connRenderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  _connRenderer.setPixelRatio(window.devicePixelRatio);
-  _connRenderer.setClearColor(0x000000, 0);
-  _connRenderer.setSize(window.innerWidth, window.innerHeight);
-  _connScene = new T.Scene();
+  state.conn.renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  state.conn.renderer.setPixelRatio(window.devicePixelRatio);
+  state.conn.renderer.setClearColor(0x000000, 0);
+  state.conn.renderer.setSize(window.innerWidth, window.innerHeight);
+  state.conn.scene = new T.Scene();
   // Orthographic camera maps viewport pixels directly to scene units.
   // top=0 / bottom=H inverts Y so screen Y increases downward (matches
   // DOM getBoundingClientRect coordinates). Z range allows ±1000px
   // depth for connection arcs; near/far will tighten when this becomes
   // a PerspectiveCamera in VR mode.
-  _connCamera = new T.OrthographicCamera(
+  state.conn.camera = new T.OrthographicCamera(
     0, window.innerWidth,
     0, window.innerHeight,
     -2000, 2000,
   );
-  _connCamera.position.z = 100;
-  return _connRenderer;
+  state.conn.camera.position.z = 100;
+  return state.conn.renderer;
 }
 
 function _connAccent() {
@@ -938,12 +975,11 @@ function _connAccent() {
   return new window.THREE.Color(c || "#66ccff");
 }
 
-let _connectionsRAFPending = false;
 function scheduleRedrawConnections() {
-  if (_connectionsRAFPending) return;
-  _connectionsRAFPending = true;
+  if (state.conn.rafPending) return;
+  state.conn.rafPending = true;
   requestAnimationFrame(() => {
-    _connectionsRAFPending = false;
+    state.conn.rafPending = false;
     drawConnections();
   });
 }
@@ -956,26 +992,26 @@ function drawConnections() {
 
   // Resync camera + renderer to current viewport (cheap; both mostly
   // no-ops if dimensions unchanged).
-  _connRenderer.setSize(vw, vh, false);
-  _connCamera.left = 0;
-  _connCamera.right = vw;
-  _connCamera.top = 0;
-  _connCamera.bottom = vh;
-  _connCamera.updateProjectionMatrix();
+  state.conn.renderer.setSize(vw, vh, false);
+  state.conn.camera.left = 0;
+  state.conn.camera.right = vw;
+  state.conn.camera.top = 0;
+  state.conn.camera.bottom = vh;
+  state.conn.camera.updateProjectionMatrix();
 
   // Dispose previous lines. Three.js holds GPU buffers for geometry +
   // materials that don't auto-release; this loop is the price for
   // redrawing on every scroll tick.
-  for (const line of _connLines) {
-    _connScene.remove(line);
+  for (const line of state.conn.lines) {
+    state.conn.scene.remove(line);
     if (line.geometry) line.geometry.dispose();
     if (line.material) line.material.dispose();
   }
-  _connLines.length = 0;
+  state.conn.lines.length = 0;
 
   const reflections = document.querySelectorAll(".cell-reflection[data-source-ids]");
   if (!reflections.length) {
-    _connRenderer.render(_connScene, _connCamera);
+    state.conn.renderer.render(state.conn.scene, state.conn.camera);
     return;
   }
 
@@ -1035,8 +1071,8 @@ function drawConnections() {
           color: accent, transparent: true, opacity: 0.55,
         });
         const stubLine = new T.Line(stubGeo, stubMat);
-        _connScene.add(stubLine);
-        _connLines.push(stubLine);
+        state.conn.scene.add(stubLine);
+        state.conn.lines.push(stubLine);
       });
     };
     drawStubFan(stubsBelow, "below");
@@ -1085,16 +1121,16 @@ function drawConnections() {
         color: accent, transparent: true, opacity: 0.45,
       });
       const line = new T.Line(geo, mat);
-      _connScene.add(line);
-      _connLines.push(line);
+      state.conn.scene.add(line);
+      state.conn.lines.push(line);
     }
   }
 
-  _connRenderer.render(_connScene, _connCamera);
+  state.conn.renderer.render(state.conn.scene, state.conn.camera);
   // Kick the continuous animation loop if there's anything to animate.
-  if (_connLines.length && !_connAnimating) {
-    _connAnimating = true;
-    _connStartTime = performance.now();
+  if (state.conn.lines.length && !state.conn.animating) {
+    state.conn.animating = true;
+    state.conn.startTime = performance.now();
     requestAnimationFrame(_connAnimate);
   }
 }
@@ -1103,12 +1139,12 @@ function drawConnections() {
 // feel alive (signal flow). Stops automatically when the line set is
 // empty (no reflections in viewport) and resumes on next draw.
 function _connAnimate(now) {
-  if (!_connLines.length) {
-    _connAnimating = false;
+  if (!state.conn.lines.length) {
+    state.conn.animating = false;
     return;
   }
-  const elapsed = (now - _connStartTime) / 1000;
-  for (const line of _connLines) {
+  const elapsed = (now - state.conn.startTime) / 1000;
+  for (const line of state.conn.lines) {
     if (!line.material) continue;
     // Slow opacity wobble, +/- 0.15 around base. Phase offset by line
     // index would be nicer but keeping simple — uniform pulse reads
@@ -1119,7 +1155,7 @@ function _connAnimate(now) {
     }
     line.material.opacity = base + 0.15 * Math.sin(elapsed * 1.8);
   }
-  _connRenderer.render(_connScene, _connCamera);
+  state.conn.renderer.render(state.conn.scene, state.conn.camera);
   requestAnimationFrame(_connAnimate);
 }
 
@@ -1130,12 +1166,11 @@ window.addEventListener("resize", scheduleRedrawConnections);
 // only renders where it's needed. Without this, every short cell gets
 // a spurious fade. Re-runs on resize and on retries after fresh mints
 // (async vega/mermaid/scene3d content settles in over a few seconds).
-let _overflowCheckPending = false;
 function scheduleCheckOverflow() {
-  if (_overflowCheckPending) return;
-  _overflowCheckPending = true;
+  if (state.rendering.overflowPending) return;
+  state.rendering.overflowPending = true;
   requestAnimationFrame(() => {
-    _overflowCheckPending = false;
+    state.rendering.overflowPending = false;
     document.querySelectorAll("#notebook .cell").forEach(c => {
       const overflows = c.scrollHeight > c.clientHeight + 2;
       c.classList.toggle("cell-overflow", overflows);
@@ -1158,8 +1193,8 @@ function flashHud() {
 function tickSinceLast() {
   const e = document.getElementById("hud-elapsed-val");
   if (!e) return;
-  if (!_lastMintTimestamp) { e.textContent = "—"; return; }
-  const t = Date.parse(_lastMintTimestamp);
+  if (!state.hud.lastMintTs) { e.textContent = "—"; return; }
+  const t = Date.parse(state.hud.lastMintTs);
   if (isNaN(t)) { e.textContent = "—"; return; }
   const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
   e.textContent = formatElapsed(sec);
@@ -1179,7 +1214,7 @@ function formatElapsed(sec) {
 // :first-child still gets hero treatment via the existing CSS rule.
 // Single-session and unscoped views remain in single-grid mode.
 function isMultiStream() {
-  return ACTIVE_SESSIONS.size >= 2;
+  return state.sessions.active.size >= 2;
 }
 function sessionKey(c) {
   return c.session_id || "untagged";
@@ -1224,13 +1259,13 @@ async function load() {
     // (acts as a placeholder for "this session is being watched but
     // hasn't minted yet").
     root.dataset.mode = "multi-stream";
-    for (const sid of ACTIVE_SESSIONS) ensureSessionColumn(sid);
+    for (const sid of state.sessions.active) ensureSessionColumn(sid);
     for (const c of visible) {
       const col = ensureSessionColumn(sessionKey(c));
       // Newest first within column — prepend AFTER the header.
       const headerEl = col.firstChild;
       col.insertBefore(renderCell(c, snippetGroups), headerEl.nextSibling);
-      _renderedCellIds.add(c.id);
+      state.rendering.renderedIds.add(c.id);
     }
   } else {
     root.dataset.mode = "single";
@@ -1239,7 +1274,7 @@ async function load() {
     // and prepending each puts the last (newest) cell at the very top.
     for (const c of visible) {
       root.prepend(renderCell(c, snippetGroups));
-      _renderedCellIds.add(c.id);
+      state.rendering.renderedIds.add(c.id);
     }
   }
 
