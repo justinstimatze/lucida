@@ -73,3 +73,41 @@ When weighing whether a cell would benefit from animated_svg / scene3d / aframe 
 4. Does the resulting cell pass the diegetic-prop test — does it justify itself functionally, not just visually (Coleran)?
 
 If yes to (1-3) and the answer to (4) is "yes, it's earning its visual weight" — lean dynamic. Otherwise, the static substrate is honest.
+
+## Bookmarks for quick local reference
+
+Curated entries we want to be able to look up quickly. Pushing-pixels prioritized for visual density and newer coverage; scifiinterfaces for Iron Man corpus + analytic frame. Original content lives at the URLs — we don't mirror.
+
+### pushing-pixels.org/fui/ (designer interviews)
+
+- **Mark Coleran** — engineering-drafting precision linework, pragmatic-futurism, diegetic-prop discipline. Source DNA of modern FUI dialect. <https://www.pushing-pixels.org/2021/12/21/pragmatic-futurism-and-screen-graphics-interview-with-mark-coleran.html>
+- **Daniel Hojlund** — hero/ambient screen split, story-relevance gate, 21-frames-to-parse rule. <https://www.pushing-pixels.org/2018/09/27/the-art-and-craft-of-screen-graphics-interview-with-daniel-hojlund.html>
+- **Geoff McFetridge — *Her*** — restrained palette, paper-warm typography as anti-FUI register. <https://www.pushing-pixels.org/2018/04/05/screen-graphics-of-her-interview-with-geoff-mcfetridge.html>
+- **Clayton McDermott — *Black Mirror*** — concentric ring nav (eye/clock/tree-rings), environmental color saturation as dystopia signal, ZX Spectrum period fidelity. <https://www.pushing-pixels.org/2020/04/03/the-art-of-the-black-mirror-interview-with-clayton-mcdermott/>
+- **John Koltai — Marvel / Spider-Man / Iron Man 2-3** — holograms detached from surfaces; per-character palettes (Lance=blue, Killian=red/black, Eyes=cyan/pink). <https://www.pushing-pixels.org/2020/03/13/the-art-and-craft-of-screen-graphics-interview-with-john-koltai/>
+- **Stylow — *Ghost in the Shell*, *Ready Player One*** — retro-futurism research practice ("libraries + obscure books > Pinterest"); avoid generic corporate blue. <https://www.pushing-pixels.org/2019/04/19/the-art-and-craft-of-screen-graphics-interview-with-stylow/>
+- **Henri & Grimm — *Alien: Earth*** — dual aesthetic split: 4:3 green-mono CRT with scanlines + chromatic aberration + bulge for legacy systems vs 16:9 modern layered scroll for Prodigy. <https://www.pushing-pixels.org/2025/11/01/the-art-and-craft-of-screen-graphics-interview-with-dave-henri-stefan-grimm/>
+- **Danny Ho — DC TV / Yellowjackets / Monarch** — "schmience"-into-coherent-story; 4K media servers feeding inserts shot live on set. <https://www.pushing-pixels.org/2024/10/07/the-art-and-craft-of-screen-graphics-interview-with-danny-ho/>
+- **Paul Taglianetti — *Demolition Man*** — era-specific CRT playback, 30fps↔24fps sync. Cited for historical context on the genre's hardware-bound roots. <https://www.pushing-pixels.org/2024/10/23/the-art-and-craft-of-screen-graphics-interview-with-paul-taglianetti/>
+
+Index page (every interview, navigable): <https://www.pushing-pixels.org/fui/>
+
+### scifiinterfaces.com — Iron HUD corpus
+
+Four-post deep dive worth bookmarking:
+
+- Components/conceptual model — <https://scifiinterfaces.com/2015/07/01/iron-man-hud-a-breakdown/>
+- Function catalog (visual-vocabulary list) — <https://scifiinterfaces.com/2015/07/13/iron-man-hud-just-the-functions/>
+- 1st-person view + four-awarenesses framework — <https://scifiinterfaces.com/2015/07/21/iron-man-hud-1-person-view/>
+- 2nd-person view as impossible-but-useful conceit — <https://scifiinterfaces.com/2015/07/29/iron-man-hud-2-person-view/>
+
+Site root (analytic critiques across films/TV): <https://scifiinterfaces.com>
+
+### Adjacent reference
+
+- Bret Victor — Worrydream essays on representation + Dynamicland practice. Conceptual foundation for "media as substrate, not page". <https://worrydream.com> · <https://dynamicland.org>
+- Jayse Hansen — FUI portfolio incl. Iron Man HUDs. <https://jayse.tv>
+
+### How to extend this list
+
+Add only entries you've actually returned to, or that anchor a specific lucida design decision. The full per-archive scrape lives locally in `research/` (gitignored) — this section is the curated subset, not a mirror.

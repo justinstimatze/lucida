@@ -21,3 +21,8 @@ cells/cell-*.webp
 
 # runtime mint log — append-only by orchestrator, read by recent_mints hook
 mint_log.jsonl
+
+# local-only research scrapes/exhaustive surveys — not committed.
+# Curated synthesis with bookmarks lives in design-references.md (committed);
+# raw per-entry tables and competitor URL surveys live here for local lookup.
+research/
