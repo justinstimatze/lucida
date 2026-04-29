@@ -27,8 +27,8 @@ cells.json
 cells.json.bak*
 cells_*_archive.json
 
-# audit raw JSON contains trigger_snippet text from real conversations
-audits/*.json
+# audit outputs are local — contain snippets from real conversations
+audits/
 
 # Claude Code project settings — personal paths, not for contributors
 .claude/
