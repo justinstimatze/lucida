@@ -1,4 +1,38 @@
 /* minimal v0 styling — aesthetic doesn't matter, legibility does */
+
+/* Reduced-motion: users with vestibular disorders or motion-sensitivity
+   preferences get all decorative animation suppressed. Functional
+   animations (cell-arrive, hud-flash, lcars-chip-pulse, scene3d render
+   loops) all have @media branches. Substrate-content animations
+   (animated_svg cells, vega rendering) are content the user opted into
+   by minting the cell, so we don't suppress those — but we suppress
+   chrome-level motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible :focus-visible ring on capsule chips and dropdown rows so
+   keyboard users can see where focus is. Browser default focus rings
+   were partially overridden by chip border styles; explicit ring
+   wins and uses a contrasty 2px outline + offset so it's visible
+   over both navy (LCARS) and dark (lab/magi) backgrounds. */
+.cell-id:focus-visible,
+.cell-caption:focus-visible,
+.session-dropdown-row:focus-visible,
+.theme-dropdown-row:focus-visible,
+.layout-dropdown-row:focus-visible,
+.hud:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 :root {
   --fg: #e5e5e5;
   --muted: #8a8a92;
@@ -1282,7 +1316,10 @@ th, td {
   background: rgba(0, 0, 0, 0.35);
   border-radius: 999px;
   padding: 0.1rem 0.7rem;
-  border: 1px solid rgba(255, 153, 0, 0.18);
+  /* Bumped from 0.18 to 0.55 alpha for WCAG AA non-text contrast on
+     navy bg (3:1 minimum per SC 1.4.11). The prior 18% orange rendered
+     as ~1.6:1, invisible to low-vision users. */
+  border: 1px solid rgba(255, 153, 0, 0.55);
   /* The CELLS chip embeds an inline svg/rect bar; its inline-flex layout
      keeps the bar inline with the label/value, the capsule wraps both. */
 }
@@ -1302,8 +1339,11 @@ th, td {
 .theme-lcars .cell-time {
   border-radius: 999px;
   padding: 0.08rem 0.55rem;
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  /* Bumped from 14%/35% to 22%/60% for WCAG AA non-text contrast on
+     navy bg — the prior values rendered as ~2:1 over navy, below the
+     3:1 minimum for visible UI components per WCAG 2.1 SC 1.4.11. */
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
   letter-spacing: 0.08em;
 }
 .theme-lcars .cell-id {

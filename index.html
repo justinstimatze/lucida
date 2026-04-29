@@ -2560,7 +2560,7 @@ initThemeDropdownTrigger();
 // open without requiring continuous hover. Click the HUD again to
 // collapse. Avoid toggling when the click landed on the SESSION
 // dropdown or its trigger (those have their own handlers).
-document.getElementById("hud")?.addEventListener("click", (e) => {
+function toggleHudExpanded(e) {
   // Skip if click bubbled from the session-dropdown trigger or its popover
   const sessionCell = document.getElementById("hud-session-cell");
   const dropdown = document.getElementById("session-dropdown");
@@ -2568,6 +2568,23 @@ document.getElementById("hud")?.addEventListener("click", (e) => {
   if (dropdown && dropdown.contains(e.target)) return;
   const hud = e.currentTarget;
   hud.dataset.expanded = hud.dataset.expanded === "true" ? "false" : "true";
+  hud.setAttribute("aria-expanded", hud.dataset.expanded);
+}
+const hudEl = document.getElementById("hud");
+hudEl?.addEventListener("click", toggleHudExpanded);
+// Keyboard accessibility: Enter or Space activates the same toggle —
+// touch users get the click handler, keyboard users get this. The HUD
+// is now a focusable region (tabindex 0) with role="button"-like
+// semantics. Touch devices with no hover state benefit from the click
+// path so the expand-on-hover behavior is never the only way in.
+hudEl?.setAttribute("tabindex", "0");
+hudEl?.setAttribute("role", "button");
+hudEl?.setAttribute("aria-expanded", "false");
+hudEl?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    toggleHudExpanded({ currentTarget: hudEl, target: hudEl });
+  }
 });
 
 // HUD bootstraps and polls fast. Hackertyper-feel reveal happens
