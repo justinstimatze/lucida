@@ -75,6 +75,11 @@ class CellProposal:
     confidence: float | None = None
     classifier_reasoning: str | None = None
     title: str | None = None  # short generated title (3-6 words) for the cell head
+    # shape hints from the classifier — persisted so post-hoc audits can read
+    # within-substrate variety off cells.json without re-running classification.
+    # "n/a" when not applicable to the chosen cell_type.
+    mermaid_subtype: str | None = None
+    html_layout: str | None = None
     # populated when this cell is a reflection -- ids of the cells reflected on
     reflection_source_ids: list[str] | None = None
     # populated by the autonomous retrigger loop (image cells only):
@@ -615,6 +620,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     confidence = None
     classifier_reasoning = None
     cell_title = None
+    mermaid_subtype = None
+    html_layout = None
     classifier_label = f"classifier(v0)→{auto_type_v0}"
     gate_note = ""
     chosen_type = cell_type or auto_type_v0
@@ -628,6 +635,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             confidence = llm.confidence
             classifier_reasoning = llm.reasoning
             cell_title = llm.title
+            mermaid_subtype = llm.mermaid_subtype
+            html_layout = llm.html_layout
             short_model = llm.model.replace("claude-", "")
             if llm.cache_read_tokens > 0:
                 cache_info = f"cache:hit/{llm.cache_read_tokens}t"
@@ -847,6 +856,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         confidence=confidence,
         classifier_reasoning=classifier_reasoning,
         title=cell_title,
+        mermaid_subtype=mermaid_subtype,
+        html_layout=html_layout,
         session_id=session_id,
     )
 
@@ -922,6 +933,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     confidence=confidence,
                     classifier_reasoning=classifier_reasoning,
                     title=child_label[:60] if child_label else cell_title,
+                    mermaid_subtype=mermaid_subtype,
+                    html_layout=html_layout,
                     session_id=session_id,
                 )
                 cells_to_write.append(child_proposal)
@@ -1090,6 +1103,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     discourse_move=proposal.discourse_move,
                     confidence=proposal.confidence,
                     classifier_reasoning=proposal.classifier_reasoning,
+                    mermaid_subtype=proposal.mermaid_subtype,
+                    html_layout=proposal.html_layout,
                     replaces=current.id,
                     retrigger_count=attempt + 1,
                     retrigger_reason=guidance,
