@@ -30,8 +30,10 @@ def test_classifier_imports():
     assert callable(classify)
     fields = ClassifierResult.__dataclass_fields__
     # Keep an explicit guard so the schema doesn't drift silently.
+    # mermaid_subtype + html_layout added in task #43 (shape hints).
     expected = {
         "discourse_move", "cell_type", "confidence", "reasoning", "title",
+        "mermaid_subtype", "html_layout",
         "model", "cache_read_tokens", "cache_creation_tokens",
         "input_tokens", "output_tokens",
     }
@@ -43,16 +45,18 @@ def test_classifier_imports():
 def test_specialists_imports():
     import specialists
 
+    # Active substrates — all must be present and callable.
     for name in (
         "generate_mermaid_spec",
         "generate_vega_spec",
         "generate_html_spec",
         "generate_animated_svg_spec",
         "generate_scene3d_spec",
-        "generate_aframe_spec",
-        "generate_lottie_spec",
+        "generate_treemap_spec",
+        "generate_sparkline_spec",
     ):
         assert hasattr(specialists, name), f"specialists.{name} missing"
+        assert callable(getattr(specialists, name)), f"specialists.{name} not callable"
 
 
 def test_watcher_imports():
@@ -76,6 +80,34 @@ def test_text_evaluator_imports():
 
     assert callable(evaluate_substrate_cell)
     assert TextEvalResult.__dataclass_fields__
+
+
+def test_segmenter_imports():
+    from segmenter import Segment, SegmentationResult, SegmenterError, segment_document
+
+    assert callable(segment_document)
+    fields = SegmentationResult.__dataclass_fields__
+    assert {"segments", "summary", "model"} <= set(fields)
+    assert SegmenterError.__bases__[0] is RuntimeError
+
+
+def test_reflect_imports():
+    from reflect import ReflectionResult, ReflectError, reflect_on_recent_cells
+
+    assert callable(reflect_on_recent_cells)
+    fields = ReflectionResult.__dataclass_fields__
+    assert {"reflection", "synthesis_substrate", "synthesis_spec",
+            "source_ids", "model"} <= set(fields)
+    assert ReflectError.__bases__[0] is RuntimeError
+
+
+def test_nano_banana_imports():
+    from nano_banana import GenResult, NanoBananaError, generate, transform_image
+
+    assert callable(generate)
+    assert callable(transform_image)
+    assert NanoBananaError.__bases__[0] is RuntimeError
+    assert GenResult.__dataclass_fields__
 
 
 def test_next_id_collision_safety():

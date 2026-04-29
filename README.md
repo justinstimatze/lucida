@@ -54,11 +54,11 @@ Nine substrates, each with a specialist function. Specialists run with
 | -------------- | -------------------------------- | ------------------------------------------------------- |
 | `vega`         | `generate_vega_spec`             | precise quantitative charts, multi-point series         |
 | `mermaid`      | `generate_mermaid_spec`          | structural graphs, named entities + edges               |
-| `html`         | `generate_html_spec`             | comparison tables (≥2 entities × ≥2 dimensions)         |
+| `html`         | `generate_html_spec`             | callouts / kanban / dl / comparison table (≥3×2 matrix) |
 | `animated_svg` | `generate_animated_svg_spec`     | motion-graphics encoding flow / cycle / decay           |
 | `scene3d`      | `generate_scene3d_spec`          | wireframe Three.js scenes, iron-HUD topology            |
-| `aframe`       | `generate_aframe_spec`           | declarative WebGL scenes via A-Frame                    |
-| `lottie`       | `generate_lottie_spec`           | usually demotes-with-redirect; Lottie isn't LLM-tractable |
+| `treemap`      | `generate_treemap_spec`          | d3-hierarchy squarify — part-to-whole with ≥4 parts     |
+| `sparkline`    | `generate_sparkline_spec`        | single-series trajectory (6-40 points, shape is the claim) |
 | `image`        | `image_specialist.py` + Gemini   | scene/illustrative — demoted from auto-classifier (kill #1) |
 | `text`         | n/a                              | mostly suppressed (<0.92 confidence); rare honest text   |
 
@@ -222,7 +222,7 @@ substrate hallucination under the prior any-text-suppress rule.
 ## Architecture references
 
 - Memory directory at
-  `~/.claude/projects/-home-gas6amus-Documents-lucida/memory/`
+  `~/.claude/projects/<encoded-project-dir>/memory/`
   holds the durable design context: vision, positioning candidates,
   theme-extensibility guardrail, awaiting-generation backlog notes.
 - `design-references.md` — curated FUI/sci-fi-interface references
@@ -241,16 +241,15 @@ lucida/
 ├── README.md                  this
 ├── pyproject.toml             python deps
 ├── .env.example
-├── .gitignore                 mint_log.jsonl + research/ + cells/cell-*.png are local-only
-├── .claude/settings.json      UserPromptSubmit hook for conversation-loop
-├── hooks/recent_mints.sh      hook that surfaces fresh mints to Claude Code
+├── .gitignore
+├── LICENSE
+├── hooks/recent_mints.sh      UserPromptSubmit hook — surfaces fresh mints to Claude Code
 ├── index.html                 renderer (HUD + cell stream + live append)
 ├── notebook.css               theme tokens + cell + HUD styling
-├── cells.json                 cell corpus (chronological, append-only)
-├── mint_log.jsonl             runtime mint log (gitignored)
+├── themes/                    per-theme token JSON (lcars, magi, lab, minimal, gastown)
 ├── orchestrator.py            entry point: classify → specialist → cells.json
 ├── classifier.py              v0.5 LLM classifier (Sonnet 4.6, cached)
-├── specialists.py             vega/mermaid/html/animated_svg/scene3d/aframe/lottie
+├── specialists.py             vega/mermaid/html/animated_svg/scene3d/treemap/sparkline
 ├── image_specialist.py        Gemini image-prompt builder
 ├── nano_banana.py             Google AI / Gemini SDK wrapper
 ├── evaluator.py               image-cell quality scorer + retrigger guidance
@@ -258,18 +257,23 @@ lucida/
 ├── reflect.py                 reflective synthesis over recent cells
 ├── watcher.py                 transcript-delta listener with polling loop
 ├── segmenter.py               prose → snippet segmentation
-├── jsonl_to_transcript.py     Claude Code .jsonl → flat transcript
+├── jsonl_to_transcript.py     backward-compat shim (wraps adapters/claude_code.py)
+├── adapters/                  transcript adapters (claude-code, aider; add more here)
 ├── audit_kill_criteria.py     image-only kill #1/2/3 audit
 ├── eval_all_substrates.py     substrate-hallucination audit driver
-├── audits/                    audit reports by date
+├── audits/                    audit .md reports by date (JSON outputs gitignored)
 ├── kill_criteria.md           pre-committed kill conditions
 ├── learnings.md               calibration history + disconfirms
 ├── design-references.md       curated FUI bookmarks (committed)
 ├── research/                  local-only deeper scrapes (gitignored)
-├── cells_<date>_archive.json  prior corpus snapshots (kept for audit)
 └── cells/
     ├── placeholder.svg        the only tracked cell asset
     └── cell-*.png             generated images (gitignored)
+
+Not committed (gitignored, user-local):
+  cells.json                   your cell corpus — generated from your own sessions
+  mint_log.jsonl               runtime append log read by hooks/recent_mints.sh
+  .claude/                     Claude Code project settings (has local paths)
 ```
 
 ## Memory directory

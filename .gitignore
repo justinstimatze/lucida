@@ -25,6 +25,10 @@ mint_log.jsonl
 # user cell data — each user generates their own from their own conversations
 cells.json
 cells.json.bak*
+cells_*_archive.json
+
+# audit raw JSON contains trigger_snippet text from real conversations
+audits/*.json
 
 # Claude Code project settings — personal paths, not for contributors
 .claude/

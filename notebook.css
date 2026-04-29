@@ -733,14 +733,18 @@ main {
 }
 .code-pre {
   font-family: var(--type-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: 0.78rem;
-  line-height: 1.5;
+  /* 0.72rem (was 0.78) — code cells render denser per char than prose;
+     dropping the size compresses vertical real estate so a 10-line
+     function doesn't dominate the grid. Per user 2026-04-29: code
+     cells were reading as "too much text" relative to other substrates. */
+  font-size: 0.72rem;
+  line-height: 1.45;
   color: var(--fg);
   background: var(--code-bg);
   border: 1px solid var(--line);
   border-left: 2px solid var(--accent);
   border-radius: 3px;
-  padding: 0.55rem 0.7rem;
+  padding: 0.45rem 0.6rem;
   margin: 0;
   white-space: pre;
   overflow-x: auto;
@@ -789,14 +793,18 @@ main {
 }
 .ascii-pre {
   font-family: var(--type-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: 0.78rem;
-  line-height: 1.25;
+  /* 0.88rem (was 0.78) — box-drawing glyphs (┌─┐ ╔═╗ etc) render at
+     subpixel widths that lose detail at smaller font sizes. Per user
+     2026-04-29 cell-1249 was unreadable; bump to 0.88rem so the box
+     corners and intersections register clearly. */
+  font-size: 0.88rem;
+  line-height: 1.2;
   color: var(--accent);
   background: var(--code-bg);
   border: 1px solid var(--line);
   border-left: 2px solid var(--accent);
   border-radius: 3px;
-  padding: 0.5rem 0.7rem;
+  padding: 0.55rem 0.75rem;
   margin: 0;
   white-space: pre;
   overflow-x: auto;

@@ -57,4 +57,4 @@ jobs:
         # B603/B607: subprocess intentional for orchestrator CLI hand-offs
         # B311: random for non-crypto (cell-id allocation, etc.)
       - name: pip-audit — dependency vulnerability scan
-        run: pip-audit --requirement <(pip freeze)
+        run: pip-audit

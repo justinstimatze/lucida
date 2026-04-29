@@ -107,7 +107,7 @@ REFLECT_TOOL = {
             "proposed_next_cell_type": {
                 "type": "string",
                 "enum": ["text", "image", "vega", "mermaid", "html",
-                         "animated_svg", "scene3d", "aframe", "lottie", "none"],
+                         "animated_svg", "scene3d", "treemap", "sparkline", "none"],
                 "description": "What kind of cell would naturally come next. 'none' if nothing useful is missing.",
             },
             "proposed_next_snippet": {

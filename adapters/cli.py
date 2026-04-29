@@ -38,6 +38,8 @@ def main() -> None:
     if args.source == "claude-code":
         text, stats = extractor(args.source_path, include_thinking=args.thinking)
     else:
+        if args.thinking:
+            print(f"warning: --thinking has no effect for source '{args.source}'", file=sys.stderr)
         text, stats = extractor(args.source_path)
 
     args.out.write_text(text)

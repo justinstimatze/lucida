@@ -2788,10 +2788,14 @@ function renderCell(c, snippetGroups) {
           window.Prism.highlightElement(codeEl);
         }
       }).catch(() => { /* silent — code still renders unhighlighted */ });
-      // Natural width: use the longest line × ~7.5px/char monospaced + padding.
+      // Natural width: longest line × ~6.5px/char (the .code-pre font
+      // is 0.72rem which renders at ~6.5px per mono char). Cap tighter
+      // (520 max, was 720) so a 10-line function doesn't dominate the
+      // grid — code cells should compose alongside other substrates,
+      // not crowd them out. Per user 2026-04-29.
       const lines = (c.spec.source || "").split("\n");
       const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
-      const w = Math.min(720, Math.max(280, 24 + longest * 7.5));
+      const w = Math.min(520, Math.max(260, 16 + longest * 6.5));
       applyNaturalCellSize(target, w);
     };
     lazyMount(target, renderCode);
@@ -2900,10 +2904,14 @@ function renderCell(c, snippetGroups) {
       pre.textContent = ascii;
       target.innerHTML = "";
       target.appendChild(pre);
-      // Natural width: longest line × ~7.6px/ch monospaced + small padding.
+      // Natural width: longest line × ~9.0px/ch (box-drawing glyphs
+      // at 0.88rem mono render wider than ASCII — the wider multiplier
+      // keeps the ┌─┐ ╔═╗ corners from being squeezed past readability).
+      // Min raised to 280 so single-narrow-line ASCII doesn't render
+      // as a sliver. Per user 2026-04-29 cell-1249 unreadable case.
       const lines = ascii.split("\n");
       const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
-      const w = Math.min(640, Math.max(220, 16 + longest * 7.6));
+      const w = Math.min(720, Math.max(280, 24 + longest * 9.0));
       applyNaturalCellSize(target, w);
     };
     lazyMount(target, renderAscii);
