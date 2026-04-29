@@ -803,13 +803,17 @@ body > .a-orientation-modal {
   margin-left: calc(var(--lcars-pillar-w) + 12px);
   margin-top: calc(var(--lcars-bar-h) + 8px);
 }
-/* LCARS top horizontal bar */
+/* LCARS top horizontal bar. Width is 100vw (not right:0) so the bar
+   covers the scrollbar gutter — `right: 0` anchors to the layout
+   viewport which excludes the scrollbar, leaving a visible ~14px black
+   gap between the bar's rounded terminus and the screen edge. The bar
+   is position:fixed so 100vw can't trigger a horizontal scrollbar. */
 .theme-lcars body::before {
   content: "";
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
+  width: 100vw;
   height: var(--lcars-bar-h);
   background: var(--accent);
   z-index: 250;
@@ -1150,6 +1154,28 @@ th, td {
 }
 .theme-lcars .hud-value { text-shadow: none; }
 .theme-lcars .hud-scanline { display: none; }
+
+/* In-cell chips also become LCARS capsules so the shape language is
+   consistent across HUD chips and cell-head chips (cell-id button,
+   discourse_move, confidence, timestamp). Background is a subtle
+   dark fill scoped via color-mix so it tracks the cell-bg navy. */
+.theme-lcars .cell-id,
+.theme-lcars .cell-move,
+.theme-lcars .cell-conf,
+.theme-lcars .cell-time {
+  border-radius: 999px;
+  padding: 0.08rem 0.55rem;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  letter-spacing: 0.08em;
+}
+.theme-lcars .cell-id {
+  /* Cell-id stays mono so the alphanumeric reads as a code badge — and
+     the existing data-cell-type left-border accent in the base
+     .cell-id rule is hidden by the capsule's full border. */
+  font-family: var(--type-mono, "Courier New", monospace);
+  border-left-width: 1px;
+}
 
 /* Flash announcement: new mint arrived. Brief border + glow swell. */
 .hud.hud-flash {
