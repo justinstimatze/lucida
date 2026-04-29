@@ -835,20 +835,15 @@ body > .a-orientation-modal {
   z-index: 251;
   pointer-events: none;
 }
-/* Quarter-circle elbow joint, with tangents that match the bar's
-   horizontal bottom edge AND the pillar's vertical right edge — so the
-   curve smoothly joins instead of meeting at a 90° kink. A 30x30 div
-   sits at the inside corner (pillar-width, bar-height); the curve is a
-   quarter-circle whose CENTER is at the OUTER corner of the div
-   (+elbow-r, +elbow-r) so the radius vectors at the curve endpoints are
-   vertical-up (at bar-bottom point) and horizontal-left (at pillar-right
-   point), giving tangents that match the bar/pillar edges.
-   Implementation: border-top-left-radius rounds the corner pointing back
-   at the L's inside corner; the painted shape is the part of the div
-   FAR from that corner — the smooth concave-from-content sweep. The
-   selector hits <html>'s ::before directly (theme-lcars is on the html
-   element itself, not an ancestor — so `.theme-lcars html::before` would
-   match nothing). */
+/* Quarter-circle elbow joint with smooth tangents at both ends. The
+   painted region is the SMALL area between the L's sharp 90° inside
+   corner and the smooth arc; tangents at the arc endpoints match the
+   bar's horizontal bottom edge and the pillar's vertical right edge.
+   border-radius can't produce this shape (it always rounds *toward* a
+   corner, painting the opposite-corner region — wrong side of the
+   curve), so the CSS uses clip-path: path() with an SVG arc whose
+   center is at the OUTER corner of the carve rectangle (+elbow-r,
+   +elbow-r). The path: top edge to (30, 0), arc to (0, 30), close. */
 html.theme-lcars::before {
   content: "";
   position: fixed;
@@ -857,7 +852,7 @@ html.theme-lcars::before {
   width: var(--lcars-elbow-r);
   height: var(--lcars-elbow-r);
   background: var(--accent);
-  border-top-left-radius: var(--lcars-elbow-r);
+  clip-path: path("M 0 0 L 30 0 A 30 30 0 0 0 0 30 Z");
   z-index: 252;
   pointer-events: none;
 }
@@ -953,7 +948,11 @@ html.theme-lcars::before {
   width: min(65vw, 1000px);
   max-width: 75vw;
   max-height: 85vh;
-  overflow: visible;
+  /* The dialog (not the cloned cell) is the scroll container so that
+     when the user opens TRIGGER SNIPPET / PROMPT details and the clone
+     grows past 85vh, the dialog itself becomes scrollable instead of
+     clipping the expanded content invisibly. */
+  overflow: auto;
   box-shadow: 0 16px 80px rgba(0, 0, 0, 0.6),
               0 0 24px color-mix(in srgb, var(--accent) 30%, transparent);
 }
@@ -962,11 +961,21 @@ html.theme-lcars::before {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
-.cell-zoomed-clone {
+/* The double-class .cell.cell-zoomed-clone selector outranks
+   .cell.cell-reflection (specificity 0,2,0 vs 0,2,0, later in source
+   wins) — without this, reflection cells in the zoom dialog stay
+   capped at 42vh and an expanded <details> still gets clipped. */
+.cell.cell-zoomed-clone {
   display: block;
   width: 100%;
-  max-height: 85vh;
-  overflow: hidden;  /* clip oversized content rather than scrollbar */
+  /* Inspection mode: when the user opens <details> sections (TRIGGER
+     SNIPPET / PROMPT) the cell content can grow beyond the original
+     32vh / 42vh caps. Allow the clone to size to its content and let
+     the <dialog> itself scroll if it overflows the 85vh dialog cap.
+     Pre-2026-04-29 the clone had max-height + overflow: hidden, which
+     clipped expanded details invisibly. */
+  max-height: none;
+  overflow: visible;
   cursor: zoom-out;
 }
 /* Inspection mode: un-clamp the caption and reveal collapsed trigger/
