@@ -1392,18 +1392,24 @@ th, td {
   align-items: center !important;
   box-sizing: border-box !important;
   font-size: 0.72rem !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   font-family: var(--type-body, "Antonio", "Avenir Next Condensed", sans-serif) !important;
-  color: var(--fg) !important;
   letter-spacing: 0.08em !important;
   text-transform: uppercase !important;
   height: 1.55rem !important;
   min-height: 1.55rem !important;
-  padding: 0 0.6rem !important;
+  padding: 0 0.7rem !important;
   border-radius: 999px !important;
-  /* WCAG AA non-text contrast (3:1) on navy bg per SC 1.4.11. */
-  background: color-mix(in srgb, var(--accent) 22%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent) !important;
+  /* Canonical LCARS button: solid color background with dark text on
+     top, no border. Matches joernweissenborn/lcars `.lcars-element`
+     (#fc6 background, #000 text). The translucent-orange-with-border
+     style we had before reads as "outlined chip" — once you see a
+     real LCARS button it's a SOLID orange pill with black letters,
+     and the dark/light contrast inversion on a black-bg page is the
+     canonical "alphanumeric data block" look. */
+  background: var(--accent) !important;
+  color: #000 !important;
+  border: none !important;
   opacity: 1 !important;
 }
 .theme-lcars .cell-id {
