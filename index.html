@@ -1742,13 +1742,13 @@ function applyOrganicLayout() {
   const minDim = Math.min(window.innerWidth, window.innerHeight);
   const cx = w / 2;
   const slotsPerRing = 6;
-  // 1 ring of 6 (cap 7). Sized to satisfy memory/layout_visual_rigor.md:
-  // every cell must clear the largest substrate minimum (vega 380×280).
-  // 0.45 × minDim wide at minDim=871 = 392 × 306 — above vega min.
-  // Older cells drop off; tradeoff is fewer cells visible at once,
-  // but each one is actually readable.
+  // 1 ring of 6 (cap 7). Sized to satisfy memory/layout_visual_rigor.md
+  // PLUS ~82px of cell chrome (head + line-clamped caption + hairline
+  // summaries) eaten before the body area. Vega min body 280px →
+  // tile height needs ≥ 362, tile width ≥ ~462. 0.55 × minDim ≈ 479
+  // wide × 374 tall at minDim=871. Clears the budgeted minimum.
   const ringSpecs = [
-    { radius: minDim * 0.56, size: minDim * 0.45 },
+    { radius: minDim * 0.62, size: minDim * 0.55 },
   ];
   const outer = ringSpecs[ringSpecs.length - 1];
   const outerSatHalfH = outer.size * 0.78 / 2;
