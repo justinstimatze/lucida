@@ -706,14 +706,44 @@ function setupAutoPan(container, content, opts) {
     const overflowY = iRect.height - cRect.height > 20;
     if (!overflowX && !overflowY) return;
 
-    // Build waypoints. Single-axis overflow gets a strip pan; both-axis
-    // overflow gets a row-major sweep (left-to-right, then drop a row).
+    // Try column-anchored pan for tables: when content holds a single
+    // <table> and overflow is horizontal, waypoints snap to column
+    // boundaries so the camera reads column-by-column rather than
+    // edge-to-edge. Per user 2026-04-29: "should pan from column to
+    // column probably and not edge to edge."
+    let columnAnchors = null;
+    if (overflowX && !overflowY) {
+      const table = (content.tagName === "TABLE")
+        ? content
+        : content.querySelector("table");
+      if (table) {
+        const headerRow = table.querySelector("thead tr") || table.querySelector("tr");
+        if (headerRow && headerRow.children.length >= 2) {
+          const cells = Array.from(headerRow.children);
+          const baseLeft = (content.tagName === "TABLE"
+            ? content.getBoundingClientRect()
+            : iRect).left;
+          const overflow = iRect.width - cRect.width;
+          // Anchor x = column's left edge relative to content; clamp
+          // the resulting translate to the total overflow so the last
+          // column lands flush-right instead of overshooting.
+          columnAnchors = cells.map(td => {
+            const dx = td.getBoundingClientRect().left - baseLeft;
+            return -Math.min(Math.max(0, dx), overflow);
+          });
+        }
+      }
+    }
+
+    // Strip-pan fallback for non-table overflow (mermaid SVGs, etc).
     const stride = (size, container, ratio) =>
       Math.max(1, Math.floor((size - container) / Math.max(1, container * ratio)));
     const waypoints = [];
     const ratio = (opts && opts.overlap != null ? opts.overlap : 0.3); // 30% overlap between frames
     const step = 1 - ratio;
-    if (overflowX && !overflowY) {
+    if (columnAnchors) {
+      for (const x of columnAnchors) waypoints.push({ x, y: 0 });
+    } else if (overflowX && !overflowY) {
       const n = stride(iRect.width, cRect.width, step) + 1;
       for (let i = 0; i <= n; i++) {
         const x = -Math.min(i * cRect.width * step, iRect.width - cRect.width);
@@ -726,7 +756,6 @@ function setupAutoPan(container, content, opts) {
         waypoints.push({ x: 0, y });
       }
     } else {
-      // Both axes — row-major sweep.
       const cols = stride(iRect.width, cRect.width, step) + 1;
       const rows = stride(iRect.height, cRect.height, step) + 1;
       for (let r = 0; r <= rows; r++) {
@@ -737,25 +766,45 @@ function setupAutoPan(container, content, opts) {
         }
       }
     }
-    // De-duplicate consecutive waypoints (clamping at the end produces
-    // copies when content is only slightly larger than container).
+    // De-duplicate AND collapse near-duplicates. Strip-pan with 30%
+    // overlap on small-overflow content produces clusters of waypoints
+    // within a few px of each other (e.g., -350/-400/-400 when overflow
+    // is just slightly past one stride). Animating between them looks
+    // like jitter rather than a tour. Collapse anything within 25% of
+    // the container's smaller dimension into a single endpoint, taking
+    // the more-extreme value so the final overflow is still reached.
+    const minSpacing = 0.25 * Math.min(cRect.width, cRect.height);
     const dedup = [];
     for (const wp of waypoints) {
       const last = dedup[dedup.length - 1];
-      if (!last || last.x !== wp.x || last.y !== wp.y) dedup.push(wp);
+      if (!last) { dedup.push(wp); continue; }
+      const dx = Math.abs(last.x - wp.x);
+      const dy = Math.abs(last.y - wp.y);
+      if (dx > minSpacing || dy > minSpacing) {
+        dedup.push(wp);
+      } else {
+        // Replace previous with whichever is more extreme (further from 0)
+        if (Math.abs(wp.x) + Math.abs(wp.y) > Math.abs(last.x) + Math.abs(last.y)) {
+          dedup[dedup.length - 1] = wp;
+        }
+      }
     }
     if (dedup.length < 2) return;
 
     container.style.overflow = "hidden";
     content.style.transformOrigin = "top left";
-    content.style.transition = "transform 1100ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+    content.style.transition = "transform 1500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
     content.style.willChange = "transform";
 
     let i = 0;
     let timer = null;
     let paused = false;
     let visible = true;
-    const dwell = (opts && opts.dwellMs != null) ? opts.dwellMs : 3200;
+    // Dwell long enough to actually read a column or region. Per user
+    // 2026-04-29: prior 3.2s felt rushed. 5.5s gives ~4s of stillness
+    // after the 1.5s transition completes — enough to read a table
+    // column without scanning frantically.
+    const dwell = (opts && opts.dwellMs != null) ? opts.dwellMs : 5500;
 
     const tick = () => {
       timer = null;
@@ -2346,22 +2395,38 @@ function renderCell(c, snippetGroups) {
         const { svg } = await mermaid.render(`m-${c.id}`, c.spec);
         target.innerHTML = svg;
         // Auto-pan: if the rendered SVG's natural pixel size exceeds the
-        // cell viewport, override mermaid's auto-fit and pan instead.
-        // Mermaid normally sets the SVG to fit container width, which
-        // shrinks dense diagrams below readability (cell-1015 pattern).
+        // cell viewport in either dimension, override mermaid's auto-fit
+        // and tour the diagram. Mermaid normally fits to container width,
+        // which shrinks dense diagrams below readability. Trigger needs
+        // both a meaningful ratio (≥1.4×) AND ≥120px of absolute overflow
+        // — without the absolute floor, "barely doesn't fit" diagrams
+        // got auto-pan'd and visibly jittered between near-equal
+        // waypoints. Per user 2026-04-29.
         const svgEl = target.querySelector("svg");
         if (svgEl) {
           const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
           if (vb && vb.width > 0 && vb.height > 0) {
             const cw = target.getBoundingClientRect().width || 0;
-            // Render at natural size only when the diagram would otherwise
-            // shrink to the point of unreadability — heuristic: viewBox
-            // width is at least 30% wider than the cell.
-            if (cw > 0 && vb.width > cw * 1.3) {
+            // Conservative cell-height cap for "what would fit if we
+            // capped the cell." Matches the .cell ambient max-height
+            // (~32vh). The ceiling is also 45vh for hero cells; using
+            // the lower bound is safe — if the cell is hero, we still
+            // get a vertical pan but the tour reads at 32vh frames.
+            const ch = Math.min(
+              target.getBoundingClientRect().height || 0,
+              window.innerHeight * 0.32
+            );
+            const wOverflow = cw > 0 && vb.width > cw * 1.4 && (vb.width - cw) > 120;
+            const hOverflow = ch > 0 && vb.height > ch * 1.4 && (vb.height - ch) > 120;
+            if (wOverflow || hOverflow) {
               svgEl.removeAttribute("style");
               svgEl.style.maxWidth = "none";
               svgEl.style.width = vb.width + "px";
               svgEl.style.height = vb.height + "px";
+              // Cap target height so vertical overflow becomes measurable
+              // (otherwise target auto-grows to the SVG's natural height
+              // and setupAutoPan sees no overflow on the y-axis).
+              target.style.maxHeight = "32vh";
               setupAutoPan(target, svgEl);
             }
           }
