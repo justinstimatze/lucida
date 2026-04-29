@@ -948,10 +948,13 @@ html.theme-lcars::before {
 /* Capsule chips were rendering tightly packed against each other —
    base .cell-head uses justify-content: space-between which collapses
    middle-item gaps when the title is long. Explicit gap ensures
-   capsules always have breathing room. */
+   capsules always have breathing room. align-items: center (vs base
+   `baseline`) so chips with different font sizes don't visually
+   stair-step on the text baseline. */
 .theme-lcars .cell-head {
   gap: 0.55rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 /* LCARS chrome shape pass: rounded outer-left corners + thick colored
@@ -1377,13 +1380,34 @@ th, td {
 .theme-lcars .cell-conf,
 .theme-lcars .cell-time {
   border-radius: 999px;
-  padding: 0.08rem 0.55rem;
+  /* Uniform sizing across all cell-head capsule chips so they don't
+     visually stair-step on the row. Base styles set different
+     font-sizes (cell-id 0.95rem, cell-move 0.65rem, cell-conf 0.7rem)
+     which gave each chip a different intrinsic height; normalizing
+     to one font-size + matching padding + min-height makes them all
+     read as the same chip family. inline-flex + align-items: center
+     vertically centers any inner content (the value/label split). */
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 0.18rem 0.6rem;
+  min-height: 1.55rem;
   /* Bumped from 14%/35% to 22%/60% for WCAG AA non-text contrast on
      navy bg — the prior values rendered as ~2:1 over navy, below the
      3:1 minimum for visible UI components per WCAG 2.1 SC 1.4.11. */
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
   letter-spacing: 0.08em;
+}
+/* cell-move's base CSS sets border-left + border-right (vertical
+   divider rules) which conflict with the capsule shape. Reset to the
+   capsule's full border. */
+.theme-lcars .cell-move {
+  border-left-width: 1px;
+  border-right-width: 1px;
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
 }
 .theme-lcars .cell-id {
   /* Cell-id stays mono so the alphanumeric reads as a code badge — and
