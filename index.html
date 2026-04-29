@@ -1394,6 +1394,11 @@ async function load() {
   // subtle glow that fades over ~60s. Survives across renders by
   // looking at timestamp on each load.
   applyStillWarmToLatest();
+  // Click-to-zoom: clicking a cell's body (not its interactive children)
+  // promotes it to a centered overlay at near-viewport size. Escape or
+  // click-on-backdrop dismisses. Opt-in inspection without disturbing
+  // the live grid. Idempotent — safe to call after each load().
+  setupCellZoom();
   // Initial draw of inter-cell connections; subsequent redraws fire
   // on scroll/resize and after liveAppendNewCells.
   scheduleRedrawConnections();
@@ -1413,6 +1418,40 @@ async function load() {
 // reads as still settling. New cells from liveAppendNewCells also get
 // this treatment via the cell-fresh path. Reverse-chrono: newest is at
 // index 0 (the first .cell in document order is the most-recent mint).
+// Click-to-zoom: idempotent setup. Attaches once via a guard flag.
+// Click on a cell's body (not on cell-id, links, summaries, buttons)
+// promotes the cell to a fixed overlay at near-viewport size. Escape
+// or click-on-backdrop closes. Safe to re-call after each load().
+function setupCellZoom() {
+  if (state.rendering._cellZoomBound) return;
+  state.rendering._cellZoomBound = true;
+  const closeZoom = () => {
+    document.querySelectorAll(".cell-zoomed").forEach(c => c.classList.remove("cell-zoomed"));
+    document.body.classList.remove("has-cell-zoomed");
+  };
+  document.addEventListener("click", (e) => {
+    // Click on backdrop dismisses an active zoom.
+    if (document.body.classList.contains("has-cell-zoomed") &&
+        !e.target.closest(".cell")) {
+      closeZoom();
+      return;
+    }
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+    // Don't hijack clicks on inner interactive elements.
+    if (e.target.closest(".cell-id, button, a, input, summary, details, details *")) return;
+    if (cell.classList.contains("cell-zoomed")) return;  // already zoomed
+    closeZoom();
+    cell.classList.add("cell-zoomed");
+    document.body.classList.add("has-cell-zoomed");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("has-cell-zoomed")) {
+      closeZoom();
+    }
+  });
+}
+
 function applyStillWarmToLatest() {
   document.querySelectorAll(".cell.cell-still-warm").forEach(n => n.classList.remove("cell-still-warm"));
   if (isMultiStream()) {

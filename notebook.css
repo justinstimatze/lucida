@@ -723,6 +723,65 @@ body > .a-orientation-modal {
   text-align: center;
   font-size: 0.85rem;
 }
+/* Click-to-zoom overlay: a clicked cell promotes itself to a centered
+   modal at near-viewport size while the rest of the grid dims behind a
+   backdrop. Cell otherwise renders normally — no special re-rendering
+   of the body needed. Escape / click-backdrop closes (handled in JS). */
+body.has-cell-zoomed::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+/* #notebook's perspective: 1500px would otherwise act as a containing
+   block for the zoomed cell's `position: fixed`, anchoring it to the
+   notebook's tall scroll bounds instead of the viewport. Drop the
+   3D context during zoom so fixed positions resolve to the viewport. */
+body.has-cell-zoomed #notebook {
+  perspective: none;
+  transform-style: flat;
+}
+.cell-zoomed {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: min(95vw, 1500px) !important;
+  max-width: 95vw !important;
+  max-height: 92vh !important;
+  z-index: 1000 !important;
+  /* overflow: hidden so an oversized cell clips at the box edge instead
+     of producing right/bottom scrollbars on the modal. The cell bottom-
+     fade gradient hints at clipped content the same way it does in the
+     ambient grid. The trigger/prompt details still scroll their own
+     pre boxes via the existing .cell-trigger pre rules. */
+  overflow: hidden !important;
+  box-shadow: 0 16px 80px rgba(0, 0, 0, 0.6),
+              0 0 24px color-mix(in srgb, var(--accent) 30%, transparent);
+  cursor: zoom-out;
+}
+/* In zoom, un-clamp captions and reveal the trigger/prompt summaries
+   so the user can read full context — they just clicked the cell with
+   inspection intent. */
+.cell-zoomed .cell-caption {
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  overflow: visible !important;
+}
+#notebook[data-auto] .cell-zoomed .cell-trigger:not([open]) summary,
+#notebook[data-auto] .cell-zoomed .cell-prompt:not([open]) summary {
+  font-size: 0.75rem !important;
+  opacity: 1 !important;
+  height: auto !important;
+  margin-bottom: 0.2rem !important;
+  border-top: none;
+}
+.cell:not(.cell-zoomed) {
+  cursor: zoom-in;
+}
 table {
   border-collapse: collapse;
   font-size: 0.9rem;
