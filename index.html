@@ -507,6 +507,21 @@ function buildThemeConfig(t) {
           textColor: t.text.fg,
           secondaryTextColor: t.text.fg,
           tertiaryTextColor: t.text.fg,
+          // Edge-label backplates (the rect behind "produces", "consumed by",
+          // etc on edges) defaulted to a near-white that inverted the
+          // light-on-dark contrast on every dark theme. User flagged
+          // 2026-04-29 ("the mermaid text backplates are still bad").
+          // Match the cell-bg so labels render light-on-cell-bg, same as
+          // node text. labelBoxBkgColor + edgeLabelBackground both apply
+          // depending on diagram type (flowchart vs sequence).
+          edgeLabelBackground: t.surface.cell,
+          labelBoxBkgColor: t.surface.cell,
+          actorBkg: t.surface.cell,
+          actorTextColor: t.text.fg,
+          actorLineColor: t.accent.primary,
+          noteBkgColor: t.surface.cell,
+          noteTextColor: t.text.fg,
+          noteBorderColor: t.accent.primary,
           // fontFamily here governs mermaid's text-width measurement when
           // sizing edge-label backing rects. Must match the render-time CSS
           // font or wider chars overflow the pre-measured rect.
@@ -2069,7 +2084,15 @@ function applyOrganicLayout() {
       left: x + "px",
       top: y + "px",
       width: sw + "px",
-      height: sh + "px",
+      // min-height (not fixed height) so cells with less content shrink
+      // to fit instead of padding empty space below the body. User
+      // flagged 2026-04-29 ("in organic some of the cells have a lot of
+      // whitespace at the bottom"). Tall content can overflow naturally
+      // (maxHeight: none). The radial centering is approximate when
+      // heights vary, but visual symmetry around cy is preserved well
+      // enough for the FUI feel.
+      height: "auto",
+      minHeight: Math.round(sh * 0.5) + "px",
       maxHeight: "none",
       maxWidth: "none",
       // 100+ keeps cells above the connection-overlay canvas (z=50) so
@@ -2185,7 +2208,11 @@ function applyScatterLayout() {
       left: x + "px",
       top: y + "px",
       width: sw + "px",
-      height: sh + "px",
+      // Same height treatment as organic — natural content height with
+      // a minHeight floor so cells with little content don't pad empty
+      // space at the bottom (user 2026-04-29 "like half the cell").
+      height: "auto",
+      minHeight: Math.round(sh * 0.5) + "px",
       maxHeight: "none",
       maxWidth: "none",
       // Above the connection-overlay (z=50) so session-thread lines
