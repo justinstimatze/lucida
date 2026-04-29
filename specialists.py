@@ -102,8 +102,31 @@ def _call_specialist(
 
 
 def _result(inp: dict, raw: dict, model: str, spec_field: str = "spec") -> SpecialistResult:
+    # Animated_svg specialist sometimes omits or empties the spec field
+    # when it intuits "no motion to encode" — even though the schema marks
+    # spec required and the prompt says "demote to text". Empirically the
+    # API allows the omission through. Convert that into a clean demote
+    # so the orchestrator suppresses cleanly instead of bare-except'ing
+    # the KeyError and minting an empty stub. Audit 2026-04-29: 32/118
+    # empty animated_svg cells, all with notes "specialist failed: 'spec'".
+    spec_value = inp.get(spec_field)
+    if not spec_value:
+        return SpecialistResult(
+            spec="",
+            caption=inp.get("caption", ""),
+            should_demote_to_text=True,
+            demotion_reason=(
+                inp.get("demotion_reason")
+                or f"specialist returned no {spec_field}; treating as demote"
+            ),
+            model=model,
+            cache_read_tokens=raw["cache_read_tokens"],
+            cache_creation_tokens=raw["cache_creation_tokens"],
+            input_tokens=raw["input_tokens"],
+            output_tokens=raw["output_tokens"],
+        )
     return SpecialistResult(
-        spec=inp[spec_field],
+        spec=spec_value,
         caption=inp.get("caption", ""),
         should_demote_to_text=bool(inp.get("should_demote_to_text", False)),
         demotion_reason=inp.get("demotion_reason", ""),
@@ -543,6 +566,8 @@ Set should_demote_to_text=true if:
 - The snippet doesn't have a temporal/dynamic dimension to animate.
 - A static SVG would carry the same information.
 - The snippet is meta-cognitive (about reading, framing) rather than depicting flow/cycle/change.
+
+When demoting, still emit a valid (possibly minimal) `spec` value — the schema requires it. An empty string or a stub `<svg></svg>` is fine; the orchestrator suppresses the cell entirely when should_demote_to_text=true, so the spec content is unused.
 
 # Worked example
 
