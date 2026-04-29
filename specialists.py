@@ -521,7 +521,7 @@ If the user message starts with `[shape hint from classifier: layout pattern = X
 
 Match snippet shape to layout. Prefer the most specific fit.
 
-- **<table>** — multi-entity × multi-dimension comparison. 2+ entities AND 2+ shared dimensions. Snippet shape: "X has wages Y and prices Z; W has wages V and prices U."
+- **<table>** — multi-entity × multi-dimension matrix where the cross-product IS the load-bearing claim. Hard minimum: ≥3 entities OR ≥3 shared dimensions. The classic trap is a 2×2 ("X has A and B; Y has A and B") — almost always better as 2-card callouts or a dl. Reserve table for when the reader must scan both rows AND columns to get the insight; otherwise prefer callouts (quantitative) or dl (attribute bag).
 - **<dl>** (definition list) — term ↔ definition / glossary / property bag. Single entity with several attributes, OR several term/definition pairs that aren't comparable across a shared axis. Snippet shape: "X means Y; Z means W; V means U."
 - **callout cards** — single big number/value per item, foregrounded. Snippet shape: "X has 47 cells, Y has 152 cells, Z has 8 cells" / status counts / single-stat readouts. Render as `<div class="callouts"><div class="callout"><div class="big">VALUE</div><div class="label">LABEL</div></div>...</div>`.
 - **kanban columns** — items grouped by status, each status a column. Snippet shape: "in pending: A, B; in progress: C; done: D, E." Render as `<div class="kanban"><div class="kanban-col"><div class="kanban-title">STATUS</div><ul><li>item</li>...</ul></div>...</div>`.
@@ -552,7 +552,7 @@ Before producing the markup, mentally execute (do not output):
    - INVENTED: plausible-looking value the snippet does not state. Forbidden.
 6. INVENTED labels and values are forbidden. This overrides the urge to "complete" sparse content by inferring from genre conventions.
 
-For tables specifically: if EMPTY cells outnumber DIRECT+DERIVED cells, demote to text or pick a non-table layout (a 2-cell table is usually better as a 2-card callout grid).
+For tables specifically: if EMPTY cells outnumber DIRECT+DERIVED cells, demote to text or pick a non-table layout. A 2-row table is almost always better as 2-card callouts or a dl — escalate to table only when there are ≥3 rows AND ≥2 columns with real data.
 
 # Anti-pattern: invented column
 
@@ -1045,6 +1045,9 @@ Set should_demote_to_text=true if:
 - The snippet talks ABOUT code without quoting any (use text — your prose IS the content).
 - The "code" is pseudo-code or sketched-syntax that wouldn't actually run (use mermaid for control flow or text).
 - The artifact would exceed 30 lines of source — too dense for a cell at glanceable size.
+- The source is ≤2 lines (one-line CLI commands, single-line shell pipelines, two-line struct stubs) — rendering one line of token-colored text doesn't earn a cell. Demote to text; the caption alone IS the content.
+- The source is a vanilla CRUD function, single-purpose JSON loader, error-handling boilerplate, or struct definition that maps 1:1 to a prose caption. The visual weight of a syntax-highlighted block isn't paying for itself when the caption ("loads X from Y") already substitutes. The bar is: would a reader unfamiliar with the function read the source itself rather than your caption? If the caption suffices, demote to text.
+- The source is a directory listing, file paths, or output dump rather than actual code structure — those belong in text or html, not code.
 
 # Output
 
