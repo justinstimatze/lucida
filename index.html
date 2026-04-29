@@ -1455,7 +1455,12 @@ function getVisibleCap() {
     const n = v ? parseInt(v, 10) : NaN;
     if (Number.isFinite(n) && n > 0) return n;
   } catch (e) { /* fallthrough */ }
-  if (getLayoutMode() === "organic") return 19;
+  const mode = getLayoutMode();
+  if (mode === "organic") return 19;
+  // Treemap: 12 cells produce too many sub-300px tiles where content
+  // truncates. 8 keeps the smallest tile readable on a 1800×900
+  // viewport (~410×190 minimum).
+  if (mode === "treemap") return 8;
   return 12;
 }
 // ?layout=treemap|organic|scatter|grid (default grid). Treemap uses
@@ -1736,15 +1741,22 @@ function applyOrganicLayout() {
   // generously even on widescreen monitors.
   const refDim = Math.max(window.innerWidth, window.innerHeight);
   const cx = w / 2;
-  const cy = Math.max(window.innerHeight, refDim) * 0.55;
-  const heroW = refDim * 0.30;
-  const heroH = refDim * 0.22;
   const slotsPerRing = 6;
   const ringSpecs = [
     { radius: refDim * 0.27, size: refDim * 0.16 },
     { radius: refDim * 0.46, size: refDim * 0.14 },
     { radius: refDim * 0.62, size: refDim * 0.12 },
   ];
+  // Position cy so the OUTERMOST ring's top satellite clears the
+  // header. Without this, ring-3 slot-0 (at angle -π/2) lands at
+  // y = cy - radius - sat_h/2, which can be negative-in-notebook =
+  // overlapping the fixed header. 32px margin so the cell isn't
+  // hugging the header edge either.
+  const outer = ringSpecs[ringSpecs.length - 1];
+  const outerSatHalfH = outer.size * 0.78 / 2;
+  const cy = Math.max(window.innerHeight / 2, outer.radius + outerSatHalfH + 32);
+  const heroW = refDim * 0.30;
+  const heroH = refDim * 0.22;
   cells.forEach((cell, i) => {
     let x, y, sw, sh, visible = true;
     if (i === 0) {
@@ -1823,36 +1835,52 @@ function applyScatterLayout() {
   const heroH = Math.min(h * 0.50, 380);
   const cellW = Math.min(w * 0.30, 460);
   const cellH = Math.min(h * 0.36, 280);
-  // Compute hashed positions for all cells first (stable across renders),
-  // then override the newest cell to land over the oldest cell with
-  // jitter. That gives the "new arrival buries the about-to-be-evicted
-  // oldest" effect every time the page re-loads or a fresh cell arrives.
+  // Slot-grid distribution so cells use the negative space across the
+  // viewport instead of clustering center (pure-hash mod can collide
+  // around mid-range values). 4×3 grid for ≤12 cells; deterministic
+  // slot assignment via hash sort. Each slot is jittered ±25px.
+  const cols = 4;
+  const rows = Math.max(2, Math.ceil(cells.length / cols));
+  const colW = w / cols;
+  const rowH = h / rows;
+  // Sort cells by stable hash for deterministic slot assignment.
+  const ordered = cells
+    .map((cell, i) => ({ cell, i, hash: _hashCellId(cell.id || `i${i}`) }))
+    .sort((a, b) => a.hash - b.hash);
+  const slotCenter = new Map();
+  ordered.forEach((item, slotIdx) => {
+    const col = slotIdx % cols;
+    const row = Math.floor(slotIdx / cols) % rows;
+    const cx = col * colW + colW / 2;
+    const cy = row * rowH + rowH / 2;
+    const jx = (item.hash % 51) - 25;
+    const jy = ((item.hash >>> 8) % 51) - 25;
+    slotCenter.set(item.i, { cx: cx + jx, cy: cy + jy });
+  });
   const positions = cells.map((cell, i) => {
     const sw = i === 0 ? heroW : cellW;
     const sh = i === 0 ? heroH : cellH;
-    const id = cell.id || `i${i}`;
-    const hx = _hashCellId(id + ":x");
-    const hy = _hashCellId(id + ":y");
-    const xMargin = 30;
-    const yMargin = 30;
-    const x = xMargin + (hx % Math.max(1, w - sw - xMargin * 2));
-    const y = yMargin + (hy % Math.max(1, h - sh - yMargin * 2));
+    const c = slotCenter.get(i);
+    let x = c.cx - sw / 2;
+    let y = c.cy - sh / 2;
+    // Clamp inside viewport so corner slots don't push tiles off-edge.
+    x = Math.max(20, Math.min(w - sw - 20, x));
+    y = Math.max(20, Math.min(h - sh - 20, y));
     return { x, y, sw, sh };
   });
   // Newest cell (i=0) lands over the oldest visible (last in DOM order)
-  // with jitter — small (±25px) so the underlying tile is still partly
-  // visible peeking out behind the new one.
+  // with small jitter — covers the least-important tile per user
+  // feedback. The hero stays centered around oldest's slot, so even
+  // after clamp the visual reads as "new arrival pinned to oldest".
   if (cells.length >= 2) {
-    const oldest = positions[positions.length - 1];
+    const oldestPos = positions[positions.length - 1];
     const newestId = cells[0].id || "i0";
-    const jx = (_hashCellId(newestId + ":jx") % 50) - 25;
-    const jy = (_hashCellId(newestId + ":jy") % 50) - 25;
+    const jx = (_hashCellId(newestId + ":jx") % 41) - 20;
+    const jy = (_hashCellId(newestId + ":jy") % 41) - 20;
     const sw = positions[0].sw;
     const sh = positions[0].sh;
-    let nx = oldest.x + (oldest.sw - sw) / 2 + jx;
-    let ny = oldest.y + (oldest.sh - sh) / 2 + jy;
-    // Clamp to viewport so the hero doesn't half-disappear off the edge
-    // when the oldest is near a corner.
+    let nx = oldestPos.x + (oldestPos.sw - sw) / 2 + jx;
+    let ny = oldestPos.y + (oldestPos.sh - sh) / 2 + jy;
     nx = Math.max(20, Math.min(w - sw - 20, nx));
     ny = Math.max(20, Math.min(h - sh - 20, ny));
     positions[0] = { x: nx, y: ny, sw, sh };
