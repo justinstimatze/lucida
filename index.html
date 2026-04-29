@@ -307,7 +307,7 @@ function buildLayoutDropdown() {
     <button type="button" class="session-dropdown-row layout-dropdown-row"
             data-layout="${o.id}" ${o.id === current ? 'aria-current="true"' : ""}>
       <span class="session-dropdown-id">${o.label}</span>
-      <span class="session-dropdown-count" style="color:var(--muted);font-style:italic;">${o.description}</span>
+      <span class="session-dropdown-count">${o.description}</span>
     </button>
   `).join("");
   dropdown.innerHTML = `
@@ -348,7 +348,7 @@ function buildThemeDropdown() {
     <button type="button" class="session-dropdown-row theme-dropdown-row"
             data-theme="${o.id}" ${o.id === current ? 'aria-current="true"' : ""}>
       <span class="session-dropdown-id">${o.label}</span>
-      <span class="session-dropdown-count" style="color:var(--muted);font-style:italic;">${o.description}</span>
+      <span class="session-dropdown-count">${o.description}</span>
     </button>
   `).join("");
   dropdown.innerHTML = `
@@ -551,6 +551,16 @@ function applyTokensToCSSVars(t) {
   root.style.setProperty("--accent-warning",   t.accent.warning);
   root.style.setProperty("--accent-danger",    t.accent.danger);
   root.style.setProperty("--accent-ok",        t.accent.ok);
+  // Type tokens — exposed as CSS vars so chrome (dropdowns, popovers,
+  // captions) can pick the active theme's font without depending on
+  // DOM-tree inheritance. Pre-2026-04-30 dropdowns inherited from
+  // .hud's explicit monospace, so they didn't track lcars/gastown
+  // condensed/serif body fonts.
+  if (t.type) {
+    if (t.type.body) root.style.setProperty("--type-body", t.type.body);
+    if (t.type.head) root.style.setProperty("--type-head", t.type.head);
+    if (t.type.mono) root.style.setProperty("--type-mono", t.type.mono);
+  }
 }
 
 const TOKENS = await loadTokens(ACTIVE);

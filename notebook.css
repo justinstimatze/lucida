@@ -798,6 +798,45 @@ body > .a-orientation-modal {
   letter-spacing: 0.06em;
 }
 
+/* LCARS chrome shape pass: rounded outer-left corners + thick colored
+   left rail rotating through the data palette. The 14px rail is the
+   left border of the cell (with 1px on the other three sides), so it
+   follows the cell's rounded corners and reads as an integral part of
+   the panel — not a pseudo-element overlay. nth-child(6n+X) cycles
+   through --data-cat-0..5 so adjacent cells show different "section
+   colors", matching how LCARS panels color-code zones. */
+.theme-lcars .cell {
+  border-radius: 24px 4px 4px 24px;
+  border-width: 1px 1px 1px 14px;
+  border-style: solid;
+  padding-left: 1.25rem;
+}
+/* Match the specificity of `.cell:not(:first-child):not(.cell-reflection)`
+   at line 291 so the ambient-cell padding override doesn't squash the
+   LCARS rail-clearance padding. */
+.theme-lcars .cell:not(:first-child):not(.cell-reflection) {
+  padding-left: 1.25rem;
+}
+.theme-lcars .cell:nth-child(6n+1) { border-left-color: var(--data-cat-0, #ff9900); }
+.theme-lcars .cell:nth-child(6n+2) { border-left-color: var(--data-cat-1, #ffcc99); }
+.theme-lcars .cell:nth-child(6n+3) { border-left-color: var(--data-cat-2, #cc5599); }
+.theme-lcars .cell:nth-child(6n+4) { border-left-color: var(--data-cat-3, #9999cc); }
+.theme-lcars .cell:nth-child(6n+5) { border-left-color: var(--data-cat-4, #ffcc33); }
+.theme-lcars .cell:nth-child(6n+6) { border-left-color: var(--data-cat-5, #cc6666); }
+
+/* Dropdown polish in LCARS — uppercase header in display font + drop
+   italic from descriptions so the dropdown reads as a TNG-ops list,
+   not a generic subtitle pattern. */
+.theme-lcars .session-dropdown-header {
+  font-family: var(--type-head, inherit);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.theme-lcars .session-dropdown-count {
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
 .cell-caption {
   font-size: 0.95rem;
   color: var(--fg);
@@ -1467,8 +1506,13 @@ th, td {
   border: 1px solid var(--accent);
   border-radius: 4px;
   padding: 0.5rem 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  font-family: inherit;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 12%, rgba(0, 0, 0, 0.35));
+  /* var(--type-body) is set per-theme by applyTokensToCSSVars; the
+     dropdown is a DOM child of .hud which uses explicit monospace,
+     so font-family: inherit picked up the wrong font in non-default
+     themes. Reading the token directly fixes lcars (Antonio condensed),
+     gastown (Crimson serif), magi (monospace), minimal (Inter). */
+  font-family: var(--type-body, inherit);
   font-size: 0.85rem;
 }
 .session-dropdown[hidden] { display: none; }
@@ -1521,6 +1565,7 @@ th, td {
 .session-dropdown-count {
   color: var(--muted);
   font-size: 0.75rem;
+  font-style: italic;
 }
 .session-dropdown-empty {
   padding: 0.5rem 0.75rem;

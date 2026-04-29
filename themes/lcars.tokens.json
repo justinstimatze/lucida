@@ -21,7 +21,7 @@
   },
   "data": {
     "_comment": "LCARS canonical palette in display order: orange, peach, magenta, purple, yellow, salmon. Reads instantly as TNG ops board — saturated flat fills, no shading.",
-    "cat": ["#ff9900", "#ffcc99", "#cc6699", "#9999cc", "#ffcc33", "#cc6666"]
+    "cat": ["#ff9900", "#ffcc99", "#cc5599", "#9999cc", "#ffcc33", "#cc6666"]
   },
   "type": {
     "body": "\"Antonio\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed\", \"Arial Narrow\", sans-serif",
@@ -34,7 +34,7 @@
   },
   "palette": {
     "stroke1": "#ff9900",
-    "stroke2": "#cc6699",
+    "stroke2": "#cc5599",
     "stroke3": "#9999cc",
     "accent":  "#ff9900",
     "fg":      "#ffcc99",
