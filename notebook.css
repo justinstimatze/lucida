@@ -945,6 +945,14 @@ html.theme-lcars::before {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+/* Capsule chips were rendering tightly packed against each other —
+   base .cell-head uses justify-content: space-between which collapses
+   middle-item gaps when the title is long. Explicit gap ensures
+   capsules always have breathing room. */
+.theme-lcars .cell-head {
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
 
 /* LCARS chrome shape pass: rounded outer-left corners + thick colored
    left rail rotating through the data palette.
