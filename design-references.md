@@ -145,3 +145,89 @@ reference, so future redesigns know what's load-bearing vs decorative:
   interview) — cells must justify themselves functionally
   (DIRECT/DERIVED/INVENTED audit), not just look cool. The
   substrate-hallucination kill criterion (#3) operationalizes this.
+
+## HCI / UX principles directly informing lucida
+
+Captured 2026-04-29 after user flagged that custom layout iteration was
+reinventing window-manager patterns ("is there not a library for this
+kind of thing already? or documented hci ui/ux best practices?"). These
+are the load-bearing principles to consult before adding more layout /
+interaction features. The library catalog lives in
+`memory/window_layout_libs.md`.
+
+### Mark Weiser — calm computing (1991, 1996)
+"Calm technology engages both the center and the periphery of our
+attention." The lucida thesis. Cells in the periphery feel the way
+ambient information should: present but non-demanding, escalating to
+center on need. The peripheral-to-center bloom (kill rings) and the
+"still warm" hero glow are direct applications. When a feature would
+require the user to interrupt their primary task to consume the
+visualization, it has drifted from calm-computing. Source: Weiser &
+Brown, *The Coming Age of Calm Technology*.
+
+### Edward Tufte — data-ink ratio + small multiples
+*Data-ink ratio*: maximize the share of pixels carrying actual
+information; minimize chrome. The auto-mode chrome-collapse (hairline
+trigger / prompt summaries) is this rule applied. When deciding
+whether a UI element should be permanent-visible or hover-revealed,
+ask "is this element data-ink or chrome?"
+*Small multiples*: the lucida cell mosaic IS small multiples. Each
+cell is one panel; their arrangement carries information by proximity.
+Treat layout choices through this lens — what does adjacency
+communicate? Source: *The Visual Display of Quantitative Information*
+(1983), *Envisioning Information* (1990).
+
+### Gestalt principles
+Auto-arrangement gets perceptual grouping for free if we respect
+Gestalt rules:
+- **Proximity** — same-session cells in grid mode read as a group
+  because they cluster spatially.
+- **Similarity** — substrate-typed cell-id border colors group cells
+  of the same type without an explicit legend.
+- **Common fate** — cell-fresh slide-in, breath pulse, html scan-
+  line: cells that animate together feel related.
+- **Figure-ground** — hero (figure) at full opacity, ambient
+  (ground) slightly de-emphasized; backdrop blur in click-zoom.
+When designing a new visual signal, check which Gestalt principle
+makes it parse without explanation.
+
+### Fitts's Law
+Click-target time = a + b × log2(distance / size + 1). Small targets
+require dwell; distant targets cost reach. Implication for lucida:
+power-user controls (cell-id copy button) can be small / discoverable;
+primary actions (click-to-zoom anywhere on cell body, theme switch)
+should be large and forgiving. The entire cell body being a zoom
+target — not a tiny icon — is correct here.
+
+### Hick's Law
+Decision time ∝ log2(n + 1). When the user has to choose among
+options, keep n small or progressively disclose. The LAYOUT dropdown
+shows 4 options (under Hick's threshold for snap-decision). The
+substrate type isn't a user choice at all — the classifier picks.
+Deliberate: lucida resists choice-overload by assigning rather than
+asking.
+
+### Nielsen 10 heuristics (the relevant ones)
+- *Visibility of system state* — the HUD with status / cells / kill
+  rings is the principal application. ACTIVE pulse, since-last
+  counter, kill state — the user always knows what lucida is doing.
+- *Recognition over recall* — LAYOUT chip names (grid / treemap /
+  organic / scatter) instead of `?layout=` URL parameters. Theme
+  cookie persists so the user doesn't have to remember the choice.
+- *Aesthetic and minimalist design* — pairs with Tufte. The auto-mode
+  hairline summaries are Nielsen #8.
+- *Help users recognize, diagnose, and recover from errors* — the
+  mermaid render-error fallback (cell renders the error text
+  visibly, not blank) follows this.
+
+### Noessel's four awarenesses (from *Make It So*)
+Already covered above as a substrate-design checklist. Re-read
+whenever proposing a new substrate: what awareness is this cell
+providing that prose can't?
+
+### When to consult these
+At every architectural fork, before iterating on a custom
+implementation. Pattern from the 2026-04-29 organic / scatter / treemap
+arc: we built three custom layouts before checking that Tufte +
+Gestalt + Hick already named what we were doing, and that Muuri /
+GridStack / D3 / jsPlumb already shipped most of it. Don't repeat that.
