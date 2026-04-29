@@ -784,10 +784,71 @@ body > .a-orientation-modal {
   --vis-ok: #99cc99;
   --vis-warn: #ffcc33;
   --vis-tripped: #cc6666;
+  /* LCARS frame geometry: a horizontal top bar + vertical left pillar
+     joined by a canonical quarter-circle elbow sweep. Pure-CSS via two
+     pseudo-elements on body + one on html — see the .theme-lcars body
+     and html rules below. The elbow circle's bottom-right quadrant is
+     the visible sweep; its other three quadrants overlap the bar/pillar
+     where they're already painted. */
+  --lcars-bar-h: 30px;
+  --lcars-pillar-w: 64px;
+  --lcars-elbow-r: 30px;
 }
 .theme-lcars .hud-scanline { display: none; }
 .theme-lcars body {
   font-family: "Antonio", "Avenir Next Condensed", "Helvetica Neue Condensed", "Arial Narrow", sans-serif;
+  /* Push content clear of the LCARS frame chrome. Margin (not padding)
+     so sticky header still sticks to the new origin. The +12px is a
+     small breathing gap between the chrome and the first cell. */
+  margin-left: calc(var(--lcars-pillar-w) + 12px);
+  margin-top: calc(var(--lcars-bar-h) + 8px);
+}
+/* LCARS top horizontal bar */
+.theme-lcars body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--lcars-bar-h);
+  background: var(--accent);
+  z-index: 250;
+  pointer-events: none;
+  /* Right end capped — canonical LCARS top bars often have a rounded
+     terminus, signaling "this is a bus segment" rather than a bare edge. */
+  border-radius: 0 14px 14px 0;
+}
+/* LCARS vertical left pillar — full page height, drawn above the top bar
+   so the corner overlap stays a single solid block. */
+.theme-lcars body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--lcars-pillar-w);
+  background: var(--accent);
+  z-index: 251;
+  pointer-events: none;
+}
+/* Quarter-circle elbow joint. A solid orange circle positioned so its
+   center sits at the inside corner of the L (pillar-width, bar-height).
+   Three of its quadrants overlap the bar+pillar that already paint
+   orange there; the bottom-right quadrant extrudes into the content
+   area as the canonical LCARS sweep. The selector hits <html>'s ::before
+   directly (theme-lcars is the html class, not an ancestor — so
+   `.theme-lcars html::before` matches nothing). */
+html.theme-lcars::before {
+  content: "";
+  position: fixed;
+  top: calc(var(--lcars-bar-h) - var(--lcars-elbow-r));
+  left: calc(var(--lcars-pillar-w) - var(--lcars-elbow-r));
+  width: calc(var(--lcars-elbow-r) * 2);
+  height: calc(var(--lcars-elbow-r) * 2);
+  background: var(--accent);
+  border-radius: 50%;
+  z-index: 252;
+  pointer-events: none;
 }
 .theme-lcars header,
 .theme-lcars .cell-head,
