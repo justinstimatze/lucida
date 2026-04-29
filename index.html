@@ -962,12 +962,14 @@ function liveAppendNewCells(cellsData) {
     firstNode = node;
     setTimeout(() => node.classList.remove("cell-fresh"), 1400);
   }
-  // Cap the visible cell count in auto-mode: prepending a fresh cell
-  // without eviction would push the grid past one viewport. Drop oldest
-  // (DOM-bottom) cells until back at cap. Their IDs stay in renderedIds
-  // so they don't re-mount on the next poll — refresh re-seeds the tail.
-  if (state.sessions.autoMode && !multi) {
-    const cap = getVisibleCap();
+  // Cap the visible cell count: prepending a fresh cell without eviction
+  // would let the grid grow indefinitely. Auto-mode caps at hero count
+  // (?max=N or layout cap); ?recent=N caps the trailing transcript in any
+  // mode. IDs stay in renderedIds so they don't re-mount on the next
+  // poll — refresh re-seeds the tail.
+  const recentCap = getRecentCap();
+  if ((state.sessions.autoMode || recentCap) && !multi) {
+    const cap = state.sessions.autoMode ? getVisibleCap() : recentCap;
     const cells = root.querySelectorAll(":scope > .cell");
     for (let i = cells.length - 1; i >= cap; i--) {
       cells[i].remove();
@@ -1536,6 +1538,20 @@ function getVisibleCap() {
   const entry = LAYOUT_REGISTRY[getLayoutMode()];
   return (entry && entry.cap) || 12;
 }
+// ?recent=N: cap the rendered grid to the last N cells regardless of
+// session/auto mode. Default behavior (no param) still renders everything
+// — keeps backwards compat. Acts as the user-facing "the bottom of the
+// transcript is dead substrate, just stop rendering it" knob. Distinct
+// from ?max=N which is auto-mode's hero-cell cap; ?recent=N is the
+// general transcript-tail cap.
+function getRecentCap() {
+  try {
+    const v = new URLSearchParams(window.location.search).get("recent");
+    const n = v ? parseInt(v, 10) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch (e) { /* fallthrough */ }
+  return null;
+}
 // =============================================================
 // Layout registry. Each layout is a self-contained entry with an
 // `apply()` callback. To add a new layout (e.g. an LCARS-themed
@@ -1665,9 +1681,10 @@ async function load() {
     // and prepending each puts the last (newest) cell at the very top.
     // In auto-mode, cap to the trailing N cells so the grid fits the
     // viewport — older cells are still in cells.json, just not on screen.
+    const recentCap = getRecentCap();
     const tail = state.sessions.autoMode
       ? visible.slice(-getVisibleCap())
-      : visible;
+      : (recentCap ? visible.slice(-recentCap) : visible);
     for (const c of tail) {
       root.prepend(renderCell(c, snippetGroups));
       state.rendering.renderedIds.add(c.id);
