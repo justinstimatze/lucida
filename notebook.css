@@ -123,14 +123,17 @@ main {
    of position. Per memory/feedback_glanceable_no_clicks.md — layout
    carries the hierarchy, no clicks required. */
 #notebook {
-  display: grid;
-  /* auto-fit minmax: column count decided by available width.
-     Minimum column width 380px (still readable for compact ambient
-     cells); fills available space evenly. ~1 col at <800px, 2 at
-     800-1600px, 3 at 1600-2400px, 4+ on ultrawides. */
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  /* Natural-size pivot phase 2+3 (2026-04-29): flex-wrap lets each
+     cell declare its own width via --cell-natural-width (set post-
+     render from content scrollWidth). Wide cells (e.g. multi-column
+     tables, large vega charts) stand alongside narrow cells (square
+     animated_svg, terse text) without forcing all to a uniform
+     column width. align-items: start so a row's cells align by top
+     edge, not stretch to row height. */
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  align-items: start;
+  align-items: flex-start;
   /* CSS perspective: subtle 3D depth on cell stacking, complementing
      the WebGL connection layer. Per memory/2d_3d_mix_arc.md Tier 1+3.
      Hero gets translateZ(20px) forward; ambient sits at z=0. */
@@ -191,9 +194,21 @@ main {
   background: var(--cell-bg);
   border: 1px solid var(--line);
   border-radius: 4px;
-  margin: 0;  /* gap on the grid handles spacing instead of margin */
+  margin: 0;
   padding: 0.75rem 1rem;
-  min-width: 0;  /* let grid items shrink below their intrinsic width */
+  /* Natural-size pivot 2026-04-29: each cell sets its own width via
+     --cell-natural-width (a CSS var written by JS post-render from
+     the content's scrollWidth). flex: 0 0 auto stops the flex
+     container from stretching or shrinking the cell — the declared
+     width stands. min-width clamps very-narrow cells (terse text)
+     so they don't read as forlorn fragments; max-width clamps so a
+     1500px-wide table doesn't break the row. The default 380px
+     applies to text cells and any cell whose content hasn't
+     measured yet. */
+  flex: 0 0 auto;
+  width: var(--cell-natural-width, 380px);
+  min-width: 280px;
+  max-width: min(95vw, 100%);
   /* Universal height cap. 32vh balances density (4-5 cells visible
      in a typical 1000px viewport) against content-fit (most html
      tables + mermaid graphs fit at this height). When content

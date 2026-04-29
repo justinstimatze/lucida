@@ -677,6 +677,34 @@ function lazyMount(target, render, teardown) {
   io.observe(target);
 }
 
+// Natural-size pivot phase 2 (2026-04-29): after a cell's content
+// renders, measure its intrinsic width and set --cell-natural-width
+// on the cell article so the flex layout sizes the cell to content.
+// Read scrollWidth (NOT clientWidth) so wider-than-viewport content
+// reports its true intrinsic size. Adds inset for cell padding/border
+// (~32px) so the cell's visible content area matches the measured
+// content rather than tightly clipping to scrollWidth's edge.
+function applyNaturalCellSize(target, hint) {
+  const cell = target && target.closest && target.closest(".cell");
+  if (!cell) return;
+  // Defer one frame so layout has settled.
+  requestAnimationFrame(() => {
+    let naturalWidth = 0;
+    if (typeof hint === "number" && hint > 0) {
+      naturalWidth = hint;
+    } else {
+      // Measure widest descendant. scrollWidth on the target captures
+      // children that overflow (wide tables, natural-size mermaid
+      // SVGs); fall back to the measured bounding rect if scrollWidth
+      // is zero (text-only content).
+      naturalWidth = target.scrollWidth || target.getBoundingClientRect().width || 0;
+    }
+    if (naturalWidth <= 0) return;
+    const padding = 32;
+    cell.style.setProperty("--cell-natural-width", (naturalWidth + padding) + "px");
+  });
+}
+
 // Auto-pan camera tour for cells whose intrinsic content exceeds the
 // cell viewport (dense mermaid SVGs, wide html tables). Furnas
 // focus+context principle (design-references.md) applied with animated
@@ -2368,6 +2396,11 @@ function renderCell(c, snippetGroups) {
     const renderVega = () => {
       currentEmbed = vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).then(result => {
         currentView = result && result.view;
+        // If the spec declares a numeric width, use it as the cell's
+        // natural width. Otherwise (`"width": "container"` style)
+        // measure post-render scrollWidth.
+        const specWidth = (c.spec && typeof c.spec.width === "number") ? c.spec.width : 0;
+        applyNaturalCellSize(target, specWidth);
         return result;
       }).catch(err => {
         target.textContent = "vega render error: " + err.message;
@@ -2406,38 +2439,28 @@ function renderCell(c, snippetGroups) {
         await mermaid.parse(c.spec);
         const { svg } = await mermaid.render(`m-${c.id}`, c.spec);
         target.innerHTML = svg;
-        // Auto-pan: if the rendered SVG's natural pixel size exceeds the
-        // cell viewport in either dimension, override mermaid's auto-fit
-        // and tour the diagram. Mermaid normally fits to container width,
-        // which shrinks dense diagrams below readability. Trigger needs
-        // both a meaningful ratio (≥1.4×) AND ≥120px of absolute overflow
-        // — without the absolute floor, "barely doesn't fit" diagrams
-        // got auto-pan'd and visibly jittered between near-equal
-        // waypoints. Per user 2026-04-29.
+        // Mermaid: render at natural viewBox size (not auto-fit). The
+        // cell will size to that width via applyNaturalCellSize. Auto-
+        // pan only kicks in if the natural-size diagram is itself
+        // wider/taller than what fits in the dashboard viewport.
         const svgEl = target.querySelector("svg");
         if (svgEl) {
           const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
           if (vb && vb.width > 0 && vb.height > 0) {
+            svgEl.removeAttribute("style");
+            svgEl.style.maxWidth = "none";
+            svgEl.style.width = vb.width + "px";
+            svgEl.style.height = vb.height + "px";
+            applyNaturalCellSize(target, vb.width);
+            // Auto-pan fallback only when the natural-size SVG is
+            // STILL wider than the dashboard viewport (genuinely huge
+            // diagram). Threshold: ≥1.4× the cell box (post-flex
+            // sizing) AND ≥120px absolute. Skip vertical pan path
+            // since content height is now content-driven (no forced
+            // viewport cap).
             const cw = target.getBoundingClientRect().width || 0;
-            // Conservative cell-height cap for "what would fit if we
-            // capped the cell." Matches the .cell ambient max-height
-            // (~32vh). The ceiling is also 45vh for hero cells; using
-            // the lower bound is safe — if the cell is hero, we still
-            // get a vertical pan but the tour reads at 32vh frames.
-            const ch = Math.min(
-              target.getBoundingClientRect().height || 0,
-              window.innerHeight * 0.32
-            );
             const wOverflow = cw > 0 && vb.width > cw * 1.4 && (vb.width - cw) > 120;
-            const hOverflow = ch > 0 && vb.height > ch * 1.4 && (vb.height - ch) > 120;
-            if (wOverflow || hOverflow) {
-              svgEl.removeAttribute("style");
-              svgEl.style.maxWidth = "none";
-              svgEl.style.width = vb.width + "px";
-              svgEl.style.height = vb.height + "px";
-              // Cap target height so vertical overflow becomes measurable
-              // (otherwise target auto-grows to the SVG's natural height
-              // and setupAutoPan sees no overflow on the y-axis).
+            if (wOverflow) {
               target.style.maxHeight = "32vh";
               setupAutoPan(target, svgEl);
             }
@@ -2454,20 +2477,30 @@ function renderCell(c, snippetGroups) {
     const target = el("div", "html-target");
     body.appendChild(target);
     const renderHtml = () => {
-      // Wrap content in an inner div so auto-pan can transform the wrap
-      // while target stays fixed and clips overflow. No-op for html that
-      // fits the cell — setupAutoPan returns early on no overflow.
+      // Wrap content in an inner div so the cell can size to the
+      // wrap's intrinsic width (max-content per CSS). No-op for html
+      // that fits the cell — setupAutoPan returns early on no
+      // overflow. Natural-size pivot 2026-04-29: cell width follows
+      // wrap.scrollWidth via applyNaturalCellSize.
       const wrap = el("div", "html-pan-wrap");
       wrap.innerHTML = c.html;
       target.innerHTML = "";
       target.appendChild(wrap);
+      applyNaturalCellSize(wrap);
       setupAutoPan(target, wrap);
     };
     lazyMount(target, renderHtml);
   } else if (c.cell_type === "animated_svg" && c.spec) {
     const target = el("div", "svg-target");
     body.appendChild(target);
-    const renderSVG = () => { target.innerHTML = expandTokens(c.spec); };
+    const renderSVG = () => {
+      target.innerHTML = expandTokens(c.spec);
+      // animated_svg authors a <svg width="N" ...>; use that as the
+      // cell's natural width (falls back to scrollWidth measure).
+      const inner = target.querySelector("svg");
+      const w = inner ? parseFloat(inner.getAttribute("width")) || 0 : 0;
+      applyNaturalCellSize(target, w);
+    };
     lazyMount(target, renderSVG);
   } else if (c.cell_type === "scene3d" && c.spec) {
     // Lazy + LRU-capped: Three.js renderer + scene are created on first
