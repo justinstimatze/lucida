@@ -792,7 +792,11 @@ body > .a-orientation-modal {
      where they're already painted. */
   --lcars-bar-h: 30px;
   --lcars-pillar-w: 64px;
-  --lcars-elbow-r: 30px;
+  /* Match the outer-left corner radius used on .hud and .cell rails
+     (24px) so the L-frame elbow, the HUD rail, and the cell rails all
+     show the same curve shape — three visible curves on screen at any
+     time, the eye expects them to share one geometry. */
+  --lcars-elbow-r: 24px;
 }
 .theme-lcars .hud-scanline { display: none; }
 .theme-lcars body {
@@ -859,7 +863,9 @@ html.theme-lcars::before {
   width: var(--lcars-elbow-r);
   height: var(--lcars-elbow-r);
   background: var(--accent);
-  clip-path: path("M 0 0 L 30 0 A 30 30 0 0 0 0 30 Z");
+  /* Path values match --lcars-elbow-r (24); CSS path() doesn't accept
+     custom-property substitutions yet, so the radius is hardcoded. */
+  clip-path: path("M 0 0 L 24 0 A 24 24 0 0 0 0 24 Z");
   z-index: 252;
   pointer-events: none;
 }
