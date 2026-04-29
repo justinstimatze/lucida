@@ -171,24 +171,39 @@ main {
    x/y/w/h take effect. Margins stripped because absolute positioning
    already handles spacing via the JS gap. */
 #notebook[data-layout="treemap"],
-#notebook[data-layout="organic"] {
+#notebook[data-layout="organic"],
+#notebook[data-layout="scatter"] {
   display: block;
   grid-template-columns: none;
   perspective: none;
   transform-style: flat;
 }
 #notebook[data-layout="treemap"] > .cell,
-#notebook[data-layout="organic"] > .cell {
+#notebook[data-layout="organic"] > .cell,
+#notebook[data-layout="scatter"] > .cell {
   /* Cancel the :first-child grid-column: 1 / -1 hero rule and any
      auto-mode max-heights so JS dimensions stand. */
   grid-column: auto !important;
   margin: 0;
 }
 #notebook[data-layout="treemap"] > .cell:first-child,
-#notebook[data-layout="organic"] > .cell:first-child {
+#notebook[data-layout="organic"] > .cell:first-child,
+#notebook[data-layout="scatter"] > .cell:first-child {
   max-height: none;
   padding: clamp(0.7rem, 1vw, 1.1rem) clamp(0.85rem, 1.4vw, 1.3rem);
   font-size: 0.95rem;
+}
+/* Scatter mode: cells get a subtle drop shadow + clear borders so the
+   overlapping pile reads as distinct windows rather than one mushy
+   stack. The newest (top z-index) gets the strongest shadow. */
+#notebook[data-layout="scatter"] > .cell {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+#notebook[data-layout="scatter"] > .cell:first-child {
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6),
+              0 0 24px color-mix(in srgb, var(--accent) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
 }
 /* Organic mode: rounded cells, gentle outer glow per the FUI aesthetic.
    Cells are square (sized by JS); border-radius makes them lozenge-y. */
@@ -1593,7 +1608,11 @@ th, td {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 5;
+  /* Bumped from 5 → 50 so alt-layout cells (treemap / organic /
+     scatter) which set inline z-index for stacking still sit below
+     the connection lines — session threads and reflection arcs
+     should always read above the cell pile. */
+  z-index: 50;
   /* Three.js WebGL canvas — replaces the prior SVG. Color/opacity
      animation now lives in the JS render loop (drawConnections + the
      pulse RAF in index.html). Per memory/2d_3d_mix_arc.md Tier 3:

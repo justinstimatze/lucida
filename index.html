@@ -63,6 +63,15 @@
         <span class="hud-caret" aria-hidden="true">▾</span>
       </span>
       <div id="session-dropdown" class="session-dropdown" hidden></div>
+      <span class="hud-cell hud-layout-trigger" id="hud-layout-cell"
+            role="button" tabindex="0" aria-haspopup="true"
+            aria-controls="layout-dropdown"
+            title="click to switch layout">
+        <span class="hud-label">LAYOUT</span>
+        <span class="hud-value" id="hud-layout-val">GRID</span>
+        <span class="hud-caret" aria-hidden="true">▾</span>
+      </span>
+      <div id="layout-dropdown" class="session-dropdown" hidden></div>
       <span class="hud-cell">
         <span class="hud-label">THEME</span>
         <span class="hud-value" id="hud-theme-val">—</span>
@@ -267,6 +276,75 @@ function buildSessionDropdown(cellsData) {
       syncSessionFilterToURL();
       rerenderNotebook();
     });
+  });
+}
+
+// Wire the LAYOUT HUD slot. Mirrors the session dropdown shape but
+// with a fixed list of layout choices (grid / treemap / organic /
+// scatter). Selecting a layout updates ?layout=<v> in the URL and
+// reloads — applying live without reload would require resetting
+// every cell's inline style, which the existing layout funcs don't
+// do, so a reload keeps it simple. Visually the same `.session-
+// dropdown` styles apply to the chip + popover.
+function buildLayoutDropdown() {
+  const dropdown = document.getElementById("layout-dropdown");
+  if (!dropdown) return;
+  const current = getLayoutMode();
+  const options = [
+    { id: "grid",    label: "grid",    desc: "auto-fit, the default" },
+    { id: "treemap", label: "treemap", desc: "weight-proportional tiles" },
+    { id: "organic", label: "organic", desc: "concentric rings, FUI feel" },
+    { id: "scatter", label: "scatter", desc: "overlapping windows pile" },
+  ];
+  const rows = options.map(o => `
+    <button type="button" class="session-dropdown-row layout-dropdown-row"
+            data-layout="${o.id}" ${o.id === current ? 'aria-current="true"' : ""}>
+      <span class="session-dropdown-id">${o.label}</span>
+      <span class="session-dropdown-count" style="color:var(--muted);font-style:italic;">${o.desc}</span>
+    </button>
+  `).join("");
+  dropdown.innerHTML = `
+    <div class="session-dropdown-header">
+      <span>LAYOUT</span>
+    </div>
+    ${rows}
+  `;
+  dropdown.querySelectorAll(".layout-dropdown-row").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.layout;
+      const url = new URL(window.location.href);
+      if (v === "grid") url.searchParams.delete("layout");
+      else url.searchParams.set("layout", v);
+      window.location.replace(url.toString());
+    });
+  });
+}
+function initLayoutDropdownTrigger() {
+  const trigger = document.getElementById("hud-layout-cell");
+  const dropdown = document.getElementById("layout-dropdown");
+  if (!trigger || !dropdown) return;
+  // Reflect the current mode on the chip on load.
+  const valEl = document.getElementById("hud-layout-val");
+  if (valEl) valEl.textContent = getLayoutMode().toUpperCase();
+  const open = () => {
+    buildLayoutDropdown();
+    dropdown.hidden = false;
+    const r = trigger.getBoundingClientRect();
+    dropdown.style.top = (r.bottom + 4) + "px";
+    dropdown.style.left = r.left + "px";
+  };
+  const close = () => { dropdown.hidden = true; };
+  const toggle = () => { dropdown.hidden ? open() : close(); };
+  trigger.addEventListener("click", toggle);
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (dropdown.hidden) return;
+    if (!dropdown.contains(e.target) && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dropdown.hidden) close();
   });
 }
 
@@ -1090,9 +1168,22 @@ function drawConnections() {
   }
   state.conn.lines.length = 0;
 
+  // Session threads first (alt-layout modes only) — independent of
+  // reflection lines below, so they still appear when there are no
+  // reflection cells in view.
+  const layoutMode = getLayoutMode();
+  if (layoutMode === "treemap" || layoutMode === "organic") {
+    _drawSessionThreads(T);
+  }
+
   const reflections = document.querySelectorAll(".cell-reflection[data-source-ids]");
   if (!reflections.length) {
     state.conn.renderer.render(state.conn.scene, state.conn.camera);
+    if (state.conn.lines.length && !state.conn.animating) {
+      state.conn.animating = true;
+      state.conn.startTime = performance.now();
+      requestAnimationFrame(_connAnimate);
+    }
     return;
   }
 
@@ -1216,6 +1307,57 @@ function drawConnections() {
   }
 }
 
+// Cells from the same Claude Code session, linked chronologically
+// (DOM order, since cells render reverse-chrono). Colors cycle per
+// session via a fixed palette so threads stay visually distinct
+// without becoming theme-dependent.
+const _sessionThreadPalette = [
+  0x66ccff, 0xff9966, 0x99ff66, 0xff66cc,
+  0xccff66, 0x66ffcc, 0x9966ff, 0xffcc66,
+  0xcc99ff, 0x66ff99, 0xff6666, 0x99ccff,
+];
+const _sessionColorMap = new Map();
+function _colorForSession(sid) {
+  if (_sessionColorMap.has(sid)) return _sessionColorMap.get(sid);
+  const c = _sessionThreadPalette[_sessionColorMap.size % _sessionThreadPalette.length];
+  _sessionColorMap.set(sid, c);
+  return c;
+}
+function _drawSessionThreads(T) {
+  const cells = document.querySelectorAll("#notebook > .cell[data-session-id]");
+  if (!cells.length) return;
+  const groups = new Map();
+  for (const cell of cells) {
+    if (getComputedStyle(cell).display === "none") continue;
+    const sid = cell.dataset.sessionId;
+    if (!groups.has(sid)) groups.set(sid, []);
+    groups.get(sid).push(cell);
+  }
+  for (const [sid, group] of groups) {
+    if (group.length < 2) continue;
+    const colorHex = _colorForSession(sid);
+    const color = new T.Color(colorHex);
+    for (let i = 0; i < group.length - 1; i++) {
+      const ar = group[i].getBoundingClientRect();
+      const br = group[i + 1].getBoundingClientRect();
+      const ax = ar.left + ar.width / 2;
+      const ay = ar.top + ar.height / 2;
+      const bx = br.left + br.width / 2;
+      const by = br.top + br.height / 2;
+      // Z=2 keeps session threads slightly behind the reflection
+      // arcs (which use Z=4-8) so they read as ambient backbone.
+      const pts = [new T.Vector3(ax, ay, 2), new T.Vector3(bx, by, 2)];
+      const geo = new T.BufferGeometry().setFromPoints(pts);
+      const mat = new T.LineBasicMaterial({
+        color, transparent: true, opacity: 0.4,
+      });
+      const line = new T.Line(geo, mat);
+      state.conn.scene.add(line);
+      state.conn.lines.push(line);
+    }
+  }
+}
+
 // Continuous animation: pulse line opacity over time so the connections
 // feel alive (signal flow). Stops automatically when the line set is
 // empty (no reflections in viewport) and resumes on next draw.
@@ -1304,26 +1446,28 @@ function isMultiStream() {
 // Cap visible cells in auto-mode so the grid fits the viewport without
 // vertical scroll. Default 12 ≈ 1 hero + 3-4 cols × 3 rows of ambient
 // cells at typical 1800×1000 viewports. ?max=N overrides for larger
-// screens or power-user density preferences.
+// screens or power-user density preferences. Organic mode bumps to
+// 19 (1 hero + 3 concentric rings of 6) — those rings extend the
+// notebook past one viewport, vertical scroll engages.
 function getVisibleCap() {
   try {
     const v = new URLSearchParams(window.location.search).get("max");
     const n = v ? parseInt(v, 10) : NaN;
     if (Number.isFinite(n) && n > 0) return n;
   } catch (e) { /* fallthrough */ }
+  if (getLayoutMode() === "organic") return 19;
   return 12;
 }
-// ?layout=treemap|organic|grid (default grid). Treemap uses the
-// Bruls/Huijsen/van Wijk 2000 squarified algorithm to fill the
-// available area with weight-proportional tiles, near-square aspect
-// ratios. Organic v0 arranges cells radially — newest at center,
-// older in concentric rings. Both opt-in via URL so the validated
-// auto-fit grid (per memory/feedback_layout_density_validated.md)
-// stays the default.
+// ?layout=treemap|organic|scatter|grid (default grid). Treemap uses
+// the Bruls/Huijsen/van Wijk 2000 squarified algorithm. Organic v0
+// arranges cells radially — newest at center, older in concentric
+// rings. Scatter places cells at pseudo-random positions and lets
+// them overlap, newest on top (desktop-windows pile). All opt-in via
+// URL so the validated auto-fit grid stays the default.
 function getLayoutMode() {
   try {
     const v = (new URLSearchParams(window.location.search).get("layout") || "").trim();
-    if (v === "treemap" || v === "organic") return v;
+    if (v === "treemap" || v === "organic" || v === "scatter") return v;
   } catch (e) { /* fallthrough */ }
   return "grid";
 }
@@ -1566,10 +1710,12 @@ function applyTreemapLayout() {
 }
 
 // ----------------------------------------------------------------
-// Organic v0: hero at center + one ring of 6 satellites. Older cells
-// (beyond 7) hide in this mode — viewport-bounded by design. The ring
-// radius and satellite size are tuned so 7 cells fit cleanly within a
-// 1854×871 viewport with margin.
+// Organic v1: hero at center + 3 concentric rings of 6 satellites
+// each (cap 19). Outer rings extend past one viewport vertically, so
+// the notebook scrolls. Satellite size shrinks gently outward; ring
+// radii spaced so neighboring rings don't overlap. Slot angles are
+// staggered ring-to-ring (30° offset on odd rings) so cells don't
+// pile vertically up the y-axis.
 // ----------------------------------------------------------------
 function applyOrganicLayout() {
   const root = document.getElementById("notebook");
@@ -1577,37 +1723,43 @@ function applyOrganicLayout() {
   if (!cells.length) return;
   const headerH = 80;
   const w = window.innerWidth - 32;
-  const h = window.innerHeight - headerH - 32;
-  if (w <= 0 || h <= 0) return;
+  // Notebook can extend past viewport vertically in organic mode.
+  // Use the wider dimension as the layout reference so rings spread
+  // generously even on widescreen monitors.
+  const refDim = Math.max(window.innerWidth, window.innerHeight);
   const cx = w / 2;
-  const cy = h / 2;
-  const minDim = Math.min(w, h);
-  const heroW = minDim * 0.42;
-  const heroH = minDim * 0.32;
-  const ringR = minDim * 0.42;
-  const satSize = minDim * 0.22;
-  const slotsInRing = 6;
+  const cy = Math.max(window.innerHeight, refDim) * 0.55;
+  const heroW = refDim * 0.30;
+  const heroH = refDim * 0.22;
+  const slotsPerRing = 6;
+  const ringSpecs = [
+    { radius: refDim * 0.27, size: refDim * 0.16 },
+    { radius: refDim * 0.46, size: refDim * 0.14 },
+    { radius: refDim * 0.62, size: refDim * 0.12 },
+  ];
   cells.forEach((cell, i) => {
     let x, y, sw, sh, visible = true;
     if (i === 0) {
       sw = heroW; sh = heroH;
       x = cx - sw / 2; y = cy - sh / 2;
-    } else if (i <= slotsInRing) {
-      const slotIdx = i - 1;
-      const angle = (slotIdx / slotsInRing) * Math.PI * 2 - Math.PI / 2;
-      sw = satSize; sh = satSize;
-      x = cx + Math.cos(angle) * ringR - sw / 2;
-      y = cy + Math.sin(angle) * ringR - sh / 2;
     } else {
-      // Beyond the first ring: hide in organic v0 (out-of-viewport
-      // ring 2 was the worse alternative). Future v1 could fade them
-      // along an outer arc or add scroll/orbit.
-      visible = false;
+      const ringIdx = Math.floor((i - 1) / slotsPerRing);
+      if (ringIdx >= ringSpecs.length) {
+        visible = false;
+      } else {
+        const spec = ringSpecs[ringIdx];
+        const slotIdx = (i - 1) % slotsPerRing;
+        // Stagger ring 2 + 4 by 30° so cells don't align radially with
+        // ring 1 — gives the layout an organic "petals offset between
+        // layers" feel instead of starburst spokes.
+        const angleOffset = (ringIdx % 2 === 1) ? Math.PI / slotsPerRing : 0;
+        const angle = (slotIdx / slotsPerRing) * Math.PI * 2 - Math.PI / 2 + angleOffset;
+        sw = spec.size; sh = spec.size * 0.78;
+        x = cx + Math.cos(angle) * spec.radius - sw / 2;
+        y = cy + Math.sin(angle) * spec.radius - sh / 2;
+      }
     }
-    if (!visible) {
-      cell.style.display = "none";
-      return;
-    }
+    if (!visible) { cell.style.display = "none"; return; }
     Object.assign(cell.style, {
       position: "absolute",
       display: "",
@@ -1617,6 +1769,99 @@ function applyOrganicLayout() {
       height: sh + "px",
       maxHeight: "none",
       maxWidth: "none",
+      zIndex: String(cells.length - i),  // newer cells layer over older
+    });
+  });
+  // Tall-enough notebook for the 3rd ring to fit before bottom
+  const totalH = cy + ringSpecs[ringSpecs.length - 1].radius + ringSpecs[ringSpecs.length - 1].size;
+  Object.assign(root.style, {
+    position: "relative",
+    height: totalH + "px",
+    minHeight: totalH + "px",
+  });
+}
+
+// ----------------------------------------------------------------
+// Scatter v0: each cell drops at a pseudo-random position in the
+// viewport (deterministic hash from cell id so positions are stable
+// across renders). Cells overlap; newest cell gets highest z-index
+// so it sits on top. Like a desktop-windows pile or a corkboard.
+// ----------------------------------------------------------------
+function _hashCellId(s) {
+  // Simple FNV-ish hash returning a 32-bit unsigned int.
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+function applyScatterLayout() {
+  const root = document.getElementById("notebook");
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const headerH = 80;
+  const w = window.innerWidth - 32;
+  const h = window.innerHeight - headerH - 16;
+  if (w <= 0 || h <= 0) return;
+  // Cell size: bigger for hero, slightly smaller for ambient. Keep them
+  // wide-rectangle so charts/tables read at a glance even when
+  // partially occluded.
+  const heroW = Math.min(w * 0.42, 640);
+  const heroH = Math.min(h * 0.50, 380);
+  const cellW = Math.min(w * 0.30, 460);
+  const cellH = Math.min(h * 0.36, 280);
+  // Compute hashed positions for all cells first (stable across renders),
+  // then override the newest cell to land over the oldest cell with
+  // jitter. That gives the "new arrival buries the about-to-be-evicted
+  // oldest" effect every time the page re-loads or a fresh cell arrives.
+  const positions = cells.map((cell, i) => {
+    const sw = i === 0 ? heroW : cellW;
+    const sh = i === 0 ? heroH : cellH;
+    const id = cell.id || `i${i}`;
+    const hx = _hashCellId(id + ":x");
+    const hy = _hashCellId(id + ":y");
+    const xMargin = 30;
+    const yMargin = 30;
+    const x = xMargin + (hx % Math.max(1, w - sw - xMargin * 2));
+    const y = yMargin + (hy % Math.max(1, h - sh - yMargin * 2));
+    return { x, y, sw, sh };
+  });
+  // Newest cell (i=0) lands over the oldest visible (last in DOM order)
+  // with jitter — small (±25px) so the underlying tile is still partly
+  // visible peeking out behind the new one.
+  if (cells.length >= 2) {
+    const oldest = positions[positions.length - 1];
+    const newestId = cells[0].id || "i0";
+    const jx = (_hashCellId(newestId + ":jx") % 50) - 25;
+    const jy = (_hashCellId(newestId + ":jy") % 50) - 25;
+    const sw = positions[0].sw;
+    const sh = positions[0].sh;
+    let nx = oldest.x + (oldest.sw - sw) / 2 + jx;
+    let ny = oldest.y + (oldest.sh - sh) / 2 + jy;
+    // Clamp to viewport so the hero doesn't half-disappear off the edge
+    // when the oldest is near a corner.
+    nx = Math.max(20, Math.min(w - sw - 20, nx));
+    ny = Math.max(20, Math.min(h - sh - 20, ny));
+    positions[0] = { x: nx, y: ny, sw, sh };
+  }
+  cells.forEach((cell, i) => {
+    const { x, y, sw, sh } = positions[i];
+    Object.assign(cell.style, {
+      position: "absolute",
+      display: "",
+      left: x + "px",
+      top: y + "px",
+      width: sw + "px",
+      height: sh + "px",
+      maxHeight: "none",
+      maxWidth: "none",
+      // Newest on top: index 0 → highest z-index. Stay below the
+      // connection-overlay canvas (z-index 5 in notebook.css) is
+      // not desired here — cells should occlude lines that pass
+      // behind older tiles. But cap at 4 so the canvas's reflection
+      // arcs and session threads still float above the pile.
+      zIndex: String(1 + (cells.length - i)),
     });
   });
   Object.assign(root.style, {
@@ -1632,6 +1877,12 @@ function applyActiveLayout() {
   const mode = getLayoutMode();
   if (mode === "treemap") applyTreemapLayout();
   else if (mode === "organic") applyOrganicLayout();
+  else if (mode === "scatter") applyScatterLayout();
+  // Inter-cell connection lines anchor to getBoundingClientRect, which
+  // changes when cells are absolutely positioned by the layout funcs
+  // above. Re-trigger the WebGL overlay so reflection edges + session
+  // threads track the new positions.
+  scheduleRedrawConnections();
 }
 
 // Re-apply on resize so tile sizes track the viewport.
@@ -1701,6 +1952,11 @@ function renderCell(c, snippetGroups) {
   const card = el("article", "cell");
   if (c.id) card.id = c.id;
   if (c.cell_type) card.dataset.cellType = c.cell_type;
+  // Session id on the card for the WebGL session-thread connection lines
+  // (drawSessionThreads in alt-layout modes). Reflection source-ids
+  // continue to live on .cell-reflection[data-source-ids] for the
+  // existing reflection→source connection rendering.
+  if (c.session_id) card.dataset.sessionId = c.session_id;
   const sources = Array.isArray(c.reflection_source_ids) ? c.reflection_source_ids : [];
   if (sources.length > 0) {
     card.classList.add("cell-reflection");
@@ -2142,6 +2398,7 @@ load().catch(err => {
 });
 
 initSessionDropdownTrigger();
+initLayoutDropdownTrigger();
 
 // HUD click-to-pin: clicking the HUD toggles data-expanded so it stays
 // open without requiring continuous hover. Click the HUD again to
