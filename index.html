@@ -295,17 +295,14 @@ function buildLayoutDropdown() {
   const dropdown = document.getElementById("layout-dropdown");
   if (!dropdown) return;
   const current = getLayoutMode();
-  const options = [
-    { id: "grid",    label: "grid",    desc: "auto-fit, the default" },
-    { id: "treemap", label: "treemap", desc: "weight-proportional tiles" },
-    { id: "organic", label: "organic", desc: "concentric rings, FUI feel" },
-    { id: "scatter", label: "scatter", desc: "overlapping windows pile" },
-  ];
+  // Read from LAYOUT_REGISTRY so adding a new layout there auto-shows
+  // it in the dropdown without touching this function.
+  const options = Object.values(LAYOUT_REGISTRY);
   const rows = options.map(o => `
     <button type="button" class="session-dropdown-row layout-dropdown-row"
             data-layout="${o.id}" ${o.id === current ? 'aria-current="true"' : ""}>
       <span class="session-dropdown-id">${o.label}</span>
-      <span class="session-dropdown-count" style="color:var(--muted);font-style:italic;">${o.desc}</span>
+      <span class="session-dropdown-count" style="color:var(--muted);font-style:italic;">${o.description}</span>
     </button>
   `).join("");
   dropdown.innerHTML = `
@@ -1460,24 +1457,60 @@ function getVisibleCap() {
     const n = v ? parseInt(v, 10) : NaN;
     if (Number.isFinite(n) && n > 0) return n;
   } catch (e) { /* fallthrough */ }
-  const mode = getLayoutMode();
-  if (mode === "organic") return 7;
-  // Treemap: 12 cells produce too many sub-300px tiles where content
-  // truncates. 8 keeps the smallest tile readable on a 1800×900
-  // viewport (~410×190 minimum).
-  if (mode === "treemap") return 8;
-  return 12;
+  const entry = LAYOUT_REGISTRY[getLayoutMode()];
+  return (entry && entry.cap) || 12;
 }
-// ?layout=treemap|organic|scatter|grid (default grid). Treemap uses
-// the Bruls/Huijsen/van Wijk 2000 squarified algorithm. Organic v0
-// arranges cells radially — newest at center, older in concentric
-// rings. Scatter places cells at pseudo-random positions and lets
-// them overlap, newest on top (desktop-windows pile). All opt-in via
-// URL so the validated auto-fit grid stays the default.
+// =============================================================
+// Layout registry. Each layout is a self-contained entry with an
+// `apply()` callback. To add a new layout (e.g. an LCARS-themed
+// asymmetric-panel mode, a Muuri-driven drag-arrangeable mode, or a
+// jsPlumb-routed graph mode):
+//   1. Write a function that absolutely-positions the existing
+//      `#notebook > .cell` elements (or invokes a 3rd-party lib that
+//      does so).
+//   2. Register it below with `id`, `label`, `description`, and
+//      `apply`. Optional `cap` overrides getVisibleCap().
+//   3. `getLayoutMode()` validates against the registry, the LAYOUT
+//      dropdown auto-lists the entry, `applyActiveLayout()` dispatches.
+//
+// No other code path needs to change — keep this contract.
+// =============================================================
+const LAYOUT_REGISTRY = {
+  grid: {
+    id: "grid",
+    label: "grid",
+    description: "auto-fit, the default",
+    apply: () => { /* CSS auto-fit handles it */ },
+  },
+  treemap: {
+    id: "treemap",
+    label: "treemap",
+    description: "weight-proportional tiles (d3)",
+    apply: () => applyTreemapLayout(),
+    cap: 8,
+  },
+  organic: {
+    id: "organic",
+    label: "organic",
+    description: "concentric rings, FUI feel",
+    apply: () => applyOrganicLayout(),
+    cap: 7,
+  },
+  scatter: {
+    id: "scatter",
+    label: "scatter",
+    description: "overlapping windows pile",
+    apply: () => applyScatterLayout(),
+    cap: 12,
+  },
+  // Future: lcars (LCARS47 / thelcars asset library), masonry (Muuri),
+  // dock (Dockview / FlexLayout). Reference list:
+  // memory/window_layout_libs.md.
+};
 function getLayoutMode() {
   try {
     const v = (new URLSearchParams(window.location.search).get("layout") || "").trim();
-    if (v === "treemap" || v === "organic" || v === "scatter") return v;
+    if (v && LAYOUT_REGISTRY[v]) return v;
   } catch (e) { /* fallthrough */ }
   return "grid";
 }
@@ -1852,10 +1885,8 @@ function applyScatterLayout() {
 // Apply the active layout mode, if any. Called after load() and on
 // window resize. No-op for grid mode (the CSS auto-fit handles it).
 function applyActiveLayout() {
-  const mode = getLayoutMode();
-  if (mode === "treemap") applyTreemapLayout();
-  else if (mode === "organic") applyOrganicLayout();
-  else if (mode === "scatter") applyScatterLayout();
+  const entry = LAYOUT_REGISTRY[getLayoutMode()];
+  if (entry && typeof entry.apply === "function") entry.apply();
   // Inter-cell connection lines anchor to getBoundingClientRect, which
   // changes when cells are absolutely positioned by the layout funcs
   // above. Re-trigger the WebGL overlay so reflection edges + session
@@ -1870,37 +1901,40 @@ window.addEventListener("resize", () => {
   _layoutResizeTimer = setTimeout(applyActiveLayout, 120);
 });
 
-// Click-to-zoom: idempotent setup. Attaches once via a guard flag.
-// Click on a cell's body (not on cell-id, links, summaries, buttons)
-// promotes the cell to a fixed overlay at near-viewport size. Escape
-// or click-on-backdrop closes. Safe to re-call after each load().
+// Click-to-zoom via native <dialog>. The browser handles focus trap,
+// Escape-to-close, and the ::backdrop pseudo-element for free; we
+// just clone the cell's DOM into the dialog on click. Per
+// memory/window_layout_libs.md ("don't reinvent" — Radix/HeadlessUI
+// modals exist, but the platform <dialog> is even simpler).
 function setupCellZoom() {
   if (state.rendering._cellZoomBound) return;
   state.rendering._cellZoomBound = true;
-  const closeZoom = () => {
-    document.querySelectorAll(".cell-zoomed").forEach(c => c.classList.remove("cell-zoomed"));
-    document.body.classList.remove("has-cell-zoomed");
-  };
+  let dlg = document.getElementById("cell-zoom-dialog");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "cell-zoom-dialog";
+    document.body.appendChild(dlg);
+  }
+  // Click on the dialog backdrop (the dialog element itself, but not
+  // its descendants) closes the modal. Native <dialog> already closes
+  // on Escape automatically.
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg) dlg.close();
+  });
   document.addEventListener("click", (e) => {
-    // Click on backdrop dismisses an active zoom.
-    if (document.body.classList.contains("has-cell-zoomed") &&
-        !e.target.closest(".cell")) {
-      closeZoom();
-      return;
-    }
-    const cell = e.target.closest(".cell");
+    if (dlg.open) return;  // dialog handles its own clicks
+    const cell = e.target.closest("#notebook > .cell");
     if (!cell) return;
     // Don't hijack clicks on inner interactive elements.
     if (e.target.closest(".cell-id, button, a, input, summary, details, details *")) return;
-    if (cell.classList.contains("cell-zoomed")) return;  // already zoomed
-    closeZoom();
-    cell.classList.add("cell-zoomed");
-    document.body.classList.add("has-cell-zoomed");
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && document.body.classList.contains("has-cell-zoomed")) {
-      closeZoom();
-    }
+    // Clone the cell into the dialog. Cloning preserves rendered SVG
+    // (mermaid) and html content; vega charts come along as a static
+    // snapshot of their last render — fine for inspection mode.
+    const clone = cell.cloneNode(true);
+    clone.removeAttribute("style");  // strip layout-mode inline positioning
+    clone.classList.add("cell-zoomed-clone");
+    dlg.replaceChildren(clone);
+    dlg.showModal();
   });
 }
 
@@ -2058,12 +2092,21 @@ function renderCell(c, snippetGroups) {
     // Stable ID per cell across re-renders. Mermaid 10+ removes its own
     // temp container after render, so reusing the ID is fine and avoids
     // accumulating per-ID internal state on each remount.
-    const renderMermaid = () => {
-      mermaid.render(`m-${c.id}`, c.spec).then(({ svg }) => {
+    const renderMermaid = async () => {
+      try {
+        // Validate first via mermaid.parse() — without this, mermaid.render
+        // injects its own "Syntax error in text / mermaid version 10.x.y"
+        // stub into the document body when parsing fails, and that stub
+        // floats free of our cell. parse() throws on invalid syntax; we
+        // render a clean inline error instead.
+        await mermaid.parse(c.spec);
+        const { svg } = await mermaid.render(`m-${c.id}`, c.spec);
         target.innerHTML = svg;
-      }).catch(err => {
-        target.textContent = "mermaid render error: " + err.message;
-      });
+      } catch (err) {
+        target.classList.add("mermaid-error");
+        target.textContent = "mermaid render error: " +
+          (err && err.message ? err.message.split("\n")[0] : String(err));
+      }
     };
     lazyMount(target, renderMermaid);
   } else if (c.cell_type === "html" && c.html) {
