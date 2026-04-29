@@ -2448,7 +2448,18 @@ function renderCell(c, snippetGroups) {
     sess.title = `session: ${c.session_id}`;
     head.appendChild(sess);
   }
-  head.appendChild(el("span", "cell-time", c.timestamp || ""));
+  // Time chip: show HH:MM only (compact). The full ISO timestamp lives
+  // in the title attribute for hover. The verbose "2026-04-29T19:20:07+00:00"
+  // chip was eating 40% of the cell-head row width and crowding out the
+  // cell-title (user 2026-04-29 — title truncation in organic layout).
+  const timeStr = (() => {
+    if (!c.timestamp) return "";
+    const m = c.timestamp.match(/T(\d{2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}` : c.timestamp;
+  })();
+  const timeChip = el("span", "cell-time", timeStr);
+  if (c.timestamp) timeChip.title = c.timestamp;
+  head.appendChild(timeChip);
   card.appendChild(head);
 
   if (sources.length > 0) {
