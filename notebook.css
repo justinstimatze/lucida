@@ -218,22 +218,41 @@ main {
   overflow: hidden;
   position: relative;
 }
+/* All-four-edge feathered fade. Per user 2026-04-29: every edge
+   should have the nice blur/fade effect the bottom edge had.
+   Packed into ::after only (theme-lcars + theme-magi already use
+   ::before for the side rail; mixing ownership got the rail
+   clobbered). Four layered linear-gradients, one per edge, each
+   fading from transparent at the cell interior to opaque cell-bg
+   at the edge. Always-on so cells read as soft-edged regardless
+   of overflow. */
 .cell::after {
-  /* Fade gradient height shrunk from 3rem → 1.4rem after user
-     observation that the fade was hiding ~one row of legitimate
-     content on cells that barely overflowed. Now the fade only
-     visually softens the very last sliver. */
   content: "";
   position: absolute;
-  inset: auto 0 0 0;
-  height: 1.4rem;
-  background: linear-gradient(to bottom,
-    transparent,
-    color-mix(in srgb, var(--cell-bg) 75%, transparent) 50%,
-    var(--cell-bg));
+  inset: 0;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s;
+  z-index: 2;
+  background:
+    linear-gradient(to bottom,
+      transparent 0,
+      transparent calc(100% - 1.1rem),
+      color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
+      var(--cell-bg) 100%),
+    linear-gradient(to top,
+      transparent 0,
+      transparent calc(100% - 1.1rem),
+      color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
+      var(--cell-bg) 100%),
+    linear-gradient(to right,
+      transparent 0,
+      transparent calc(100% - 1.1rem),
+      color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
+      var(--cell-bg) 100%),
+    linear-gradient(to left,
+      transparent 0,
+      transparent calc(100% - 1.1rem),
+      color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
+      var(--cell-bg) 100%);
 }
 /* Auto-mode (?session=auto): uniform cell sizing per natural-size
    pivot 2026-04-29. The hero/ambient max-height delta is gone — the
