@@ -158,6 +158,11 @@ main {
   opacity: 0;
   transition: opacity 0.2s;
 }
+/* Auto-mode (?session=auto): tighter heights so the cap-N tile fits one
+   viewport without vertical scroll. Hero gets ~30vh, ambient ~22vh —
+   smaller than single-session defaults (45vh / 32vh). */
+#notebook[data-auto] > .cell { max-height: 22vh; }
+#notebook[data-auto] > .cell:first-child { max-height: 30vh; }
 .cell.cell-overflow::after { opacity: 1; }
 /* Tier 1: hero — newest cell. Full row, larger padding + font, more
    prominent. Allowed slightly more vertical room than ambient cells
@@ -325,6 +330,20 @@ main {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   color: var(--accent);
   opacity: 0.75;
+}
+.cell-session {
+  font-size: 0.65rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  padding: 0 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14ch;
 }
 /* Cell-id chip color-hints by substrate so the user gets the cell type
    without a verbose label. Subtle (border-left tint) — doesn't compete

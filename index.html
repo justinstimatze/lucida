@@ -806,6 +806,17 @@ function liveAppendNewCells(cellsData) {
     firstNode = node;
     setTimeout(() => node.classList.remove("cell-fresh"), 1400);
   }
+  // Cap the visible cell count in auto-mode: prepending a fresh cell
+  // without eviction would push the grid past one viewport. Drop oldest
+  // (DOM-bottom) cells until back at cap. Their IDs stay in renderedIds
+  // so they don't re-mount on the next poll — refresh re-seeds the tail.
+  if (state.sessions.autoMode && !multi) {
+    const cap = getVisibleCap();
+    const cells = root.querySelectorAll(":scope > .cell");
+    for (let i = cells.length - 1; i >= cap; i--) {
+      cells[i].remove();
+    }
+  }
   if (!wasAtTop && firstNode) {
     const delta = document.body.offsetHeight - oldDocHeight;
     if (delta > 0) window.scrollBy(0, delta);
@@ -1279,8 +1290,24 @@ function formatElapsed(sec) {
 // stack of that session's cells (newest at top); each column's
 // :first-child still gets hero treatment via the existing CSS rule.
 // Single-session and unscoped views remain in single-grid mode.
+// ?session=auto explicitly tiles all sessions into the single grid
+// instead of spawning per-session columns; columns crush at N>5
+// sessions, the grid auto-fits the viewport.
 function isMultiStream() {
+  if (state.sessions.autoMode) return false;
   return state.sessions.active.size >= 2;
+}
+// Cap visible cells in auto-mode so the grid fits the viewport without
+// vertical scroll. Default 12 ≈ 1 hero + 3-4 cols × 3 rows of ambient
+// cells at typical 1800×1000 viewports. ?max=N overrides for larger
+// screens or power-user density preferences.
+function getVisibleCap() {
+  try {
+    const v = new URLSearchParams(window.location.search).get("max");
+    const n = v ? parseInt(v, 10) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch (e) { /* fallthrough */ }
+  return 12;
 }
 function sessionKey(c) {
   return c.session_id || "untagged";
@@ -1345,10 +1372,19 @@ async function load() {
     }
   } else {
     root.dataset.mode = "single";
+    // CSS hook for the auto-mode tightened layout (smaller max-heights
+    // so the cap-N cells fit one viewport).
+    if (state.sessions.autoMode) root.dataset.auto = "true";
+    else delete root.dataset.auto;
     // Reverse-chrono render: newest cells live at the top so they're
     // immediately visible without autoscroll. Iterating chronologically
     // and prepending each puts the last (newest) cell at the very top.
-    for (const c of visible) {
+    // In auto-mode, cap to the trailing N cells so the grid fits the
+    // viewport — older cells are still in cells.json, just not on screen.
+    const tail = state.sessions.autoMode
+      ? visible.slice(-getVisibleCap())
+      : visible;
+    for (const c of tail) {
       root.prepend(renderCell(c, snippetGroups));
       state.rendering.renderedIds.add(c.id);
     }
@@ -1456,6 +1492,14 @@ function renderCell(c, snippetGroups) {
       head.appendChild(el("span", "cell-attempt-badge",
         `${idx + 1}/${group.length}`));
     }
+  }
+  // Session origin chip: only visible when multiple sessions are mixed
+  // into one grid (?session=auto). In single-session views, the column
+  // header / HUD already names the session so the per-cell chip is noise.
+  if (state.sessions.autoMode && c.session_id) {
+    const sess = el("span", "cell-session", c.session_id.slice(0, 14));
+    sess.title = `session: ${c.session_id}`;
+    head.appendChild(sess);
   }
   head.appendChild(el("span", "cell-time", c.timestamp || ""));
   card.appendChild(head);
