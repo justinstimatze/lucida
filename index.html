@@ -22,7 +22,7 @@
   // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
   // Adapted from gemotvis/frontend/src/stores/theme.ts.
   (function () {
-    var valid = ["lab", "magi", "minimal", "gastown"];
+    var valid = ["lab", "magi", "minimal", "gastown", "lcars"];
     var theme = "lab";
     try {
       var url = new URLSearchParams(window.location.search).get("theme");
@@ -336,6 +336,7 @@ const THEME_REGISTRY = {
   magi:    { id: "magi",    label: "MAGI",    description: "amber + green Eva/NERV monospace" },
   minimal: { id: "minimal", label: "MINIMAL", description: "Vercel/Linear clean light" },
   gastown: { id: "gastown", label: "GASTOWN", description: "steampunk brass on cream serif" },
+  lcars:   { id: "lcars",   label: "LCARS",   description: "Star Trek TNG ops board, condensed display" },
 };
 
 function buildThemeDropdown() {

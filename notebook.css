@@ -520,6 +520,15 @@ main {
      viewBox, so visible loss is minimal. Per audit 2026-04-28. */
   overflow: hidden;
 }
+/* vega-embed sets inline `display: inline-block` on the wrapper which
+   defeats parent-driven sizing. !important here lets specs that use
+   `"width": "container"` actually fill the cell body, so charts no
+   longer clip when the spec's hardcoded width exceeds the cell width
+   (cells 0546, 0627 pre-fix). */
+.vega-target {
+  display: block !important;
+  width: 100% !important;
+}
 .svg-target, .lottie-target {
   display: block;
   margin: 0.25rem 0;
@@ -755,6 +764,40 @@ body > .a-orientation-modal {
   font-family: "Cinzel", "Georgia", serif;
   text-transform: uppercase;
 }
+
+/* LCARS -- Star Trek TNG ops board. Saturated orange + peach + magenta on
+   navy/black, condensed-bold display type. Flat color fills (no glow / no
+   CRT scanlines — LCARS reads as printed UI panels, not amber CRT). */
+.theme-lcars {
+  --bg: #000000;
+  --cell-bg: #000044;
+  --header-bg: #000000;
+  --line: #ff9900;
+  --fg: #ffcc99;
+  --muted: #9999cc;
+  --accent: #ff9900;
+  --code-bg: #0a0a1a;
+  --vis-amber-glow: transparent;
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --vis-ok: #99cc99;
+  --vis-warn: #ffcc33;
+  --vis-tripped: #cc6666;
+}
+.theme-lcars .hud-scanline { display: none; }
+.theme-lcars body {
+  font-family: "Antonio", "Avenir Next Condensed", "Helvetica Neue Condensed", "Arial Narrow", sans-serif;
+}
+.theme-lcars header,
+.theme-lcars .cell-head,
+.theme-lcars .cell-type,
+.theme-lcars .cell-id {
+  font-family: "Antonio", "Avenir Next Condensed", "Helvetica Neue Condensed Bold", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .cell-caption {
   font-size: 0.95rem;
   color: var(--fg);
@@ -972,6 +1015,16 @@ th, td {
 .theme-minimal .hud-value { text-shadow: none; }
 .theme-minimal .hud-scanline { display: none; }
 
+/* LCARS: flat ops-board look — solid navy background, hard orange left rail,
+   no text-shadow / no scanlines. */
+.theme-lcars .hud {
+  background: #000044;
+  border-left-color: #ff9900;
+  border-left-width: 6px;
+}
+.theme-lcars .hud-value { text-shadow: none; }
+.theme-lcars .hud-scanline { display: none; }
+
 /* Flash announcement: new mint arrived. Brief border + glow swell. */
 .hud.hud-flash {
   animation: hud-flash 0.7s ease-out;
@@ -1162,6 +1215,17 @@ th, td {
   --mermaid-edge-label-bg: #f5e6d3;
   --mermaid-edge-label-border: #cd7f32;
 }
+.theme-lcars {
+  --mermaid-edge-stroke-width: 1.6px;
+  --mermaid-edge-color: #ff9900;
+  --mermaid-edge-glow: transparent;
+  --mermaid-node-stroke-width: 1.8px;
+  --mermaid-node-glow: transparent;
+  --mermaid-node-glow-hover: rgba(255, 153, 0, 0.4);
+  --mermaid-edge-label-bg: #000044;
+  --mermaid-edge-label-border: #ff9900;
+  --mermaid-cluster-glow: transparent;
+}
 
 /* Node glow + stroke. */
 .mermaid-target .node rect,
@@ -1279,6 +1343,13 @@ th, td {
 .theme-gastown .cell.cell-still-warm::before {
   display: none;
 }
+.theme-lcars .cell.cell-still-warm::before {
+  /* LCARS still-warm: flat orange border, no glow — matches the printed
+     ops-board aesthetic. */
+  border-color: #ff9900;
+  box-shadow: 0 0 0 transparent;
+  opacity: 0.7;
+}
 
 /* Bootup reveal: brief fade-in for #notebook on first paint, plus a
    subtle border-flash on the HUD as the system "comes online".
@@ -1386,11 +1457,17 @@ th, td {
   max-width: 360px;
   max-height: 60vh;
   overflow-y: auto;
-  background: var(--panel, #131318);
-  border: 1px solid var(--accent, #66ccff);
+  /* Driven by theme tokens: --cell-bg is set in every .theme-<name> block,
+     so dropdowns auto-track the active theme. The pre-2026-04-30 rule
+     used var(--panel, #131318) but --panel was never assigned, so the
+     hardcoded lab fallback locked dropdowns to dark even in
+     minimal/gastown/lcars. */
+  background: var(--cell-bg);
+  color: var(--fg);
+  border: 1px solid var(--accent);
   border-radius: 4px;
   padding: 0.5rem 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   font-family: inherit;
   font-size: 0.85rem;
 }
@@ -1401,15 +1478,15 @@ th, td {
   align-items: center;
   padding: 0.25rem 0.75rem 0.4rem;
   margin-bottom: 0.25rem;
-  border-bottom: 1px solid var(--line, #2a2a2a);
+  border-bottom: 1px solid var(--line);
   letter-spacing: 0.15em;
   font-size: 0.7rem;
-  color: var(--muted, #8a8a92);
+  color: var(--muted);
 }
 .session-dropdown-clear {
   background: transparent;
   border: none;
-  color: var(--accent, #66ccff);
+  color: var(--accent);
   cursor: pointer;
   font-family: inherit;
   font-size: 0.7rem;
@@ -1423,32 +1500,38 @@ th, td {
   gap: 0.5rem;
   padding: 0.3rem 0.75rem;
   cursor: pointer;
+  color: var(--fg);
 }
 .session-dropdown-row:hover {
-  background: color-mix(in srgb, var(--accent, #66ccff) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.session-dropdown-row[aria-current="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .session-dropdown-row input[type="checkbox"] {
   cursor: pointer;
   margin: 0;
+  accent-color: var(--accent);
 }
 .session-dropdown-id {
   flex: 1;
-  font-family: "Courier New", monospace;
-  color: var(--fg, #e5e5e5);
+  font-family: var(--type-mono, "Courier New", monospace);
+  color: var(--fg);
 }
 .session-dropdown-count {
-  color: var(--muted, #8a8a92);
+  color: var(--muted);
   font-size: 0.75rem;
 }
 .session-dropdown-empty {
   padding: 0.5rem 0.75rem;
-  color: var(--muted, #8a8a92);
+  color: var(--muted);
   font-style: italic;
 }
+/* Magi keeps its glow flourish; other themes inherit the
+   token-driven base rule above. */
 .theme-magi .session-dropdown {
   background: #050505;
-  border-color: var(--vis-amber-glow, #ff8c00);
-  box-shadow: 0 0 12px var(--vis-amber-glow, rgba(255,140,0,0.3));
+  box-shadow: 0 0 12px rgba(255,140,0,0.3);
 }
 
 /* HTML cell visual enrichment. The classifier honestly picks html for

@@ -218,7 +218,7 @@ VEGA_SYSTEM = """You are the vega specialist for lucida. The classifier has deci
 - Use real numbers from the snippet. Do NOT invent values, time series, or distributions.
 - Restrained palette; avoid full-saturation reds. Movie-interface vibe where applicable.
 - Set "background": "transparent" so the cell-bg shows through (the lucida theme provides background color).
-- Width 400-600, height 60-200 typical for a single-claim chart; height 200-340 for stream / area / scatter / boxplot where vertical resolution matters.
+- **Use `"width": "container"`** — let vega-lite size to the cell body responsively. Hardcoded widths (400-600px) overflow narrow cells: cell bodies render 380-500px wide, so a `"width": 500` spec gets clipped by `overflow: hidden` in cells under 500px. Container mode adapts. Height: 60-200 typical for a single-claim chart; 200-340 for stream / area / scatter / boxplot where vertical resolution matters.
 - **Pick the chart type from the data shape, not the "bar default".** Vega-lite supports a wide chart vocabulary; the dashboard has been over-rendering bar charts. Use the type the data wants:
   - **bar** — categorical comparison along one axis (default for 2-N named categories with one numeric)
   - **line** — temporal trend, one or more series indexed by time
@@ -274,7 +274,7 @@ Snippet: "Productivity has grown ~65% since 1979; median real hourly compensatio
 Audit: 65% (productivity growth, LEVEL), 14% (median compensation growth, LEVEL). Both DIRECT.
 
 spec (the vega-lite JSON):
-{"$schema": "https://vega.github.io/schema/vega-lite/v5.json", "background": "transparent", "data": {"values": [{"series": "productivity", "growth_pct": 65}, {"series": "median real hourly compensation", "growth_pct": 14}]}, "mark": "bar", "encoding": {"y": {"field": "series", "type": "nominal", "axis": {"title": null}}, "x": {"field": "growth_pct", "type": "quantitative", "axis": {"title": "growth %, 1979-2019"}}, "color": {"field": "series", "type": "nominal", "legend": null}}, "width": 480, "height": 100}
+{"$schema": "https://vega.github.io/schema/vega-lite/v5.json", "background": "transparent", "data": {"values": [{"series": "productivity", "growth_pct": 65}, {"series": "median real hourly compensation", "growth_pct": 14}]}, "mark": "bar", "encoding": {"y": {"field": "series", "type": "nominal", "axis": {"title": null}}, "x": {"field": "growth_pct", "type": "quantitative", "axis": {"title": "growth %, 1979-2019"}}, "color": {"field": "series", "type": "nominal", "legend": null}}, "width": "container", "height": 100}
 
 caption: "Productivity-compensation gap, 1979-2019. The recurring anchor across drafts."
 should_demote_to_text: false

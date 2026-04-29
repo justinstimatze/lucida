@@ -1,0 +1,45 @@
+{
+  "_comment": "LCARS / Star Trek TNG. Saturated orange + peach + magenta + purple on navy/black, condensed-bold display type. Source of truth for lcars mermaid + vega + html accents + HUD.",
+  "accent": {
+    "primary":   "#ff9900",
+    "secondary": "#ffcc99",
+    "warning":   "#ffcc33",
+    "danger":    "#cc6666",
+    "ok":        "#99cc99"
+  },
+  "surface": {
+    "bg":     "#000000",
+    "cell":   "#000044",
+    "header": "#000000",
+    "code":   "#0a0a1a",
+    "muted":  "#9999cc",
+    "line":   "#ff9900"
+  },
+  "text": {
+    "fg":    "#ffcc99",
+    "muted": "#9999cc"
+  },
+  "data": {
+    "_comment": "LCARS canonical palette in display order: orange, peach, magenta, purple, yellow, salmon. Reads instantly as TNG ops board — saturated flat fills, no shading.",
+    "cat": ["#ff9900", "#ffcc99", "#cc6699", "#9999cc", "#ffcc33", "#cc6666"]
+  },
+  "type": {
+    "body": "\"Antonio\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed\", \"Arial Narrow\", sans-serif",
+    "head": "\"Antonio\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed Bold\", \"Arial Narrow\", sans-serif",
+    "mono": "\"Fira Mono\", \"Courier New\", monospace"
+  },
+  "fx": {
+    "glow":      "transparent",
+    "glow-line": "rgba(255, 153, 0, 0.25)"
+  },
+  "palette": {
+    "stroke1": "#ff9900",
+    "stroke2": "#cc6699",
+    "stroke3": "#9999cc",
+    "accent":  "#ff9900",
+    "fg":      "#ffcc99",
+    "muted":   "#9999cc",
+    "bg":      "#000000",
+    "panel":   "#000044"
+  }
+}
