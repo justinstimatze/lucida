@@ -158,11 +158,13 @@ main {
   opacity: 0;
   transition: opacity 0.2s;
 }
-/* Auto-mode (?session=auto): tighter heights so the cap-N tile fits one
-   viewport without vertical scroll. Hero gets ~30vh, ambient ~22vh —
-   smaller than single-session defaults (45vh / 32vh). */
-#notebook[data-auto] > .cell { max-height: 22vh; }
-#notebook[data-auto] > .cell:first-child { max-height: 30vh; }
+/* Auto-mode (?session=auto): slightly tighter heights than single-mode
+   so the cap-N tile lands close to one viewport. Trade-off — perfect
+   viewport-fit at the cell counts we want needs importance-weighted
+   tiling (squarified treemap). For now, ambient ~28vh (vs single-mode
+   32vh) keeps cells legible while shrinking the overall grid height. */
+#notebook[data-auto] > .cell { max-height: 28vh; }
+#notebook[data-auto] > .cell:first-child { max-height: 38vh; }
 .cell.cell-overflow::after { opacity: 1; }
 /* Tier 1: hero — newest cell. Full row, larger padding + font, more
    prominent. Allowed slightly more vertical room than ambient cells
