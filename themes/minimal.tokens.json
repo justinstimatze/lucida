@@ -33,9 +33,10 @@
     "glow-line": "transparent"
   },
   "palette": {
+    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution. Was a blue→gray→black ramp pre-2026-04-29; now blue/green/amber matches the categorical palette.",
     "stroke1": "#0070f3",
-    "stroke2": "#737373",
-    "stroke3": "#171717",
+    "stroke2": "#16a34a",
+    "stroke3": "#d97706",
     "accent":  "#0070f3",
     "fg":      "#171717",
     "muted":   "#737373",

@@ -33,9 +33,10 @@
     "glow-line": "rgba(255, 153, 0, 0.25)"
   },
   "palette": {
+    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution.",
     "stroke1": "#ff9900",
-    "stroke2": "#cc5599",
-    "stroke3": "#9999cc",
+    "stroke2": "#ffcc99",
+    "stroke3": "#cc5599",
     "accent":  "#ff9900",
     "fg":      "#ffcc99",
     "muted":   "#9999cc",

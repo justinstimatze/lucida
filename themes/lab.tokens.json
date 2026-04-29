@@ -33,9 +33,10 @@
     "glow-line": "rgba(255, 102, 221, 0.35)"
   },
   "palette": {
-    "stroke1": "#00ffff",
-    "stroke2": "#ff00ff",
-    "stroke3": "#ffff00",
+    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution. The saturated neon trio (#00ffff/#ff00ff/#ffff00) now lives at data.cat[3..5] for opt-in saturation instead of being the default scene3d strokes.",
+    "stroke1": "#66ccff",
+    "stroke2": "#ff66dd",
+    "stroke3": "#ffee66",
     "accent":  "#66ccff",
     "fg":      "#e5e5e5",
     "muted":   "#8a8a92",

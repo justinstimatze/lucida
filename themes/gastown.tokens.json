@@ -33,9 +33,10 @@
     "glow-line": "rgba(139, 94, 60, 0.3)"
   },
   "palette": {
+    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution. Was a brass→brown→dark-brown monochromatic ramp pre-2026-04-29; now brass/sage/rust matches the categorical palette.",
     "stroke1": "#cd7f32",
-    "stroke2": "#8b5e3c",
-    "stroke3": "#5d4037",
+    "stroke2": "#5e8e7e",
+    "stroke3": "#b7410e",
     "accent":  "#cd7f32",
     "fg":      "#2c1810",
     "muted":   "#5d4037",
