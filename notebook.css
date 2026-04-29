@@ -831,22 +831,29 @@ body > .a-orientation-modal {
   z-index: 251;
   pointer-events: none;
 }
-/* Quarter-circle elbow joint. A solid orange circle positioned so its
-   center sits at the inside corner of the L (pillar-width, bar-height).
-   Three of its quadrants overlap the bar+pillar that already paint
-   orange there; the bottom-right quadrant extrudes into the content
-   area as the canonical LCARS sweep. The selector hits <html>'s ::before
-   directly (theme-lcars is the html class, not an ancestor — so
-   `.theme-lcars html::before` matches nothing). */
+/* Quarter-circle elbow joint, with tangents that match the bar's
+   horizontal bottom edge AND the pillar's vertical right edge — so the
+   curve smoothly joins instead of meeting at a 90° kink. A 30x30 div
+   sits at the inside corner (pillar-width, bar-height); the curve is a
+   quarter-circle whose CENTER is at the OUTER corner of the div
+   (+elbow-r, +elbow-r) so the radius vectors at the curve endpoints are
+   vertical-up (at bar-bottom point) and horizontal-left (at pillar-right
+   point), giving tangents that match the bar/pillar edges.
+   Implementation: border-top-left-radius rounds the corner pointing back
+   at the L's inside corner; the painted shape is the part of the div
+   FAR from that corner — the smooth concave-from-content sweep. The
+   selector hits <html>'s ::before directly (theme-lcars is on the html
+   element itself, not an ancestor — so `.theme-lcars html::before` would
+   match nothing). */
 html.theme-lcars::before {
   content: "";
   position: fixed;
-  top: calc(var(--lcars-bar-h) - var(--lcars-elbow-r));
-  left: calc(var(--lcars-pillar-w) - var(--lcars-elbow-r));
-  width: calc(var(--lcars-elbow-r) * 2);
-  height: calc(var(--lcars-elbow-r) * 2);
+  top: var(--lcars-bar-h);
+  left: var(--lcars-pillar-w);
+  width: var(--lcars-elbow-r);
+  height: var(--lcars-elbow-r);
   background: var(--accent);
-  border-radius: 50%;
+  border-top-left-radius: var(--lcars-elbow-r);
   z-index: 252;
   pointer-events: none;
 }
@@ -1115,12 +1122,31 @@ th, td {
 .theme-minimal .hud-value { text-shadow: none; }
 .theme-minimal .hud-scanline { display: none; }
 
-/* LCARS: flat ops-board look — solid navy background, hard orange left rail,
-   no text-shadow / no scanlines. */
+/* LCARS HUD geometry: matches the cell chrome (24px outer-left / 4px
+   inner-right corner radii, 14px solid orange left rail) so the status
+   bar reads as the dashboard's "first cell" — same shape language top
+   to bottom. Each .hud-cell chip becomes a capsule-shaped pill (rounded
+   ends, padded interior, subtle dark-blue fill) — the canonical LCARS
+   nav-button shape. Geometry knobs live on the .theme-lcars block
+   (--lcars-bar-h etc.) so other themes leave the HUD's default flat
+   geometry untouched. */
 .theme-lcars .hud {
   background: #000044;
-  border-left-color: #ff9900;
-  border-left-width: 6px;
+  border-radius: 24px 4px 4px 24px;
+  border: 1px solid #2a2a4a;
+  border-left: 14px solid #ff9900;
+  padding: 0.35rem 0.85rem 0.35rem 1.1rem;
+}
+.theme-lcars .hud-cell {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 999px;
+  padding: 0.1rem 0.7rem;
+  border: 1px solid rgba(255, 153, 0, 0.18);
+  /* The CELLS chip embeds an inline svg/rect bar; its inline-flex layout
+     keeps the bar inline with the label/value, the capsule wraps both. */
+}
+.theme-lcars .hud-cell .hud-label {
+  letter-spacing: 0.12em;
 }
 .theme-lcars .hud-value { text-shadow: none; }
 .theme-lcars .hud-scanline { display: none; }
