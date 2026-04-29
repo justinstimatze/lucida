@@ -841,7 +841,9 @@ body > .a-orientation-modal {
   left: 0;
   bottom: 0;
   width: var(--lcars-pillar-w);
-  background: var(--accent);
+  background:
+    repeating-linear-gradient(0deg, transparent 0, transparent 78px, var(--bg) 78px, var(--bg) 80px),
+    var(--accent);
   z-index: 251;
   pointer-events: none;
 }
