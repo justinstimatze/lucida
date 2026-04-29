@@ -1174,8 +1174,12 @@ function liveAppendNewCells(cellsData) {
   // mode. IDs stay in renderedIds so they don't re-mount on the next
   // poll — refresh re-seeds the tail.
   const recentCap = getRecentCap();
-  if ((state.sessions.autoMode || recentCap) && !multi) {
-    const cap = state.sessions.autoMode ? getVisibleCap() : recentCap;
+  const tickLayoutEntry = LAYOUT_REGISTRY[getLayoutMode()];
+  const tickLayoutCap = tickLayoutEntry && tickLayoutEntry.cap;
+  if ((state.sessions.autoMode || recentCap || tickLayoutCap) && !multi) {
+    const cap = state.sessions.autoMode
+      ? getVisibleCap()
+      : (recentCap || tickLayoutCap);
     const cells = root.querySelectorAll(":scope > .cell");
     for (let i = cells.length - 1; i >= cap; i--) {
       cells[i].remove();
@@ -1888,9 +1892,20 @@ async function load() {
     // In auto-mode, cap to the trailing N cells so the grid fits the
     // viewport — older cells are still in cells.json, just not on screen.
     const recentCap = getRecentCap();
-    const tail = state.sessions.autoMode
-      ? visible.slice(-getVisibleCap())
-      : (recentCap ? visible.slice(-recentCap) : visible);
+    // Layout cap applies even in non-auto mode now. Pre-2026-04-29 the
+    // LAYOUT_REGISTRY[*].cap was only enforced when state.sessions.autoMode
+    // was true; selecting scatter (cap:12) on the full corpus tried to
+    // absolute-position 1000+ cells and froze the browser. User reported
+    // 2026-04-29 ("scatter also seems to have crashed or frozen the browser").
+    // Now: layouts with a declared cap use it always; grid (no cap) keeps
+    // the original "render everything" behavior.
+    const layoutEntry = LAYOUT_REGISTRY[getLayoutMode()];
+    const layoutCap = layoutEntry && layoutEntry.cap;
+    let tail;
+    if (state.sessions.autoMode) tail = visible.slice(-getVisibleCap());
+    else if (recentCap) tail = visible.slice(-recentCap);
+    else if (layoutCap) tail = visible.slice(-layoutCap);
+    else tail = visible;
     for (const c of tail) {
       root.prepend(renderCell(c, snippetGroups));
       state.rendering.renderedIds.add(c.id);
@@ -2013,8 +2028,14 @@ function applyOrganicLayout() {
   ];
   const outer = ringSpecs[ringSpecs.length - 1];
   const outerSatHalfH = outer.size * 0.78 / 2;
-  // cy: outermost top satellite needs y >= 32 (header clearance).
-  const cy = Math.max(window.innerHeight / 2, outer.radius + outerSatHalfH + 32);
+  // cy: outermost top satellite needs y >= headerH so cells don't float
+  // over the .hud top status bar. headerH=80 was declared above but
+  // unused — pre-2026-04-29 the clearance was a hardcoded 32, which
+  // worked when .hud was taller than 32px collapsed but regressed once
+  // the hud got compressed. User reported 2026-04-29 ("organic layout
+  // titles basically get truncated and the windows float over the top
+  // of the top status bar still").
+  const cy = Math.max(window.innerHeight / 2, outer.radius + outerSatHalfH + headerH);
   // Hero substantially bigger so its body fills its tile rather than
   // floating in a sparse center.
   const heroW = minDim * 0.58;

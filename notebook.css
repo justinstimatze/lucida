@@ -52,7 +52,13 @@
 #hud-session-cell,
 #hud-layout-cell,
 #hud-theme-cell {
-  min-height: 32px;
+  /* No min-height — the collapsed HUD frame is ~25px tall, so a 32px
+     trigger button overflows the frame and reads as "broken chrome".
+     User flagged 2026-04-29 ("the hud buttons for dropdowns also are
+     bigger than the status blobs and get truncated by the frame of
+     the status bar"). The 32px tap-target spec applies to the popover
+     dropdown rows (.session-dropdown-row etc above), where it actually
+     matters; HUD triggers in the collapsed frame stay chip-sized. */
   display: inline-flex;
   align-items: center;
 }
