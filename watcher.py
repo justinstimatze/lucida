@@ -100,6 +100,8 @@ def process_once(
     reflect_every: int | None = None,
     reflect_n: int = 5,
     session_id: str | None = None,
+    prime_lookback_chars: int = 50_000,
+    max_delta_chars: int = 100_000,
 ) -> WatcherStep:
     """Read transcript delta, segment, mint non-duplicate cells.
 
@@ -108,18 +110,44 @@ def process_once(
     orchestrator.reflect_and_persist(reflect_n) once the threshold is
     crossed. Without this, shape A is a one-way pipe — the closed-loop
     metric only goes down.
+
+    First-encounter priming and per-pass capping bound the segmenter input
+    so a multi-megabyte transcript (Claude Code projects accumulate these)
+    can't blow the 1M-token context or the per-minute rate limit. Without
+    these, --auto-discover would melt on any project with >2MB of history.
     """
     if not transcript_path.exists():
         return WatcherStep(0, 0, 0, 0, note=f"transcript not found: {transcript_path}")
 
     state_path = state_path or _state_path_for(transcript_path)
     state = _load_state(state_path)
-    last_offset = state.get("last_offset", 0)
+    last_offset = state.get("last_offset")
 
     text = transcript_path.read_text()
+
+    # First-encounter priming: only the most-recent prime_lookback_chars are
+    # ingested. Older history is skipped, not re-processed later.
+    if last_offset is None:
+        last_offset = max(0, len(text) - prime_lookback_chars)
+
     new_text = text[last_offset:]
 
+    # Per-pass cap: a fast-moving session can drop a huge chunk between ticks.
+    # Clamp to the trailing max_delta_chars and advance offset to len(text)
+    # below so the dropped middle isn't re-processed.
+    dropped_chars = 0
+    if len(new_text) > max_delta_chars:
+        dropped_chars = len(new_text) - max_delta_chars
+        new_text = new_text[-max_delta_chars:]
+
     if len(new_text) < min_new_chars:
+        # Commit last_offset on the early-return path too so we don't re-prime
+        # the same idle transcript every tick. Without this, a quiet project
+        # with 100 chars of recent content would re-read its whole file each pass.
+        if write and state.get("last_offset") is None:
+            state["last_offset"] = len(text)
+            state["last_pass"] = time.time()
+            _save_state(state_path, state)
         return WatcherStep(
             new_chars=len(new_text),
             segments_found=0,
@@ -197,6 +225,9 @@ def process_once(
         state["last_pass"] = time.time()
         _save_state(state_path, state)
 
+    note = seg_result.summary
+    if dropped_chars:
+        note = f"[dropped {dropped_chars} chars before window] {note}"
     return WatcherStep(
         new_chars=len(new_text),
         segments_found=len(seg_result.segments),
@@ -205,7 +236,7 @@ def process_once(
         cells_suppressed=suppressed,
         minted_ids=minted_ids,
         reflection_id=reflection_id,
-        note=seg_result.summary,
+        note=note,
     )
 
 
