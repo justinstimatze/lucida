@@ -235,14 +235,25 @@ main {
 /* Narrow-cell chip prioritization: cell-move + cell-conf chips are
    the lowest-signal of the head row (substrate type already conveys
    discourse; confidence is reference-only). Hide them when the cell
-   is under ~360px wide so the title gets the freed space. The
-   chips are still in the DOM (kept for searchability / a11y); just
-   visually hidden. cell-id stays (zoom target) and cell-time stays
-   (HH:MM is now compact). */
-@container (max-width: 360px) {
-  .cell-move,
-  .cell-conf {
-    display: none;
+   is under ~560px wide so the title gets the freed space. Threshold
+   is 560 (not 360 as initially) because at 360 the rule never fires
+   on real ambient cells — typical ambient grid cells are 470-510px,
+   and even at that width the title gets only ~100px (truncated to
+   "BRAILLE A...", "S..."). Bumping the rule above the typical ambient
+   width frees ~165px (cell-move + cell-conf + 2 gaps) for the title.
+   Chips still in the DOM for searchability/a11y; just visually hidden.
+   cell-id stays (zoom target) and cell-time (HH:MM) stays. */
+@container (max-width: 560px) {
+  /* !important AND a (0,2,0)-specificity selector via `.cell` parent
+     so the rule beats `.theme-lcars .cell-move { display: inline-flex
+     !important }` at line ~1612. Both are !important, so within the
+     important origin specificity wins; `.cell .cell-move` (0,2,0) ties
+     with `.theme-lcars .cell-move` (0,2,0) and the later rule wins —
+     this rule lives below the LCARS chip-uniformity block, so it
+     overrides. */
+  .cell .cell-head .cell-move,
+  .cell .cell-head .cell-conf {
+    display: none !important;
   }
 }
 /* All-four-edge feathered fade. Per user 2026-04-29: every edge
