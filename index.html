@@ -1676,7 +1676,11 @@ function applyTreemapLayout() {
   const cells = [...root.querySelectorAll(":scope > .cell")];
   if (!cells.length) return;
   const headerH = 80;
-  const gap = 6;
+  // Larger gap so the connection-overlay session-thread lines (which
+  // pass behind cells in alt-layout modes) stay visible in the gutter.
+  // Per user feedback "lines need to be behind the cells, with a
+  // little gap so they're visible".
+  const gap = 14;
   const w = window.innerWidth - 32;
   const h = window.innerHeight - headerH - 32;
   if (w <= 0 || h <= 0) return;
@@ -1692,6 +1696,7 @@ function applyTreemapLayout() {
   for (const it of items) {
     const p = byId.get(it.id);
     if (!p) continue;
+    const idx = items.indexOf(it);
     Object.assign(it.el.style, {
       position: "absolute",
       left: (p.x + gap) + "px",
@@ -1700,6 +1705,9 @@ function applyTreemapLayout() {
       height: Math.max(0, p.h - gap * 2) + "px",
       maxHeight: "none",
       maxWidth: "none",
+      // Above the connection-overlay (z=50) so session-thread lines
+      // pass behind the cell tile and are visible in the gutter gap.
+      zIndex: String(100 + (items.length - idx)),
     });
   }
   Object.assign(root.style, {
@@ -1769,7 +1777,11 @@ function applyOrganicLayout() {
       height: sh + "px",
       maxHeight: "none",
       maxWidth: "none",
-      zIndex: String(cells.length - i),  // newer cells layer over older
+      // 100+ keeps cells above the connection-overlay canvas (z=50) so
+      // session-thread + reflection lines pass BEHIND the cell tiles.
+      // Lines visible only in the gaps between cells — the user-asked
+      // organic-FUI feel of "structural backbone behind the windows".
+      zIndex: String(100 + (cells.length - i)),
     });
   });
   // Tall-enough notebook for the 3rd ring to fit before bottom
@@ -1856,12 +1868,11 @@ function applyScatterLayout() {
       height: sh + "px",
       maxHeight: "none",
       maxWidth: "none",
-      // Newest on top: index 0 → highest z-index. Stay below the
-      // connection-overlay canvas (z-index 5 in notebook.css) is
-      // not desired here — cells should occlude lines that pass
-      // behind older tiles. But cap at 4 so the canvas's reflection
-      // arcs and session threads still float above the pile.
-      zIndex: String(1 + (cells.length - i)),
+      // Above the connection-overlay (z=50) so session-thread lines
+      // pass BEHIND each cell. In scatter the cells overlap a lot,
+      // so lines mostly read in the corners/edges where tiles don't
+      // cover them — the structural backbone visible peeking out.
+      zIndex: String(100 + (cells.length - i)),
     });
   });
   Object.assign(root.style, {
