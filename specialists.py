@@ -922,7 +922,7 @@ Set should_demote_to_text=true if:
 
 # Worked example
 
-Snippet: "Lucida's substrate zoo: vega-lite, mermaid, animated_svg, scene3d, aframe, lottie -- heterogeneous cells accreting around the orchestrator."
+Snippet: "Lucida's substrate zoo: vega-lite, mermaid, animated_svg, scene3d, treemap, code, sparkline, ascii -- heterogeneous cells accreting around the orchestrator."
 
 spec (the JSON object):
 {"background": "transparent", "camera_distance": 6.5, "objects": [
@@ -1027,84 +1027,68 @@ def generate_scene3d_spec(snippet: str, context: str = "", model: str = DEFAULT_
 
 
 # ============================================================
-# AFRAME — declarative WebGL via A-Frame entity component system
+# CODE — syntax-highlighted code blocks
 # ============================================================
 
-AFRAME_SYSTEM = """You are the aframe specialist for lucida. The classifier has decided this snippet warrants an A-Frame scene -- declarative WebGL where motion is encoded via the animation= component. Iron-man-HUD aesthetic: wireframe primitives, theme-tinted edges, ambient lighting, slow rotation, depth.
+CODE_SYSTEM = """You are the code specialist for lucida. The classifier has decided this snippet's load-bearing claim is *the code itself* -- a function definition, a class, a config block, a query, a regex, a CLI command. The substrate exists so code reads with proper monospaced layout and syntax highlighting instead of being flattened into prose.
 
-# Renderer contract
+# When code fits
 
-Spec is a STRING of HTML containing A-Frame entities. The lucida renderer wraps it in <a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true"> automatically if not already wrapped. Do NOT write <html>, <body>, or wrap in <a-scene> -- emit the inner entities only.
-
-Supported A-Frame entities (use these and only these):
-- <a-box>, <a-sphere>, <a-cylinder>, <a-cone>, <a-torus>, <a-plane>
-- <a-octahedron>, <a-dodecahedron>, <a-icosahedron> (platonic solids)
-- <a-light> for lighting (type="ambient" or type="directional")
-- <a-camera> if you need to override camera placement (default camera at 0 1.6 0 looking down -z)
-
-Required attributes:
-- **position** (string "x y z") -- entities default to origin; for the cell viewport, place visible objects at z=-4 to z=-6 so they're in view. y=1.5 is roughly eye-height for the default camera.
-- **color** -- accepts theme tokens "$accent", "$stroke1", "$stroke2", "$stroke3", "$fg", "$muted" (substituted at render time); or hex literals.
-- **wireframe="true"** for primitives -- aligns with iron-HUD aesthetic. Solid-shaded objects are valid but rarer; reserve for hero elements that benefit from light.
-- **radius / size / height / width / depth** as appropriate for each primitive.
-
-Declarative animation pattern (the load-bearing motion encoder):
-animation="property: PROP; from: V0; to: V1; loop: true; dur: MS; easing: EASE; dir: DIR"
-- PROP is "rotation" / "position" / "scale" / "color" / "opacity"
-- dur in ms (4000-12000 typical for ambient rotation; 1500-3000 for pulses)
-- easing: linear / easeInOutSine / easeInOutQuad / easeOutCubic
-- dir: alternate / normal / reverse
-- loop: true for ambient cycles; integer N for finite loops
-- Multiple animations on one entity: animation__a, animation__b (suffix syntax)
-
-# Aesthetic constraints
-
-- 2-5 hero entities + 1-2 lights. Wireframe by default; reserve solid for hero.
-- Position entities so they're spatially distinct: a central object at "0 1.5 -4" + supporting objects at "+/- 2 1.5 -4" + maybe "0 0.5 -4".
-- Slow ambient rotation (dur 8000-12000ms) reads as diegetic/cool. Faster reads as decorative.
-- Use 2-4 distinct theme colors. $accent for hero; $stroke1-3 for supporting.
-- Always include at least one ambient light at intensity 0.3-0.5 + one directional light. Without lights, MeshBasicMaterial-style wireframes still render but solid shaded objects will be unlit and look flat.
+Pick code only when:
+- The snippet quotes or names a specific code artifact (function, class, struct, query, command line) AND seeing the actual source clarifies the load-bearing claim that prose alone wouldn't.
+- The artifact is short enough to render readably in a cell -- roughly ≤25 lines of source. Longer than that, the cell becomes a wall of text and a one-sentence text caption is more honest.
+- A reader unfamiliar with the function would read the source itself rather than your description of it.
 
 # When to demote to text
 
 Set should_demote_to_text=true if:
-- Snippet has no spatial/structural dimension to arrange entities around.
-- < 3 distinguishable elements -- a single-entity scene is decorative.
-- The motion needed is non-spatial (a flow chart, a chart, a diagram) -- prefer animated_svg / vega / mermaid.
+- The snippet talks ABOUT code without quoting any (use text — your prose IS the content).
+- The "code" is pseudo-code or sketched-syntax that wouldn't actually run (use mermaid for control flow or text).
+- The artifact would exceed 30 lines of source — too dense for a cell at glanceable size.
+
+# Output
+
+- `language`: short identifier matching what Prism.js recognizes. Common: python, javascript, typescript, json, yaml, html, css, sql, bash, rust, go, ruby, java, c, cpp, regex, diff, markdown, toml. If the snippet doesn't make the language obvious, use "text".
+- `source`: the actual source code as a string. Preserve indentation; no leading/trailing blank lines.
+- `caption`: one-sentence caption naming what the code does + why it's load-bearing in this snippet (NOT a redescription of every line).
+- Do NOT add comments to the code that weren't in the original snippet. Do NOT prettify or reformat — pass through what the snippet actually contains.
+- If the snippet describes code abstractly without quoting it, you must reconstruct from the description; in that case prefer the smallest plausible faithful rendering and call it out in the caption ("approximate from prose").
 
 # Worked example
 
-Snippet: "The classifier sits between the conversation transcript and the substrate specialists -- it routes each snippet to the cell type best suited to surface its load-bearing claim."
+Snippet: "The trivial-filter regression came down to a single regex in _trivial_mermaid that only matched `graph TD/LR` headers — anything starting with `mindmap`, `timeline`, `sankey-beta` etc. fell through to the regex's count-nodes branch and tripped the trivial gate. Fix was a subtype gate at the top: only run the rest of the function if the spec begins with `graph` or `flowchart`."
 
-spec (HTML string -- emit the inside, not the wrapping <a-scene>):
-<a-light type="ambient" color="#ffffff" intensity="0.4"></a-light>
-<a-light type="directional" position="2 4 2" color="#ffffff" intensity="0.6"></a-light>
-<a-icosahedron position="0 1.5 -4" radius="0.7" color="$accent" wireframe="true"
-               animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear">
-</a-icosahedron>
-<a-box position="-2.5 1.5 -4" color="$stroke1" wireframe="true" depth="0.8" height="0.8" width="0.8"
-       animation="property: rotation; to: 360 360 0; loop: true; dur: 9000; easing: linear">
-</a-box>
-<a-torus position="2.5 1.5 -4" radius="0.55" radius-tubular="0.05" color="$stroke2" wireframe="true"
-         animation="property: rotation; to: 0 0 360; loop: true; dur: 8000; easing: linear">
-</a-torus>
-<a-sphere position="0 0.4 -4" radius="0.3" color="$stroke3" wireframe="true"
-          animation="property: position; from: 0 0.4 -4; to: 0 0.65 -4; dir: alternate; loop: true; dur: 2400; easing: easeInOutSine">
-</a-sphere>
+spec:
+language: "python"
+source:
+def _trivial_mermaid(spec: str) -> bool:
+    header = (spec.lstrip().splitlines() or [""])[0].lower()
+    if not (header.startswith("graph ") or header.startswith("flowchart ")):
+        return False  # subtypes (mindmap/timeline/sankey-beta/...) skip the trivial gate
+    nodes = _count_flowchart_nodes(spec)
+    return nodes < 3
 
-caption: "Classifier orrery -- central icosahedron is the classifier; the box (transcript snippet), torus (substrate dispatch), and sphere (specialist call) each rotate or pulse on their own axis to encode their independent role in the routing pipeline."
+caption: "Trivial-filter subtype gate: skip the count-nodes branch unless the spec is a flowchart, so mindmap/timeline/sankey-beta no longer false-positive."
 should_demote_to_text: false
 
-# Output via the build_aframe_spec tool. The spec field must be a string of A-Frame HTML entities.
+# Output via the build_code_spec tool.
 """
 
-AFRAME_TOOL = {
-    "name": "build_aframe_spec",
-    "description": "Build an A-Frame entity HTML string from a conversation snippet.",
+CODE_TOOL = {
+    "name": "build_code_spec",
+    "description": "Emit a code-substrate spec when the snippet's load-bearing claim is the source code itself.",
     "input_schema": {
         "type": "object",
         "properties": {
-            "spec": {"type": "string", "description": "A-Frame entity HTML; renderer wraps in <a-scene>."},
+            "spec": {
+                "type": "object",
+                "description": "{ language: string, source: string }. language is a Prism.js identifier; source is the actual code with original indentation.",
+                "properties": {
+                    "language": {"type": "string"},
+                    "source": {"type": "string"},
+                },
+                "required": ["language", "source"],
+            },
             "caption": {"type": "string"},
             "should_demote_to_text": {"type": "boolean"},
             "demotion_reason": {"type": "string"},
@@ -1114,63 +1098,197 @@ AFRAME_TOOL = {
 }
 
 
-def generate_aframe_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(AFRAME_SYSTEM, AFRAME_TOOL, "build_aframe_spec", snippet, context, model)
+def generate_code_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+    raw = _call_specialist(CODE_SYSTEM, CODE_TOOL, "build_code_spec", snippet, context, model)
     return _result(raw["input"], raw, model)
 
 
 # ============================================================
-# LOTTIE — placeholder specialist; almost always demotes
+# SPARKLINE — single-row mini-chart for inline temporal density
 # ============================================================
 
-LOTTIE_SYSTEM = """You are the lottie specialist for lucida. The classifier picked lottie, but Lottie animations are designer-authored JSON (After Effects export via Bodymovin) -- not realistically generatable from prose. Your job is to be honest about that limit and route the cell elsewhere.
+SPARKLINE_SYSTEM = """You are the sparkline specialist for lucida. The classifier has decided this snippet's load-bearing claim is the *shape of a single scalar over time or sequence* -- climbing, falling, oscillating, plateauing -- where a full vega chart with axes, gridlines, and labels would carry more chrome than signal.
 
-# Decision rule
+# When sparkline fits
 
-In nearly all cases, set should_demote_to_text=true and explain in demotion_reason which alternate substrate would actually serve the snippet:
+Pick sparkline only when:
+- The snippet describes ONE numeric series (or ratio over a sequence) -- not multi-series; multi-series is vega.
+- The series has 6-40 points. Below 6 points, callouts read better; above 40, vega's axis chrome earns its keep.
+- The shape (trend, peak, dip, volatility) is the load-bearing claim, not the absolute values.
+- The reader doesn't need to read off precise numbers from the chart -- they need to see the *trajectory*.
 
-- If the snippet has temporal/dynamic content (cycle, flow, growth, decay, pulse) → demotion_reason should say "Better served by animated_svg -- inline SVG with SMIL animations encodes this motion class without designer tooling. Re-classify as animated_svg."
-- If the snippet has structural relationships (entities + edges) → "Better served by mermaid (static graph) or scene3d/aframe (3D structure)."
-- If the snippet has multi-point quantitative data → "Better served by vega-lite."
-- If the snippet is meta-commentary or pure prose → "No viz substrate fits; text is honest here."
+# When to demote to text
 
-A "_skip" spec output is a fallback — only emit it if the orchestrator forced lottie (--type lottie) and the cell must render as a placeholder. Format:
+Set should_demote_to_text=true if:
+- The snippet has only one or two values (use callouts/text).
+- Multiple series are described (route to vega).
+- Absolute values are the load-bearing claim, not the shape (use vega bar / table).
 
-spec: {"_skip": true, "reason": "Lottie requires pre-authored designer JSON; this snippet should have been routed to <alt>"}
+# Output
 
-caption (in skip case): "(lottie skipped — see notes)"
+- `series`: array of numbers, ordered (typically time-ordered earliest-to-latest).
+- `current` (optional): the most recent value, highlighted as a dot. Defaults to series[-1] if omitted.
+- `min`, `max` (optional): explicit y-bounds. Defaults computed from the data.
+- `band_lo`, `band_hi` (optional): pair of numbers defining a "normal range" band shaded behind the line. Use only when the snippet calls out a threshold band; omit otherwise.
+- `label` (optional): short string (1-3 words) used as title above the line. Omit when the cell head + caption already say it.
+- `unit` (optional): short string ("ms", "%", "$", "tokens") suffixed to current-value display. Omit unless the unit is load-bearing.
 
-# Pattern: do not invent Lottie JSON
+# Constraints
 
-Lottie's schema includes layers, shapes, keyframes, timing curves, and matte references. An LLM-generated Lottie JSON will be syntactically near-Lottie but semantically broken (missing layer references, invalid bezier handles, etc.). Do NOT emit such output -- it produces a render error in the cell. Always either demote to text or emit a `_skip` placeholder.
+- Use the snippet's actual numbers when stated. If the snippet describes a shape qualitatively ("climbed steadily from ~20 to ~80 over six iterations"), reconstruct a plausible series from the description and call it out in the caption ("approximate trajectory from prose").
+- Don't invent precision the snippet doesn't have. "Climbed from 20 to 80" → integer steps, not 20.0, 32.4, 47.2 etc. unless those came from the snippet.
 
-# Worked example (the typical case)
+# Worked example
 
-Snippet: "The closed-loop ratio climbed from 21.4% to 35.8% over four passes; the asymptote sits near 54.5%."
+Snippet: "The closed-loop ratio climbed from 21.4% to 35.8% over four passes; the asymptote sits near 54.5%. Pass-by-pass: 21.4, 28.6, 33.1, 35.8."
 
-Decision: demote_to_text = true. demotion_reason = "Multi-point quantitative time-series with a known asymptote -- this is a vega-lite line chart, not a Lottie animation. Re-classify."
+spec:
+series: [21.4, 28.6, 33.1, 35.8]
+current: 35.8
+band_lo: 50
+band_hi: 60
+unit: "%"
+label: "closed-loop ratio"
 
-# Output via the build_lottie_spec tool.
+caption: "Closed-loop ratio over four passes (21.4% → 35.8%). The shaded band marks the 50-60% asymptote region the trajectory is approaching."
+should_demote_to_text: false
+
+# Output via the build_sparkline_spec tool.
 """
 
-LOTTIE_TOOL = {
-    "name": "build_lottie_spec",
-    "description": "Honest Lottie specialist -- nearly always demotes with a substrate-redirect reason.",
+SPARKLINE_TOOL = {
+    "name": "build_sparkline_spec",
+    "description": "Emit a sparkline spec for a single-series temporal scalar where the trajectory shape is the load-bearing claim.",
     "input_schema": {
         "type": "object",
         "properties": {
-            "spec": {"type": "object", "description": "Either a valid Lottie JSON, or a {_skip: true, reason: ...} placeholder. Empty {} when demoting."},
+            "spec": {
+                "type": "object",
+                "description": "Sparkline spec: { series: [n,...], current?, min?, max?, band_lo?, band_hi?, label?, unit? }",
+                "properties": {
+                    "series": {"type": "array", "items": {"type": "number"}},
+                    "current": {"type": "number"},
+                    "min": {"type": "number"},
+                    "max": {"type": "number"},
+                    "band_lo": {"type": "number"},
+                    "band_hi": {"type": "number"},
+                    "label": {"type": "string"},
+                    "unit": {"type": "string"},
+                },
+                "required": ["series"],
+            },
             "caption": {"type": "string"},
             "should_demote_to_text": {"type": "boolean"},
-            "demotion_reason": {"type": "string", "description": "Required when demoting. Should name the better-fit substrate."},
+            "demotion_reason": {"type": "string"},
         },
         "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
     },
 }
 
 
-def generate_lottie_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(LOTTIE_SYSTEM, LOTTIE_TOOL, "build_lottie_spec", snippet, context, model)
+def generate_sparkline_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+    raw = _call_specialist(SPARKLINE_SYSTEM, SPARKLINE_TOOL, "build_sparkline_spec", snippet, context, model)
+    return _result(raw["input"], raw, model)
+
+
+# ============================================================
+# ASCII — box-drawing monospace diagrams
+# ============================================================
+
+ASCII_SYSTEM = """You are the ascii specialist for lucida. The classifier has decided this snippet warrants a terminal-aesthetic monospace diagram built from box-drawing characters. ASCII art is on-brand for the FUI / movie-computer-interface look and renders crisply on every theme without dependencies.
+
+# When ascii fits
+
+Pick ascii when:
+- The snippet's structure is simple enough that box-drawing carries it clearly (a directory tree, a small pipeline of 3-6 boxes, a state stack, a memory layout, a register diagram, a queue/buffer).
+- The structure has alignment requirements -- columns of fields, ASCII tables, indented trees -- that a graphical diagram would over-render.
+- Terminal-aesthetic IS the point (system status, log layout, tty session shapes).
+
+# When NOT to ascii
+
+Don't pick ascii when:
+- The structure has more than ~6 nodes/boxes -- mermaid renders denser graphs better.
+- The relationships are non-rectilinear (curves, force-graph layouts) -- use animated_svg / mermaid.
+- The content is a comparison matrix -- use html.
+- Quantitative magnitudes are involved -- use vega / treemap.
+
+# Box-drawing vocabulary
+
+Standard box-drawing (Unicode Block 2500-257F):
+┌ ┬ ┐  ╔ ╦ ╗   single  / double  corners + tees
+├ ┼ ┤  ╠ ╬ ╣   single  / double  intersections
+└ ┴ ┘  ╚ ╩ ╝
+─ │     ═ ║   single  / double  lines
+↑ ↓ ← → ↖ ↗ ↘ ↙   arrows for directionality
+▏▎▍▌▋▊▉█   horizontal bar fill (use sparingly; sparkline is better for quantitative)
+○ ● ◇ ◆ □ ■ ▲ ▼   markers / status pips
+
+Use single-line by default. Use double-line for hero / outermost frames or to signal "this is the canonical entity." Mix sparingly.
+
+# Layout rules
+
+- Pure monospace -- every column must align. Use spaces, never tabs.
+- Indent step is 2 spaces (or 4 for tree branches).
+- Aim for ≤ 60 columns wide and ≤ 20 rows tall so the cell renders without horizontal scroll at typical density.
+- Labels go INSIDE boxes, centered or left-aligned; keep them short (≤12 chars typical).
+- Arrows annotate flow ON the line, not floating: `─→`, `←─`, `↓│↑`.
+
+# Output
+
+- `ascii`: the full diagram as a single multi-line string.
+- `kind` (optional): one of "tree", "pipeline", "stack", "table", "memory", "free" -- semantic label for the renderer (no behavior change today; future-proofing).
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- The structure is too dense for box-drawing (route to mermaid).
+- The snippet doesn't actually have a structure -- it's prose.
+- The content has quantitative magnitudes that demand precise visual encoding (route to vega/treemap/sparkline).
+
+# Worked example
+
+Snippet: "The classifier sits between the conversation transcript and the substrate specialists -- it routes each snippet to the cell type best suited to surface its load-bearing claim."
+
+spec:
+ascii:
+┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
+│ transcript  │───→│  classifier  │───→│  specialists    │
+│  snippets   │    │  (cell_type) │    │ mermaid/vega/.. │
+└─────────────┘    └──────────────┘    └─────────────────┘
+kind: "pipeline"
+
+caption: "Three-stage classifier pipeline: transcript snippet → classifier picks cell_type → matching specialist generates the spec."
+should_demote_to_text: false
+
+# Output via the build_ascii_spec tool.
+"""
+
+ASCII_TOOL = {
+    "name": "build_ascii_spec",
+    "description": "Emit an ascii / box-drawing diagram spec when the snippet's structure benefits from terminal-aesthetic monospace layout.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {
+                "type": "object",
+                "description": "ASCII spec: { ascii: string, kind?: 'tree'|'pipeline'|'stack'|'table'|'memory'|'free' }",
+                "properties": {
+                    "ascii": {"type": "string"},
+                    "kind": {"type": "string"},
+                },
+                "required": ["ascii"],
+            },
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_ascii_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+    raw = _call_specialist(ASCII_SYSTEM, ASCII_TOOL, "build_ascii_spec", snippet, context, model)
     return _result(raw["input"], raw, model)
 
 

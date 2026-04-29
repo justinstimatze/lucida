@@ -277,46 +277,6 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             Context:
             {context or '(none)'}
         """).strip()
-    if cell_type == "aframe":
-        return dedent(f"""
-            Produce A-Frame markup (the inner contents of <a-scene>;
-            the surrounding <a-scene> tag is added by the renderer).
-            Use only standard A-Frame primitives: a-box, a-sphere,
-            a-cylinder, a-plane, a-text, a-light, a-sky.
-
-            Aesthetic constraints (movie-computer-interface):
-            - Dark sky color (e.g. "#0a0a1a").
-            - Wireframe primitives where possible.
-            - 1-3 stroke colors max.
-            - Use the `animation` component for rotation/translation,
-              not the deprecated <a-animation>.
-
-            Do not invent primitives or assets that aren't standard
-            A-Frame, and do not reference external models, images, or
-            audio.
-
-            Snippet:
-            {snippet}
-
-            Context:
-            {context or '(none)'}
-        """).strip()
-    if cell_type == "lottie":
-        return dedent(f"""
-            (Lottie cells are best authored with After Effects + bodymovin
-            or hand-edited from a known-good template; LLM generation of
-            valid Lottie JSON from scratch is unreliable.)
-
-            If you have a pre-authored Lottie JSON appropriate to the
-            snippet, paste it. Otherwise, return:
-              {{"_skip": true, "reason": "no pre-authored Lottie available"}}
-
-            Snippet:
-            {snippet}
-
-            Context:
-            {context or '(none)'}
-        """).strip()
     return dedent(f"""
         Caption only — no chart, no diagram. Summarize the snippet in
         ≤2 sentences as the cell content.
@@ -823,7 +783,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     non_image_html = None
     non_image_caption = ""
     if (llm_available and generate_image
-            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "aframe", "lottie", "treemap")
+            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "code", "sparkline", "ascii")
             and os.environ.get("ANTHROPIC_API_KEY")):
         try:
             import specialists as _specs
@@ -833,9 +793,10 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 "html": _specs.generate_html_spec,
                 "animated_svg": _specs.generate_animated_svg_spec,
                 "scene3d": _specs.generate_scene3d_spec,
-                "aframe": _specs.generate_aframe_spec,
-                "lottie": _specs.generate_lottie_spec,
                 "treemap": _specs.generate_treemap_spec,
+                "code": _specs.generate_code_spec,
+                "sparkline": _specs.generate_sparkline_spec,
+                "ascii": _specs.generate_ascii_spec,
             }
             specialist_kwargs: dict = {}
             if chosen_type == "mermaid" and llm is not None:
@@ -1190,8 +1151,8 @@ def main() -> None:
     p.add_argument("--context", default="", help="optional extra context (file paths, prior cells, etc.)")
     p.add_argument("--type", default=None,
                    choices=["image", "vega", "mermaid", "html", "text",
-                            "animated_svg", "scene3d", "aframe", "lottie",
-                            "treemap"],
+                            "animated_svg", "scene3d", "treemap",
+                            "code", "sparkline", "ascii"],
                    help="force a cell type; default = naive classifier")
     p.add_argument("--write", action="store_true",
                    help="append the proposal to cells.json (or, with --sweep-trivial, persist the demotions)")

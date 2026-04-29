@@ -7,11 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-<!-- Three.js loaded eagerly for scene3d cells. A-Frame is lazy-loaded by
-     ensureAFrameLoaded() on first aframe-cell mount; sessions without
-     aframe cells skip A-Frame's ~1.5MB bundle + ECS runtime entirely. -->
+<!-- Three.js loaded eagerly for scene3d cells. -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js"></script>
 <!-- d3-hierarchy: canonical squarified treemap (Bruls 2000). Replaces
      ~80 lines of custom squarify code; we just feed it weights and read
      leaf rectangles back. -->
@@ -123,7 +120,7 @@
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
 
 // Full-stack theme config: chrome lives in CSS (notebook.css), but
-// mermaid + vega + scene3d/aframe content also need theme-aware colors.
+// mermaid + vega + scene3d content also need theme-aware colors.
 // Active theme is set by the inline head script -> window.__LUCIDA_THEME.
 const ACTIVE = window.__LUCIDA_THEME || "lab";
 
@@ -178,8 +175,7 @@ const state = {
     cachedAudit: undefined,       // undefined = not attempted; null = none found; obj = result
   },
   webgl: {
-    aframeLoad: null,             // lazy A-Frame import promise (deduped)
-    registry: [],                 // active scene3d/aframe contexts (LRU eviction)
+    registry: [],                 // active scene3d contexts (LRU eviction)
   },
   conn: {
     renderer: null, scene: null, camera: null,  // Three.js connection-overlay
@@ -617,26 +613,45 @@ function pauseOffScreen(targetEl, onShow, onHide) {
   io.observe(targetEl);
 }
 
-// Lazy-load A-Frame on first aframe-cell mount. The script tag and its
-// ECS runtime are skipped entirely in sessions with no aframe cells.
-// All concurrent first-mounts share the same Promise so we only fetch
-// + parse once. A-Frame brings its own Three.js — that's fine; the
-// eagerly-loaded window.THREE was already grabbed by any scene3d cells.
-function ensureAFrameLoaded() {
-  if (window.AFRAME) return Promise.resolve();
-  if (state.webgl.aframeLoad) return state.webgl.aframeLoad;
-  state.webgl.aframeLoad = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://aframe.io/releases/1.5.0/aframe.min.js";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("A-Frame failed to load"));
-    document.head.appendChild(s);
-  });
-  return state.webgl.aframeLoad;
+// Lazy-load Prism.js (core + autoloader) on first code-cell mount.
+// Sessions without code cells skip Prism entirely. The autoloader fetches
+// language packs on demand from the same CDN root. All concurrent
+// first-mounts share the same Promise so we only fetch + parse once.
+let _prismLoad = null;
+function ensurePrismLoaded(language) {
+  if (window.Prism && window.Prism.languages && window.Prism.languages[language]) {
+    return Promise.resolve();
+  }
+  if (!_prismLoad) {
+    _prismLoad = new Promise((resolve, reject) => {
+      const core = document.createElement("script");
+      core.src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js";
+      core.onload = () => {
+        // Disable Prism's default auto-highlight on DOM ready — we trigger
+        // highlightElement manually per cell so lazy-mounted cells get
+        // highlighted on viewport entry, not page load.
+        if (window.Prism) window.Prism.manual = true;
+        const auto = document.createElement("script");
+        auto.src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js";
+        auto.onload = () => {
+          try {
+            window.Prism.plugins.autoloader.languages_path =
+              "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/";
+          } catch (e) { /* autoloader missing — degrade silently */ }
+          resolve();
+        };
+        auto.onerror = () => reject(new Error("Prism autoloader failed"));
+        document.head.appendChild(auto);
+      };
+      core.onerror = () => reject(new Error("Prism core failed"));
+      document.head.appendChild(core);
+    });
+  }
+  return _prismLoad;
 }
 
 // Browsers cap live WebGL contexts at ~16; with 84 cells minted over a
-// session, a few scene3d + aframe demos eat that budget and leak GPU memory
+// session, a few scene3d demos eat that budget and leak GPU memory
 // even when paused. This registry keeps at most WEBGL_CAP scenes alive at
 // once, evicting the least-recently-visible non-visible scene when a new
 // one initializes. Evicted scenes call their teardown to dispose Three.js
@@ -846,6 +861,33 @@ function setupAutoPan(container, content, opts) {
     }
     if (dedup.length < 2) return;
 
+    // Append a zoom-out "overview" beat to the cycle so the user sees
+    // the whole diagram/table once per tour, then resumes panning. Per
+    // user 2026-04-29 evening: scanning at zoomed-in level only made it
+    // hard to get a sense for the whole. Scale chosen so content fits
+    // inside container with small margin; only added when overflow is
+    // big enough that an overview is meaningfully different from any
+    // pan frame (otherwise it's redundant). transformOrigin top-left
+    // means scale(<1) at translate(0,0) anchors content to the cell's
+    // top-left corner — natural reading entry point.
+    const fitScale = Math.min(
+      cRect.width  / Math.max(iRect.width,  1),
+      cRect.height / Math.max(iRect.height, 1)
+    );
+    if (fitScale < 0.92) {
+      // Center the shrunk content inside the container instead of
+      // anchoring top-left — top-left would read as "content shrunk
+      // into the corner" rather than "camera pulled back to see the
+      // whole thing." With transformOrigin: top-left, the centering
+      // translate is computed in the un-scaled coordinate system, so
+      // the actual visual offset is (cRect - iRect*scale) / 2.
+      const overviewX = (cRect.width  - iRect.width  * fitScale) / 2;
+      const overviewY = (cRect.height - iRect.height * fitScale) / 2;
+      // Overview dwell is longer (1.4x) so the user has time to take
+      // the whole structure in before the next pan begins.
+      dedup.push({ x: overviewX, y: overviewY, scale: fitScale, dwellOverride: 1.4 });
+    }
+
     container.style.overflow = "hidden";
     content.style.transformOrigin = "top left";
     content.style.transition = "transform 1500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
@@ -865,9 +907,12 @@ function setupAutoPan(container, content, opts) {
       timer = null;
       if (paused || !visible) return;
       const wp = dedup[i];
-      content.style.transform = `translate(${wp.x.toFixed(1)}px, ${wp.y.toFixed(1)}px)`;
+      const scale = (wp.scale != null) ? wp.scale : 1;
+      content.style.transform =
+        `translate(${wp.x.toFixed(1)}px, ${wp.y.toFixed(1)}px) scale(${scale.toFixed(3)})`;
       i = (i + 1) % dedup.length;
-      timer = setTimeout(tick, dwell);
+      const stepDwell = wp.dwellOverride ? Math.round(dwell * wp.dwellOverride) : dwell;
+      timer = setTimeout(tick, stepDwell);
     };
 
     container.addEventListener("mouseenter", () => { paused = true; });
@@ -1052,8 +1097,10 @@ const SUBSTRATE_COLORS = {
   html:         "var(--vis-warn, #fbbf24)",
   animated_svg: "var(--accent)",
   scene3d:      "var(--vis-ok, #4ade80)",
-  aframe:       "var(--vis-warn, #fbbf24)",
-  lottie:       "var(--muted)",
+  treemap:      "var(--vis-ok, #4ade80)",
+  code:         "var(--accent)",
+  sparkline:    "var(--accent)",
+  ascii:        "var(--vis-warn, #fbbf24)",
   text:         "var(--muted)",
   image:        "var(--vis-tripped, #f87171)",
 };
@@ -1072,7 +1119,7 @@ function renderCellsBar(byType, total) {
   // Stable order: prioritize visible/high-value substrates first so the
   // bar reads left-to-right by importance.
   const order = ["vega", "mermaid", "html", "animated_svg", "scene3d",
-                 "aframe", "lottie", "image", "text"];
+                 "treemap", "code", "sparkline", "ascii", "image", "text"];
   const present = order.filter(t => byType[t]);
   for (const t of Object.keys(byType)) {
     if (!present.includes(t)) present.push(t);
@@ -1092,7 +1139,7 @@ function renderCellsBar(byType, total) {
     rect.setAttribute("width", w.toFixed(3));
     rect.setAttribute("height", "6");
     rect.setAttribute("fill", SUBSTRATE_COLORS[t] || "var(--muted)");
-    rect.setAttribute("opacity", t === "text" || t === "lottie" ? "0.5" : "0.92");
+    rect.setAttribute("opacity", t === "text" ? "0.5" : "0.92");
     const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
     title.textContent = `${t}: ${n}`;
     rect.appendChild(title);
@@ -2342,7 +2389,7 @@ function setupCellZoom() {
     }
     // Re-instantiate any 3D scenes inside the clone — cloneNode(true) of
     // a <canvas> produces a blank canvas, so without re-init the dialog
-    // shows nothing for scene3d/aframe cells. RAF defers until layout has
+    // shows nothing for scene3d cells. RAF defers until layout has
     // measured the dialog so initScene3D's clientWidth read is non-zero.
     const scene3dTarget = clone.querySelector(".scene3d-target");
     if (scene3dTarget && scene3dTarget.dataset.scene3dSpec) {
@@ -2720,6 +2767,146 @@ function renderCell(c, snippetGroups) {
       }
     };
     lazyMount(target, renderTreemap);
+  } else if (c.cell_type === "code" && c.spec) {
+    // Code substrate: syntax-highlighted block. Spec is { language, source }.
+    // Prism.js + autoloader are lazy-loaded on first code cell. The autoloader
+    // grabs the language pack on demand from CDN. Prism token classes are
+    // styled by the .code-target rules in notebook.css using theme tokens —
+    // not Prism's bundled CSS — so highlighting follows magi/lcars/etc.
+    const target = el("div", "code-target");
+    const pre = el("pre", "code-pre");
+    const codeEl = document.createElement("code");
+    const lang = (c.spec.language || "text").toLowerCase();
+    codeEl.className = "language-" + lang;
+    codeEl.textContent = c.spec.source || "";
+    pre.appendChild(codeEl);
+    target.appendChild(pre);
+    body.appendChild(target);
+    const renderCode = () => {
+      ensurePrismLoaded(lang).then(() => {
+        if (window.Prism && window.Prism.highlightElement) {
+          window.Prism.highlightElement(codeEl);
+        }
+      }).catch(() => { /* silent — code still renders unhighlighted */ });
+      // Natural width: use the longest line × ~7.5px/char monospaced + padding.
+      const lines = (c.spec.source || "").split("\n");
+      const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+      const w = Math.min(720, Math.max(280, 24 + longest * 7.5));
+      applyNaturalCellSize(target, w);
+    };
+    lazyMount(target, renderCode);
+  } else if (c.cell_type === "sparkline" && c.spec) {
+    // Sparkline substrate: single-row mini-chart. Pure SVG, no dep. Spec:
+    //   { series: [n,...], current?, min?, max?, band_lo?, band_hi?, label?, unit? }
+    // Default natural size 320×72 (label band + line band + caption); grows
+    // with point count to keep ≥ 6px between samples.
+    const target = el("div", "sparkline-target");
+    body.appendChild(target);
+    const renderSpark = () => {
+      try {
+        const spec = c.spec || {};
+        const series = (spec.series || []).map(Number).filter(n => Number.isFinite(n));
+        if (series.length < 2) {
+          target.textContent = "sparkline: needs ≥2 numeric points";
+          return;
+        }
+        const w = Math.min(640, Math.max(280, 24 + series.length * 14));
+        const h = 76;
+        const padL = 8, padR = 56, padT = 18, padB = 14;
+        const innerW = w - padL - padR, innerH = h - padT - padB;
+        const yMin = (typeof spec.min === "number") ? spec.min : Math.min(...series);
+        const yMax = (typeof spec.max === "number") ? spec.max : Math.max(...series);
+        const yRange = (yMax - yMin) || 1;
+        const xAt = i => padL + (i / (series.length - 1)) * innerW;
+        const yAt = v => padT + innerH - ((v - yMin) / yRange) * innerH;
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", w);
+        svg.setAttribute("height", h);
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        svg.style.maxWidth = "100%";
+        svg.style.height = "auto";
+        // Optional shaded band for "normal range".
+        if (typeof spec.band_lo === "number" && typeof spec.band_hi === "number") {
+          const yLo = yAt(Math.max(spec.band_lo, yMin));
+          const yHi = yAt(Math.min(spec.band_hi, yMax));
+          const band = document.createElementNS(svgNS, "rect");
+          band.setAttribute("x", padL);
+          band.setAttribute("y", Math.min(yLo, yHi));
+          band.setAttribute("width", innerW);
+          band.setAttribute("height", Math.abs(yHi - yLo));
+          band.setAttribute("fill", "var(--accent)");
+          band.setAttribute("fill-opacity", "0.10");
+          svg.appendChild(band);
+        }
+        // Polyline of the series.
+        const points = series.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+        const line = document.createElementNS(svgNS, "polyline");
+        line.setAttribute("points", points);
+        line.setAttribute("fill", "none");
+        line.setAttribute("stroke", "var(--accent)");
+        line.setAttribute("stroke-width", "1.6");
+        line.setAttribute("stroke-linecap", "round");
+        line.setAttribute("stroke-linejoin", "round");
+        svg.appendChild(line);
+        // Current-value dot + readout.
+        const cur = (typeof spec.current === "number") ? spec.current : series[series.length - 1];
+        const cIdx = series.length - 1;
+        const cx = xAt(cIdx), cy = yAt(cur);
+        const dot = document.createElementNS(svgNS, "circle");
+        dot.setAttribute("cx", cx);
+        dot.setAttribute("cy", cy);
+        dot.setAttribute("r", "3.2");
+        dot.setAttribute("fill", "var(--accent)");
+        svg.appendChild(dot);
+        const readout = document.createElementNS(svgNS, "text");
+        readout.setAttribute("x", w - padR + 6);
+        readout.setAttribute("y", cy + 4);
+        readout.setAttribute("font-family", "var(--type-mono, monospace)");
+        readout.setAttribute("font-size", "13");
+        readout.setAttribute("font-weight", "700");
+        readout.setAttribute("fill", "var(--fg)");
+        readout.textContent = String(cur) + (spec.unit || "");
+        svg.appendChild(readout);
+        // Optional label above.
+        if (spec.label) {
+          const lbl = document.createElementNS(svgNS, "text");
+          lbl.setAttribute("x", padL);
+          lbl.setAttribute("y", 12);
+          lbl.setAttribute("font-family", "var(--type-mono, monospace)");
+          lbl.setAttribute("font-size", "10");
+          lbl.setAttribute("fill", "var(--muted)");
+          lbl.setAttribute("letter-spacing", "0.05em");
+          lbl.textContent = String(spec.label).toUpperCase();
+          svg.appendChild(lbl);
+        }
+        target.innerHTML = "";
+        target.appendChild(svg);
+        applyNaturalCellSize(target, w);
+      } catch (err) {
+        target.textContent = "sparkline render error: " + err.message;
+      }
+    };
+    lazyMount(target, renderSpark);
+  } else if (c.cell_type === "ascii" && c.spec) {
+    // ASCII substrate: monospace box-drawing block. Spec is { ascii, kind? }.
+    // Pure <pre>; theme tokens (--fg, --bg, --accent) drive color so it
+    // reads on every theme without per-substrate CSS branches.
+    const target = el("div", "ascii-target");
+    body.appendChild(target);
+    const renderAscii = () => {
+      const ascii = (c.spec && c.spec.ascii) || "";
+      const pre = el("pre", "ascii-pre");
+      pre.textContent = ascii;
+      target.innerHTML = "";
+      target.appendChild(pre);
+      // Natural width: longest line × ~7.6px/ch monospaced + small padding.
+      const lines = ascii.split("\n");
+      const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+      const w = Math.min(640, Math.max(220, 16 + longest * 7.6));
+      applyNaturalCellSize(target, w);
+    };
+    lazyMount(target, renderAscii);
   } else if (c.cell_type === "scene3d" && c.spec) {
     // Lazy + LRU-capped: Three.js renderer + scene are created on first
     // viewport entry, paused when scrolled past, and fully disposed if
@@ -2762,101 +2949,6 @@ function renderCell(c, snippetGroups) {
         evictWebGLIfOverCap();
       },
     );
-  } else if (c.cell_type === "aframe" && c.spec) {
-    // Lazy + LRU-capped: defer <a-scene> insertion until the cell enters
-    // viewport, pause on scroll-out, and tear the scene out of the DOM
-    // entirely if evicted by the WebGL cap (releases the GPU context).
-    // Re-mount from spec on scroll-back; height preserved via minHeight.
-    const target = el("div", "aframe-target");
-    body.appendChild(target);
-    let initialized = false;
-    let sceneEl = null;
-    const mount = async () => {
-      initialized = true;
-      target.style.minHeight = "";
-      try {
-        await ensureAFrameLoaded();
-      } catch (err) {
-        target.textContent = "A-Frame failed to load: " + err.message;
-        initialized = false;
-        return;
-      }
-      const trimmed = expandTokens(c.spec).trim();
-      const wrapped = trimmed.startsWith("<a-scene")
-        ? trimmed
-        : `<a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true">${trimmed}</a-scene>`;
-      target.innerHTML = wrapped;
-      setTimeout(() => {
-        const stripSel = ".a-enter-vr, .a-orientation-modal, .a-loader-title, .a-modal, .a-fullscreen-button";
-        target.querySelectorAll(stripSel).forEach(el => el.remove());
-        sceneEl = target.querySelector("a-scene");
-        if (sceneEl) {
-          sceneEl.querySelectorAll(stripSel).forEach(el => el.remove());
-        }
-      }, 500);
-    };
-    const entry = {
-      visible: false,
-      lastVisible: 0,
-      teardown: () => {
-        const h = target.offsetHeight;
-        if (sceneEl) {
-          try { sceneEl.pause && sceneEl.pause(); } catch (e) {}
-          if (sceneEl.renderer && sceneEl.renderer.forceContextLoss) {
-            try { sceneEl.renderer.forceContextLoss(); } catch (e) {}
-          }
-        }
-        target.innerHTML = "";
-        if (h > 20) target.style.minHeight = h + "px";
-        sceneEl = null;
-        initialized = false;
-      },
-    };
-    pauseOffScreen(
-      target,
-      () => {
-        entry.visible = true;
-        touchWebGL(entry);
-        if (!initialized) {
-          mount();
-          registerWebGL(entry);
-        } else if (sceneEl) {
-          try { sceneEl.play && sceneEl.play(); } catch (e) {}
-        }
-      },
-      () => {
-        entry.visible = false;
-        touchWebGL(entry);
-        if (sceneEl) {
-          try { sceneEl.pause && sceneEl.pause(); } catch (e) {}
-        }
-        evictWebGLIfOverCap();
-      },
-    );
-  } else if (c.cell_type === "lottie" && c.spec) {
-    const target = el("div", "lottie-target");
-    body.appendChild(target);
-    setTimeout(() => {
-      if (typeof lottie === "undefined") {
-        target.textContent = "lottie library not loaded";
-        return;
-      }
-      if (c.spec && c.spec._skip) {
-        target.textContent = `(lottie skipped: ${c.spec.reason || "no spec"})`;
-        return;
-      }
-      try {
-        lottie.loadAnimation({
-          container: target,
-          renderer: "svg",
-          loop: true,
-          autoplay: true,
-          animationData: c.spec,
-        });
-      } catch (err) {
-        target.textContent = "lottie render error: " + err.message;
-      }
-    }, 0);
   } else if (c.cell_type === "text" && c.caption) {
     // caption-only renders below
   } else if (c.classifier_reasoning || c.confidence !== null) {

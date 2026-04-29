@@ -432,7 +432,7 @@ main {
   grid-column: 1 / -1;
   max-height: 42vh;
 }
-/* Substrate-aware tiling: previously mermaid/vega/scene3d/aframe
+/* Substrate-aware tiling: previously mermaid/vega/scene3d
    forced span-2 in ambient slots so wide diagrams stayed readable.
    Reverted 2026-04-28 because span-2 + span-1 mixing broke the grid:
    default `row` flow left col-2 holes, `dense` flow created vertical
@@ -442,7 +442,7 @@ main {
    acceptable trade for a hole-free, top-aligned grid. If a specific
    ambient diagram is unreadable, lift the trigger snippet to the
    active conversation so it re-mints into the hero band. */
-/* scene3d / aframe cells host inherently-fixed-size 3D scenes
+/* scene3d cells host inherently-fixed-size 3D scenes
    (target's min-height is already 360px). The universal 32vh cap
    clips the WebGL canvas, manifesting as a truncated scene. Exempt
    them — they'll occupy their natural height without overflow.
@@ -452,13 +452,10 @@ main {
    in column position 2+ was being capped at 28vh. Per audit
    2026-04-28. */
 .cell[data-cell-type="scene3d"],
-.cell[data-cell-type="aframe"],
-.session-column .cell[data-cell-type="scene3d"],
-.session-column .cell[data-cell-type="aframe"] {
+.session-column .cell[data-cell-type="scene3d"] {
   max-height: none;
 }
-.cell[data-cell-type="scene3d"]::after,
-.cell[data-cell-type="aframe"]::after {
+.cell[data-cell-type="scene3d"]::after {
   display: none;  /* no overflow fade — these never overflow */
 }
 /* Narrow viewports (phone-width). Collapse hero padding further,
@@ -557,9 +554,10 @@ main {
      vega          → 2   quantitative charts
      animated_svg  → 3   motion encoding
      scene3d       → 4   3D scenes
-     aframe        → 4   (same family as scene3d)
      treemap       → 5   part-to-whole distribution
-     lottie        → 3   (shares motion family with animated_svg)
+     code          → 2   (shares family with vega — both quantitative-or-textual structure)
+     sparkline     → 2   (compact quantitative)
+     ascii         → 1   (terminal/structural — pairs visually with html)
      text          → --muted    (low-signal stays muted)
      image         → --accent-danger    (AI-generated raster sits outside data palette) */
 .cell-id[data-cell-type="mermaid"]      { border-left: 2px solid var(--data-cat-0, var(--accent)); }
@@ -567,9 +565,10 @@ main {
 .cell-id[data-cell-type="vega"]         { border-left: 2px solid var(--data-cat-2, var(--accent)); }
 .cell-id[data-cell-type="animated_svg"] { border-left: 2px solid var(--data-cat-3, var(--accent)); }
 .cell-id[data-cell-type="scene3d"]      { border-left: 2px solid var(--data-cat-4, var(--accent)); }
-.cell-id[data-cell-type="aframe"]       { border-left: 2px solid var(--data-cat-4, var(--accent)); }
 .cell-id[data-cell-type="treemap"]      { border-left: 2px solid var(--data-cat-5, var(--accent)); }
-.cell-id[data-cell-type="lottie"]       { border-left: 2px solid var(--data-cat-3, var(--accent)); }
+.cell-id[data-cell-type="code"]         { border-left: 2px solid var(--data-cat-2, var(--accent)); }
+.cell-id[data-cell-type="sparkline"]    { border-left: 2px solid var(--data-cat-2, var(--accent)); }
+.cell-id[data-cell-type="ascii"]        { border-left: 2px solid var(--data-cat-1, var(--accent)); }
 .cell-id[data-cell-type="text"]         { border-left: 2px solid var(--muted); }
 .cell-id[data-cell-type="image"]        { border-left: 2px solid var(--accent-danger, var(--accent)); }
 .cell-id {
@@ -701,7 +700,7 @@ main {
   display: block !important;
   width: 100% !important;
 }
-.svg-target, .lottie-target {
+.svg-target {
   display: block;
   margin: 0.25rem 0;
   text-align: center;
@@ -722,7 +721,88 @@ main {
   font-size: 0.85rem;
   padding: 0.4rem;
 }
-.svg-target svg, .lottie-target svg {
+/* Code substrate: syntax-highlighted source. Theme-token-driven coloring
+   for Prism's standard token classes — magi/lcars/etc all read off the
+   same vocabulary instead of importing Prism's stock CSS. Background +
+   foreground come from --code-bg / --fg, accent tokens drive keywords +
+   literals. */
+.code-target {
+  display: block;
+  margin: 0.25rem 0;
+  overflow: hidden;
+}
+.code-pre {
+  font-family: var(--type-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  padding: 0.55rem 0.7rem;
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 2;
+}
+.code-pre code { font-family: inherit; font-size: inherit; color: inherit; }
+.code-pre .token.comment,
+.code-pre .token.prolog,
+.code-pre .token.doctype,
+.code-pre .token.cdata { color: var(--muted); font-style: italic; }
+.code-pre .token.keyword,
+.code-pre .token.boolean,
+.code-pre .token.tag { color: var(--accent); font-weight: 600; }
+.code-pre .token.string,
+.code-pre .token.regex,
+.code-pre .token.attr-value { color: var(--vis-ok, #4ade80); }
+.code-pre .token.number,
+.code-pre .token.constant,
+.code-pre .token.symbol { color: var(--vis-warn, #fbbf24); }
+.code-pre .token.function,
+.code-pre .token.class-name,
+.code-pre .token.builtin { color: var(--accent); }
+.code-pre .token.operator,
+.code-pre .token.punctuation { color: var(--muted); }
+.code-pre .token.property,
+.code-pre .token.attr-name { color: var(--accent); }
+.code-pre .token.deleted { color: var(--accent-danger, #f87171); }
+.code-pre .token.inserted { color: var(--vis-ok, #4ade80); }
+
+/* Sparkline substrate: SVG block, no chrome. Width comes from inline
+   width attribute set by the renderer; height fixed at ~76px. */
+.sparkline-target {
+  display: block;
+  margin: 0.35rem 0;
+  overflow: visible;
+}
+.sparkline-target svg { display: block; }
+
+/* ASCII substrate: terminal-aesthetic monospace block. Shares the code-bg
+   chrome (panel + accent rail) but renders text in --accent tone so the
+   box-drawing characters glow on dark themes. */
+.ascii-target {
+  display: block;
+  margin: 0.25rem 0;
+  overflow: hidden;
+}
+.ascii-pre {
+  font-family: var(--type-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: var(--accent);
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  padding: 0.5rem 0.7rem;
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+  letter-spacing: 0;
+}
+.svg-target svg {
   max-width: 100%;
   height: auto;
 }
@@ -736,40 +816,6 @@ main {
 }
 .scene3d-target canvas {
   display: block;
-}
-.aframe-target {
-  display: block;
-  margin: 0.25rem 0;
-  height: 360px;
-  width: 100%;
-}
-.aframe-target a-scene {
-  width: 100% !important;
-  height: 100% !important;
-}
-/* A-Frame's vr-mode-ui="enabled: false" doesn't reliably suppress the
-   chrome on dynamically-injected scenes. Hide the entry/exit buttons,
-   loader title, and orientation modal directly. The first set targets
-   the documented A-Frame class names; the broader selectors are a
-   fallback for any UI A-Frame injects with names we didn't anticipate. */
-.aframe-target .a-enter-vr,
-.aframe-target .a-enter-vr-button,
-.aframe-target .a-orientation-modal,
-.aframe-target .a-loader-title,
-.aframe-target .a-modal,
-.aframe-target .a-fullscreen-button,
-.aframe-target button,
-.aframe-target a-scene > div:not(.a-canvas-container) {
-  display: none !important;
-}
-.aframe-target a-scene > .a-loader-title,
-.aframe-target a-scene > .a-enter-vr {
-  display: none !important;
-}
-/* If A-Frame appends VR UI to body level (some versions do), nuke it. */
-body > .a-enter-vr,
-body > .a-orientation-modal {
-  display: none !important;
 }
 
 /* Proposal cells (cells with classifier metadata but no rendered spec yet)
@@ -1387,7 +1433,14 @@ th, td {
    monospace, char-by-char reveal handled via JS typeInto().
    ============================================================ */
 .hud {
-  position: relative;
+  /* Sticky so the top bar floats with the viewport on scroll. Was
+     position:relative — user 2026-04-29 reported the LCARS top bar
+     scrolling away. z-index 200 sits above cells in alt layouts
+     (organic/scatter/treemap cap at z-index ~112) and above the
+     connection-overlay (z=50). */
+  position: sticky;
+  top: 0;
+  z-index: 200;
   font-family: ui-monospace, "SF Mono", Menlo, "Courier New", monospace;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
@@ -2015,12 +2068,11 @@ th, td {
   100% { opacity: 1; transform: scaleY(1); box-shadow: 0 0 0 transparent; }
 }
 
-/* scene3d / aframe: slower fade with sustained glow during the WebGL
-   canvas spin-up. The longer window (1.6s) is intentional — the inner
+/* scene3d: slower fade with sustained glow during the WebGL canvas
+   spin-up. The longer window (1.6s) is intentional — the inner
    render isn't ready until ~600ms in, and a faster slide-up reads as
    janky if the scene pops in mid-animation. */
-.cell.cell-fresh[data-cell-type="scene3d"],
-.cell.cell-fresh[data-cell-type="aframe"] {
+.cell.cell-fresh[data-cell-type="scene3d"] {
   animation: cell-arrive-render 1.6s ease-out;
 }
 @keyframes cell-arrive-render {
