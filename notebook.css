@@ -978,14 +978,21 @@ html.theme-lcars::before {
      corners. Without this, an absolutely-positioned ::before is
      inside the padding-box (i.e., inside the 1px border), leaving a
      visible gap between the cell's rounded top/bottom edges and the
-     start of the rail. */
+     start of the rail.
+
+     !important on width/background/inset because the hero cell
+     (:first-child) and cell-fresh / cell-still-warm states each have
+     their own rules that occasionally clobbered the rail at fresh-mint
+     transitions; user reported "hero cell doesn't have its left side
+     bar filled in" 2026-04-29. Forcing the rail dimensions in LCARS
+     so no other rule can lose it. */
   content: "";
   position: absolute;
   top: -1px;
   left: -1px;
   bottom: -1px;
-  width: 15px;
-  background: var(--accent);
+  width: 15px !important;
+  background: var(--accent) !important;
   border-radius: 24px 0 0 24px;
   border: none;
   box-shadow: none;
@@ -1296,23 +1303,23 @@ th, td {
    geometry untouched. */
 .theme-lcars .hud {
   position: relative;
-  /* HUD takes the EXACT chrome of a hero cell: same cell-bg, same
-     orange border, same padding-left clearance for the rail.
-     Collapsed max-height bumped to 3rem (vs base 1.55rem) so the
-     24px outer-left curve is proportionally less dominant — at the
-     base height the curve takes ~70% of the rail length, so the rail
-     reads as "all curve, no straight section" and looks distinctly
-     different from a hero cell's rail (where the curve is ~7% of a
-     long straight section). At 3rem the curve is ~30% of rail height,
-     closer to how the eye reads the cell's rail at the top edge. */
+  /* HUD takes the chrome of a hero cell (same cell-bg, orange border,
+     padding-left clearance for the rail) but stays compact in its
+     collapsed state — user feedback 2026-04-29: "doesn't collapse
+     fully now" after the proportion-bump experiment, so reverting
+     max-height to ~1.6rem matches the base behavior. The curve will
+     dominate the short collapsed rail (24px curve / ~24px content =
+     basically a half-circle on the left), but the trade-off is
+     deliberate: compact-by-default beats proportional-curve. The
+     hover/expanded state still scales to hero-cell-like dimensions. */
   background: var(--cell-bg);
   border-radius: 24px 4px 4px 24px;
   border: 1px solid var(--line);
   padding-left: calc(14px + 1.25rem);
   padding-right: 1rem;
-  padding-top: 0.45rem;
-  padding-bottom: 0.45rem;
-  max-height: 3rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  max-height: 1.6rem;
 }
 .theme-lcars .hud:hover,
 .theme-lcars .hud[data-expanded="true"] {
