@@ -1115,7 +1115,13 @@ html.theme-lcars::before {
    Inherits the top inset (2.6rem) from the base rule so cell-head
    chips stay sharp. */
 .theme-lcars .cell::after {
-  inset: 2.6rem 0 0 15px;
+  /* Inset-left 16px = rail right edge (-1 + 15) + 2px clearance buffer.
+     Initial fix at 15px gave 1px clearance but user reported the fade
+     still bled onto the rail by ~1px on the hero cell — likely a
+     subpixel/antialiasing thing on the rail's right edge. 16px clears
+     it cleanly per user 2026-04-29 ("top and bottom blur is still just
+     like a pixel too far to the left"). */
+  inset: 2.6rem 0 0 16px;
   background:
     linear-gradient(to bottom,
       transparent 0,
@@ -2085,6 +2091,17 @@ th, td {
   padding: 0.3rem 0.75rem;
   cursor: pointer;
   color: var(--fg);
+  /* Button reset: theme/layout dropdown rows are <button> elements
+     and inherit user-agent button chrome (gray background, beveled
+     border, system font, text-align center) that fights theme intent.
+     User flagged 2026-04-29 ("dropdown menus still aren't fully
+     themed"). Same reset pattern as .session-dropdown-clear. */
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  width: 100%;
 }
 .session-dropdown-row:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
