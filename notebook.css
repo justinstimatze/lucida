@@ -941,17 +941,22 @@ body > .a-orientation-modal {
      repeat doesn't read as obviously periodic at typical viewport
      widths. First segment is --data-cat-0 (orange) so it abuts the
      orange elbow without a color seam at the corner. */
+  /* Fallback hex matches themes/lcars.tokens.json data.cat[0..4]
+     so the bar renders correctly at first paint before the async
+     JSON fetch resolves. Otherwise the un-set vars produced an
+     invalid gradient that visibly snapped into place once tokens
+     loaded — per user 2026-04-29 status-bar FOUC report. */
   background: repeating-linear-gradient(
     90deg,
-    var(--data-cat-0) 0 80px,
+    var(--data-cat-0, #ff9900) 0 80px,
     var(--bg) 80px 84px,
-    var(--data-cat-1) 84px 144px,
+    var(--data-cat-1, #ffcc99) 84px 144px,
     var(--bg) 144px 148px,
-    var(--data-cat-2) 148px 248px,
+    var(--data-cat-2, #cc5599) 148px 248px,
     var(--bg) 248px 252px,
-    var(--data-cat-3) 252px 332px,
+    var(--data-cat-3, #9999cc) 252px 332px,
     var(--bg) 332px 336px,
-    var(--data-cat-4) 336px 396px,
+    var(--data-cat-4, #ffcc33) 336px 396px,
     var(--bg) 396px 400px
   );
   z-index: 250;
@@ -972,17 +977,19 @@ body > .a-orientation-modal {
   left: 0;
   bottom: 0;
   width: var(--lcars-pillar-w);
+  /* Fallback hex matches themes/lcars.tokens.json data.cat[0..4] —
+     same FOUC-prevention as body::before above. */
   background: repeating-linear-gradient(
     180deg,
-    var(--data-cat-0) 0 80px,
+    var(--data-cat-0, #ff9900) 0 80px,
     var(--bg) 80px 84px,
-    var(--data-cat-1) 84px 144px,
+    var(--data-cat-1, #ffcc99) 84px 144px,
     var(--bg) 144px 148px,
-    var(--data-cat-2) 148px 248px,
+    var(--data-cat-2, #cc5599) 148px 248px,
     var(--bg) 248px 252px,
-    var(--data-cat-3) 252px 332px,
+    var(--data-cat-3, #9999cc) 252px 332px,
     var(--bg) 332px 336px,
-    var(--data-cat-4) 336px 396px,
+    var(--data-cat-4, #ffcc33) 336px 396px,
     var(--bg) 396px 400px
   );
   z-index: 251;
