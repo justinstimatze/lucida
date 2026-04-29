@@ -647,6 +647,22 @@ main {
   margin: 0.25rem 0;
   text-align: center;
 }
+/* Treemap substrate (Shneiderman 1991, design-references.md): SVG
+   container, no extra chrome. Tiles render with --data-cat-N fills
+   and var(--bg) for tile borders + text so they read against any
+   theme without bespoke per-theme rules. */
+.treemap-target {
+  display: block;
+  margin: 0.25rem 0;
+  overflow: hidden;
+}
+.treemap-target svg { display: block; }
+.treemap-target.treemap-error {
+  font-family: var(--type-mono, monospace);
+  color: var(--accent-danger, #dc2626);
+  font-size: 0.85rem;
+  padding: 0.4rem;
+}
 .svg-target svg, .lottie-target svg {
   max-width: 100%;
   height: auto;

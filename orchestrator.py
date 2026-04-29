@@ -772,7 +772,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     non_image_html = None
     non_image_caption = ""
     if (llm_available and generate_image
-            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "aframe", "lottie")
+            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "aframe", "lottie", "treemap")
             and os.environ.get("ANTHROPIC_API_KEY")):
         try:
             import specialists as _specs
@@ -784,6 +784,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 "scene3d": _specs.generate_scene3d_spec,
                 "aframe": _specs.generate_aframe_spec,
                 "lottie": _specs.generate_lottie_spec,
+                "treemap": _specs.generate_treemap_spec,
             }
             specialist_kwargs: dict = {}
             if chosen_type == "mermaid" and llm is not None:
@@ -1132,7 +1133,8 @@ def main() -> None:
     p.add_argument("--context", default="", help="optional extra context (file paths, prior cells, etc.)")
     p.add_argument("--type", default=None,
                    choices=["image", "vega", "mermaid", "html", "text",
-                            "animated_svg", "scene3d", "aframe", "lottie"],
+                            "animated_svg", "scene3d", "aframe", "lottie",
+                            "treemap"],
                    help="force a cell type; default = naive classifier")
     p.add_argument("--write", action="store_true",
                    help="append the proposal to cells.json (or, with --sweep-trivial, persist the demotions)")

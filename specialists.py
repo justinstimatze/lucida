@@ -638,6 +638,106 @@ def generate_html_spec(
 
 
 # ============================================================
+# TREEMAP
+# ============================================================
+
+TREEMAP_SYSTEM = """You are the treemap specialist for lucida. The classifier has decided this snippet's structural content is a hierarchy or a part-to-whole quantitative breakdown that benefits from Shneiderman's treemap visualization (size encodes magnitude, nesting encodes hierarchy).
+
+# When treemap fits
+
+A treemap is the right substrate when the snippet describes:
+- A part-to-whole quantitative breakdown ("of 2400 cells, 920 are mermaid, 670 html, 340 text, 290 vega, 130 animated_svg, 50 scene3d") — sizes are directly comparable.
+- A hierarchical breakdown with quantities at multiple levels (file tree with byte sizes; org chart with team sizes; KB clusters with member counts).
+- Budget allocation, funnel attrition with named segments, traffic share by source.
+
+A treemap is NOT the right substrate when:
+- The snippet has only 2-3 categories (callouts/bar are clearer).
+- The numbers don't add up to a meaningful whole (an unrelated list of metrics).
+- The structure is relational (use mermaid) or temporal (use animated_svg / line chart).
+
+# Spec format
+
+Produce a JSON object:
+
+  {
+    "title": "<short caption-friendly title>",
+    "items": [
+      {"label": "<name>", "value": <number>},
+      {"label": "<name>", "value": <number>, "children": [
+        {"label": "<sub-name>", "value": <number>},
+        ...
+      ]},
+      ...
+    ]
+  }
+
+- `items` is the top-level partition. Each item has a label (string) and a value (number, in whatever unit the snippet uses — bytes, count, percent, $).
+- `children` (optional) for hierarchical breakdowns. Children's values must sum to (or roughly approximate) the parent's value.
+- Use the snippet's actual numbers. Do NOT invent values.
+- Labels: short (1-3 words ideal). The renderer truncates at tile width, so longer labels lose visual fidelity.
+
+# Constraints (substrate-grounding)
+
+- Only entities the snippet explicitly names. Don't invent categories.
+- Only values the snippet explicitly states (or derived via unambiguous arithmetic).
+- Minimum 4 leaves at the top level; below that, callouts (html) reads better.
+- Maximum ~12 leaves at the top level; above that, fine tiles become unreadable.
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- Fewer than 4 leaves can be grounded in the snippet.
+- The "values" in the snippet aren't quantitative (just labeled buckets without sizes).
+- The snippet's claim is about a relationship between named entities, not their relative size — that's mermaid territory.
+
+# Worked example
+
+Snippet: "Last 24 hours of mints by substrate: 920 mermaid, 670 html, 340 text, 290 vega, 130 animated_svg, 50 scene3d. Total 2400 cells."
+
+spec:
+{
+  "title": "24h mint distribution by substrate",
+  "items": [
+    {"label": "mermaid", "value": 920},
+    {"label": "html", "value": 670},
+    {"label": "text", "value": 340},
+    {"label": "vega", "value": 290},
+    {"label": "animated_svg", "value": 130},
+    {"label": "scene3d", "value": 50}
+  ]
+}
+
+caption: "Substrate distribution over the last 24h. mermaid + html together account for ~66% of mints; scene3d trails."
+should_demote_to_text: false
+
+# Output via the build_treemap_spec tool.
+"""
+
+TREEMAP_TOOL = {
+    "name": "build_treemap_spec",
+    "description": "Build a treemap spec (Shneiderman 1991) from a conversation snippet with hierarchical or part-to-whole quantitative content.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {
+                "type": "object",
+                "description": "Treemap spec: { title?: string, items: [{label, value, children?}, ...] }. Values must come from the snippet.",
+            },
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_treemap_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+    raw = _call_specialist(TREEMAP_SYSTEM, TREEMAP_TOOL, "build_treemap_spec", snippet, context, model)
+    return _result(raw["input"], raw, model)
+
+
+# ============================================================
 # ANIMATED SVG
 # ============================================================
 

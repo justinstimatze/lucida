@@ -68,6 +68,7 @@ Given a conversation snippet, decide three things:
 - **animated_svg**: motion-graphic where motion itself carries information -- flow along a pipeline, signal traces, growth/decay curves, oscillating cycles, hill-climbing trajectories, control-loop diagrams that change tick-by-tick. Reach for this when the snippet describes a *process unfolding*, not just the static topology of a process. A mermaid flowchart shows the controller; an animated_svg shows the controller running. If a static SVG would carry the same content, use html or text -- but the bar for "static is enough" is high here, since lucida's value-prop is rich/dynamic visuals.
 - **scene3d** / **aframe**: 3D scene with wireframe primitives, movie-interface aesthetic. Reach for this when the snippet's content is spatially arranged in 3D (anatomical layouts like EEG electrode placement on a scalp, hardware geometry, spatial topologies, depth-stacked layers, things you'd rotate to understand). A 2D mermaid graph flattens spatial information; rotation and depth recover it. Also fits "3D mental model" snippets where the user is conceptually navigating a volume. **Charts where depth carries information**: 3D extruded bar grids (multiple series × multiple categories with two grouping dimensions), surface plots (heightmap of a 2D function), 3D scatter (three quantitatives), tower / skyscraper data buildings — these read better as scene3d than as a flattened vega chart. The on-brand FUI vocabulary is "3D readout, not flat plot"; lean into scene3d for quantitative content with 3+ axes or where the chart would benefit from depth.
 - **lottie**: pre-authored animation. Empirically rare -- valid Lottie JSON is hard to ground from a snippet alone, so usually returns text. Pick lottie only if the snippet itself names a stock animation pattern (a heartbeat, a loading spinner, a wave) that a small Lottie spec could capture.
+- **treemap**: Shneiderman 1991 — nested rectangles where size encodes a quantitative attribute and nesting encodes hierarchy. Reach for this when the snippet describes a part-to-whole quantitative breakdown with ≥4 named segments (mint distribution by substrate, file tree with sizes, KB clusters by member count, budget allocation, traffic share). The treemap shows relative magnitude visually in a way bar charts can't at high cardinality. Prefer treemap over vega bar when there are ≥6 categories with comparable scale; prefer treemap over mermaid when the snippet's claim is about *relative size* of named groups, not relationships between them. Avoid for 2-3 categories (callouts read better) or for non-quantitative lists (use html dl).
 
 # Shape hints for mermaid and html
 
@@ -214,7 +215,8 @@ CLASSIFY_TOOL = {
             "cell_type": {
                 "type": "string",
                 "enum": ["text", "image", "vega", "mermaid", "html",
-                         "animated_svg", "scene3d", "aframe", "lottie"],
+                         "animated_svg", "scene3d", "aframe", "lottie",
+                         "treemap"],
             },
             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
             "reasoning": {
