@@ -276,11 +276,11 @@ should_demote_to_text: false
 
 MERMAID_TOOL = {
     "name": "build_mermaid_spec",
-    "description": "Build a mermaid graph spec from a conversation snippet.",
+    "description": "Build a mermaid spec from a conversation snippet. Pick the diagram type (timeline, mindmap, sankey-beta, sequenceDiagram, stateDiagram-v2, quadrantChart, or flowchart) that matches the snippet's structural shape.",
     "input_schema": {
         "type": "object",
         "properties": {
-            "spec": {"type": "string", "description": "Valid mermaid syntax."},
+            "spec": {"type": "string", "description": "Valid mermaid syntax in any of the supported diagram types (timeline, mindmap, sankey-beta, sequenceDiagram, stateDiagram-v2, quadrantChart, flowchart). Pick by snippet shape."},
             "caption": {"type": "string", "description": "1-2 sentence summary of what the diagram shows."},
             "should_demote_to_text": {"type": "boolean"},
             "demotion_reason": {"type": "string", "description": "If demoting, why; else empty."},
@@ -505,11 +505,11 @@ should_demote_to_text: false
 
 HTML_TOOL = {
     "name": "build_html_spec",
-    "description": "Build an HTML <table> string from a conversation snippet.",
+    "description": "Build an HTML layout string from a conversation snippet. Pick the layout pattern (table, callouts, dl, or kanban) that matches the snippet's structural shape.",
     "input_schema": {
         "type": "object",
         "properties": {
-            "html": {"type": "string", "description": "A clean <table> with no inline styles."},
+            "html": {"type": "string", "description": "Clean semantic HTML using one of the supported layout patterns (<table>, <div class=\"callouts\">, <dl>, or <div class=\"kanban\">). No inline styles. Pick by snippet shape."},
             "caption": {"type": "string"},
             "should_demote_to_text": {"type": "boolean"},
             "demotion_reason": {"type": "string"},
