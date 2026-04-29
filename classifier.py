@@ -65,9 +65,9 @@ Given a conversation snippet, decide three things:
 - **vega**: precise quantitative chart. Use only when the snippet has *multi-point* numeric data forming a comparable series, distribution, or relationship. Single values become text -- a single-bar chart adds nothing the prose doesn't.
 - **mermaid**: structural graph or causal flow. Use only when there are 3 or more distinct entities AND labeled or directed relationships between them. A 2-node graph reads as prose; default to text. A list of N items rendered as N nodes with no edges is also trivial; use text or html.
 - **html**: comparison table. Use only when the snippet has 2+ entities AND 2+ dimensions to compare. If the snippet underspecifies cells in the table, leave them blank -- do not invent values to fill the grid.
-- **animated_svg**: motion-graphic where the motion itself encodes load-bearing information (flow direction, growth, decay, pulse, signal trace). If a static SVG would carry the same content, use html or text.
-- **scene3d** / **aframe**: 3D scene with wireframe primitives, movie-interface aesthetic. Use only when the snippet describes structure or topology that benefits from rotation/depth.
-- **lottie**: pre-authored animation. Almost always returns text -- valid Lottie JSON is rarely generatable from a snippet.
+- **animated_svg**: motion-graphic where motion itself carries information -- flow along a pipeline, signal traces, growth/decay curves, oscillating cycles, hill-climbing trajectories, control-loop diagrams that change tick-by-tick. Reach for this when the snippet describes a *process unfolding*, not just the static topology of a process. A mermaid flowchart shows the controller; an animated_svg shows the controller running. If a static SVG would carry the same content, use html or text -- but the bar for "static is enough" is high here, since lucida's value-prop is rich/dynamic visuals.
+- **scene3d** / **aframe**: 3D scene with wireframe primitives, movie-interface aesthetic. Reach for this when the snippet's content is spatially arranged in 3D (anatomical layouts like EEG electrode placement on a scalp, hardware geometry, spatial topologies, depth-stacked layers, things you'd rotate to understand). A 2D mermaid graph flattens spatial information; rotation and depth recover it. Also fits "3D mental model" snippets where the user is conceptually navigating a volume. **Charts where depth carries information**: 3D extruded bar grids (multiple series × multiple categories with two grouping dimensions), surface plots (heightmap of a 2D function), 3D scatter (three quantitatives), tower / skyscraper data buildings — these read better as scene3d than as a flattened vega chart. The on-brand FUI vocabulary is "3D readout, not flat plot"; lean into scene3d for quantitative content with 3+ axes or where the chart would benefit from depth.
+- **lottie**: pre-authored animation. Empirically rare -- valid Lottie JSON is hard to ground from a snippet alone, so usually returns text. Pick lottie only if the snippet itself names a stock animation pattern (a heartbeat, a loading spinner, a wave) that a small Lottie spec could capture.
 
 # Decision rules (learned from prior lucida classifications)
 
@@ -79,6 +79,9 @@ Given a conversation snippet, decide three things:
 - **Identification or co-occurrence claims → text, not mermaid.** "X is the X that has Y" is identification. "X co-occurred with Y in the same period" is correlative. Neither warrants a directed graph; the qualifier on the edge would be longer than the snippet.
 - **Underspecified comparisons → text or sparse html.** If the snippet only specifies one side of a comparison, html works only if you can leave blank cells without inventing the missing side.
 - **Look for a viz angle before defaulting to text.** Lucida exists for the moments where prose alone falls short -- if a snippet contains numeric values, named entities with relationships, comparison axes, or temporal structure, surface those even when the snippet's surface form reads as discursive. Don't reject vega just because the snippet's main verb is "argue"; reject vega when the actual data isn't there. The bias against text is part of the value prop.
+- **Process / motion / control-loop / signal-trace → animated_svg, not mermaid.** Mermaid is for the *static topology* of a process ("controller has these states, these transitions"). When the snippet emphasizes the process *running over time* -- "rmssd_trend smooths into a sigmoid over 60 ticks", "the planner hill-climbs intensity", "the signal pulses every 200ms" -- the load-bearing content is the trajectory, not the topology, and motion encodes it. Default to animated_svg in that case; the dashboard is dominated by simple flowcharts and tables otherwise.
+- **Spatial / 3D / anatomical layouts → scene3d, not mermaid.** When the snippet describes a physical arrangement in space ("Muse 2 places electrodes at TP9, AF7, AF8, TP10 -- frontal and posterior pairs forming a four-point grid", "the planner crops a padded region inside the scene"), a 2D flowchart loses the spatial relationships. A wireframe scene preserves them and reads as on-brand FUI. Reach for scene3d on geometry / topology / hardware-layout snippets.
+- **3+ axis / depth-friendly quantitative → scene3d, not vega.** A 2D bar chart loses information when the data has three grouping dimensions (e.g., score × scene × lens-version), when a heightmap / surface is the natural reading, or when "depth" itself encodes a quantity (skyscraper-grid, 3D scatter). Vega-lite is honest about being 2D; reach for scene3d when the chart is "cooler in 3D" -- the on-brand FUI move is the 3D readout, not the flat plot. Two cues this rule fires: (a) the snippet names three+ named dimensions per data point, (b) the snippet's metaphor is volumetric ("the response surface", "stacked layers", "tower of values per category").
 
 # Worked examples
 
@@ -133,8 +136,8 @@ Lucida's quality bar is "the cell adds something the snippet alone doesn't, in a
 
 So: do not "default to text when uncertain." Defaulting to text when uncertain is anti-differentiation. Instead:
 - If a viz angle exists, surface it -- even on snippets whose surface form reads discursive.
-- If no viz angle exists and the snippet is genuinely text-shaped (meta-commentary, abstract reflection), pick text with HIGH confidence (>=0.85). This is honest -- text is the right choice, the cell stands on its caption.
-- If no viz angle exists and you're not confident the snippet deserved a cell at all, pick text with LOW confidence (<0.6). The orchestrator's gate will downgrade or suppress; this is the right outcome for an over-eager mint.
+- If no viz angle exists and the snippet is a load-bearing CLAIM worth captioning (aphorism, literary meta-cognition, single-claim reflection that says something), pick text with HIGH confidence (>=0.85). The cell must be able to stand on its caption -- if you can't write a one-sentence claim the snippet declares, this path does not apply.
+- If no viz angle exists and you're not confident the snippet deserved a cell at all, pick text with LOW confidence (<0.6). The orchestrator's gate will downgrade or suppress; this is the right outcome for an over-eager mint. Operational status reports, next-action directives, restart confirmations, and other runtime-chatter snippets ALWAYS go here -- they have no viz angle AND no load-bearing claim worth captioning.
 - The middle band (0.6-0.85 + text) should be rare -- if you're picking text with that confidence, your reasoning needs to explain what viz was considered and why it was rejected on substance.
 
 # The meta-narration trap
@@ -146,8 +149,29 @@ Cues this trap is firing:
 - Irrealis modals around the structural entities: "WILL house", "WOULD route", "PLANS to dispatch"
 - Self-referential development entities: lucida itself, the watcher, the classifier, "the new module", "the proposed structure"
 - Audit trail / decision log shape: "we picked X over Y because Z" -- this is comparative reasoning, not a stated comparison
+- Operational status / directive shape: "Next: do X", "X restarted as pid Y with Z loaded", "Log confirms W is active", "Verify by Q" -- these report or direct runtime activity but make no load-bearing claim. The snippet is about lucida operating, not about something lucida is observing.
 
 When you see these cues, route to text with confidence 0.3-0.5 (suppress). The right cell will be re-minted when the same idea returns as stated structure ("the new adapters/ module exports..." in Example 9).
+
+## Example 10 -- operational status / directive (text, low confidence -- will suppress)
+Snippet: "Watcher restarted as pid 1427837 with the image-demote suppression fix loaded. Log confirms auto-discover mode is active (30s tick, 4-tick rescan)."
+Decision: discourse_move=none, cell_type=text, confidence=0.4
+Reasoning: This is an operational status report -- a process restart confirmation with PID, fix description, and mode flags. It is purely meta-narration about the lucida watcher's runtime, not a load-bearing claim about anything the user is investigating. There is no viz angle (no quantitative comparison, no relational structure between named entities the user cares about, no temporal sequence at the level of the claim) AND no caption-worthy single claim (the "claim" is just "the runtime is now in state Y" which is operational chatter, not insight). Suppress per the operational-status-shape cue.
+
+## Example 11 -- next-action directive (text, low confidence -- will suppress)
+Snippet: "Next: restart watcher and reload renderer to verify."
+Decision: discourse_move=none, cell_type=text, confidence=0.4
+Reasoning: Imperative next-action directive closing an away-summary. Pure meta-narration about what to do next, not a claim about a topic. No viz angle, no caption-worthy claim -- this is the kind of snippet that should never have made it to the classifier and the right outcome is silent suppression.
+
+## Example 12 -- process unfolding over time (animated_svg)
+Snippet: "The hill-climbing controller increments music intensity by 1 step each tick if rmssd_trend exceeds IMPROVEMENT_THRESHOLD; otherwise it holds. Over the first 60 ticks the trajectory smooths into a sigmoid as parasympathetic tone stabilizes, after which it plateaus."
+Decision: discourse_move=temporal, cell_type=animated_svg, confidence=0.82
+Reasoning: The load-bearing content is the *trajectory*, not the static control-flow. A mermaid flowchart of the if/else would render the controller's logic but lose the sigmoid-then-plateau dynamic that the snippet actually emphasizes. A vega line chart would show the curve but lose the controller's threshold gating. animated_svg can show the trajectory growing tick-by-tick into the sigmoid, with the threshold line as a static reference -- motion encodes the temporal smoothing the snippet calls out. Classic "process running" (animated_svg) vs "process topology" (mermaid) split.
+
+## Example 13 -- spatial / anatomical layout (scene3d)
+Snippet: "The Muse 2 headset places dry electrodes at TP9, AF7, AF8, and TP10 -- frontal and posterior pairs forming a four-point grid that approximates a 10-20 montage subset. Reference electrode sits at FpZ on the forehead band."
+Decision: discourse_move=structural, cell_type=scene3d, confidence=0.84
+Reasoning: Five named entities (four electrodes + reference) arranged on a *physical* head shape, with explicit spatial relationships (frontal/posterior pairs, forehead band). A 2D mermaid graph would flatten the geometry and the "four-point grid" reading would be lost. A wireframe scalp with four labeled markers preserves the spatial structure directly and reads as on-brand FUI biometric vocabulary. Topology benefits from rotation/depth -- the user can see the frontal-posterior split that makes the montage choice meaningful.
 
 The orchestrator's confidence gate uses your number: <0.6 = suppress / heavy downgrade; 0.6-0.8 = draft; >0.8 = render normally.
 """

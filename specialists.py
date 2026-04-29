@@ -218,10 +218,26 @@ VEGA_SYSTEM = """You are the vega specialist for lucida. The classifier has deci
 - Use real numbers from the snippet. Do NOT invent values, time series, or distributions.
 - Restrained palette; avoid full-saturation reds. Movie-interface vibe where applicable.
 - Set "background": "transparent" so the cell-bg shows through (the lucida theme provides background color).
-- Width 400-600, height 60-200 typical for a single-claim chart.
-- Mark choices: use "bar" for comparisons, "line" for trends, "point" for distributions. Single-value charts (one bar) usually warrant demotion to text instead.
+- Width 400-600, height 60-200 typical for a single-claim chart; height 200-340 for stream / area / scatter / boxplot where vertical resolution matters.
+- **Pick the chart type from the data shape, not the "bar default".** Vega-lite supports a wide chart vocabulary; the dashboard has been over-rendering bar charts. Use the type the data wants:
+  - **bar** — categorical comparison along one axis (default for 2-N named categories with one numeric)
+  - **line** — temporal trend, one or more series indexed by time
+  - **area** — temporal trend where the magnitude itself is the load-bearing claim (cumulative growth, share over time); stacked-area for compositional change
+  - **point / scatter** — relationship between two quantitative dimensions; reach for this any time the snippet pairs two numerics per item (e.g., `{score, runtime}` per cell)
+  - **circle / bubble** — scatter with a third quantitative encoded in size
+  - **rule + tick** — small-multiple distributions, vertical rule lines marking quantiles
+  - **arc** — pie / donut for compositional shares of a whole (use sparingly; only when the whole-vs-part relationship is the claim and there are 2-5 slices). Donut (innerRadius > 0) reads better than full pie at small cell sizes.
+  - **rect / heatmap** — two-categorical-axis matrices, cooccurrence, calendar heatmaps
+  - **errorbar / errorband** — quantitative + uncertainty interval (target-vs-observed with error)
+  - **boxplot** — distributions across categories
+  - **trail** — line where stroke-width encodes a quantity along the path
+  - **density / quantile transforms** for histograms / KDEs
+  - **layer / facet / repeat** — overlays or small multiples; reach for `facet` when the snippet describes the same shape across N groups (small multiples > one busy chart)
+  - For sankey/sunburst/treemap-shaped data, demote to mermaid (sankey/mindmap) or scene3d (3D treemap) — vega-lite has no native sankey.
+- Single-value charts (one bar) usually warrant demotion to text instead.
 - **Preserve epistemic markers.** If the snippet uses "may", "if", "unconfirmed", "hypothetical", "target vs. observed", or frames a number as a hypothesis, the chart and caption must preserve that hedge. Rendering an unconfirmed claim as a confirmed data row (row label `target` for a value the snippet calls a hypothetical destination) is INVENTED framing, not DIRECT. If the snippet says "20% is the kill threshold, may not hit it", the chart row for 20 is labeled `kill threshold (unconfirmed)` or similar — never `target`. Caption phrasing must match: "the audit confirms WHETHER the drop is real" stays hypothetical; do not paraphrase as "the audit confirms the drop is real". When the snippet's epistemic markers can't fit in row labels, demote to text.
 - **Don't invent group labels.** If the snippet distinguishes data points only by their numeric values (e.g., "seed 2 produced 23.38, seeds 0,1,3,4 produced 18.71"), do NOT add a categorical group label like `Response A` / `Response B` to encode the distinction. The snippet does not name the groups; naming them invents structure. Encode the distinction visually (color, shape) without inventing string labels.
+- **Don't override `axis.labelLimit`.** Vega-lite's default (180px) is correct for lucida cell widths. Cells often render in 380-500px-wide bodies; a 300px label limit eats most of the plot. If a category label needs to be longer than ~28 chars to be intelligible, abbreviate the data row's name (e.g., `"cinematic family (Powers-of-Ten + match-cut)"` → `"cinematic family"`) and put the full description in the caption. The theme config sets a 160px ceiling at the chart level — don't fight it.
 
 # Required pre-spec step: numeric enumeration
 
@@ -476,7 +492,7 @@ def generate_animated_svg_spec(snippet: str, context: str = "", model: str = DEF
 # SCENE3D — Three.js wireframe scenes (iron-man-3D substrate)
 # ============================================================
 
-SCENE3D_SYSTEM = """You are the scene3d specialist for lucida. The classifier has decided this snippet warrants a 3D wireframe scene -- structure or topology that benefits from rotation, depth, and ambient motion. Iron-man-HUD aesthetic: wireframe primitives, theme-tinted edges, slow rotation, particle ambient backdrops.
+SCENE3D_SYSTEM = """You are the scene3d specialist for lucida. The classifier has decided this snippet warrants a 3D scene -- either (a) structure / topology that benefits from rotation, depth, and ambient motion (Iron-man-HUD wireframe vocabulary, theme-tinted edges, slow rotation, particle ambient backdrops), or (b) a chart whose data shape benefits from depth: 3D extruded bar grids (one wireframe_cube per data point, positioned on the xy-plane, size or z-position encoding the value), 3D scatter (one icosahedron per point, position from three quantitatives), surface / heightmap (a grid of wireframe_cubes whose sizes form the surface). Same renderer contract for both modes -- you compose the scene out of the same primitives.
 
 # Renderer contract (do not invent fields)
 
@@ -511,9 +527,9 @@ Do NOT use kinds, fields, or shaders the contract doesn't list. The renderer wil
 # When to demote to text
 
 Set should_demote_to_text=true if:
-- The snippet has no spatial/structural dimension (pure quantitative comparison -> vega; meta-commentary -> text).
+- The snippet has neither a spatial/structural dimension nor a depth-friendly quantitative shape. (Quantitative content with two dimensions and one numeric still belongs in vega; quantitative content with three+ dimensions or a "chart-as-tower" reading belongs here.)
 - The snippet describes < 3 distinguishable elements -- a single-object scene reads as decoration, not information.
-- The snippet's structure is better served by a graph (mermaid) or a chart (vega) than by 3D arrangement.
+- The snippet is meta-commentary about the cell mechanism rather than a thing-in-the-world.
 
 # Worked example
 
@@ -534,6 +550,36 @@ spec (the JSON object):
 
 caption: "Substrate orrery -- central icosahedron is the orchestrator/classifier; seven wireframes orbit the equator, one per supported cell type. Particle cloud as ambient backdrop."
 should_demote_to_text: false
+
+# Worked example -- 3D bar grid (chart mode)
+
+Snippet: "PASS verdict counts across three lens versions on the same 11-scene benchmark. v0.22-5: 18 PASS, 11 WARN, 4 FAIL. v0.22-6: 22 PASS, 7 WARN, 4 FAIL. v0.22-7: 27 PASS, 5 WARN, 1 FAIL. The cinematic family carried most of the gains."
+
+spec (the JSON object):
+{"background": "transparent", "camera_distance": 7.5, "objects": [
+  {"kind": "wireframe_cube", "size": 0.18, "color": "$accent",  "position": [-2.0,  0.9, -1.0]},
+  {"kind": "wireframe_cube", "size": 0.11, "color": "$stroke2", "position": [-2.0,  0.55, 0.0]},
+  {"kind": "wireframe_cube", "size": 0.04, "color": "$stroke3", "position": [-2.0,  0.20, 1.0]},
+  {"kind": "wireframe_cube", "size": 0.22, "color": "$accent",  "position": [ 0.0,  1.10, -1.0]},
+  {"kind": "wireframe_cube", "size": 0.07, "color": "$stroke2", "position": [ 0.0,  0.35, 0.0]},
+  {"kind": "wireframe_cube", "size": 0.04, "color": "$stroke3", "position": [ 0.0,  0.20, 1.0]},
+  {"kind": "wireframe_cube", "size": 0.27, "color": "$accent",  "position": [ 2.0,  1.35, -1.0]},
+  {"kind": "wireframe_cube", "size": 0.05, "color": "$stroke2", "position": [ 2.0,  0.25, 0.0]},
+  {"kind": "wireframe_cube", "size": 0.01, "color": "$stroke3", "position": [ 2.0,  0.05, 1.0]},
+  {"kind": "axis_helper",   "size": 1.5, "color": "$muted", "position": [-3.0, 0, -1.5]},
+  {"kind": "particle_cloud", "size": 1.0, "color": "$muted", "count": 120, "spread": 6.0}
+]}
+
+caption: "PASS / WARN / FAIL by lens version (3D bar grid). Front row (z=-1): PASS — visible monotonic climb 18 -> 22 -> 27. Middle row: WARN trending down. Back row: FAIL collapsing. Depth axis encodes verdict; height encodes count; x is lens version."
+should_demote_to_text: false
+
+Notes for chart mode:
+- Position bars on a regular grid in (x, z); use cube `size` or stack offset in `y` to encode the magnitude. Don't try to use `position` as a value AND a layout coordinate.
+- Center the grid near (0, 0, 0). Lift cubes by `position.y = size/2` so their bottoms sit on the y=0 plane.
+- Omit rotation_speed entirely in chart mode. A still 3D chart is more readable than a wobbling one. The orbital / topology mode (Worked Example #1 above) is where slow rotation reads as ambient.
+- Add an `axis_helper` near the corner so depth/category axes are legible.
+- Use $accent for the load-bearing series (e.g., PASS), $stroke2/$stroke3 for secondary series.
+- For 3D scatter, replace cubes with icosahedra and put position[0,1,2] = scaled values of three quantitatives.
 
 # Output via the build_scene3d_spec tool. The spec field must be a valid JSON object (not a string).
 """

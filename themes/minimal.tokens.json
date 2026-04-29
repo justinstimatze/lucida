@@ -1,0 +1,45 @@
+{
+  "_comment": "Vercel / Linear / Geist. Clean light theme. Mermaid uses the built-in neutral theme.",
+  "mermaid_builtin": "neutral",
+  "accent": {
+    "primary":   "#0070f3",
+    "secondary": "#737373",
+    "warning":   "#d97706",
+    "danger":    "#dc2626",
+    "ok":        "#16a34a"
+  },
+  "surface": {
+    "bg":     "#ffffff",
+    "cell":   "#f7f7f7",
+    "header": "#ffffff",
+    "code":   "#f0f0f0",
+    "muted":  "#737373",
+    "line":   "#e5e5e5"
+  },
+  "text": {
+    "fg":    "#171717",
+    "muted": "#737373"
+  },
+  "data": {
+    "cat": ["#0070f3", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#dc2626"]
+  },
+  "type": {
+    "body": "\"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
+    "head": "\"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
+    "mono": "ui-monospace, \"SF Mono\", Menlo, monospace"
+  },
+  "fx": {
+    "glow":      "transparent",
+    "glow-line": "transparent"
+  },
+  "palette": {
+    "stroke1": "#0070f3",
+    "stroke2": "#737373",
+    "stroke3": "#171717",
+    "accent":  "#0070f3",
+    "fg":      "#171717",
+    "muted":   "#737373",
+    "bg":      "#ffffff",
+    "panel":   "#f7f7f7"
+  }
+}

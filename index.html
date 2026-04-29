@@ -77,10 +77,15 @@
         <span class="hud-caret" aria-hidden="true">▾</span>
       </span>
       <div id="layout-dropdown" class="session-dropdown" hidden></div>
-      <span class="hud-cell">
+      <span class="hud-cell hud-theme-trigger" id="hud-theme-cell"
+            role="button" tabindex="0" aria-haspopup="true"
+            aria-controls="theme-dropdown"
+            title="click to switch theme">
         <span class="hud-label">THEME</span>
         <span class="hud-value" id="hud-theme-val">—</span>
+        <span class="hud-caret" aria-hidden="true">▾</span>
       </span>
+      <div id="theme-dropdown" class="session-dropdown" hidden></div>
     </div>
     <div class="hud-row hud-row-bot">
       <span class="hud-cell hud-kills" id="hud-kill1-slot" data-state="ok">
@@ -321,6 +326,78 @@ function buildLayoutDropdown() {
     });
   });
 }
+// THEME_REGISTRY mirrors LAYOUT_REGISTRY: adding a new theme means adding
+// one entry here and one themes/<id>.tokens.json file. The label shows in
+// the HUD chip and dropdown rows; description is the dropdown subtitle.
+// Theme selection writes the cookie via the head bootstrap script and the
+// ?theme= URL param; both are read on next load.
+const THEME_REGISTRY = {
+  lab:     { id: "lab",     label: "LAB",     description: "cyan/magenta on near-black; default" },
+  magi:    { id: "magi",    label: "MAGI",    description: "amber + green Eva/NERV monospace" },
+  minimal: { id: "minimal", label: "MINIMAL", description: "Vercel/Linear clean light" },
+  gastown: { id: "gastown", label: "GASTOWN", description: "steampunk brass on cream serif" },
+};
+
+function buildThemeDropdown() {
+  const dropdown = document.getElementById("theme-dropdown");
+  if (!dropdown) return;
+  const current = ACTIVE;
+  const options = Object.values(THEME_REGISTRY);
+  const rows = options.map(o => `
+    <button type="button" class="session-dropdown-row theme-dropdown-row"
+            data-theme="${o.id}" ${o.id === current ? 'aria-current="true"' : ""}>
+      <span class="session-dropdown-id">${o.label}</span>
+      <span class="session-dropdown-count" style="color:var(--muted);font-style:italic;">${o.description}</span>
+    </button>
+  `).join("");
+  dropdown.innerHTML = `
+    <div class="session-dropdown-header">
+      <span>THEME</span>
+    </div>
+    ${rows}
+  `;
+  dropdown.querySelectorAll(".theme-dropdown-row").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.theme;
+      if (v === ACTIVE) return;
+      // Write the cookie too so a subsequent visit without ?theme= still
+      // honors the choice — matches the head bootstrap's cookie-or-URL
+      // resolution order.
+      document.cookie = `lucida_theme=${v}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
+      const url = new URL(window.location.href);
+      url.searchParams.set("theme", v);
+      window.location.replace(url.toString());
+    });
+  });
+}
+function initThemeDropdownTrigger() {
+  const trigger = document.getElementById("hud-theme-cell");
+  const dropdown = document.getElementById("theme-dropdown");
+  if (!trigger || !dropdown) return;
+  const valEl = document.getElementById("hud-theme-val");
+  if (valEl) valEl.textContent = (THEME_REGISTRY[ACTIVE]?.label || ACTIVE.toUpperCase());
+  const open = () => {
+    buildThemeDropdown();
+    dropdown.hidden = false;
+    const r = trigger.getBoundingClientRect();
+    dropdown.style.top = (r.bottom + 4) + "px";
+    dropdown.style.left = r.left + "px";
+  };
+  const close = () => { dropdown.hidden = true; };
+  const toggle = () => { dropdown.hidden ? open() : close(); };
+  trigger.addEventListener("click", toggle);
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (dropdown.hidden) return;
+    if (!dropdown.contains(e.target) && !trigger.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dropdown.hidden) close();
+  });
+}
+
 function initLayoutDropdownTrigger() {
   const trigger = document.getElementById("hud-layout-cell");
   const dropdown = document.getElementById("layout-dropdown");
@@ -384,116 +461,100 @@ function initSessionDropdownTrigger() {
   });
 }
 
-const THEME_CONFIG = {
-  lab: {
-    mermaid: { theme: "dark" },
-    vega: {
-      // Explicit category range so vega charts stay aligned with the
-      // lab palette (cyan + magenta + yellow primary, with softer
-      // tints rounding out the slot count).
-      config: {
-        background: "transparent",
-        range: { category: ["#66ccff", "#ff66dd", "#ffee66", "#00ffff", "#ff00ff", "#ffff00"] },
-      },
-    },
-    palette: {
-      stroke1: "#00ffff", stroke2: "#ff00ff", stroke3: "#ffff00",
-      accent: "#66ccff", fg: "#e5e5e5", muted: "#8a8a92",
-      bg: "#0a0a0e", panel: "#131318",
-    },
-  },
-  magi: {
-    mermaid: {
-      theme: "base",
-      themeVariables: {
-        background: "#050505",
-        primaryColor: "#0c0c0c",
-        primaryTextColor: "#ff8c00",
-        primaryBorderColor: "#ff8c00",
-        secondaryColor: "#0c0c0c",
-        tertiaryColor: "#0c0c0c",
-        mainBkg: "#0c0c0c",
-        lineColor: "#00ff41",
-        textColor: "#ff8c00",
-        secondaryTextColor: "#ff8c00",
-        tertiaryTextColor: "#ff8c00",
-        // fontFamily here governs mermaid's text-width measurement
-        // when sizing the edge-label backing rect. Without this,
-        // mermaid measures with its default font and our CSS overrides
-        // to monospace at render time — wider chars overflow the rect.
-        // See identical font for measurement + render in CSS rule.
-        fontFamily: '"Courier New", "Lucida Console", monospace',
-      },
-    },
-    vega: {
-      config: {
-        background: "transparent",
-        title: { color: "#ff8c00", font: "Courier New" },
-        axis: {
-          domainColor: "#884600", labelColor: "#ff8c00",
-          tickColor: "#884600", gridColor: "#2a2a2a",
-          titleColor: "#ff8c00", labelFont: "Courier New",
-          titleFont: "Courier New",
-        },
-        legend: { labelColor: "#ff8c00", titleColor: "#ff8c00" },
-        // Magi range trimmed to amber + emerald + alert-red primary
-        // trio, with desaturated variants for the remaining slots.
-        // Drops the off-brand yellow/magenta the prior palette had —
-        // they read as foreign in an Eva/NERV amber-on-black FUI.
-        range: { category: ["#ff8c00", "#00ff41", "#ff2020", "#cc6600", "#33aa55", "#aa2020"] },
-      },
-    },
-    palette: {
-      stroke1: "#ff8c00", stroke2: "#00ff41", stroke3: "#ff2020",
-      accent: "#00ff41", fg: "#ff8c00", muted: "#884600",
-      bg: "#050505", panel: "#0c0c0c",
-    },
-  },
-  minimal: {
-    mermaid: { theme: "neutral" },
-    vega: {},
-    palette: {
-      stroke1: "#0070f3", stroke2: "#737373", stroke3: "#171717",
-      accent: "#0070f3", fg: "#171717", muted: "#737373",
-      bg: "#ffffff", panel: "#f7f7f7",
-    },
-  },
-  gastown: {
-    mermaid: {
-      theme: "base",
-      themeVariables: {
-        primaryColor: "#f5e6d3",
-        primaryTextColor: "#2c1810",
-        primaryBorderColor: "#cd7f32",
-        lineColor: "#8b5e3c",
-        textColor: "#2c1810",
-        mainBkg: "#f5e6d3",
-        secondaryColor: "#e8dcc8",
-        fontFamily: '"Crimson Text", Georgia, serif',
-      },
-    },
-    vega: {
-      config: {
-        background: "transparent",
-        title: { color: "#2c1810", font: "Crimson Text" },
-        axis: {
-          domainColor: "#5d4037", labelColor: "#2c1810",
-          tickColor: "#5d4037", titleColor: "#2c1810",
-          labelFont: "Crimson Text", titleFont: "Crimson Text",
-        },
-        legend: { labelColor: "#2c1810", titleColor: "#2c1810" },
-        range: { category: ["#cd7f32", "#8b5e3c", "#b87333", "#5d4037", "#70798c", "#a0522d"] },
-      },
-    },
-    palette: {
-      stroke1: "#cd7f32", stroke2: "#8b5e3c", stroke3: "#5d4037",
-      accent: "#cd7f32", fg: "#2c1810", muted: "#5d4037",
-      bg: "#e8dcc8", panel: "#f5e6d3",
-    },
-  },
-};
+// Theme tokens (themes/<name>.tokens.json) are the single source of truth
+// for cross-substrate theming: mermaid themeVariables, vega config (axis
+// colors, range categories), animated_svg $X palette substitution, and the
+// new --data-cat-N CSS vars all derive from one JSON file per theme.
+// Pre-2026-04-29 each substrate had its own hand-mapped literals so themes
+// drifted (vega range had off-brand colors that didn't match mermaid edges).
+// See design-references.md "Theme strategy" + memory/visual_consistency_
+// theming_pass.md for the why.
+async function loadTokens(themeName) {
+  try {
+    const r = await fetch(`themes/${themeName}.tokens.json`, { cache: "no-cache" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    console.warn(`[lucida] failed to load themes/${themeName}.tokens.json: ${e}; falling back to lab`);
+    if (themeName === "lab") throw e;  // can't fall back further
+    const r = await fetch(`themes/lab.tokens.json`, { cache: "no-cache" });
+    return await r.json();
+  }
+}
 
-const TC = THEME_CONFIG[ACTIVE] || THEME_CONFIG.lab;
+function buildThemeConfig(t) {
+  // mermaid: built-in themes (dark/neutral) skip themeVariables; otherwise
+  // we derive themeVariables from accent/surface/text/type tokens so the
+  // mermaid edges/nodes/text track the same accent values used elsewhere.
+  const mermaidConf = t.mermaid_builtin
+    ? { theme: t.mermaid_builtin }
+    : {
+        theme: "base",
+        themeVariables: {
+          background: t.surface.bg,
+          primaryColor: t.surface.cell,
+          primaryTextColor: t.text.fg,
+          primaryBorderColor: t.accent.primary,
+          secondaryColor: t.surface.cell,
+          tertiaryColor: t.surface.cell,
+          mainBkg: t.surface.cell,
+          lineColor: t.accent.secondary,
+          textColor: t.text.fg,
+          secondaryTextColor: t.text.fg,
+          tertiaryTextColor: t.text.fg,
+          // fontFamily here governs mermaid's text-width measurement when
+          // sizing edge-label backing rects. Must match the render-time CSS
+          // font or wider chars overflow the pre-measured rect.
+          fontFamily: t.type.mono || t.type.body,
+        },
+      };
+
+  return {
+    mermaid: mermaidConf,
+    vega: {
+      config: {
+        background: "transparent",
+        title: { color: t.text.fg, font: t.type.head || t.type.body },
+        axis: {
+          domainColor: t.surface.muted, labelColor: t.text.fg,
+          tickColor: t.surface.muted, gridColor: t.surface.line,
+          titleColor: t.text.fg,
+          labelFont: t.type.body, titleFont: t.type.body,
+          // Long category labels (e.g., "cinematic family (Powers-of-Ten +
+          // match-cut)") were eating most of the plot in 380-500px cells
+          // because the vega specialist had been setting labelLimit: 300.
+          // Theme-level ceiling at 160px clamps the baseline; per-spec
+          // overrides still win, so the specialist prompt also tells the
+          // model not to override (specialists.py VEGA_SYSTEM constraint).
+          labelLimit: 160, labelOverlap: true,
+        },
+        legend: { labelColor: t.text.fg, titleColor: t.text.fg },
+        range: { category: t.data.cat },
+      },
+    },
+    palette: t.palette,
+  };
+}
+
+// Apply selected token values to :root as CSS custom properties so HTML
+// cells / vega cell wrappers / connection-overlay can read them. The
+// existing chrome vars (--bg, --accent, --fg, etc.) are still set by
+// notebook.css per .theme-<name> class — token vars layer additional
+// roles on top (--data-cat-N, --accent-secondary, --accent-warning, etc.)
+// and could fully replace the CSS chrome blocks in a follow-up pass.
+function applyTokensToCSSVars(t) {
+  const root = document.documentElement;
+  (t.data?.cat || []).forEach((c, i) => root.style.setProperty(`--data-cat-${i}`, c));
+  root.style.setProperty("--accent-primary",   t.accent.primary);
+  root.style.setProperty("--accent-secondary", t.accent.secondary);
+  root.style.setProperty("--accent-warning",   t.accent.warning);
+  root.style.setProperty("--accent-danger",    t.accent.danger);
+  root.style.setProperty("--accent-ok",        t.accent.ok);
+}
+
+const TOKENS = await loadTokens(ACTIVE);
+applyTokensToCSSVars(TOKENS);
+const TC = buildThemeConfig(TOKENS);
 
 // flowchart.htmlLabels: false renders edge labels as native SVG <text>
 // instead of foreignObject+HTML. The foreignObject path measures label
@@ -2420,6 +2481,7 @@ load().catch(err => {
 
 initSessionDropdownTrigger();
 initLayoutDropdownTrigger();
+initThemeDropdownTrigger();
 
 // HUD click-to-pin: clicking the HUD toggles data-expanded so it stays
 // open without requiring continuous hover. Click the HUD again to

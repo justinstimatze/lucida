@@ -1,0 +1,44 @@
+{
+  "_comment": "Eva / NERV. Amber + green on near-black, monospace. Source of truth for magi mermaid + vega + html accents + HUD.",
+  "accent": {
+    "primary":   "#ff8c00",
+    "secondary": "#00ff41",
+    "warning":   "#ffaa00",
+    "danger":    "#ff2020",
+    "ok":        "#00ff41"
+  },
+  "surface": {
+    "bg":     "#050505",
+    "cell":   "#0c0c0c",
+    "header": "#0c0c0c",
+    "code":   "#0a0a0a",
+    "muted":  "#884600",
+    "line":   "#2a2a2a"
+  },
+  "text": {
+    "fg":    "#ff8c00",
+    "muted": "#884600"
+  },
+  "data": {
+    "cat": ["#ff8c00", "#00ff41", "#ff2020", "#cc6600", "#33aa55", "#aa2020"]
+  },
+  "type": {
+    "body": "\"Courier New\", \"Lucida Console\", monospace",
+    "head": "\"Courier New\", \"Lucida Console\", monospace",
+    "mono": "\"Courier New\", \"Lucida Console\", monospace"
+  },
+  "fx": {
+    "glow":      "rgba(255, 140, 0, 0.5)",
+    "glow-line": "rgba(0, 255, 65, 0.4)"
+  },
+  "palette": {
+    "stroke1": "#ff8c00",
+    "stroke2": "#00ff41",
+    "stroke3": "#ff2020",
+    "accent":  "#00ff41",
+    "fg":      "#ff8c00",
+    "muted":   "#884600",
+    "bg":      "#050505",
+    "panel":   "#0c0c0c"
+  }
+}

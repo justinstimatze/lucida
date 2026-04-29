@@ -1,0 +1,45 @@
+{
+  "_comment": "Steampunk / industrial / brass. Cream surfaces, brass accents, serif typography.",
+  "accent": {
+    "primary":   "#cd7f32",
+    "secondary": "#8b5e3c",
+    "warning":   "#b8860b",
+    "danger":    "#8b2500",
+    "ok":        "#5d7a1f"
+  },
+  "surface": {
+    "bg":     "#e8dcc8",
+    "cell":   "#f5e6d3",
+    "header": "#f5e6d3",
+    "code":   "#d8cab2",
+    "muted":  "#5d4037",
+    "line":   "#c4a882"
+  },
+  "text": {
+    "fg":    "#2c1810",
+    "muted": "#5d4037"
+  },
+  "data": {
+    "_comment": "Steampunk industrial vocabulary: brass + verdigris (oxidized copper patina) + rust (steam-pipe iron) + iron (cool dark) + sepia. Reads as aged-metal palette, not monochrome brass — bar charts get visible category separation.",
+    "cat": ["#cd7f32", "#5e8e7e", "#b7410e", "#36454f", "#b87333", "#704214"]
+  },
+  "type": {
+    "body": "\"Crimson Text\", \"Georgia\", serif",
+    "head": "\"Cinzel\", \"Georgia\", serif",
+    "mono": "\"Courier New\", \"Lucida Console\", monospace"
+  },
+  "fx": {
+    "glow":      "transparent",
+    "glow-line": "rgba(139, 94, 60, 0.3)"
+  },
+  "palette": {
+    "stroke1": "#cd7f32",
+    "stroke2": "#8b5e3c",
+    "stroke3": "#5d4037",
+    "accent":  "#cd7f32",
+    "fg":      "#2c1810",
+    "muted":   "#5d4037",
+    "bg":      "#e8dcc8",
+    "panel":   "#f5e6d3"
+  }
+}

@@ -673,17 +673,40 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         except SuppressedMintError:
             raise  # propagate; watcher counts these as suppressed, not minted
         except Exception as e:
+            # When the LLM classifier raises (malformed tool response, API
+            # timeout, missing required field), the original behavior fell
+            # back to the v0 keyword classifier. v0 defaults to `text` for
+            # snippets it has no keyword pattern for, and text has no
+            # specialist — so the cell minted as an empty `(awaiting
+            # generation)` stub. Cells 0568/0571 (2026-04-29) traced to
+            # this. Suppress when v0 falls back to text — symmetric with
+            # image-demote and operational-status suppressions. v0 picks
+            # for real substrates (mermaid/vega/html) still pass through;
+            # the specialist will try to ground them and demote-to-text-
+            # suppress if it can't.
+            if auto_type_v0 == "text":
+                raise SuppressedMintError(
+                    f"LLM classifier failed ({e}) and v0 fallback is text "
+                    f"(no specialist exists for text); silent > empty stub"
+                )
             chosen_type = auto_type_v0
-            gate_note = f" [LLM classifier failed: {e}]"
+            gate_note = f" [LLM classifier failed: {e}; using v0→{auto_type_v0}]"
     elif cell_type and cell_type != auto_type_v0:
         classifier_label += f"; forced→{cell_type}"
 
-    # kill_criteria.md #1 kill action enacted 2026-04-27: image cells must be
-    # explicit opt-in. If neither the keyword nor LLM classifier was overridden
-    # by --type image, demote any image recommendation to text.
+    # kill_criteria.md #1: image cells require explicit --type image opt-in.
+    # Originally we demoted classifier-picked image to text, but text has no
+    # specialist — the cell minted as an empty "(awaiting generation)" stub.
+    # Auto-discover from the sibling visual-research project (seeing) flooded
+    # the dashboard with image-classifier hits that silently demoted to empty
+    # text shells. Suppress instead. Symmetric with the specialist demote-to-
+    # text suppressions below (image_specialist line ~729, non-image
+    # specialist line ~778) — the rule is consistent: silent > empty text.
     if chosen_type == "image" and cell_type != "image":
-        gate_note += " [image-demote per kill #1; pass --type image to opt-in]"
-        chosen_type = "text"
+        raise SuppressedMintError(
+            "image-demote per kill #1 (image is opt-in via --type image); "
+            "silent > empty text stub"
+        )
 
     # Substrate diversity bias. The classifier honestly picks the
     # best-fit substrate, but successive cells of the same type

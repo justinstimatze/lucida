@@ -875,20 +875,6 @@ th, td {
   max-height: 12rem;
   padding: 0.55rem 0.7rem 0.6rem;
 }
-/* Compressed-state hint: a tiny "▾" caret + status indicator in the
-   bottom-right corner, hidden when expanded. */
-.hud::after {
-  content: "▾  hover for full HUD";
-  position: absolute;
-  bottom: 0.15rem;
-  right: 0.5rem;
-  font-size: 0.6rem;
-  opacity: 0.5;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-.hud:hover::after,
-.hud[data-expanded="true"]::after { opacity: 0; }
 .hud-row {
   display: flex;
   flex-wrap: wrap;
@@ -1221,6 +1207,14 @@ th, td {
   fill: var(--mermaid-edge-label-bg) !important;
   stroke: var(--mermaid-edge-label-border) !important;
   stroke-width: 1px !important;
+  /* Mermaid 10 injects #m-cell-NNNN .edgeLabel rect { opacity: 0.5 } per
+     diagram in its inline <style>; that ID selector beats our class rule
+     unless we !important the opacity here. Without this, the dark cell-bg
+     fill is set correctly but the whole rect renders at 50% opacity, so
+     the green edge stroke beneath bleeds through and the label text reads
+     as low-contrast. */
+  opacity: 1 !important;
+  fill-opacity: 1 !important;
 }
 .mermaid-target .edgeLabel foreignObject div {
   background-color: var(--mermaid-edge-label-bg) !important;
