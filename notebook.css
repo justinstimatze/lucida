@@ -1084,13 +1084,17 @@ html.theme-lcars::before {
   padding-left: calc(14px + 1.25rem);
 }
 /* LCARS rail-aware fade: the generic .cell::after lays four gradient
-   strips, one per edge. The left strip would softens the LCARS rail
-   (notebook.css:1064) into a fuzzy edge — per user 2026-04-29.
-   Override to drop the left gradient so the rail stays crisp.
-   Inherits the top inset (2.2rem) from the base rule so cell-head
+   strips, one per edge. The left strip would soften the LCARS rail
+   (::before, 15px wide at left:-1px) into a fuzzy edge — per user
+   2026-04-29. Override to drop the left gradient so the rail stays
+   crisp. ALSO inset the left to 15px so the top + bottom gradients
+   don't paint over the rail at the leftmost column — per user
+   2026-04-29 ("top and bottom blur on the hero cell still interfere
+   with the lcars left border").
+   Inherits the top inset (2.6rem) from the base rule so cell-head
    chips stay sharp. */
 .theme-lcars .cell::after {
-  inset: 2.6rem 0 0 0;
+  inset: 2.6rem 0 0 15px;
   background:
     linear-gradient(to bottom,
       transparent 0,
@@ -1142,10 +1146,17 @@ html.theme-lcars::before {
   pointer-events: none;
   z-index: 1;
 }
-/* Match the specificity of `.cell:not(:first-child):not(.cell-reflection)`
-   at line 291 so the ambient-cell padding override doesn't squash the
-   LCARS rail-clearance padding. */
-.theme-lcars .cell:not(:first-child):not(.cell-reflection) {
+/* Rail-clearance padding on ALL LCARS cells. Pre-pivot, this was
+   carved out for :first-child (the hero) and .cell-reflection because
+   those cells were size-distinguished and the lack of rail padding
+   gave them more horizontal real estate. Post-natural-size-pivot
+   (2026-04-29) the hero has no size advantage — the carve-out just
+   made hero/reflection content overlap the rail. Removed per user
+   2026-04-29 ("if we're not really doing hero cell sizing any more
+   should we still have the hero cell lcars border difference").
+   Specificity (0,2,1) wins over the base .cell padding rule (0,1,1)
+   AND over the ambient cell padding override at line ~383. */
+.theme-lcars .cell {
   padding-left: calc(14px + 1.25rem);
 }
 .theme-lcars .cell:nth-child(6n+1)::before { background: var(--data-cat-0, #ff9900); }
