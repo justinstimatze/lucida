@@ -2007,6 +2007,36 @@ function setupCellZoom() {
     clone.classList.add("cell-zoomed-clone");
     dlg.replaceChildren(clone);
     dlg.showModal();
+
+    // Re-instantiate any 3D scenes inside the clone — cloneNode(true) of
+    // a <canvas> produces a blank canvas, so without re-init the dialog
+    // shows nothing for scene3d/aframe cells. RAF defers until layout has
+    // measured the dialog so initScene3D's clientWidth read is non-zero.
+    const scene3dTarget = clone.querySelector(".scene3d-target");
+    if (scene3dTarget && scene3dTarget.dataset.scene3dSpec) {
+      scene3dTarget.innerHTML = "";  // remove the blank cloned canvas
+      scene3dTarget.style.minHeight = "";
+      requestAnimationFrame(() => {
+        try {
+          const spec = JSON.parse(scene3dTarget.dataset.scene3dSpec);
+          const ctrl = initScene3D(scene3dTarget, spec);
+          if (ctrl) {
+            ctrl.play();
+            dlg._zoomedCtrl = ctrl;
+          }
+        } catch (err) {
+          console.warn("[lucida] scene3d zoom re-init failed:", err);
+        }
+      });
+    }
+  });
+  // Tear down the re-instantiated scene when the dialog closes so it
+  // doesn't keep a hidden Three.js render loop spinning.
+  dlg.addEventListener("close", () => {
+    if (dlg._zoomedCtrl) {
+      try { dlg._zoomedCtrl.dispose(); } catch (e) {}
+      dlg._zoomedCtrl = null;
+    }
   });
 }
 
@@ -2197,6 +2227,12 @@ function renderCell(c, snippetGroups) {
     // the cell remains the least-recently-visible non-visible scene when
     // a new scene needs to init. Re-init from spec on scroll-back.
     const target = el("div", "scene3d-target");
+    // Stash the spec on the target so click-to-zoom can re-instantiate
+    // the scene in the dialog clone (cloneNode(true) of a <canvas>
+    // produces a blank canvas — the rendered pixels aren't part of the
+    // DOM, so a literal clone shows nothing). The dialog reads this and
+    // calls initScene3D fresh on the cloned target.
+    try { target.dataset.scene3dSpec = JSON.stringify(c.spec); } catch (e) {}
     body.appendChild(target);
     let ctrl = null;
     const entry = {
@@ -2394,7 +2430,15 @@ function initScene3D(container, spec) {
   const w = container.clientWidth || 600;
   const h = 360;
   const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(w, h);
+  renderer.setSize(w, h, false);
+  // Ensure the canvas CSS size matches the container exactly. Without
+  // this, when the cell is hero-width at init then shrinks into ambient
+  // (or any reflow), the canvas keeps its initial CSS width and overflows
+  // out the right side of the cell. Combined with the ResizeObserver
+  // below, the renderer tracks the cell width at all times.
+  renderer.domElement.style.width = "100%";
+  renderer.domElement.style.height = h + "px";
+  renderer.domElement.style.display = "block";
   const bg = spec.background;
   if (bg && bg !== "transparent") {
     renderer.setClearColor(bg, 1);
@@ -2464,11 +2508,29 @@ function initScene3D(container, spec) {
     }
     renderer.render(scene, camera);
   }
+  // Track container width with ResizeObserver. Without this, scenes that
+  // initialize at hero width and later get shifted into ambient (half-width
+  // grid slot) keep their original canvas size and overflow the cell —
+  // user-visible as "3D content mostly cut off" on cells like 0658.
+  const ro = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const cw = entry.contentRect.width;
+      if (cw > 10) {
+        renderer.setSize(cw, h, false);
+        renderer.domElement.style.width = "100%";
+        renderer.domElement.style.height = h + "px";
+        camera.aspect = cw / h;
+        camera.updateProjectionMatrix();
+      }
+    }
+  });
+  ro.observe(container);
   return {
     play() { if (!running) { running = true; animate(); } },
     pause() { running = false; },
     dispose() {
       running = false;
+      ro.disconnect();
       scene.traverse(obj => {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
