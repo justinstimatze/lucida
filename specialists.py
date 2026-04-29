@@ -846,6 +846,11 @@ The lucida renderer turns spec.objects into Three.js meshes. Supported kinds and
 - **icosahedron** -- size (number, radius)
 - **axis_helper** -- size (number, axis length)
 - **particle_cloud** -- size (unused by renderer, set 1.0); count (int, default 100; use 100-300); spread (number, default 3; cloud half-extent)
+- **cylinder** -- size (number, radius); height (number, default 2*size). Vertical column / tower / pole; the natural shape for repo skylines, value towers, sensor poles.
+- **cone** -- size (number, base radius); height (number, default 2*size). Directional / pointer / spike shape; useful for "this points to X" semantics.
+- **plane** -- size (number, width); height (number, default = width). Flat layered surface; reach for it on stacked-strata snippets (architectural layers, geological strata, depth-stacked feature maps). Stack multiple at increasing y to read as layers.
+- **line** -- from (array of three numbers); to (array of three numbers). A straight edge between two points. Use for connections between named entities (relationship in 3D, like a graph edge but routed through 3D space).
+- **label** -- size (number, render scale; ~0.5 typical for short labels); text (string, the actual label content). A text sprite that always faces the camera. Use for axis labels on 3D charts, names on electrodes / nodes / towers, identifiers in semantic scenes.
 
 Every object additionally accepts:
 - **color** (string) -- a theme token like "$accent", "$stroke1", "$stroke2", "$stroke3", "$fg", "$muted", or a literal hex like "#ff8c00". Prefer theme tokens; the renderer substitutes them per the active theme (lab/magi/minimal/gastown).
@@ -864,7 +869,20 @@ Do NOT use kinds, fields, or shaders the contract doesn't list. The renderer wil
 - 3-7 substrate objects + 1 particle cloud is the typical shape. More gets cluttered; fewer feels barren.
 - Use 2-4 distinct colors max. $accent for the hero element; $stroke1/$stroke2/$stroke3 for secondary; $muted for the particle cloud.
 - Slow rotation (0.001-0.008 rad/frame) reads as ambient/diegetic. Faster reads as decorative/cheap.
-- Center the load-bearing object at [0,0,0]; arrange supporting objects on a circle of radius 2-3 in the xz-plane.
+
+# Prefer semantic geometry over abstract orrery
+
+Default-fallback orrery scenes (sphere + 3 toruses + cubes orbiting at radius 2) read as decoration, not insight. Push instead toward **semantic geometry**: the scene IS the thing it represents, not an abstract decoration of it.
+
+When the snippet's structural content has a natural physical shape, use the new primitives (cylinder / cone / plane / line / label) to render that shape directly:
+
+- **Repo / project / metric tower** → cylinders at varying heights, one per repo, on a baseline plane. Heights encode the metric. label sprites on top name each tower. The "skyline of repos" reads literally.
+- **Anatomical / hardware layout** (electrodes on a head, sensors on a chassis) → wireframe_sphere as the body, label sprites at sensor positions, lines connecting sensors to wires. The shape IS a head / device, not an arbitrary orrery.
+- **Stacked architectural layers** (presentation / business / data) → translucent planes at increasing y, label sprites naming each layer, connection lines between adjacent planes if data flows between them.
+- **Directional / vector** (input → router → output) → cones pointing along the flow, lines connecting them.
+- **Process / control loop** with stages → cylinders at stage positions, lines tracing the loop, labels naming each stage.
+
+Center the load-bearing object at [0,0,0]; arrange supporting objects with intent (semantic positioning) — only fall back to the radius-2 circle when the snippet genuinely is rotationally symmetric.
 
 # When to demote to text
 
@@ -922,6 +940,38 @@ Notes for chart mode:
 - Add an `axis_helper` near the corner so depth/category axes are legible.
 - Use $accent for the load-bearing series (e.g., PASS), $stroke2/$stroke3 for secondary series.
 - For 3D scatter, replace cubes with icosahedra and put position[0,1,2] = scaled values of three quantitatives.
+- **Use label primitives** for axis names and category names — text sprites face the camera so they stay readable as the scene rotates.
+
+# Worked example -- semantic geometry (skyline)
+
+Snippet: "Cell counts by substrate over the corpus: mermaid 920, html 670, text 340, vega 290, animated_svg 130, scene3d 50."
+
+spec (the JSON object) -- repo skyline rendered as cylinders, not abstract orrery:
+{"background": "transparent", "camera_distance": 7.5, "objects": [
+  {"kind": "cylinder", "size": 0.32, "height": 4.6, "color": "$accent",  "position": [-2.5, 2.30, 0]},
+  {"kind": "label", "size": 0.5, "color": "$fg", "text": "mermaid", "position": [-2.5, 4.85, 0]},
+  {"kind": "cylinder", "size": 0.32, "height": 3.35, "color": "$stroke1", "position": [-1.5, 1.675, 0]},
+  {"kind": "label", "size": 0.5, "color": "$fg", "text": "html", "position": [-1.5, 3.6, 0]},
+  {"kind": "cylinder", "size": 0.32, "height": 1.7, "color": "$stroke2", "position": [-0.5, 0.85, 0]},
+  {"kind": "label", "size": 0.5, "color": "$fg", "text": "text", "position": [-0.5, 1.95, 0]},
+  {"kind": "cylinder", "size": 0.32, "height": 1.45, "color": "$stroke3", "position": [0.5, 0.725, 0]},
+  {"kind": "label", "size": 0.5, "color": "$fg", "text": "vega", "position": [0.5, 1.7, 0]},
+  {"kind": "cylinder", "size": 0.32, "height": 0.65, "color": "$stroke1", "position": [1.5, 0.325, 0]},
+  {"kind": "label", "size": 0.4, "color": "$fg", "text": "anim_svg", "position": [1.5, 0.9, 0]},
+  {"kind": "cylinder", "size": 0.32, "height": 0.25, "color": "$stroke2", "position": [2.5, 0.125, 0]},
+  {"kind": "label", "size": 0.4, "color": "$fg", "text": "scene3d", "position": [2.5, 0.5, 0]},
+  {"kind": "plane", "size": 7.0, "height": 1.5, "color": "$muted", "position": [0, 0, 0], "rotation_speed": [1.5708, 0, 0]}
+]}
+
+caption: "Substrate skyline. Each cylinder = one substrate's mint count. mermaid is the tallest tower; scene3d barely clears the baseline. Labels float at each tower's apex."
+should_demote_to_text: false
+
+Notes for semantic-geometry mode:
+- Cylinder height = encoded value (scale to fit camera_distance). Position cylinder y = height/2 so it stands ON the baseline plane.
+- Place a label sprite directly above each tower so the named entity is unambiguous.
+- One floor plane at y=0, rotated π/2 around x to lie flat, gives a baseline; without it the towers float in space.
+- Avoid rotation_speed on towers — viewer reads them as fixed buildings; rotating cylinders look unstable.
+- Skyline is one specific case; the same vocabulary (cylinder + label + plane + line) covers electrode layouts (sphere + labels), architectural layers (planes + labels + lines), directional flows (cones + lines + labels).
 
 # Output via the build_scene3d_spec tool. The spec field must be a valid JSON object (not a string).
 """

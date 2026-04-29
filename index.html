@@ -2898,6 +2898,66 @@ function initScene3D(container, spec) {
       }
       geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
       mesh = new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
+    } else if (obj.kind === "cylinder") {
+      // Vertical column / tower / pole. height defaults to 2*size for
+      // a tower-shaped default; specs that want a flat puck pass a
+      // smaller height. Top/bottom radius separate so cones (height>0,
+      // top=0) work via the same primitive without needing a "cone"
+      // type — though we do also expose "cone" for clarity below.
+      const radius = size;
+      const height = (typeof obj.height === "number") ? obj.height : size * 2;
+      const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "cone") {
+      const radius = size;
+      const height = (typeof obj.height === "number") ? obj.height : size * 2;
+      const geo = new T.ConeGeometry(radius, height, 16, 1, false);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "plane") {
+      // Stacked translucent layers / floor planes / strata. Default
+      // square; specs can pass width + height for rectangular layers.
+      const w_ = size;
+      const h_ = (typeof obj.height === "number") ? obj.height : size;
+      const geo = new T.PlaneGeometry(w_, h_, 1, 1);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({
+        color, wireframe: true, side: T.DoubleSide,
+      }));
+    } else if (obj.kind === "line") {
+      // Connection / vector / edge between two points. obj.from and
+      // obj.to are [x,y,z]. Used for showing relationships between
+      // positioned primitives (semantic-geometry vocabulary).
+      const from = Array.isArray(obj.from) ? obj.from : [0, 0, 0];
+      const to = Array.isArray(obj.to) ? obj.to : [1, 0, 0];
+      const geo = new T.BufferGeometry().setFromPoints([
+        new T.Vector3(...from),
+        new T.Vector3(...to),
+      ]);
+      mesh = new T.Line(geo, new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "label") {
+      // Text floating in 3D space — axis labels for charts, named
+      // electrodes for anatomical scenes, repo names atop towers.
+      // Implemented as a canvas-textured sprite so the text always
+      // faces the camera (regardless of scene rotation). obj.text
+      // is the string; size controls render scale (default ~0.5
+      // works for short labels).
+      const text = String(obj.text || "");
+      const cnv = document.createElement("canvas");
+      const ctx = cnv.getContext("2d");
+      const fontPx = 64;
+      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+      const metrics = ctx.measureText(text);
+      cnv.width = Math.max(64, Math.ceil(metrics.width) + 20);
+      cnv.height = fontPx + 20;
+      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+      ctx.fillStyle = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      ctx.fillText(text, cnv.width / 2, cnv.height / 2);
+      const tex = new T.CanvasTexture(cnv);
+      const mat = new T.SpriteMaterial({ map: tex, transparent: true });
+      mesh = new T.Sprite(mat);
+      const scale = size || 0.5;
+      mesh.scale.set(scale * (cnv.width / cnv.height), scale, 1);
     }
     if (mesh) {
       if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
