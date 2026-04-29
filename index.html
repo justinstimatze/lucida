@@ -736,35 +736,47 @@ function setupAutoPan(container, content, opts) {
     }
 
     // Strip-pan fallback for non-table overflow (mermaid SVGs, etc).
-    const stride = (size, container, ratio) =>
-      Math.max(1, Math.floor((size - container) / Math.max(1, container * ratio)));
+    // Generate evenly-distributed frames per axis: at least 3 frames
+    // (start / middle / end) when overflow is meaningful, more if
+    // needed to keep ≤70% jump between frames. Per user 2026-04-29:
+    // the prior floor()-based stride generated only corner waypoints
+    // for typical overflow sizes, so the camera tour skipped the
+    // interior of the diagram and "shows almost only the edges."
+    const axisFrames = (overflow, containerSize) => {
+      if (overflow <= 20) return [0];
+      const minFrames = overflow > containerSize * 0.4 ? 3 : 2;
+      const overlapStep = (opts && opts.overlap != null ? 1 - opts.overlap : 0.7);
+      const byStride = Math.ceil(overflow / (containerSize * overlapStep)) + 1;
+      const n = Math.max(minFrames, byStride);
+      const frames = [];
+      for (let i = 0; i < n; i++) {
+        frames.push(-(i * overflow / (n - 1)));
+      }
+      return frames;
+    };
+
     const waypoints = [];
-    const ratio = (opts && opts.overlap != null ? opts.overlap : 0.3); // 30% overlap between frames
-    const step = 1 - ratio;
     if (columnAnchors) {
       for (const x of columnAnchors) waypoints.push({ x, y: 0 });
     } else if (overflowX && !overflowY) {
-      const n = stride(iRect.width, cRect.width, step) + 1;
-      for (let i = 0; i <= n; i++) {
-        const x = -Math.min(i * cRect.width * step, iRect.width - cRect.width);
+      for (const x of axisFrames(iRect.width - cRect.width, cRect.width)) {
         waypoints.push({ x, y: 0 });
       }
     } else if (overflowY && !overflowX) {
-      const n = stride(iRect.height, cRect.height, step) + 1;
-      for (let i = 0; i <= n; i++) {
-        const y = -Math.min(i * cRect.height * step, iRect.height - cRect.height);
+      for (const y of axisFrames(iRect.height - cRect.height, cRect.height)) {
         waypoints.push({ x: 0, y });
       }
     } else {
-      const cols = stride(iRect.width, cRect.width, step) + 1;
-      const rows = stride(iRect.height, cRect.height, step) + 1;
-      for (let r = 0; r <= rows; r++) {
-        for (let c = 0; c <= cols; c++) {
-          const x = -Math.min(c * cRect.width * step, iRect.width - cRect.width);
-          const y = -Math.min(r * cRect.height * step, iRect.height - cRect.height);
-          waypoints.push({ x, y });
-        }
-      }
+      const xFrames = axisFrames(iRect.width - cRect.width, cRect.width);
+      const yFrames = axisFrames(iRect.height - cRect.height, cRect.height);
+      // Row-major sweep with serpentine reversal — left-to-right on
+      // even rows, right-to-left on odd rows. Avoids the long diagonal
+      // jump from row-end back to row-start that would feel like a
+      // teleport between dwells.
+      yFrames.forEach((y, r) => {
+        const xs = (r % 2 === 0) ? xFrames : [...xFrames].reverse();
+        for (const x of xs) waypoints.push({ x, y });
+      });
     }
     // De-duplicate AND collapse near-duplicates. Strip-pan with 30%
     // overlap on small-overflow content produces clusters of waypoints
