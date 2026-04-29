@@ -877,23 +877,39 @@ body > .a-orientation-modal {
   left: 0;
   width: 100vw;
   height: var(--lcars-bar-h);
-  /* Segmented bus: orange base with thin black dividers every 80px,
-     the canonical LCARS look where each segment is an addressable
-     "cell" of the data bus. The base color stays --accent so the bar
-     still tracks theme; the divider stripes are layered on top via
-     repeating-linear-gradient. Earlier ambient scroll animation
-     was removed — at 14s/cycle the eye still tracked the motion,
-     reading as "weird sliding chrome" instead of ambient liveness. */
-  background:
-    repeating-linear-gradient(90deg, transparent 0, transparent 78px, var(--bg) 78px, var(--bg) 80px),
-    var(--accent);
+  /* Multi-color segmented bus per canonical Okudagram LCARS: each
+     segment is a different hue from the LCARS palette (orange, peach,
+     magenta, lavender, yellow), with thin var(--bg) dividers between
+     segments. Asymmetric widths (80/60/100/80/60) read as "designed
+     panels" rather than "tiled stripes" — real LCARS chrome never
+     uses uniform widths. The 396px cycle is wide enough that the
+     repeat doesn't read as obviously periodic at typical viewport
+     widths. First segment is --data-cat-0 (orange) so it abuts the
+     orange elbow without a color seam at the corner. */
+  background: repeating-linear-gradient(
+    90deg,
+    var(--data-cat-0) 0 80px,
+    var(--bg) 80px 84px,
+    var(--data-cat-1) 84px 144px,
+    var(--bg) 144px 148px,
+    var(--data-cat-2) 148px 248px,
+    var(--bg) 248px 252px,
+    var(--data-cat-3) 252px 332px,
+    var(--bg) 332px 336px,
+    var(--data-cat-4) 336px 396px,
+    var(--bg) 396px 400px
+  );
   z-index: 250;
   pointer-events: none;
   border-radius: 0 14px 14px 0;
 }
 /* LCARS vertical left pillar — full page height, drawn above the top bar
-   so the corner overlap stays a single solid block. Same segmented-bus
-   pattern as the top bar but rotated 90° (vertical dividers). */
+   so the corner overlap stays a single solid block. Same multi-color
+   segmented-bus pattern as the top bar but vertical (180deg = top→bottom)
+   so the first segment is at the corner adjacent to the elbow. The 5
+   visible segments cycle through the same five LCARS hues as the bar,
+   so a horizontal scan along the bar and a vertical scan down the pillar
+   share the same color vocabulary. */
 .theme-lcars body::after {
   content: "";
   position: fixed;
@@ -901,9 +917,19 @@ body > .a-orientation-modal {
   left: 0;
   bottom: 0;
   width: var(--lcars-pillar-w);
-  background:
-    repeating-linear-gradient(0deg, transparent 0, transparent 78px, var(--bg) 78px, var(--bg) 80px),
-    var(--accent);
+  background: repeating-linear-gradient(
+    180deg,
+    var(--data-cat-0) 0 80px,
+    var(--bg) 80px 84px,
+    var(--data-cat-1) 84px 144px,
+    var(--bg) 144px 148px,
+    var(--data-cat-2) 148px 248px,
+    var(--bg) 248px 252px,
+    var(--data-cat-3) 252px 332px,
+    var(--bg) 332px 336px,
+    var(--data-cat-4) 336px 396px,
+    var(--bg) 396px 400px
+  );
   z-index: 251;
   pointer-events: none;
 }
