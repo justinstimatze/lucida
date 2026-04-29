@@ -88,10 +88,15 @@ main {
   flex-direction: row;
   align-items: flex-start;
   gap: 0.75rem;
+  /* When N sessions can't all fit at min column width, scroll horizontally
+     instead of crushing every column unreadable. Active sessions roll off
+     the mtime window naturally so the column count self-bounds over time. */
+  overflow-x: auto;
 }
 .session-column {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 320px;
+  min-width: 320px;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
