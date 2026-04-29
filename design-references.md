@@ -232,6 +232,82 @@ arc: we built three custom layouts before checking that Tufte +
 Gestalt + Hick already named what we were doing, and that Muuri /
 GridStack / D3 / jsPlumb already shipped most of it. Don't repeat that.
 
+## Information visualization principles for dense cells
+
+Captured 2026-04-29 when working out the response to dense mermaid cells
+(cell-1015 had 5 orphans + 3 multi-node clusters in one frame, rendered
+too small to read). The literature offers a small set of canonical
+answers, each targeting a specific failure mode. Use this as the
+decision tree before adding mitigations.
+
+### Shneiderman's Visual Information Seeking Mantra (1996)
+"Overview first, zoom and filter, then details-on-demand." The most-
+cited principle for designing info-rich interfaces. Maps to **overview
++ detail** patterns (minimap, sparkline-as-summary). When a lucida cell
+is dense enough to need orientation, the rigorous answer is to provide
+the overview alongside the detail rather than expecting the reader to
+maintain mental orientation themselves. Source: Shneiderman, *The eyes
+have it: A task by data type taxonomy for information visualizations*,
+IEEE VL 1996. <https://www.cs.umd.edu/~ben/papers/Shneiderman1996eyes.pdf>
+
+### Holten — hierarchical edge bundling (2006)
+Treats edges between leaves of a hierarchy as B-spline curves attracted
+to common ancestor paths, dramatically reducing visual clutter on
+networks with many cross-connections. Peer-reviewed, well-validated for
+graph readability. Specific to one failure mode (hairball graphs with
+many crossings) but the gold standard within that mode. Source:
+*Hierarchical Edge Bundles*, IEEE TVCG 2006. The d3-bundle and Cytoscape
+plugins are mature implementations.
+<https://aviz.fr/wiki/uploads/Teaching2014/bundles_infovis.pdf>
+
+### Bederson — semantic zoom (Pad++, 1994)
+Different levels-of-detail at different zoom factors: far view shows
+clusters as single nodes, mid view shows nodes, close view shows labels
+and edges. Foundation pattern for the lucida click-zoom dialog — when
+the dialog opens, re-render at higher detail rather than just enlarging
+pixels. Source: Bederson & Hollan, *Pad++: A Zooming Graphical Interface
+for Exploring Alternate Interface Physics*, UIST 1994. Modern descendants:
+deck.gl, OpenSeadragon, ZoomCharts.
+<https://www.cs.umd.edu/~bederson/papers/uist-94-pad.pdf>
+
+### Furnas — generalized fisheye view (1986)
+Focus + context lens: the focus region renders large, surrounding
+context shrinks but stays visible (no hard cutoff). Classic but
+implementation-tricky — easy to make a fisheye, hard to make one that
+preserves layout legibility. Lower priority for first pass at lucida.
+Source: Furnas, *Generalized Fisheye Views*, CHI 1986.
+<https://dl.acm.org/doi/10.1145/22627.22342>
+
+### Shneiderman — treemaps (1991)
+Canonical answer for hierarchical data: nested rectangles where size
+encodes a quantitative attribute and nesting encodes hierarchy. Lucida's
+mermaid + vega vocabularies miss this: file trees, cluster sizes, and
+mint distributions over time read better as treemaps than as flowcharts-
+with-labels. Adding `treemap` as a substrate type via vega-lite is the
+cleanest path. Source: Johnson & Shneiderman, *Tree-maps: A space-filling
+approach to the visualization of hierarchical information structures*,
+IEEE Visualization 1991. <https://www.cs.umd.edu/~ben/papers/Johnson1991Tree.pdf>
+
+### Tufte — small multiples (1983)
+Already cross-referenced under "Edward Tufte" in the HCI section above.
+Re-anchored here as the primary answer to "too much in one frame":
+split into N panes, each readable, varying one parameter. For lucida,
+the architectural application is splitting a multi-subgraph mermaid
+spec into N cells (one per subgraph) before persistence — each cell
+gets full pixels for its cluster, the dashboard layout encodes the
+relationships between them. This is the most-cited info-viz principle
+and the foundation move for the dense-cell problem. Source: *The Visual
+Display of Quantitative Information* (1983), *Envisioning Information*
+(1990).
+
+### Decision tree by failure mode
+- Too many entities for one frame → **small multiples** (Tufte). Foundation.
+- Hairball / many edge crossings → **edge bundling** (Holten).
+- Hierarchy too deep → **treemap** (Shneiderman 1991).
+- Need orientation alongside detail → **overview + detail** (Shneiderman 1996 mantra).
+- Different LODs at different zooms → **semantic zoom** (Bederson).
+- Reader needs to inspect a focus region without losing context → **focus + context** (Furnas).
+
 ## Theme strategy: design tokens, one source of truth
 
 A theme is more than a CSS palette — it has to reach every substrate
