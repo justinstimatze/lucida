@@ -677,6 +677,123 @@ function lazyMount(target, render, teardown) {
   io.observe(target);
 }
 
+// Auto-pan camera tour for cells whose intrinsic content exceeds the
+// cell viewport (dense mermaid SVGs, wide html tables). Furnas
+// focus+context principle (design-references.md) applied with animated
+// camera moves: detect overflow, compute waypoints across the content,
+// animate transform: translate(x,y) between them with a dwell at each
+// position, loop. Automatic — no user interaction required. Honors
+// prefers-reduced-motion (no animation), pauses on hover (so the
+// reader can stop and inspect a frame), and pauses when the cell is
+// offscreen via IntersectionObserver (no cycles burned in periphery).
+//
+// Caller is responsible for setting `content` to its natural size
+// BEFORE calling this — for mermaid, that means overriding the SVG's
+// auto-fit width/height so the natural pixel dimensions are used.
+function setupAutoPan(container, content, opts) {
+  if (!container || !content) return;
+  const reducedMotion = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducedMotion) return;
+
+  // Defer one frame so the browser has measured the rendered content.
+  requestAnimationFrame(() => {
+    const cRect = container.getBoundingClientRect();
+    const iRect = content.getBoundingClientRect();
+    if (cRect.width < 80 || cRect.height < 60) return;  // too small to bother
+
+    const overflowX = iRect.width - cRect.width > 20;
+    const overflowY = iRect.height - cRect.height > 20;
+    if (!overflowX && !overflowY) return;
+
+    // Build waypoints. Single-axis overflow gets a strip pan; both-axis
+    // overflow gets a row-major sweep (left-to-right, then drop a row).
+    const stride = (size, container, ratio) =>
+      Math.max(1, Math.floor((size - container) / Math.max(1, container * ratio)));
+    const waypoints = [];
+    const ratio = (opts && opts.overlap != null ? opts.overlap : 0.3); // 30% overlap between frames
+    const step = 1 - ratio;
+    if (overflowX && !overflowY) {
+      const n = stride(iRect.width, cRect.width, step) + 1;
+      for (let i = 0; i <= n; i++) {
+        const x = -Math.min(i * cRect.width * step, iRect.width - cRect.width);
+        waypoints.push({ x, y: 0 });
+      }
+    } else if (overflowY && !overflowX) {
+      const n = stride(iRect.height, cRect.height, step) + 1;
+      for (let i = 0; i <= n; i++) {
+        const y = -Math.min(i * cRect.height * step, iRect.height - cRect.height);
+        waypoints.push({ x: 0, y });
+      }
+    } else {
+      // Both axes — row-major sweep.
+      const cols = stride(iRect.width, cRect.width, step) + 1;
+      const rows = stride(iRect.height, cRect.height, step) + 1;
+      for (let r = 0; r <= rows; r++) {
+        for (let c = 0; c <= cols; c++) {
+          const x = -Math.min(c * cRect.width * step, iRect.width - cRect.width);
+          const y = -Math.min(r * cRect.height * step, iRect.height - cRect.height);
+          waypoints.push({ x, y });
+        }
+      }
+    }
+    // De-duplicate consecutive waypoints (clamping at the end produces
+    // copies when content is only slightly larger than container).
+    const dedup = [];
+    for (const wp of waypoints) {
+      const last = dedup[dedup.length - 1];
+      if (!last || last.x !== wp.x || last.y !== wp.y) dedup.push(wp);
+    }
+    if (dedup.length < 2) return;
+
+    container.style.overflow = "hidden";
+    content.style.transformOrigin = "top left";
+    content.style.transition = "transform 1100ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+    content.style.willChange = "transform";
+
+    let i = 0;
+    let timer = null;
+    let paused = false;
+    let visible = true;
+    const dwell = (opts && opts.dwellMs != null) ? opts.dwellMs : 3200;
+
+    const tick = () => {
+      timer = null;
+      if (paused || !visible) return;
+      const wp = dedup[i];
+      content.style.transform = `translate(${wp.x.toFixed(1)}px, ${wp.y.toFixed(1)}px)`;
+      i = (i + 1) % dedup.length;
+      timer = setTimeout(tick, dwell);
+    };
+
+    container.addEventListener("mouseenter", () => { paused = true; });
+    container.addEventListener("mouseleave", () => {
+      paused = false;
+      if (visible && timer === null) tick();
+    });
+
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        visible = e.isIntersecting;
+        if (visible && !paused && timer === null) {
+          tick();
+        } else if (!visible && timer !== null) {
+          clearTimeout(timer); timer = null;
+        }
+      }
+    }, { rootMargin: "200px" });
+    io.observe(container);
+
+    // Stash on container so cell tear-down (rerenderNotebook clears
+    // _lazyObserver, etc) can find and disconnect.
+    container._autoPanObserver = io;
+    container._autoPanTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
+
+    // Kick off after first paint settles.
+    setTimeout(tick, 600);
+  });
+}
+
 // Token expansion for cell specs: $accent, $stroke1, $stroke2, $stroke3,
 // $fg, $muted, $bg, $panel. Substituted before innerHTML / scene3d render
 // so cell content re-colors with theme.
@@ -2228,6 +2345,27 @@ function renderCell(c, snippetGroups) {
         await mermaid.parse(c.spec);
         const { svg } = await mermaid.render(`m-${c.id}`, c.spec);
         target.innerHTML = svg;
+        // Auto-pan: if the rendered SVG's natural pixel size exceeds the
+        // cell viewport, override mermaid's auto-fit and pan instead.
+        // Mermaid normally sets the SVG to fit container width, which
+        // shrinks dense diagrams below readability (cell-1015 pattern).
+        const svgEl = target.querySelector("svg");
+        if (svgEl) {
+          const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+          if (vb && vb.width > 0 && vb.height > 0) {
+            const cw = target.getBoundingClientRect().width || 0;
+            // Render at natural size only when the diagram would otherwise
+            // shrink to the point of unreadability — heuristic: viewBox
+            // width is at least 30% wider than the cell.
+            if (cw > 0 && vb.width > cw * 1.3) {
+              svgEl.removeAttribute("style");
+              svgEl.style.maxWidth = "none";
+              svgEl.style.width = vb.width + "px";
+              svgEl.style.height = vb.height + "px";
+              setupAutoPan(target, svgEl);
+            }
+          }
+        }
       } catch (err) {
         target.classList.add("mermaid-error");
         target.textContent = "mermaid render error: " +
@@ -2238,7 +2376,16 @@ function renderCell(c, snippetGroups) {
   } else if (c.cell_type === "html" && c.html) {
     const target = el("div", "html-target");
     body.appendChild(target);
-    const renderHtml = () => { target.innerHTML = c.html; };
+    const renderHtml = () => {
+      // Wrap content in an inner div so auto-pan can transform the wrap
+      // while target stays fixed and clips overflow. No-op for html that
+      // fits the cell — setupAutoPan returns early on no overflow.
+      const wrap = el("div", "html-pan-wrap");
+      wrap.innerHTML = c.html;
+      target.innerHTML = "";
+      target.appendChild(wrap);
+      setupAutoPan(target, wrap);
+    };
     lazyMount(target, renderHtml);
   } else if (c.cell_type === "animated_svg" && c.spec) {
     const target = el("div", "svg-target");

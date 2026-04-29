@@ -575,7 +575,32 @@ main {
      filter banded into a saturated vertical bar at certain
      zoom/DPR combos. overflow: hidden clips overwide SVGs cleanly;
      mermaid auto-fits most graphs to container width via SVG
-     viewBox, so visible loss is minimal. Per audit 2026-04-28. */
+     viewBox, so visible loss is minimal. Per audit 2026-04-28.
+     Auto-pan tour (Furnas focus+context) overrides the auto-fit on
+     diagrams that would shrink past readability — see index.html
+     setupAutoPan + the renderMermaid hook. */
+  overflow: hidden;
+  position: relative;  /* establish containing block for transformed children */
+}
+/* Auto-pan wrap: wrapper inside .html-target whose transform is animated
+   when the inner content overflows the cell. Keeps the target itself
+   stable (overflow-clipping context) while panning the wrap.
+   width: max-content sizes the wrap to its intrinsic content, so wide
+   tables overflow the cell visibly (instead of shrinking) and
+   setupAutoPan's overflow detection (wrap rect > target rect) fires.
+   Tables retain their natural layout including their own min-content. */
+.html-pan-wrap {
+  display: block;
+  width: max-content;
+  max-width: none;
+}
+/* The wrap may also be narrower than the target when content fits — in
+   that case it should still fill the target so the cell doesn't show
+   awkward whitespace. min-width on the wrap, plus the auto-pan early-
+   return on no-overflow, handles both cases. */
+.html-pan-wrap { min-width: 100%; }
+.html-target {
+  position: relative;
   overflow: hidden;
 }
 /* vega-embed sets inline `display: inline-block` on the wrapper which
