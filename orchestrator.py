@@ -854,6 +854,77 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     # with the evaluator's corrective brief as feedback. Bounded by
     # max_retriggers and the LUCIDA_RETRIGGER_SCORE_FLOOR env var.
     cells_to_write: list[CellProposal] = [proposal]
+
+    # Tufte small-multiples split: when a mermaid spec has 2+ subgraphs,
+    # one cell becomes N sibling cells (one per subgraph). The dashboard's
+    # ambient grid handles N siblings the same as N independent cells; the
+    # dropped inter-subgraph edges become adjacency-on-the-dashboard. See
+    # design-references.md "Tufte — small multiples".
+    if chosen_type == "mermaid" and non_image_spec is not None:
+        try:
+            import specialists as _specs_split
+            children = _specs_split.split_mermaid_subgraphs(non_image_spec)
+        except Exception:
+            children = None
+        if children:
+            sibling_group = cell_id  # parent's id labels the sibling group
+            cells_to_write = []
+            for i, (child_spec, child_label) in enumerate(children):
+                child_id = (
+                    cell_id if i == 0
+                    else f"cell-{int(cell_id.split('-')[1]) + i:04d}"
+                )
+                # Edge/node count for caption suffix. Strip [...] label
+                # content first so arrows inside node labels (e.g.
+                # O1["A\n--Disputes-->\nB"]) don't misread as edges.
+                def _strip_brackets(s: str) -> str:
+                    out, depth = [], 0
+                    for ch in s:
+                        if ch == "[":
+                            depth += 1
+                        elif ch == "]":
+                            depth = max(0, depth - 1)
+                        elif depth == 0:
+                            out.append(ch)
+                    return "".join(out)
+                body_lines = child_spec.split("\n")[1:]  # drop header
+                n_edges = sum(
+                    1 for ln in body_lines
+                    if any(arr in _strip_brackets(ln) for arr in ("-->", "-.->", "==>", "---"))
+                )
+                n_nodes = sum(
+                    1 for ln in body_lines
+                    if ln.strip()
+                    and not any(arr in _strip_brackets(ln) for arr in ("-->", "-.->", "==>", "---"))
+                    and "subgraph" not in ln
+                    and ln.strip() != "end"
+                )
+                child_caption = (
+                    f"{child_label} — {n_nodes} node{'s' if n_nodes != 1 else ''}"
+                    + (f", {n_edges} edge{'s' if n_edges != 1 else ''}" if n_edges else "")
+                )
+                child_notes = (
+                    f"small-multiples child {i + 1}/{len(children)} of {sibling_group} "
+                    f"[{classifier_label}]{gate_note}"
+                )
+                child_proposal = CellProposal(
+                    id=child_id,
+                    timestamp=now_iso(),
+                    cell_type="mermaid",
+                    trigger_snippet=snippet.strip(),
+                    prompt=final_prompt,
+                    spec=child_spec,
+                    html=None,
+                    caption=child_caption,
+                    notes=child_notes,
+                    discourse_move=discourse_move,
+                    confidence=confidence,
+                    classifier_reasoning=classifier_reasoning,
+                    title=child_label[:60] if child_label else cell_title,
+                    session_id=session_id,
+                )
+                cells_to_write.append(child_proposal)
+            proposal = cells_to_write[0]  # function return: first child stands in
     if generate_image and chosen_type == "image":
         out_dir = Path(__file__).parent / "cells"
 

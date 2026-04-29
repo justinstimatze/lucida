@@ -144,6 +144,89 @@ def _result(inp: dict, raw: dict, model: str, spec_field: str = "spec") -> Speci
     )
 
 
+def split_mermaid_subgraphs(spec: str) -> list[tuple[str, str]] | None:
+    """Tufte small-multiples split for mermaid graph/flowchart specs.
+
+    Parses a mermaid spec; if it has 2+ top-level subgraph blocks,
+    returns [(child_spec, child_label), ...] — one entry per subgraph,
+    each a complete standalone graph spec preserving the original
+    diagram type and the subgraph's full body (nodes + intra-subgraph
+    edges).
+
+    Top-level edges (declared outside any subgraph) are dropped: under
+    Tufte's small-multiples principle, the inter-cluster relationships
+    become adjacency-on-the-dashboard rather than rendered edges. The
+    layout's proximity carries that information once the cells are
+    siblings.
+
+    Returns None when no split is appropriate (no graph header, fewer
+    than 2 subgraphs, or non-flowchart diagram type).
+    """
+    if not spec or not isinstance(spec, str):
+        return None
+    lines = spec.split("\n")
+
+    header = ""
+    body_start = 0
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith(("graph ", "flowchart ")):
+            header = s
+            body_start = i + 1
+            break
+        return None
+    if not header:
+        return None
+
+    subgraphs: list[tuple[str, list[str]]] = []
+    current_label: str | None = None
+    current_body: list[str] = []
+    depth = 0
+
+    for line in lines[body_start:]:
+        stripped = line.strip()
+        if stripped.startswith("subgraph "):
+            if depth == 0:
+                rest = stripped[len("subgraph "):].strip()
+                if "[" in rest and "]" in rest:
+                    label = rest[rest.index("[") + 1:rest.rindex("]")].strip().strip('"').strip("'")
+                else:
+                    label = rest.split(None, 1)[0] if rest else "subgraph"
+                current_label = label
+                current_body = []
+                depth = 1
+            else:
+                current_body.append(line)
+                depth += 1
+        elif stripped == "end":
+            if depth >= 1:
+                depth -= 1
+                if depth == 0:
+                    subgraphs.append((current_label or "subgraph", current_body))
+                    current_label = None
+                    current_body = []
+                else:
+                    current_body.append(line)
+        elif depth >= 1:
+            current_body.append(line)
+        # depth == 0 lines outside subgraphs (top-level edges, blanks) are dropped
+
+    if len(subgraphs) < 2:
+        return None
+
+    children: list[tuple[str, str]] = []
+    for label, body in subgraphs:
+        body_text = "\n".join(body).rstrip()
+        if not body_text.strip():
+            continue
+        child_spec = f"{header}\n{body_text}"
+        children.append((child_spec, label))
+
+    return children if len(children) >= 2 else None
+
+
 # ============================================================
 # MERMAID
 # ============================================================
