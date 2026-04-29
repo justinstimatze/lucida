@@ -514,11 +514,45 @@ def _trivial_mermaid(spec) -> str | None:
     if not isinstance(spec, str) or not spec.strip():
         return None
     lines = [l.strip() for l in spec.splitlines() if l.strip()]
-    node_decls = [l for l in lines if re.match(r'^\w+\s*[\[\({]', l)]
-    if len(node_decls) < 3:
-        return f"too few nodes ({len(node_decls)} declared) -- a 1-2 node graph reads as prose"
+    if not lines:
+        return None
+    # Subtype gate: the node/edge-count heuristic is flowchart-specific.
+    # Mindmap, timeline, sankey-beta, sequenceDiagram, stateDiagram-v2,
+    # quadrantChart use different syntax — `^\w+\s*[\[\({]` matches none
+    # of them and would false-positive every cell as "0 nodes". Only
+    # apply the filter to flowchart / graph specs. (Bucket-2 added the
+    # other subtypes 2026-04-29; trivial-filter wasn't updated, demoting
+    # ~50% of recent mermaid cells into text. Per user 2026-04-29.)
+    header = lines[0].lower()
+    is_flowchart = header.startswith("graph ") or header.startswith("flowchart ")
+    if not is_flowchart:
+        return None
+    # Count unique node identifiers across explicit declarations AND edge
+    # endpoints. The old `^\w+\s*[\[\({]` only catches bracketed declarations
+    # like `A[Label]` and missed inline syntax like `A --> B`, which is
+    # legal flowchart mermaid. False-positived "0 nodes" on minimal-syntax
+    # flowcharts. Now: scan all lines, pull out any identifier that appears
+    # at the start (declaration) or as an edge endpoint.
+    nodes = set()
     edge_tokens = ["-->", "---", "-.->", ".->", "==>", "<--"]
     edge_lines = [l for l in lines if any(t in l for t in edge_tokens)]
+    for l in edge_lines:
+        # Grab identifiers from edge endpoints. Strip [...] / (...) / {...}
+        # node-shape brackets first so e.g. `A[Foo] --> B(Bar)` yields A, B.
+        cleaned = re.sub(r'[\[\(\{][^\]\)\}]*[\]\)\}]', '', l)
+        # Split on edge tokens to get LHS / RHS endpoints.
+        parts = re.split(r'-->|<--|-\.->|\.->|==>|---', cleaned)
+        for p in parts:
+            m = re.search(r'\b(\w+)\b', p.strip())
+            if m:
+                nodes.add(m.group(1))
+    # Plus explicit declarations (in case a node has no edges).
+    for l in lines:
+        m = re.match(r'^(\w+)\s*[\[\({]', l)
+        if m:
+            nodes.add(m.group(1))
+    if len(nodes) < 3:
+        return f"too few nodes ({len(nodes)} unique) -- a 1-2 node graph reads as prose"
     if not edge_lines:
         return "no edges (just a node list)"
     has_directed = any(
@@ -538,6 +572,14 @@ def _trivial_mermaid(spec) -> str | None:
 
 def _trivial_html(html: str | None) -> str | None:
     if not isinstance(html, str) or not html.strip():
+        return None
+    # Layout gate: row/cell counting is table-specific. Bucket-2 added
+    # callouts / dl / kanban layouts; their HTML uses <div class="callout">,
+    # <dl>/<dt>/<dd>, and column-grouped div structures with no <tr> tags.
+    # Falsely reports "too few rows (0)" on every non-table cell. Skip the
+    # check unless the html actually contains a <table>. Per user 2026-04-29
+    # — ~25 demotions/4hr were callouts/dl/kanban being false-positived.
+    if "<table" not in html.lower():
         return None
     rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, flags=re.IGNORECASE | re.DOTALL)
     if len(rows) < 2:
