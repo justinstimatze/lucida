@@ -69,6 +69,27 @@ Given a conversation snippet, decide three things:
 - **scene3d** / **aframe**: 3D scene with wireframe primitives, movie-interface aesthetic. Reach for this when the snippet's content is spatially arranged in 3D (anatomical layouts like EEG electrode placement on a scalp, hardware geometry, spatial topologies, depth-stacked layers, things you'd rotate to understand). A 2D mermaid graph flattens spatial information; rotation and depth recover it. Also fits "3D mental model" snippets where the user is conceptually navigating a volume. **Charts where depth carries information**: 3D extruded bar grids (multiple series × multiple categories with two grouping dimensions), surface plots (heightmap of a 2D function), 3D scatter (three quantitatives), tower / skyscraper data buildings — these read better as scene3d than as a flattened vega chart. The on-brand FUI vocabulary is "3D readout, not flat plot"; lean into scene3d for quantitative content with 3+ axes or where the chart would benefit from depth.
 - **lottie**: pre-authored animation. Empirically rare -- valid Lottie JSON is hard to ground from a snippet alone, so usually returns text. Pick lottie only if the snippet itself names a stock animation pattern (a heartbeat, a loading spinner, a wave) that a small Lottie spec could capture.
 
+# Shape hints for mermaid and html
+
+When cell_type is mermaid, also pick a `mermaid_subtype` matching the snippet's structural shape. The specialist will treat your pick as authoritative — it overrides the model's default-toward-flowchart bias on CS-domain content. Picking accurately here is the single biggest lever on within-substrate variety.
+
+- **timeline** — ordered events along a sequence/time axis. Snippet shape: "first X, then Y, then Z" / dated milestones / version history / pipeline stages / fallback chains (try X, fall back to Y).
+- **mindmap** — concept hierarchy: root + branches, no inter-branch edges. Snippet shape: "the components of X are A, B, C; A includes A1, A2" / pure attribute enumeration of one entity / CLI subcommand listings / config hierarchy.
+- **sankey-beta** — flows between nodes with numeric quantity. Snippet shape: "X people went to A, Y to B, Z to C" / budget allocation / funnel attrition / request routing volumes / energy flow.
+- **sequenceDiagram** — multi-actor message exchange in time order. Snippet shape: "user clicks submit, browser sends POST, server validates, DB returns, server enqueues, browser shows confirmation" / API call sequences / protocol exchanges.
+- **stateDiagram-v2** — finite states with transitions between them. Snippet shape: "X starts pending, becomes confirmed (on payment) or cancelled (on timeout); confirmed → shipped → delivered" / order lifecycles / connection state machines.
+- **quadrantChart** — 2x2 categorization on two named axes. Snippet shape: "high-impact-low-effort vs high-impact-high-effort vs low-impact-low-effort vs low-impact-high-effort" / priority matrices.
+- **flowchart** — directed graph of named entities with heterogeneous relationships. Default for stated structure: function flow / dependency map / schema diagram / architecture map. **Reach for this last** — only when none of the more-specific types fit. Code-domain conversation skews heavily toward this default; deliberately consider whether a specific alternative fits before picking flowchart.
+
+When cell_type is html, also pick an `html_layout`:
+
+- **table** — multi-entity × multi-dimension comparison. 2+ entities AND 2+ shared dimensions where the cross-product IS the insight.
+- **callouts** — single big number/value per item, foregrounded. Snippet shape: "X has 47, Y has 152, Z has 8" / status counts / mint volumes / single-stat readouts / score summaries.
+- **dl** — definition list / glossary / single-entity attribute bag. Snippet shape: "X means Y; Z means W" / function param documentation / config value listings.
+- **kanban** — items grouped by status, each status a column. Snippet shape: "in pending: A, B; in progress: C; done: D, E" / task boards / phase-of-rollout listings.
+
+If cell_type is not mermaid, set mermaid_subtype="n/a". If cell_type is not html, set html_layout="n/a".
+
 # Decision rules (learned from prior lucida classifications)
 
 - **Single numeric value → text, not vega.** "$10 trillion per year" is a fact, not a chart. A single bar communicates less than the prose. (cell-0007 was demoted for this reason.)
@@ -204,8 +225,19 @@ CLASSIFY_TOOL = {
                 "description": "Short title (3-6 words, sentence case, no trailing punctuation) summarizing the cell's content. Title must be grounded in the snippet — no metaphor, no decoration. Examples: 'Tier 3 WebGL swap', 'Multi-stream column layout', 'HUD bug root cause'. Distinct from the long-form reasoning field; this is the at-a-glance label that replaces the opaque cell-XXXX id in the renderer head.",
                 "maxLength": 60,
             },
+            "mermaid_subtype": {
+                "type": "string",
+                "enum": ["timeline", "mindmap", "sankey-beta", "sequenceDiagram",
+                         "stateDiagram-v2", "quadrantChart", "flowchart", "n/a"],
+                "description": "If cell_type=mermaid, the diagram subtype matching the snippet's shape. Use 'n/a' when cell_type is not mermaid. The shape-hint guidance section explains when each fits.",
+            },
+            "html_layout": {
+                "type": "string",
+                "enum": ["table", "callouts", "dl", "kanban", "n/a"],
+                "description": "If cell_type=html, the layout pattern matching the snippet's shape. Use 'n/a' when cell_type is not html. The shape-hint guidance section explains when each fits.",
+            },
         },
-        "required": ["discourse_move", "cell_type", "confidence", "reasoning", "title"],
+        "required": ["discourse_move", "cell_type", "confidence", "reasoning", "title", "mermaid_subtype", "html_layout"],
     },
 }
 
@@ -226,6 +258,8 @@ class ClassifierResult:
     cache_creation_tokens: int
     input_tokens: int
     output_tokens: int
+    mermaid_subtype: str = "n/a"
+    html_layout: str = "n/a"
 
 
 def classify(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> ClassifierResult:
@@ -277,6 +311,8 @@ def classify(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> Cla
                 cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
+                mermaid_subtype=inp.get("mermaid_subtype", "n/a") or "n/a",
+                html_layout=inp.get("html_layout", "n/a") or "n/a",
             )
 
     raise ClassifierError(

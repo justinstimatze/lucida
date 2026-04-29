@@ -618,6 +618,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     classifier_label = f"classifier(v0)→{auto_type_v0}"
     gate_note = ""
     chosen_type = cell_type or auto_type_v0
+    llm = None
 
     if llm_available and cell_type is None:
         try:
@@ -784,7 +785,16 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 "aframe": _specs.generate_aframe_spec,
                 "lottie": _specs.generate_lottie_spec,
             }
-            spec_result = fns[chosen_type](snippet, context)
+            specialist_kwargs: dict = {}
+            if chosen_type == "mermaid" and llm is not None:
+                hint = (llm.mermaid_subtype or "n/a")
+                if hint and hint != "n/a":
+                    specialist_kwargs["subtype_hint"] = hint
+            elif chosen_type == "html" and llm is not None:
+                hint = (llm.html_layout or "n/a")
+                if hint and hint != "n/a":
+                    specialist_kwargs["layout_hint"] = hint
+            spec_result = fns[chosen_type](snippet, context, **specialist_kwargs)
             spec_cache_info = (
                 f"cache:hit/{spec_result.cache_read_tokens}t" if spec_result.cache_read_tokens > 0
                 else f"cache:wrote/{spec_result.cache_creation_tokens}t" if spec_result.cache_creation_tokens > 0

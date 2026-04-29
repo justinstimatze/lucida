@@ -58,8 +58,13 @@ def _call_specialist(
     snippet: str,
     context: str,
     model: str,
+    shape_hint: str = "",
 ) -> dict:
-    """Shared API-call boilerplate. Returns dict with input + usage."""
+    """Shared API-call boilerplate. Returns dict with input + usage.
+
+    shape_hint, when non-empty, is prepended to the user message as an
+    authoritative override (the classifier's per-snippet shape pick).
+    """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise SpecialistError("ANTHROPIC_API_KEY not set in env or .env")
@@ -69,7 +74,8 @@ def _call_specialist(
         raise SpecialistError("anthropic SDK not installed") from e
 
     client = anthropic.Anthropic(api_key=api_key)
-    user_msg = f"Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
+    hint_block = f"[shape hint from classifier: {shape_hint}]\n\n" if shape_hint.strip() else ""
+    user_msg = f"{hint_block}Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
 
     try:
         response = client.messages.create(
@@ -145,6 +151,10 @@ def _result(inp: dict, raw: dict, model: str, spec_field: str = "spec") -> Speci
 MERMAID_SYSTEM = """You are the mermaid specialist for lucida. The classifier has decided this snippet warrants a structural diagram. Your job: produce valid mermaid syntax that's a faithful structural map of what the snippet says.
 
 Mermaid offers several diagram types — flowchart, mindmap, timeline, sankey-beta, sequenceDiagram, stateDiagram-v2, quadrantChart. Pick the type that matches the snippet's structural shape. Bias toward variety; if every cell on the dashboard is `graph LR`, the substrate reads as monotonous. Default to flowchart only when none of the more-specific types fit.
+
+# Shape hint from classifier (authoritative)
+
+If the user message starts with `[shape hint from classifier: diagram type = X. ...]`, the classifier has already inspected this snippet and picked X based on its shape. Treat that as authoritative — produce an X-typed spec. The classifier sees a different framing of the snippet than you do and is upstream of you in the pipeline; its pick overrides your defaults. The only way to refuse the hint is to demote to text (set should_demote_to_text=true with a one-line demotion_reason explaining why even the hinted shape can't be grounded). Do not silently downgrade an X hint to flowchart.
 
 # Pick the diagram type
 
@@ -290,8 +300,16 @@ MERMAID_TOOL = {
 }
 
 
-def generate_mermaid_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(MERMAID_SYSTEM, MERMAID_TOOL, "build_mermaid_spec", snippet, context, model)
+def generate_mermaid_spec(
+    snippet: str,
+    context: str = "",
+    model: str = DEFAULT_MODEL,
+    subtype_hint: str = "",
+) -> SpecialistResult:
+    hint = ""
+    if subtype_hint and subtype_hint != "n/a":
+        hint = f"diagram type = {subtype_hint}. Produce a {subtype_hint} spec unless the snippet shape genuinely cannot support it (in which case demote to text)"
+    raw = _call_specialist(MERMAID_SYSTEM, MERMAID_TOOL, "build_mermaid_spec", snippet, context, model, shape_hint=hint)
     return _result(raw["input"], raw, model)
 
 
@@ -412,6 +430,10 @@ HTML_SYSTEM = """You are the html specialist for lucida. The classifier has deci
 
 The substrate supports four layout patterns. Pick the one that matches the snippet's structural shape; do not default to <table>. Bias toward variety; if every html cell is a comparison table, the dashboard reads as monotonous.
 
+# Shape hint from classifier (authoritative)
+
+If the user message starts with `[shape hint from classifier: layout pattern = X. ...]`, the classifier has already inspected this snippet and picked X based on its shape. Treat that as authoritative — produce an X-pattern layout. The classifier sees a different framing of the snippet than you do and is upstream of you in the pipeline; its pick overrides your defaults. The only way to refuse the hint is to demote to text (set should_demote_to_text=true with a one-line demotion_reason explaining why even the hinted layout can't be grounded). Do not silently downgrade a callouts/dl/kanban hint to <table>.
+
 # Pick the layout pattern
 
 Match snippet shape to layout. Prefer the most specific fit.
@@ -519,8 +541,16 @@ HTML_TOOL = {
 }
 
 
-def generate_html_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(HTML_SYSTEM, HTML_TOOL, "build_html_spec", snippet, context, model)
+def generate_html_spec(
+    snippet: str,
+    context: str = "",
+    model: str = DEFAULT_MODEL,
+    layout_hint: str = "",
+) -> SpecialistResult:
+    hint = ""
+    if layout_hint and layout_hint != "n/a":
+        hint = f"layout pattern = {layout_hint}. Produce a {layout_hint} layout unless the snippet shape genuinely cannot support it (in which case demote to text)"
+    raw = _call_specialist(HTML_SYSTEM, HTML_TOOL, "build_html_spec", snippet, context, model, shape_hint=hint)
     return _result(raw["input"], raw, model, spec_field="html")
 
 
