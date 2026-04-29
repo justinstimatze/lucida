@@ -223,6 +223,27 @@ main {
   max-height: 32vh;
   overflow: hidden;
   position: relative;
+  /* Container query context so .cell-head can hide low-priority chips
+     in narrow cells. Per user 2026-04-29 — narrow ambient cells had
+     ~280px head width with chips totaling ~280px, leaving the title
+     truncated to "B..", "STAN..", etc. Container-type: inline-size
+     observes only the cell's width, doesn't shrink-fit the cell to
+     content; flex sizing above (line 209) still drives the actual
+     dimensions. */
+  container-type: inline-size;
+}
+/* Narrow-cell chip prioritization: cell-move + cell-conf chips are
+   the lowest-signal of the head row (substrate type already conveys
+   discourse; confidence is reference-only). Hide them when the cell
+   is under ~360px wide so the title gets the freed space. The
+   chips are still in the DOM (kept for searchability / a11y); just
+   visually hidden. cell-id stays (zoom target) and cell-time stays
+   (HH:MM is now compact). */
+@container (max-width: 360px) {
+  .cell-move,
+  .cell-conf {
+    display: none;
+  }
 }
 /* All-four-edge feathered fade. Per user 2026-04-29: every edge
    should have the nice blur/fade effect the bottom edge had.
