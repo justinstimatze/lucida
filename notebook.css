@@ -158,13 +158,15 @@ main {
   opacity: 0;
   transition: opacity 0.2s;
 }
-/* Auto-mode (?session=auto): slightly tighter heights than single-mode
-   so the cap-N tile lands close to one viewport. Trade-off — perfect
-   viewport-fit at the cell counts we want needs importance-weighted
-   tiling (squarified treemap). For now, ambient ~28vh (vs single-mode
-   32vh) keeps cells legible while shrinking the overall grid height. */
-#notebook[data-auto] > .cell { max-height: 28vh; }
-#notebook[data-auto] > .cell:first-child { max-height: 38vh; }
+/* Auto-mode (?session=auto): cells size to content within the cap-N
+   tile. Removing the max-height (was 22vh, then 28vh) lets each cell
+   show its full body up to a soft ceiling — the per-cell trim from the
+   density commit + cell-count cap already bound total grid height.
+   Treemap (importance-weighted tiling) is the proper structural fix
+   for "fit viewport AND show full content"; this just removes the
+   half-clip that was masking content. */
+#notebook[data-auto] > .cell { max-height: 50vh; }
+#notebook[data-auto] > .cell:first-child { max-height: 55vh; }
 .cell.cell-overflow::after { opacity: 1; }
 /* Tier 1: hero — newest cell. Full row, larger padding + font, more
    prominent. Allowed slightly more vertical room than ambient cells
@@ -394,6 +396,33 @@ main {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  margin-bottom: 0.2rem;
+}
+/* Auto-mode: collapse the trigger/prompt summary chips to thin invisible
+   strips (still clickable / discoverable on hover or keyboard focus) so
+   they stop eating ~80px of body real estate per cell. The cell still
+   contains the data — the click-target just dims to a hairline until
+   the user reaches for it. */
+#notebook[data-auto] .cell-trigger,
+#notebook[data-auto] .cell-prompt {
+  margin: 0.15rem 0;
+}
+#notebook[data-auto] .cell-trigger:not([open]) summary,
+#notebook[data-auto] .cell-prompt:not([open]) summary {
+  font-size: 0;
+  opacity: 0;
+  margin: 0;
+  height: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+  transition: opacity 0.15s ease, font-size 0.15s ease, height 0.15s ease;
+}
+#notebook[data-auto] .cell:hover .cell-trigger:not([open]) summary,
+#notebook[data-auto] .cell:hover .cell-prompt:not([open]) summary,
+#notebook[data-auto] .cell-trigger:not([open]) summary:focus-visible,
+#notebook[data-auto] .cell-prompt:not([open]) summary:focus-visible {
+  font-size: 0.75rem;
+  opacity: 1;
+  height: auto;
   margin-bottom: 0.2rem;
 }
 .cell-trigger pre, .cell-prompt pre {
