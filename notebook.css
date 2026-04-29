@@ -225,11 +225,15 @@ main {
    clobbered). Four layered linear-gradients, one per edge, each
    fading from transparent at the cell interior to opaque cell-bg
    at the edge. Always-on so cells read as soft-edged regardless
-   of overflow. */
+   of overflow.
+   Top inset (2.2rem) skips the cell-head row so the metadata chips
+   (cell-id / cell-move / cell-conf) aren't softened — per user
+   2026-04-29: "the top blur should start below the cell title bar
+   otherwise it just blurs the titlebar metadata button thingies." */
 .cell::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 2.6rem 0 0 0;
   pointer-events: none;
   z-index: 2;
   background:
@@ -1059,8 +1063,11 @@ html.theme-lcars::before {
 /* LCARS rail-aware fade: the generic .cell::after lays four gradient
    strips, one per edge. The left strip would softens the LCARS rail
    (notebook.css:1064) into a fuzzy edge — per user 2026-04-29.
-   Override to drop the left gradient so the rail stays crisp. */
+   Override to drop the left gradient so the rail stays crisp.
+   Inherits the top inset (2.2rem) from the base rule so cell-head
+   chips stay sharp. */
 .theme-lcars .cell::after {
+  inset: 2.6rem 0 0 0;
   background:
     linear-gradient(to bottom,
       transparent 0,
