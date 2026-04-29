@@ -1379,35 +1379,32 @@ th, td {
 .theme-lcars .cell-move,
 .theme-lcars .cell-conf,
 .theme-lcars .cell-time {
-  border-radius: 999px;
-  /* Uniform sizing across all cell-head capsule chips so they don't
-     visually stair-step on the row. Base styles set different
-     font-sizes (cell-id 0.95rem, cell-move 0.65rem, cell-conf 0.7rem)
-     which gave each chip a different intrinsic height; normalizing
-     to one font-size + matching padding + min-height makes them all
-     read as the same chip family. inline-flex + align-items: center
-     vertically centers any inner content (the value/label split). */
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.72rem;
-  padding: 0.18rem 0.6rem;
-  min-height: 1.55rem;
-  /* Bumped from 14%/35% to 22%/60% for WCAG AA non-text contrast on
-     navy bg — the prior values rendered as ~2:1 over navy, below the
-     3:1 minimum for visible UI components per WCAG 2.1 SC 1.4.11. */
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
-  letter-spacing: 0.08em;
-}
-/* cell-move's base CSS sets border-left + border-right (vertical
-   divider rules) which conflict with the capsule shape. Reset to the
-   capsule's full border. */
-.theme-lcars .cell-move {
-  border-left-width: 1px;
-  border-right-width: 1px;
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  padding-left: 0.6rem;
-  padding-right: 0.6rem;
+  /* Force complete uniformity across all cell-head capsule chips —
+     same size, same color, same weight, same font, same padding. Base
+     styles set different font-sizes (id 0.95rem, move 0.65rem, conf
+     0.7rem), different colors (id=fg, move=muted, conf=accent),
+     different font-families (id=mono, move=Antonio, conf=ui-mono),
+     different font-weights (id=600, others=400). User wants them all
+     to read as one chip family in LCARS — !important wins against the
+     base + theme-specific overrides without having to track every
+     selector that touches each chip type. */
+  display: inline-flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  font-size: 0.72rem !important;
+  font-weight: 500 !important;
+  font-family: var(--type-body, "Antonio", "Avenir Next Condensed", sans-serif) !important;
+  color: var(--fg) !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  height: 1.55rem !important;
+  min-height: 1.55rem !important;
+  padding: 0 0.6rem !important;
+  border-radius: 999px !important;
+  /* WCAG AA non-text contrast (3:1) on navy bg per SC 1.4.11. */
+  background: color-mix(in srgb, var(--accent) 22%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent) !important;
+  opacity: 1 !important;
 }
 .theme-lcars .cell-id {
   /* Cell-id stays mono so the alphanumeric reads as a code badge — and
