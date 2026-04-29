@@ -639,12 +639,26 @@ body > .a-orientation-modal {
   font-size: 0.95rem;
   color: var(--fg);
   margin-top: 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
+  transition: -webkit-line-clamp 0.18s ease;
 }
-.cell-notes {
-  font-size: 0.8rem;
+.cell-caption:hover,
+.cell-caption:focus {
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+.cell-prompt-notes {
+  font-size: 0.75rem;
   color: var(--muted);
-  margin-top: 0.5rem;
   font-style: italic;
+  margin-bottom: 0.4rem;
 }
 .cell-empty {
   padding: 1rem;
