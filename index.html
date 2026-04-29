@@ -2232,6 +2232,43 @@ function setupCellZoom() {
     const clone = cell.cloneNode(true);
     clone.removeAttribute("style");  // strip layout-mode inline positioning
     clone.classList.add("cell-zoomed-clone");
+    // Inspection-mode reset: the original cell ran with content sized
+    // to natural intrinsic dimensions (mermaid SVG at viewBox px,
+    // html-pan-wrap at max-content) which overflowed the dialog and
+    // produced horizontal scrollbars on click. In the dialog the user
+    // wants fit-to-view, not natural-overflow — reset the sizing so
+    // content scales to the dialog width. Per user 2026-04-29.
+    clone.style.removeProperty("--cell-natural-width");
+    clone.style.maxHeight = "none";
+    const cloneSvg = clone.querySelector(".mermaid-target svg");
+    if (cloneSvg) {
+      // Fit-to-view in the dialog: width:auto + height:auto with a
+      // max-width AND max-height clamps preserves viewBox aspect
+      // ratio while ensuring the SVG never exceeds the dialog box
+      // (which would force a scrollbar). 75vh leaves headroom for
+      // the cell-head + caption + trigger summary above the SVG.
+      cloneSvg.style.width = "auto";
+      cloneSvg.style.height = "auto";
+      cloneSvg.style.maxWidth = "100%";
+      cloneSvg.style.maxHeight = "75vh";
+      cloneSvg.style.transform = "";
+    }
+    const cloneMermaidTarget = clone.querySelector(".mermaid-target");
+    if (cloneMermaidTarget) {
+      cloneMermaidTarget.style.maxHeight = "none";
+      cloneMermaidTarget.style.overflow = "visible";
+    }
+    const cloneWrap = clone.querySelector(".html-pan-wrap");
+    if (cloneWrap) {
+      cloneWrap.style.width = "auto";
+      cloneWrap.style.maxWidth = "100%";
+      cloneWrap.style.minWidth = "0";
+      cloneWrap.style.transform = "";
+    }
+    const cloneHtmlTarget = clone.querySelector(".html-target");
+    if (cloneHtmlTarget) {
+      cloneHtmlTarget.style.overflow = "auto";  // tables wider than dialog get a scrollbar inside the cell
+    }
     dlg.replaceChildren(clone);
     dlg.showModal();
 

@@ -1056,6 +1056,28 @@ html.theme-lcars::before {
   border: 1px solid var(--line);
   padding-left: calc(14px + 1.25rem);
 }
+/* LCARS rail-aware fade: the generic .cell::after lays four gradient
+   strips, one per edge. The left strip would softens the LCARS rail
+   (notebook.css:1064) into a fuzzy edge — per user 2026-04-29.
+   Override to drop the left gradient so the rail stays crisp. */
+.theme-lcars .cell::after {
+  background:
+    linear-gradient(to bottom,
+      transparent 0,
+      transparent calc(100% - 1.1rem),
+      color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
+      var(--cell-bg) 100%),
+    linear-gradient(to top,
+      transparent 0,
+      transparent calc(100% - 1.1rem),
+      color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
+      var(--cell-bg) 100%),
+    linear-gradient(to right,
+      transparent 0,
+      transparent calc(100% - 1.1rem),
+      color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
+      var(--cell-bg) 100%);
+}
 .theme-lcars .cell::before {
   /* Override the .cell.cell-still-warm::before fade ring rule from
      line 1252 — in LCARS, ::before is the rail; the still-warm cue
@@ -1214,6 +1236,7 @@ html.theme-lcars::before {
 .cell.cell-zoomed-clone {
   display: block;
   width: 100%;
+  box-sizing: border-box;  /* include border in width so the 1px solid var(--line) doesn't overflow the dialog */
   /* Inspection mode: when the user opens <details> sections (TRIGGER
      SNIPPET / PROMPT) the cell content can grow beyond the original
      32vh / 42vh caps. Allow the clone to size to its content and let
