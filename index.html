@@ -2320,6 +2320,26 @@ function setupCellZoom() {
     dlg.replaceChildren(clone);
     dlg.showModal();
 
+    // Re-embed any vega charts inside the clone — same canvas-cloning
+    // problem as scene3d below: cloneNode(true) copies the <canvas>
+    // element but it paints blank because canvas pixels don't survive
+    // cloning. The spec is stashed on .vega-target's dataset at
+    // render time so we can re-embed here with the dialog-sized
+    // container.
+    const cloneVegaTarget = clone.querySelector(".vega-target");
+    if (cloneVegaTarget && cloneVegaTarget.dataset.vegaSpec && window.vegaEmbed) {
+      cloneVegaTarget.innerHTML = "";
+      requestAnimationFrame(() => {
+        try {
+          const spec = JSON.parse(cloneVegaTarget.dataset.vegaSpec);
+          window.vegaEmbed(cloneVegaTarget, spec, { actions: false, ...TC.vega }).catch(err => {
+            cloneVegaTarget.textContent = "vega render error: " + err.message;
+          });
+        } catch (err) {
+          console.warn("[lucida] vega zoom re-embed failed:", err);
+        }
+      });
+    }
     // Re-instantiate any 3D scenes inside the clone — cloneNode(true) of
     // a <canvas> produces a blank canvas, so without re-init the dialog
     // shows nothing for scene3d/aframe cells. RAF defers until layout has
@@ -2486,6 +2506,12 @@ function renderCell(c, snippetGroups) {
     body.appendChild(img);
   } else if (c.cell_type === "vega" && c.spec) {
     const target = el("div", "vega-target");
+    // Stash the spec on the target so the click-zoom modal can
+    // re-embed vega in its clone. Without this, cloneNode(true)
+    // copies the <canvas> element but it paints blank in the dialog.
+    try {
+      target.dataset.vegaSpec = JSON.stringify(c.spec);
+    } catch (e) { /* spec not serializable; skip */ }
     body.appendChild(target);
     let currentEmbed = null;
     let currentView = null;
