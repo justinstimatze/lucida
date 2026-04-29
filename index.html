@@ -823,6 +823,10 @@ function liveAppendNewCells(cellsData) {
   }
   // Transfer the "still warm" hero glow to the newest appended cell.
   if (firstNode) applyStillWarmToLatest();
+  // Re-apply alternate layout (treemap / organic) so freshly arrived
+  // cells get their absolute position computed alongside existing ones.
+  // Default grid mode is a no-op.
+  applyActiveLayout();
   // Redraw inter-cell connections — a fresh reflection cell or a fresh
   // source cell can both invalidate existing paths.
   if (firstNode) scheduleRedrawConnections();
@@ -1309,6 +1313,20 @@ function getVisibleCap() {
   } catch (e) { /* fallthrough */ }
   return 12;
 }
+// ?layout=treemap|organic|grid (default grid). Treemap uses the
+// Bruls/Huijsen/van Wijk 2000 squarified algorithm to fill the
+// available area with weight-proportional tiles, near-square aspect
+// ratios. Organic v0 arranges cells radially — newest at center,
+// older in concentric rings. Both opt-in via URL so the validated
+// auto-fit grid (per memory/feedback_layout_density_validated.md)
+// stays the default.
+function getLayoutMode() {
+  try {
+    const v = (new URLSearchParams(window.location.search).get("layout") || "").trim();
+    if (v === "treemap" || v === "organic") return v;
+  } catch (e) { /* fallthrough */ }
+  return "grid";
+}
 function sessionKey(c) {
   return c.session_id || "untagged";
 }
@@ -1376,6 +1394,9 @@ async function load() {
     // so the cap-N cells fit one viewport).
     if (state.sessions.autoMode) root.dataset.auto = "true";
     else delete root.dataset.auto;
+    const layout = getLayoutMode();
+    if (layout !== "grid") root.dataset.layout = layout;
+    else delete root.dataset.layout;
     // Reverse-chrono render: newest cells live at the top so they're
     // immediately visible without autoscroll. Iterating chronologically
     // and prepending each puts the last (newest) cell at the very top.
@@ -1399,6 +1420,12 @@ async function load() {
   // click-on-backdrop dismisses. Opt-in inspection without disturbing
   // the live grid. Idempotent — safe to call after each load().
   setupCellZoom();
+  // Apply alternate layouts (treemap / organic) if URL opted in.
+  // Default grid stays as-is. Run after the substrate-async settles
+  // so cell heights are stable when squarify reads them.
+  applyActiveLayout();
+  setTimeout(applyActiveLayout, 600);
+  setTimeout(applyActiveLayout, 2000);
   // Initial draw of inter-cell connections; subsequent redraws fire
   // on scroll/resize and after liveAppendNewCells.
   scheduleRedrawConnections();
@@ -1418,6 +1445,202 @@ async function load() {
 // reads as still settling. New cells from liveAppendNewCells also get
 // this treatment via the cell-fresh path. Reverse-chrono: newest is at
 // index 0 (the first .cell in document order is the most-recent mint).
+// ----------------------------------------------------------------
+// Squarified treemap (Bruls/Huijsen/van Wijk 2000). Greedy algorithm:
+// sort items by weight desc, lay them into rows along the shorter
+// container axis, advancing rows once adding the next item would worsen
+// the worst aspect ratio of any tile in the current row. Returns
+// [{id, x, y, w, h}] in the same coordinate system as the container.
+// ----------------------------------------------------------------
+function squarifiedTreemap(items, container) {
+  if (!items.length) return [];
+  const sorted = items.slice().sort((a, b) => b.weight - a.weight);
+  const totalArea = container.w * container.h;
+  const totalWeight = sorted.reduce((s, i) => s + i.weight, 0);
+  if (totalWeight <= 0) return [];
+  const out = [];
+  let rect = { ...container };
+  let row = [];
+  let i = 0;
+  const worst = (rowList, side) => {
+    const sum = rowList.reduce((s, r) => s + r.weight, 0);
+    if (sum === 0) return Infinity;
+    const rowAreaTotal = (sum / totalWeight) * totalArea;
+    let mx = 0;
+    for (const r of rowList) {
+      const a = (r.weight / totalWeight) * totalArea;
+      const ar = Math.max(
+        (side * side * a) / (rowAreaTotal * rowAreaTotal),
+        (rowAreaTotal * rowAreaTotal) / (side * side * a)
+      );
+      if (ar > mx) mx = ar;
+    }
+    return mx;
+  };
+  const layoutRow = (rowList, r) => {
+    const sum = rowList.reduce((s, x) => s + x.weight, 0);
+    const rowArea = (sum / totalWeight) * totalArea;
+    const placed = [];
+    if (r.w <= r.h) {
+      const rowH = rowArea / r.w;
+      let cx = r.x;
+      for (const it of rowList) {
+        const itW = (it.weight / sum) * r.w;
+        placed.push({ id: it.id, x: cx, y: r.y, w: itW, h: rowH });
+        cx += itW;
+      }
+      return { placed, remaining: { x: r.x, y: r.y + rowH, w: r.w, h: r.h - rowH } };
+    } else {
+      const rowW = rowArea / r.h;
+      let cy = r.y;
+      for (const it of rowList) {
+        const itH = (it.weight / sum) * r.h;
+        placed.push({ id: it.id, x: r.x, y: cy, w: rowW, h: itH });
+        cy += itH;
+      }
+      return { placed, remaining: { x: r.x + rowW, y: r.y, w: r.w - rowW, h: r.h } };
+    }
+  };
+  while (i < sorted.length) {
+    const cand = sorted[i];
+    const side = Math.min(rect.w, rect.h);
+    if (row.length === 0 || worst([...row, cand], side) <= worst(row, side)) {
+      row.push(cand);
+      i++;
+    } else {
+      const r = layoutRow(row, rect);
+      out.push(...r.placed);
+      rect = r.remaining;
+      row = [];
+    }
+  }
+  if (row.length) {
+    const r = layoutRow(row, rect);
+    out.push(...r.placed);
+  }
+  return out;
+}
+
+// ----------------------------------------------------------------
+// Treemap layout: weight = recency rank (newest cell heaviest, decreases
+// linearly). Available area = #notebook bounding rect minus a small gap
+// budget. Cells placed via absolute positioning; the grid template-columns
+// is overridden by [data-layout=treemap] CSS.
+// ----------------------------------------------------------------
+function applyTreemapLayout() {
+  const root = document.getElementById("notebook");
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const headerH = 80;
+  const gap = 6;
+  const w = window.innerWidth - 32;
+  const h = window.innerHeight - headerH - 32;
+  if (w <= 0 || h <= 0) return;
+  const items = cells.map((c, i) => ({
+    id: c.id || `__cell-${i}`,
+    weight: cells.length - i,  // newest (DOM-first / index 0) heaviest
+    el: c,
+  }));
+  // Make sure each .cell has a stable id for placement lookup.
+  items.forEach(it => { if (!it.el.id) it.el.id = it.id; });
+  const placements = squarifiedTreemap(items, { x: 0, y: 0, w, h });
+  const byId = new Map(placements.map(p => [p.id, p]));
+  for (const it of items) {
+    const p = byId.get(it.id);
+    if (!p) continue;
+    Object.assign(it.el.style, {
+      position: "absolute",
+      left: (p.x + gap) + "px",
+      top: (p.y + gap) + "px",
+      width: Math.max(0, p.w - gap * 2) + "px",
+      height: Math.max(0, p.h - gap * 2) + "px",
+      maxHeight: "none",
+      maxWidth: "none",
+    });
+  }
+  Object.assign(root.style, {
+    position: "relative",
+    height: h + "px",
+    minHeight: h + "px",
+  });
+}
+
+// ----------------------------------------------------------------
+// Organic v0: hero at center + one ring of 6 satellites. Older cells
+// (beyond 7) hide in this mode — viewport-bounded by design. The ring
+// radius and satellite size are tuned so 7 cells fit cleanly within a
+// 1854×871 viewport with margin.
+// ----------------------------------------------------------------
+function applyOrganicLayout() {
+  const root = document.getElementById("notebook");
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const headerH = 80;
+  const w = window.innerWidth - 32;
+  const h = window.innerHeight - headerH - 32;
+  if (w <= 0 || h <= 0) return;
+  const cx = w / 2;
+  const cy = h / 2;
+  const minDim = Math.min(w, h);
+  const heroW = minDim * 0.42;
+  const heroH = minDim * 0.32;
+  const ringR = minDim * 0.42;
+  const satSize = minDim * 0.22;
+  const slotsInRing = 6;
+  cells.forEach((cell, i) => {
+    let x, y, sw, sh, visible = true;
+    if (i === 0) {
+      sw = heroW; sh = heroH;
+      x = cx - sw / 2; y = cy - sh / 2;
+    } else if (i <= slotsInRing) {
+      const slotIdx = i - 1;
+      const angle = (slotIdx / slotsInRing) * Math.PI * 2 - Math.PI / 2;
+      sw = satSize; sh = satSize;
+      x = cx + Math.cos(angle) * ringR - sw / 2;
+      y = cy + Math.sin(angle) * ringR - sh / 2;
+    } else {
+      // Beyond the first ring: hide in organic v0 (out-of-viewport
+      // ring 2 was the worse alternative). Future v1 could fade them
+      // along an outer arc or add scroll/orbit.
+      visible = false;
+    }
+    if (!visible) {
+      cell.style.display = "none";
+      return;
+    }
+    Object.assign(cell.style, {
+      position: "absolute",
+      display: "",
+      left: x + "px",
+      top: y + "px",
+      width: sw + "px",
+      height: sh + "px",
+      maxHeight: "none",
+      maxWidth: "none",
+    });
+  });
+  Object.assign(root.style, {
+    position: "relative",
+    height: h + "px",
+    minHeight: h + "px",
+  });
+}
+
+// Apply the active layout mode, if any. Called after load() and on
+// window resize. No-op for grid mode (the CSS auto-fit handles it).
+function applyActiveLayout() {
+  const mode = getLayoutMode();
+  if (mode === "treemap") applyTreemapLayout();
+  else if (mode === "organic") applyOrganicLayout();
+}
+
+// Re-apply on resize so tile sizes track the viewport.
+let _layoutResizeTimer = null;
+window.addEventListener("resize", () => {
+  if (_layoutResizeTimer) clearTimeout(_layoutResizeTimer);
+  _layoutResizeTimer = setTimeout(applyActiveLayout, 120);
+});
+
 // Click-to-zoom: idempotent setup. Attaches once via a guard flag.
 // Click on a cell's body (not on cell-id, links, summaries, buttons)
 // promotes the cell to a fixed overlay at near-viewport size. Escape

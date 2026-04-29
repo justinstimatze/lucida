@@ -161,12 +161,54 @@ main {
 /* Auto-mode (?session=auto): cells size to content within the cap-N
    tile. Removing the max-height (was 22vh, then 28vh) lets each cell
    show its full body up to a soft ceiling — the per-cell trim from the
-   density commit + cell-count cap already bound total grid height.
-   Treemap (importance-weighted tiling) is the proper structural fix
-   for "fit viewport AND show full content"; this just removes the
-   half-clip that was masking content. */
+   density commit + cell-count cap already bound total grid height. */
 #notebook[data-auto] > .cell { max-height: 50vh; }
 #notebook[data-auto] > .cell:first-child { max-height: 55vh; }
+
+/* ?layout=treemap and ?layout=organic: cells are absolutely positioned
+   by JS (squarifiedTreemap / applyOrganicLayout). Disable the grid
+   template + hero full-width row + grid auto-fit so the JS-computed
+   x/y/w/h take effect. Margins stripped because absolute positioning
+   already handles spacing via the JS gap. */
+#notebook[data-layout="treemap"],
+#notebook[data-layout="organic"] {
+  display: block;
+  grid-template-columns: none;
+  perspective: none;
+  transform-style: flat;
+}
+#notebook[data-layout="treemap"] > .cell,
+#notebook[data-layout="organic"] > .cell {
+  /* Cancel the :first-child grid-column: 1 / -1 hero rule and any
+     auto-mode max-heights so JS dimensions stand. */
+  grid-column: auto !important;
+  margin: 0;
+}
+#notebook[data-layout="treemap"] > .cell:first-child,
+#notebook[data-layout="organic"] > .cell:first-child {
+  max-height: none;
+  padding: clamp(0.7rem, 1vw, 1.1rem) clamp(0.85rem, 1.4vw, 1.3rem);
+  font-size: 0.95rem;
+}
+/* Organic mode: rounded cells, gentle outer glow per the FUI aesthetic.
+   Cells are square (sized by JS); border-radius makes them lozenge-y. */
+#notebook[data-layout="organic"] > .cell {
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent) 12%, transparent);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+#notebook[data-layout="organic"] > .cell:first-child {
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
+    0 0 36px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+#notebook[data-layout="organic"] > .cell:hover {
+  transform: scale(1.04);
+  z-index: 5;
+}
 .cell.cell-overflow::after { opacity: 1; }
 /* Tier 1: hero — newest cell. Full row, larger padding + font, more
    prominent. Allowed slightly more vertical room than ambient cells
