@@ -1355,20 +1355,42 @@ th, td {
   z-index: 1;
 }
 .theme-lcars .hud-cell {
-  background: rgba(0, 0, 0, 0.35);
+  /* Canonical LCARS chip: solid orange + black text + no border, matching
+     the cell-head chip family. The translucent-with-border treatment we
+     had before split the visual vocabulary between HUD and cell-head;
+     the canonical inversion unifies them as one chip language. */
+  background: var(--accent);
+  color: #000;
+  border: none;
   border-radius: 999px;
   padding: 0.1rem 0.7rem;
-  /* Bumped from 0.18 to 0.55 alpha for WCAG AA non-text contrast on
-     navy bg (3:1 minimum per SC 1.4.11). The prior 18% orange rendered
-     as ~1.6:1, invisible to low-vision users. */
-  border: 1px solid rgba(255, 153, 0, 0.55);
-  /* The CELLS chip embeds an inline svg/rect bar; its inline-flex layout
-     keeps the bar inline with the label/value, the capsule wraps both. */
+  font-family: var(--type-body, "Antonio", "Avenir Next Condensed", sans-serif);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .theme-lcars .hud-cell .hud-label {
-  letter-spacing: 0.12em;
+  color: #000;
+  opacity: 1;
+  letter-spacing: 0.08em;
 }
-.theme-lcars .hud-value { text-shadow: none; }
+.theme-lcars .hud-cell .hud-value {
+  color: #000;
+  text-shadow: none;
+}
+.theme-lcars .hud-status .hud-value { color: #000; }
+.theme-lcars .hud-pulse {
+  /* On orange bg, gray-on-orange dots vanish. Use dark fill for visible
+     active/idle states. */
+  background: rgba(0, 0, 0, 0.4);
+}
+.theme-lcars .hud[data-status="active"] .hud-pulse {
+  background: #000;
+}
+.theme-lcars .hud-cells-bar rect {
+  /* Dark fill so the inline bar reads on the orange chip. */
+  fill: rgba(0, 0, 0, 0.6);
+}
 .theme-lcars .hud-scanline { display: none; }
 
 /* In-cell chips also become LCARS capsules so the shape language is
