@@ -819,15 +819,21 @@ body > .a-orientation-modal {
   left: 0;
   width: 100vw;
   height: var(--lcars-bar-h);
-  background: var(--accent);
+  /* Segmented bus: orange base with thin black dividers every 80px,
+     the canonical LCARS look where each segment is an addressable
+     "cell" of the data bus. The base color stays --accent so the bar
+     still tracks theme; the divider stripes are layered on top via
+     repeating-linear-gradient. */
+  background:
+    repeating-linear-gradient(90deg, transparent 0, transparent 78px, var(--bg) 78px, var(--bg) 80px),
+    var(--accent);
   z-index: 250;
   pointer-events: none;
-  /* Right end capped — canonical LCARS top bars often have a rounded
-     terminus, signaling "this is a bus segment" rather than a bare edge. */
   border-radius: 0 14px 14px 0;
 }
 /* LCARS vertical left pillar — full page height, drawn above the top bar
-   so the corner overlap stays a single solid block. */
+   so the corner overlap stays a single solid block. Same segmented-bus
+   pattern as the top bar but rotated 90° (vertical dividers). */
 .theme-lcars body::after {
   content: "";
   position: fixed;
@@ -1203,17 +1209,22 @@ th, td {
 .theme-lcars .hud {
   position: relative;
   /* HUD takes the EXACT chrome of a hero cell: same cell-bg, same
-     orange border, same padding-left clearance for the rail. The hover
-     behavior (already in base .hud — max-height + padding transition)
-     animates to a hero-cell-sized expanded state. User flagged that
-     even small differences in indentation / border color between the
-     HUD and the hero cell read as visual noise; matching exactly so
-     they're identical chrome elements stacked vertically. */
+     orange border, same padding-left clearance for the rail.
+     Collapsed max-height bumped to 3rem (vs base 1.55rem) so the
+     24px outer-left curve is proportionally less dominant — at the
+     base height the curve takes ~70% of the rail length, so the rail
+     reads as "all curve, no straight section" and looks distinctly
+     different from a hero cell's rail (where the curve is ~7% of a
+     long straight section). At 3rem the curve is ~30% of rail height,
+     closer to how the eye reads the cell's rail at the top edge. */
   background: var(--cell-bg);
   border-radius: 24px 4px 4px 24px;
   border: 1px solid var(--line);
   padding-left: calc(14px + 1.25rem);
   padding-right: 1rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  max-height: 3rem;
 }
 .theme-lcars .hud:hover,
 .theme-lcars .hud[data-expanded="true"] {
@@ -1223,6 +1234,7 @@ th, td {
      here to win the cascade in LCARS. */
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
+  max-height: 14rem;
 }
 .theme-lcars .hud::before {
   content: "";
