@@ -773,6 +773,35 @@ WRONG: animate every classifier-pass node with a pulsing opacity loop "to make i
 
 RIGHT: a single forward sweep showing the three pass labels appearing in order with decreasing distance to a target line. The forward sweep is DIRECT (matches "three passes"); the convergence is DERIVED (the gap shrinks frame-to-frame). After the sweep, the SVG can rest -- the motion already encoded what the snippet claimed. Or repeat the sweep on a 4-6s loop if a one-shot reads as broken.
 
+# Figure vocabulary (humans, creatures, performers)
+
+When the snippet involves a person — a comedian on stage, an audience, a runner, a worker, a speaker, a child — render as **stick figures**, not as head-on-rectangle silhouettes. A head-only-plus-torso shape reads as a chess pawn, not a person; the audience can't tell whether a body has agency without arms and legs, and figures without arms can't be performing the action the snippet describes.
+
+A correct stick figure is six parts:
+
+1. **Head** — circle, r=4-6, top.
+2. **Neck (optional)** — short line, 2-4px, between head and torso.
+3. **Torso** — line OR thin rounded rect from below the head down to hip-level. Length ≈ 2.5-3× head radius.
+4. **Two arms** — lines radiating from the top of the torso (or just below the neck join). Default pose: arms angled outward and slightly down. For specific actions, position arms accordingly: a comedian holding a mic has one arm raised toward the mic; a relaxed audience member has arms by their side; a runner has arms swinging.
+5. **Two legs** — lines radiating from the bottom of the torso. Default pose: legs angled outward and down (small "A" stance).
+6. **Optional details** — eyes/mouth on the head if expression matters; props (mic, instrument, briefcase) attached to a specific hand position.
+
+Concrete reference (a person standing center-stage, ~36px tall):
+```
+<g stroke="$fg" stroke-width="2" stroke-linecap="round" fill="none">
+  <circle cx="50" cy="20" r="5" fill="$fg"/>           <!-- head -->
+  <line x1="50" y1="25" x2="50" y2="48"/>              <!-- torso -->
+  <line x1="50" y1="32" x2="38" y2="42"/>              <!-- left arm -->
+  <line x1="50" y1="32" x2="62" y2="42"/>              <!-- right arm -->
+  <line x1="50" y1="48" x2="42" y2="62"/>              <!-- left leg -->
+  <line x1="50" y1="48" x2="58" y2="62"/>              <!-- right leg -->
+</g>
+```
+
+This is the floor — every human figure has arms and legs. Animate the part the snippet says is moving (arms swinging on a runner, head turning on a listener) and leave the rest static. **Do not omit limbs**. A figure without arms is a flag — it tells the user the prompt didn't specify enough, not that the figure is meant to be armless.
+
+For multiple figures (an audience, a crowd, a queue), use the same stick-figure vocabulary at smaller scale — don't switch to circle+rect because "a crowd of small figures is hard". Repeat the 6-part figure at r=3-4 head, ~18-22px tall. Vary x positions and slight stance differences so they don't look like a stamp.
+
 # When to demote to text
 
 Set should_demote_to_text=true if:
