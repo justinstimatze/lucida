@@ -1195,11 +1195,29 @@ th, td {
    (--lcars-bar-h etc.) so other themes leave the HUD's default flat
    geometry untouched. */
 .theme-lcars .hud {
+  position: relative;
   background: #000044;
   border-radius: 24px 4px 4px 24px;
   border: 1px solid #2a2a4a;
-  border-left: 14px solid #ff9900;
-  padding: 0.35rem 0.85rem 0.35rem 1.1rem;
+  /* Rail is now a ::before pseudo-element with its own border-radius,
+     matching the cell-rail pattern at line ~887 — keeps the HUD's
+     curve visually identical to the hero cell's curve at any zoom
+     level. The pre-2026-04-29 14px left border had the same subpixel
+     blending issue cells did (1px non-left + 14px left = unstable
+     corner rendering). */
+  padding: 0.35rem 0.85rem 0.35rem calc(14px + 1.1rem);
+}
+.theme-lcars .hud::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  bottom: -1px;
+  width: 15px;
+  background: #ff9900;
+  border-radius: 24px 0 0 24px;
+  pointer-events: none;
+  z-index: 1;
 }
 .theme-lcars .hud-cell {
   background: rgba(0, 0, 0, 0.35);
