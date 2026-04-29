@@ -1994,6 +1994,117 @@ th, td {
   from { opacity: 0; transform: translateX(-6px); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+/* Non-table HTML layouts (substrate diversification):
+   <dl> for term/definition pairs, .callouts for big-number tiles,
+   .kanban for items grouped by status column. All use the same theme
+   tokens as tables, so lcars / magi / etc inherit automatically. */
+.html-target dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 0.85rem;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  font-size: 0.85rem;
+  margin: 0;
+}
+.html-target dt {
+  color: var(--accent);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  align-self: baseline;
+}
+.html-target dd {
+  margin: 0;
+  color: var(--fg);
+}
+
+.html-target .callouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+.html-target .callout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.html-target .callout .big {
+  font-family: var(--type-head, "Antonio", "Avenir Next Condensed", sans-serif);
+  font-size: 1.45rem;
+  line-height: 1;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+.html-target .callout .label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, var(--fg));
+}
+
+.html-target .kanban {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+.html-target .kanban-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.html-target .kanban-title {
+  font-family: var(--type-head, "Antonio", "Avenir Next Condensed", sans-serif);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.15rem 0;
+}
+.html-target .kanban-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.html-target .kanban-col li {
+  font-size: 0.78rem;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  color: var(--fg);
+  padding: 0.15rem 0.4rem;
+  border-left: 2px solid var(--accent);
+}
+
+/* Reveal stagger for non-table layouts during cell-fresh window */
+.cell.cell-fresh .html-target .callout,
+.cell.cell-fresh .html-target .kanban-col,
+.cell.cell-fresh .html-target dt {
+  animation: html-row-reveal 0.45s ease-out backwards;
+}
+.cell.cell-fresh .html-target .callout:nth-child(1),
+.cell.cell-fresh .html-target .kanban-col:nth-child(1) { animation-delay: 0.05s; }
+.cell.cell-fresh .html-target .callout:nth-child(2),
+.cell.cell-fresh .html-target .kanban-col:nth-child(2) { animation-delay: 0.12s; }
+.cell.cell-fresh .html-target .callout:nth-child(3),
+.cell.cell-fresh .html-target .kanban-col:nth-child(3) { animation-delay: 0.19s; }
+.cell.cell-fresh .html-target .callout:nth-child(4),
+.cell.cell-fresh .html-target .kanban-col:nth-child(4) { animation-delay: 0.26s; }
+.cell.cell-fresh .html-target .callout:nth-child(n+5),
+.cell.cell-fresh .html-target .kanban-col:nth-child(n+5) { animation-delay: 0.33s; }
+
 /* Magi-specific: scan line sweeping vertically across the table, plus
    amber accents on borders and the first-row header. Reads as a live
    FUI readout rather than a static spreadsheet. */
