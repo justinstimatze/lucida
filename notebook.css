@@ -847,8 +847,15 @@ body > .a-orientation-modal {
 html.theme-lcars::before {
   content: "";
   position: fixed;
-  top: var(--lcars-bar-h);
-  left: var(--lcars-pillar-w);
+  /* Overlap the bar (top) and pillar (left) by 1px each so subpixel
+     rounding doesn't leave a visible black sliver at the joins. The
+     pillar computes to 63.9915px (not exactly 64) at the active DPR;
+     positioning the elbow at left: 64 left a ~0.01px gap that
+     anti-aliased as a hairline. The clip-path coords stay the same
+     because the overlap region is inside the always-painted bar/pillar
+     orange — no visual difference except the gap closes. */
+  top: calc(var(--lcars-bar-h) - 1px);
+  left: calc(var(--lcars-pillar-w) - 1px);
   width: var(--lcars-elbow-r);
   height: var(--lcars-elbow-r);
   background: var(--accent);
@@ -866,30 +873,74 @@ html.theme-lcars::before {
 }
 
 /* LCARS chrome shape pass: rounded outer-left corners + thick colored
-   left rail rotating through the data palette. The 14px rail is the
-   left border of the cell (with 1px on the other three sides), so it
-   follows the cell's rounded corners and reads as an integral part of
-   the panel — not a pseudo-element overlay. nth-child(6n+X) cycles
-   through --data-cat-0..5 so adjacent cells show different "section
-   colors", matching how LCARS panels color-code zones. */
+   left rail rotating through the data palette.
+
+   Pre-2026-04-29 the rail was the cell's 14px left border with 1px on
+   the other three sides. At browser zoom levels other than 100%, the
+   1px top/right/bottom border-width computes to a sub-pixel value
+   (0.57px at 57% zoom) which the browser anti-aliases to nearly
+   invisible — leaving a visible gap between the rounded top-left
+   curve and where the 14px rail "starts". Asymmetric border-widths
+   also blend non-uniformly around the rounded corner.
+
+   Now: the cell has a uniform 1px border (no rail) and a ::before
+   pseudo-element paints the 14px rail as a separate shape with its
+   own border-radius. The pseudo-element keeps stable corners at any
+   zoom level and avoids the corner-blending problem. nth-child(6n+X)
+   cycles the rail color through --data-cat-0..5 so adjacent cells
+   show different "section colors". */
 .theme-lcars .cell {
   border-radius: 24px 4px 4px 24px;
-  border-width: 1px 1px 1px 14px;
-  border-style: solid;
-  padding-left: 1.25rem;
+  border: 1px solid var(--line);
+  padding-left: calc(14px + 1.25rem);
+}
+.theme-lcars .cell::before {
+  /* Override the .cell.cell-still-warm::before fade ring rule from
+     line 1252 — in LCARS, ::before is the rail; the still-warm cue
+     uses outline + box-shadow instead (see below).
+
+     Negative offsets extend the rail to the border-box edge so the
+     rail's outer-left corners align flush with the cell's outer
+     corners. Without this, an absolutely-positioned ::before is
+     inside the padding-box (i.e., inside the 1px border), leaving a
+     visible gap between the cell's rounded top/bottom edges and the
+     start of the rail. */
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  bottom: -1px;
+  width: 15px;
+  background: var(--accent);
+  border-radius: 24px 0 0 24px;
+  border: none;
+  box-shadow: none;
+  animation: none;
+  opacity: 1;
+  inset: auto;
+  pointer-events: none;
+  z-index: 1;
 }
 /* Match the specificity of `.cell:not(:first-child):not(.cell-reflection)`
    at line 291 so the ambient-cell padding override doesn't squash the
    LCARS rail-clearance padding. */
 .theme-lcars .cell:not(:first-child):not(.cell-reflection) {
-  padding-left: 1.25rem;
+  padding-left: calc(14px + 1.25rem);
 }
-.theme-lcars .cell:nth-child(6n+1) { border-left-color: var(--data-cat-0, #ff9900); }
-.theme-lcars .cell:nth-child(6n+2) { border-left-color: var(--data-cat-1, #ffcc99); }
-.theme-lcars .cell:nth-child(6n+3) { border-left-color: var(--data-cat-2, #cc5599); }
-.theme-lcars .cell:nth-child(6n+4) { border-left-color: var(--data-cat-3, #9999cc); }
-.theme-lcars .cell:nth-child(6n+5) { border-left-color: var(--data-cat-4, #ffcc33); }
-.theme-lcars .cell:nth-child(6n+6) { border-left-color: var(--data-cat-5, #cc6666); }
+.theme-lcars .cell:nth-child(6n+1)::before { background: var(--data-cat-0, #ff9900); }
+.theme-lcars .cell:nth-child(6n+2)::before { background: var(--data-cat-1, #ffcc99); }
+.theme-lcars .cell:nth-child(6n+3)::before { background: var(--data-cat-2, #cc5599); }
+.theme-lcars .cell:nth-child(6n+4)::before { background: var(--data-cat-3, #9999cc); }
+.theme-lcars .cell:nth-child(6n+5)::before { background: var(--data-cat-4, #ffcc33); }
+.theme-lcars .cell:nth-child(6n+6)::before { background: var(--data-cat-5, #cc6666); }
+/* Still-warm cue uses outline + box-shadow in LCARS so ::before stays
+   the rail. Keeps the live-recency visual without fighting for the
+   pseudo-element. */
+.theme-lcars .cell.cell-still-warm {
+  outline: 1px solid #ff9900;
+  outline-offset: 1px;
+  box-shadow: 0 0 16px rgba(255, 153, 0, 0.4);
+}
 
 /* Dropdown polish in LCARS — uppercase header in display font + drop
    italic from descriptions so the dropdown reads as a TNG-ops list,
