@@ -304,8 +304,10 @@ function buildLayoutDropdown() {
   // it in the dropdown without touching this function.
   const options = Object.values(LAYOUT_REGISTRY);
   const rows = options.map(o => `
-    <button type="button" class="session-dropdown-row layout-dropdown-row"
-            data-layout="${o.id}" ${o.id === current ? 'aria-current="true"' : ""}>
+    <button type="button" role="option" class="session-dropdown-row layout-dropdown-row"
+            data-layout="${o.id}"
+            aria-selected="${o.id === current ? 'true' : 'false'}"
+            ${o.id === current ? 'aria-current="true"' : ""}>
       <span class="session-dropdown-id">${o.label}</span>
       <span class="session-dropdown-count">${o.description}</span>
     </button>
@@ -314,7 +316,7 @@ function buildLayoutDropdown() {
     <div class="session-dropdown-header">
       <span>LAYOUT</span>
     </div>
-    ${rows}
+    <div role="listbox" aria-label="Layout">${rows}</div>
   `;
   dropdown.querySelectorAll(".layout-dropdown-row").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -345,8 +347,10 @@ function buildThemeDropdown() {
   const current = ACTIVE;
   const options = Object.values(THEME_REGISTRY);
   const rows = options.map(o => `
-    <button type="button" class="session-dropdown-row theme-dropdown-row"
-            data-theme="${o.id}" ${o.id === current ? 'aria-current="true"' : ""}>
+    <button type="button" role="option" class="session-dropdown-row theme-dropdown-row"
+            data-theme="${o.id}"
+            aria-selected="${o.id === current ? 'true' : 'false'}"
+            ${o.id === current ? 'aria-current="true"' : ""}>
       <span class="session-dropdown-id">${o.label}</span>
       <span class="session-dropdown-count">${o.description}</span>
     </button>
@@ -355,7 +359,7 @@ function buildThemeDropdown() {
     <div class="session-dropdown-header">
       <span>THEME</span>
     </div>
-    ${rows}
+    <div role="listbox" aria-label="Theme">${rows}</div>
   `;
   dropdown.querySelectorAll(".theme-dropdown-row").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -2092,6 +2096,9 @@ function renderCell(c, snippetGroups) {
     const idEl = el("button", "cell-id", c.id);
     idEl.type = "button";
     idEl.title = "click to copy";
+    // Explicit accessible name for screen readers — title is announced
+    // inconsistently across SR/browser combos; aria-label always wins.
+    idEl.setAttribute("aria-label", `${c.id}, click to copy cell id`);
     idEl.dataset.cellType = c.cell_type;  // for substrate-based color hint
     idEl.addEventListener("click", async () => {
       try {

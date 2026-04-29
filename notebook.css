@@ -33,6 +33,30 @@
   outline-offset: 2px;
 }
 
+/* Touch target sizing: WCAG 2.1 AAA SC 2.5.5 recommends 44×44 CSS
+   pixels minimum for interactive targets. Capsule chips render
+   visually small (~28px tall) but we extend the hit area via padding
+   so taps land reliably on touch devices. cell-id is the most-tapped
+   chip (copy-on-click) so it gets full 44px min height; dropdown
+   rows already meet the bar via their own padding but the trigger
+   chips in the HUD get min-height too. */
+.cell-id,
+.session-dropdown-row,
+.theme-dropdown-row,
+.layout-dropdown-row {
+  min-height: 32px;
+}
+.hud-session-cell,
+.hud-layout-cell,
+.hud-theme-cell,
+#hud-session-cell,
+#hud-layout-cell,
+#hud-theme-cell {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+
 :root {
   --fg: #e5e5e5;
   --muted: #8a8a92;
