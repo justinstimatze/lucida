@@ -504,15 +504,36 @@ main {
 }
 /* Cell-id chip color-hints by substrate so the user gets the cell type
    without a verbose label. Subtle (border-left tint) — doesn't compete
-   with the live HUD color signaling. */
-.cell-id[data-cell-type="vega"]         { border-left: 2px solid var(--accent); }
-.cell-id[data-cell-type="mermaid"]      { border-left: 2px solid var(--vis-ok, #4ade80); }
-.cell-id[data-cell-type="html"]         { border-left: 2px solid var(--vis-warn, #fbbf24); }
-.cell-id[data-cell-type="animated_svg"] { border-left: 2px solid var(--accent); }
-.cell-id[data-cell-type="scene3d"]      { border-left: 2px solid var(--vis-ok, #4ade80); }
-.cell-id[data-cell-type="aframe"]       { border-left: 2px solid var(--vis-warn, #fbbf24); }
+   with the live HUD color signaling.
+
+   Substrate→--data-cat-N mapping. Pre-2026-04-29 these used Station-
+   legacy --vis-ok / --vis-warn / --vis-tripped (green/yellow/red), which
+   were arbitrary, hardcoded as fallbacks, and incomplete (treemap had
+   no rule, vega/animated_svg shared --accent, etc). Now: substrates map
+   to the theme's data palette so chip colors track theme tokens like
+   every other data-role role on the dashboard.
+
+   Index assignment (substrate → --data-cat-N):
+     mermaid       → 0   structural graphs (most common)
+     html          → 1   tables / comparisons
+     vega          → 2   quantitative charts
+     animated_svg  → 3   motion encoding
+     scene3d       → 4   3D scenes
+     aframe        → 4   (same family as scene3d)
+     treemap       → 5   part-to-whole distribution
+     lottie        → 3   (shares motion family with animated_svg)
+     text          → --muted    (low-signal stays muted)
+     image         → --accent-danger    (AI-generated raster sits outside data palette) */
+.cell-id[data-cell-type="mermaid"]      { border-left: 2px solid var(--data-cat-0, var(--accent)); }
+.cell-id[data-cell-type="html"]         { border-left: 2px solid var(--data-cat-1, var(--accent)); }
+.cell-id[data-cell-type="vega"]         { border-left: 2px solid var(--data-cat-2, var(--accent)); }
+.cell-id[data-cell-type="animated_svg"] { border-left: 2px solid var(--data-cat-3, var(--accent)); }
+.cell-id[data-cell-type="scene3d"]      { border-left: 2px solid var(--data-cat-4, var(--accent)); }
+.cell-id[data-cell-type="aframe"]       { border-left: 2px solid var(--data-cat-4, var(--accent)); }
+.cell-id[data-cell-type="treemap"]      { border-left: 2px solid var(--data-cat-5, var(--accent)); }
+.cell-id[data-cell-type="lottie"]       { border-left: 2px solid var(--data-cat-3, var(--accent)); }
 .cell-id[data-cell-type="text"]         { border-left: 2px solid var(--muted); }
-.cell-id[data-cell-type="image"]        { border-left: 2px solid var(--vis-tripped, #f87171); }
+.cell-id[data-cell-type="image"]        { border-left: 2px solid var(--accent-danger, var(--accent)); }
 .cell-id {
   color: var(--fg);
   font-weight: 600;
