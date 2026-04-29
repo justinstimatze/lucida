@@ -415,7 +415,7 @@ VEGA_SYSTEM = """You are the vega specialist for lucida. The classifier has deci
   - **point / scatter** — relationship between two quantitative dimensions; reach for this any time the snippet pairs two numerics per item (e.g., `{score, runtime}` per cell)
   - **circle / bubble** — scatter with a third quantitative encoded in size
   - **rule + tick** — small-multiple distributions, vertical rule lines marking quantiles
-  - **arc** — pie / donut for compositional shares of a whole (use sparingly; only when the whole-vs-part relationship is the claim and there are 2-5 slices). Donut (innerRadius > 0) reads better than full pie at small cell sizes.
+  - **arc** — pie / donut for compositional shares of a whole. **Avoid unless the whole-vs-part relationship is genuinely the load-bearing claim AND there are 2-3 slices.** Pie/arc geometry is fixed-radius pixel-based, not container-responsive: a pie with outerRadius:70 uses ~140px regardless of cell width, leaving huge horizontal whitespace in wider cells (e.g., the hero cell at ~1100px renders a pie chart with ~400px of dead space on each side). For "share of a whole" snippets, prefer **stacked bar (single category, segmented)** or **horizontal bar with totals** — both fill the cell width and read at any size. If you must pick arc, donut (innerRadius > 0) reads marginally better at small sizes.
   - **rect / heatmap** — two-categorical-axis matrices, cooccurrence, calendar heatmaps
   - **errorbar / errorband** — quantitative + uncertainty interval (target-vs-observed with error)
   - **boxplot** — distributions across categories

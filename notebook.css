@@ -178,15 +178,11 @@ main {
   margin-bottom: 0.25rem;
   text-shadow: 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent);
 }
-/* In multi-stream mode the hero-grid-column rule wouldn't apply
-   inside a flex column, so re-style first-child for column hero. */
-.session-column .cell:first-of-type {
-  /* :first-of-type works because the header is a div, not an article */
-  padding: 0.85rem 1rem;
-  font-size: 0.95rem;
-  max-height: 38vh;
-}
-.session-column .cell:not(:first-of-type) {
+/* Multi-stream column cells: uniform sizing per natural-size pivot
+   2026-04-29. Hero-of-column distinction is positional (top of column)
+   plus the cell-fresh slide-in animation; no separate padding/font/
+   max-height. */
+.session-column .cell {
   padding: 0.55rem 0.85rem;
   font-size: 0.85rem;
   max-height: 28vh;
@@ -224,12 +220,11 @@ main {
   opacity: 0;
   transition: opacity 0.2s;
 }
-/* Auto-mode (?session=auto): cells size to content within the cap-N
-   tile. Removing the max-height (was 22vh, then 28vh) lets each cell
-   show its full body up to a soft ceiling — the per-cell trim from the
-   density commit + cell-count cap already bound total grid height. */
+/* Auto-mode (?session=auto): uniform cell sizing per natural-size
+   pivot 2026-04-29. The hero/ambient max-height delta is gone — the
+   first cell distinguishes itself via position + breath glow, not
+   size. */
 #notebook[data-auto] > .cell { max-height: 50vh; }
-#notebook[data-auto] > .cell:first-child { max-height: 55vh; }
 
 /* ?layout=treemap and ?layout=organic: cells are absolutely positioned
    by JS (squarifiedTreemap / applyOrganicLayout). Disable the grid
@@ -291,17 +286,17 @@ main {
   z-index: 5;
 }
 .cell.cell-overflow::after { opacity: 1; }
-/* Tier 1: hero — newest cell. Full row, larger padding + font, more
-   prominent. Allowed slightly more vertical room than ambient cells
-   because the hero is the load-bearing focus of the glance. */
+/* Phase 1 of natural-size pivot (2026-04-29): hero distinction is
+   purely visual — the live-stream breath glow, the still-warm halo,
+   and position. Size, padding, and typography are uniform across all
+   cells so a cell's content renders the same way regardless of
+   position. The grid-column: 1/-1 stretching forced wide-cell content
+   like cell-1054's arc chart to render with massive horizontal
+   whitespace; per user 2026-04-29 the cell should render at its
+   content's natural size and stay there. */
 .cell:first-child {
-  grid-column: 1 / -1;
-  padding: clamp(0.9rem, 1.5vw, 1.4rem) clamp(1rem, 2vw, 1.6rem);
-  font-size: clamp(0.95rem, 1vw + 0.4rem, 1.05rem);
-  max-height: 45vh;  /* hero gets more headroom than ambient (32vh) */
-}
-.cell:first-child .cell-head {
-  font-size: clamp(0.85rem, 0.9vw + 0.3rem, 1rem);
+  /* hero soft cap matches ambient — no separate headroom */
+  max-height: 32vh;
 }
 /* Live-stream indicator on the hero cell when the watcher is active.
    Continuous breathing glow on the border; persists past
@@ -398,9 +393,6 @@ main {
   }
   .cell {
     padding: 0.6rem 0.75rem;
-  }
-  .cell:first-child {
-    padding: 0.85rem 1rem;
   }
   .hud-row {
     flex-wrap: wrap;
