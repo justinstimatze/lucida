@@ -823,13 +823,18 @@ body > .a-orientation-modal {
      the canonical LCARS look where each segment is an addressable
      "cell" of the data bus. The base color stays --accent so the bar
      still tracks theme; the divider stripes are layered on top via
-     repeating-linear-gradient. */
+     repeating-linear-gradient. The slow scroll animation reads as
+     "data flowing through the bus" — subtle ambient motion. */
   background:
     repeating-linear-gradient(90deg, transparent 0, transparent 78px, var(--bg) 78px, var(--bg) 80px),
     var(--accent);
+  animation: lcars-bus-scroll-h 14s linear infinite;
   z-index: 250;
   pointer-events: none;
   border-radius: 0 14px 14px 0;
+}
+@keyframes lcars-bus-scroll-h {
+  to { background-position: 80px 0, 0 0; }
 }
 /* LCARS vertical left pillar — full page height, drawn above the top bar
    so the corner overlap stays a single solid block. Same segmented-bus
@@ -844,8 +849,12 @@ body > .a-orientation-modal {
   background:
     repeating-linear-gradient(0deg, transparent 0, transparent 78px, var(--bg) 78px, var(--bg) 80px),
     var(--accent);
+  animation: lcars-bus-scroll-v 18s linear infinite;
   z-index: 251;
   pointer-events: none;
+}
+@keyframes lcars-bus-scroll-v {
+  to { background-position: 0 -80px, 0 0; }
 }
 /* Quarter-circle elbow joint with smooth tangents at both ends. The
    painted region is the SMALL area between the L's sharp 90° inside
