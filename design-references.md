@@ -231,3 +231,30 @@ implementation. Pattern from the 2026-04-29 organic / scatter / treemap
 arc: we built three custom layouts before checking that Tufte +
 Gestalt + Hick already named what we were doing, and that Muuri /
 GridStack / D3 / jsPlumb already shipped most of it. Don't repeat that.
+
+## Theme strategy: design tokens, one source of truth
+
+A theme is more than a CSS palette — it has to reach every substrate
+(mermaid `themeVariables`, vega `config`, scene3d / A-Frame colors,
+html accents, HUD `--accent`). User flagged 2026-04-29: "things like
+mermaid diagrams and plots should match the theme and its general
+visual identity. like LCARS has specific fonts, spacing, colors,
+conventions, etc."
+
+**Plan (deferred until after current layout work, gate to LCARS):**
+- Define `themes/<name>.tokens.json` per theme: `{ accent: { primary, warning, danger, ok }, data: { cat: [...] }, surface: { cell, body, header }, type: { title, body, mono, scale } }`.
+- Compile tokens to CSS custom properties via **Style Dictionary**
+  (Amazon) — the standard multi-target token tool — or a tiny inline
+  loader. CSS vars feed HTML / scene3d / A-Frame / HUD / connection
+  lines for free.
+- Mermaid + Vega read the same token JSON at runtime to build their
+  `themeVariables` / `config.range`. No hand-mapped per-substrate
+  color literals in `THEME_CONFIG`; adapters consume tokens.
+- Palette references for new themes:
+  - **Radix Colors** — semantic 12-step scales, contrast-tested.
+  - **Open-Color** — neutral product UI palette (JSON, MIT).
+  - **LCARS47** + **thelcars.com** — LCARS-specific palette + assets.
+
+The full strategy + library catalog: `memory/visual_consistency_
+theming_pass.md`. The library catalog for layouts (separate concern):
+`memory/window_layout_libs.md`.
