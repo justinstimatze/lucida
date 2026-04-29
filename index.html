@@ -1456,7 +1456,7 @@ function getVisibleCap() {
     if (Number.isFinite(n) && n > 0) return n;
   } catch (e) { /* fallthrough */ }
   const mode = getLayoutMode();
-  if (mode === "organic") return 19;
+  if (mode === "organic") return 7;
   // Treemap: 12 cells produce too many sub-300px tiles where content
   // truncates. 8 keeps the smallest tile readable on a 1800×900
   // viewport (~410×190 minimum).
@@ -1736,27 +1736,28 @@ function applyOrganicLayout() {
   if (!cells.length) return;
   const headerH = 80;
   const w = window.innerWidth - 32;
-  // Notebook can extend past viewport vertically in organic mode.
-  // Use the wider dimension as the layout reference so rings spread
-  // generously even on widescreen monitors.
-  const refDim = Math.max(window.innerWidth, window.innerHeight);
+  // Use the SMALLER viewport dim so rings fit horizontally on
+  // narrow displays and tiles stay readable on widescreens. Using
+  // max() inflated radii past the viewport edge on narrow windows.
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
   const cx = w / 2;
   const slotsPerRing = 6;
+  // 1 ring of 6 (cap 7). Sized to satisfy memory/layout_visual_rigor.md:
+  // every cell must clear the largest substrate minimum (vega 380×280).
+  // 0.45 × minDim wide at minDim=871 = 392 × 306 — above vega min.
+  // Older cells drop off; tradeoff is fewer cells visible at once,
+  // but each one is actually readable.
   const ringSpecs = [
-    { radius: refDim * 0.27, size: refDim * 0.16 },
-    { radius: refDim * 0.46, size: refDim * 0.14 },
-    { radius: refDim * 0.62, size: refDim * 0.12 },
+    { radius: minDim * 0.56, size: minDim * 0.45 },
   ];
-  // Position cy so the OUTERMOST ring's top satellite clears the
-  // header. Without this, ring-3 slot-0 (at angle -π/2) lands at
-  // y = cy - radius - sat_h/2, which can be negative-in-notebook =
-  // overlapping the fixed header. 32px margin so the cell isn't
-  // hugging the header edge either.
   const outer = ringSpecs[ringSpecs.length - 1];
   const outerSatHalfH = outer.size * 0.78 / 2;
+  // cy: outermost top satellite needs y >= 32 (header clearance).
   const cy = Math.max(window.innerHeight / 2, outer.radius + outerSatHalfH + 32);
-  const heroW = refDim * 0.30;
-  const heroH = refDim * 0.22;
+  // Hero substantially bigger so its body fills its tile rather than
+  // floating in a sparse center.
+  const heroW = minDim * 0.58;
+  const heroH = minDim * 0.42;
   cells.forEach((cell, i) => {
     let x, y, sw, sh, visible = true;
     if (i === 0) {
@@ -1796,13 +1797,22 @@ function applyOrganicLayout() {
       zIndex: String(100 + (cells.length - i)),
     });
   });
-  // Tall-enough notebook for the 3rd ring to fit before bottom
+  // Tall-enough notebook for the outer ring to fit before bottom.
   const totalH = cy + ringSpecs[ringSpecs.length - 1].radius + ringSpecs[ringSpecs.length - 1].size;
   Object.assign(root.style, {
     position: "relative",
     height: totalH + "px",
     minHeight: totalH + "px",
   });
+  // Auto-scroll once on first organic load so the hero is centered in
+  // the viewport. Without this, the user lands at scrollY=0 and the
+  // hero (centered around cy>500 on most viewports) is below the fold,
+  // surface area dominated by empty notebook above the rings.
+  if (!state.rendering._organicScrolled) {
+    state.rendering._organicScrolled = true;
+    const target = Math.max(0, cy - window.innerHeight / 2);
+    window.scrollTo({ top: target, behavior: "instant" });
+  }
 }
 
 // ----------------------------------------------------------------
