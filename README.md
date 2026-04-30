@@ -188,3 +188,27 @@ lucida/
 ```
 
 Not committed: `cells.json`, `mint_log.jsonl`
+
+---
+
+## Development
+
+```bash
+uv venv && uv pip install -e .[dev]
+pre-commit install
+```
+
+**Lint:**
+```bash
+uv run ruff check .
+uv run ruff format .
+```
+
+**Tests:**
+```bash
+uv run pytest tests/
+# integration tests (needs ANTHROPIC_API_KEY):
+uv run pytest tests/integration/
+```
+
+CI runs lint + tests + a bandit security scan on every push.

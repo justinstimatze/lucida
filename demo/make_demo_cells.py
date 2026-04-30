@@ -20,15 +20,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-import specialists as _sp
-from specialists import (
+from specialists import (  # noqa: E402
     SpecialistResult,
     generate_animated_svg_spec,
     generate_html_spec,
