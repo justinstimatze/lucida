@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Real-time visualization dashboard for Claude Code — mints Vega charts, Mermaid diagrams, 3D scenes, and animated SVGs from your conversation as you work"
 requires-python = ">=3.11"
 dependencies = [
-    "python-dotenv>=1.0",
+    "python-dotenv>=1.2.2",
     "anthropic>=0.39",
 ]
 license = "MIT"
