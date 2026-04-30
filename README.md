@@ -9,6 +9,8 @@ a chart, a diagram, a 3D wireframe. The display builds up as you work.
 
 You keep coding. Lucida keeps watching.
 
+![lucida demo](assets/demo.mp4)
+
 ---
 
 ## Get running in 5 minutes
