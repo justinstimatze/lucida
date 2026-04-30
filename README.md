@@ -17,10 +17,10 @@ https://github.com/user-attachments/assets/2fafa7ef-c6a9-4146-842a-f4093a4acad9
 session.
 
 ```bash
-cd ~/Documents/lucida
+git clone https://github.com/justinstimatze/lucida && cd lucida
 uv venv && uv pip install -e .
 cp .env.example .env
-echo "ANTHROPIC_API_KEY=sk-..." >> .env
+# fill in your ANTHROPIC_API_KEY in .env
 ```
 
 Start the renderer — open this on your second monitor and leave it there:
@@ -155,6 +155,30 @@ The pipeline behind each cell:
 
 The `UserPromptSubmit` hook injects recent mints into your next Claude Code
 prompt, so the conversation knows what just landed on the display.
+
+To wire it up, add this to your `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/lucida/hooks/recent_mints.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The hook is silent when nothing has minted recently — it only speaks when
+there are new cells. Set `LUCIDA_MINT_WINDOW_MIN=30` (default: 60) to
+tune the lookback window.
 
 ---
 
