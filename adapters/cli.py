@@ -37,7 +37,7 @@ def main() -> None:
 
     extractor = ADAPTERS[args.source]
     if args.source == "claude-code":
-        text, stats = extractor(args.source_path, include_thinking=args.thinking)
+        text, stats = extractor(args.source_path, include_thinking=args.thinking)  # type: ignore[call-arg]
     else:
         if args.thinking:
             print(f"warning: --thinking has no effect for source '{args.source}'", file=sys.stderr)

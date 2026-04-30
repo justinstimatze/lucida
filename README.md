@@ -2,10 +2,11 @@
 
 *For the monitor where you used to read code.*
 
-Your Claude Code session, rendered live as a mission-control dashboard. Every
-time something interesting happens in the conversation — a decision, a
-comparison, a process, a structure — lucida mints a visual cell: a graph,
-a chart, a diagram, a 3D wireframe. The display builds up as you work.
+Your Claude Code session, rendered live as a mission-control display. Every
+decision, comparison, flow, and structure becomes a live visual cell — charts,
+diagrams, 3D scenes, animated SVGs. The display builds up as you work.
+
+It doesn't make you more productive. Das Blinkenlights for AI sessions.
 
 https://github.com/user-attachments/assets/2fafa7ef-c6a9-4146-842a-f4093a4acad9
 

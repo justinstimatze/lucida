@@ -54,7 +54,7 @@ def _load_usage() -> dict:
     if not USAGE_PATH.exists():
         return {}
     try:
-        return json.loads(USAGE_PATH.read_text())
+        return json.loads(USAGE_PATH.read_text())  # type: ignore[no-any-return]
     except json.JSONDecodeError:
         return {}
 

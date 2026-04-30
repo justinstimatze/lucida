@@ -33,7 +33,7 @@ def load_cells() -> dict:
     if not CELLS_PATH.exists():
         return {"session_id": "lucida-demo", "cells": []}
     try:
-        return json.loads(CELLS_PATH.read_text())
+        return json.loads(CELLS_PATH.read_text())  # type: ignore[no-any-return]
     except (json.JSONDecodeError, OSError):
         return {"session_id": "lucida-demo", "cells": []}
 

@@ -296,7 +296,7 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
 def load_cells() -> dict:
     if not CELLS_PATH.exists():
         return {"session_id": "leg5-v0", "cells": []}
-    return json.loads(CELLS_PATH.read_text())
+    return json.loads(CELLS_PATH.read_text())  # type: ignore[no-any-return]
 
 
 def closed_loop_stats(cells: list[dict]) -> dict:
@@ -881,7 +881,7 @@ def append_proposal(
         trigger_snippet=snippet.strip(),
         prompt=final_prompt,
         spec=non_image_spec,
-        html=non_image_html,
+        html=non_image_html,  # type: ignore[arg-type]
         caption=non_image_caption,
         notes=proposal_notes,
         discourse_move=discourse_move,
@@ -908,7 +908,7 @@ def append_proposal(
         try:
             import specialists as _specs_split
 
-            children = _specs_split.split_mermaid_subgraphs(non_image_spec)
+            children = _specs_split.split_mermaid_subgraphs(non_image_spec)  # type: ignore[arg-type]
         except Exception:
             children = None
         if children:
@@ -1025,7 +1025,7 @@ def append_proposal(
 
                     eval_result = _eval.evaluate_image_cell(
                         snippet,
-                        Path(__file__).parent / current.image_path,
+                        Path(__file__).parent / current.image_path,  # type: ignore[operator]
                     )
                 except Exception as e:
                     current.notes += f" [evaluator failed: {e}]"
@@ -1152,7 +1152,7 @@ def append_proposal(
                 )
                 current.replaced_by = new_id
 
-                edit_base = Path(__file__).parent / current.image_path if use_i2i else None
+                edit_base = Path(__file__).parent / current.image_path if use_i2i else None  # type: ignore[operator]
                 _generate_into(
                     new_proposal,
                     f"retrigger {attempt + 1}",

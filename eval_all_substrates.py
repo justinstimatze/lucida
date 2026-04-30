@@ -51,29 +51,29 @@ def main() -> None:
         ctype = cell["cell_type"]
         print(f"  {cid} ({ctype})...", end=" ", file=sys.stderr, flush=True)
         try:
-            r = evaluate_substrate_cell(cell)
+            result = evaluate_substrate_cell(cell)
         except TextEvaluatorError as e:
             print(f"ERROR: {e}", file=sys.stderr)
             rows.append({"id": cid, "ctype": ctype, "error": str(e)})
             continue
         print(
-            f"score={r.quality_score:.2f} inventions={len(r.invented_substrate_items)}+{len(r.invented_caption_items)}",
+            f"score={result.quality_score:.2f} inventions={len(result.invented_substrate_items)}+{len(result.invented_caption_items)}",
             file=sys.stderr,
         )
         row = {
             "id": cid,
             "ctype": ctype,
-            "score": r.quality_score,
-            "substrate_inv": r.invented_substrate_items,
-            "caption_inv": r.invented_caption_items,
-            "demote": r.should_demote_to_text,
-            "summary": r.summary,
+            "score": result.quality_score,
+            "substrate_inv": result.invented_substrate_items,
+            "caption_inv": result.invented_caption_items,
+            "demote": result.should_demote_to_text,
+            "summary": result.summary,
         }
         rows.append(row)
         by_type[ctype].append(row)
-        total_in += r.input_tokens
-        total_out += r.output_tokens
-        total_cache_read += r.cache_read_tokens
+        total_in += result.input_tokens
+        total_out += result.output_tokens
+        total_cache_read += result.cache_read_tokens
 
     has_inv = [r for r in rows if "error" not in r and (r["substrate_inv"] or r["caption_inv"])]
     rate = len(has_inv) / max(len(rows), 1)

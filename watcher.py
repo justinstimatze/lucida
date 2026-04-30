@@ -39,7 +39,7 @@ def _load_state(state_path: Path) -> dict:
     if not state_path.exists():
         return {}
     try:
-        return json.loads(state_path.read_text())
+        return json.loads(state_path.read_text())  # type: ignore[no-any-return]
     except json.JSONDecodeError:
         return {}
 

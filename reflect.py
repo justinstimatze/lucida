@@ -170,7 +170,7 @@ class ReflectError(RuntimeError):
 def _load_cells(cells_path: Path) -> list[dict]:
     if not cells_path.exists():
         raise ReflectError(f"cells.json not found at {cells_path}")
-    return json.loads(cells_path.read_text())["cells"]
+    return json.loads(cells_path.read_text())["cells"]  # type: ignore[no-any-return]
 
 
 def _is_visible(cell: dict) -> bool:

@@ -37,7 +37,7 @@ def _has_content(c: dict) -> bool:
 
 
 def _load_all() -> list[dict]:
-    return json.loads(CELLS_PATH.read_text()).get("cells", [])
+    return json.loads(CELLS_PATH.read_text()).get("cells", [])  # type: ignore[no-any-return]
 
 
 def auto_select(session: str) -> list[dict]:

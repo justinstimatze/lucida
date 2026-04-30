@@ -156,8 +156,8 @@ interaction features. The library catalog lives in
 `memory/window_layout_libs.md`.
 
 ### Mark Weiser — calm computing (1991, 1996)
-"Calm technology engages both the center and the periphery of our
-attention." The lucida thesis. Cells in the periphery feel the way
+Calm technology engages both the center and the periphery of our
+attention — Weiser & Brown's core framing. The lucida thesis. Cells in the periphery feel the way
 ambient information should: present but non-demanding, escalating to
 center on need. The peripheral-to-center bloom (kill rings) and the
 "still warm" hero glow are direct applications. When a feature would
