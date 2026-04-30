@@ -10,7 +10,7 @@ diagrams, 3D scenes, animated SVGs. The display builds up as you work.
 
 It probably doesn't make you more productive. Das Blinkenlights for AI sessions.
 
-https://github.com/user-attachments/assets/2fafa7ef-c6a9-4146-842a-f4093a4acad9
+![lucida demo](assets/demo.mp4)
 
 ---
 
