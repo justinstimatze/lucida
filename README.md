@@ -7,7 +7,7 @@ time something interesting happens in the conversation — a decision, a
 comparison, a process, a structure — lucida mints a visual cell: a graph,
 a chart, a diagram, a 3D wireframe. The display builds up as you work.
 
-<!-- demo video: upload assets/demo.mp4 via GitHub CDN, then replace this line with the generated URL -->
+https://github.com/user-attachments/assets/2fafa7ef-c6a9-4146-842a-f4093a4acad9
 
 ---
 
