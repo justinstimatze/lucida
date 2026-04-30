@@ -91,7 +91,7 @@ If you find yourself wanting to retrigger at 0.7+, the right move is to lower th
 
 # Failure-mode classification
 
-After identifying what went wrong, classify the failure into ONE of these modes (taxonomy from learnings.md → cataloging appendix). The orchestrator routes to image-to-image edit vs. fresh-generate based on this — a wrong classification can make the next attempt worse:
+After identifying what went wrong, classify the failure into ONE of these modes The orchestrator routes to image-to-image edit vs. fresh-generate based on this — a wrong classification can make the next attempt worse:
 
 - **missed_detail**: A specifically-named prop, geometry, or feature is missing or rendered incorrectly inside an otherwise-correct interpretation. Examples: "alternating bands of unequal width" rendered as equal bands; "Singer sewing machines + 1989 calendar" both absent; named character missing a tool. Image-to-image edit reliably fixes these — the base image's correct interpretation is preserved while the missing detail is added.
 

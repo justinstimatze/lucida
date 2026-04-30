@@ -1,6 +1,4 @@
-# CI lifted from drivermap (.github/workflows/ci.yml), trimmed for
-# lucida's surface. Three jobs: lint, test, security. Per
-# memory/python_conventions_adoption.md.
+# CI: three jobs — lint, test, security.
 name: CI
 
 on:

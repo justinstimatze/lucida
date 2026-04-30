@@ -43,13 +43,13 @@ That's it. New cells appear as the conversation progresses.
 
 The display starts blank — cells mint as new content appears in the
 transcript. Start a conversation in Claude Code and within a few exchanges
-you'll see the first cells land.
+you'll see the first cells land. You'll immediately feel cooler.
 
 ---
 
 ## What it produces
 
-Lucida reads each passage in your conversation and picks the right visual
+Lucida reads each passage in your conversation and picks a reasonable visual
 for it automatically:
 
 - **Graphs and diagrams** — architecture, flows, entity relationships, state machines

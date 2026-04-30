@@ -1,7 +1,7 @@
 [project]
 name = "lucida"
 version = "0.1.0"
-description = "Co-evolving notebook of generated artifacts alongside conversation"
+description = "Real-time visualization dashboard for Claude Code — mints Vega charts, Mermaid diagrams, 3D scenes, and animated SVGs from your conversation as you work"
 requires-python = ">=3.11"
 dependencies = [
     "python-dotenv>=1.0",
@@ -38,8 +38,7 @@ include = [
 ]
 
 # ============================================================
-# Tooling — lifted from claude-mv (pyproject.toml) + drivermap.
-# Per memory/python_conventions_adoption.md.
+# Tooling configuration.
 # ============================================================
 
 [tool.ruff]
@@ -80,8 +79,7 @@ ignore = [
 [tool.mypy]
 python_version = "3.11"
 # Lucida is a prototype with several un-typed corners (LLM SDK responses,
-# untyped JSON dicts). Start permissive, tighten over time. claude-mv runs
-# strict; lucida earns its way there.
+# untyped JSON dicts). Start permissive, tighten over time.
 strict = false
 warn_return_any = true
 warn_unused_configs = true

@@ -23,8 +23,7 @@ internals.
 
 This adapter is best-effort — Aider's format has shifted across
 versions and configurations. If the output is empty or surprising,
-diff a real .aider.chat.history.md against this parser. Per
-memory/multi_assistant_dashboard.md.
+diff a real .aider.chat.history.md against this parser.
 """
 
 from __future__ import annotations

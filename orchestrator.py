@@ -55,8 +55,8 @@ def _log_mints(cell_dicts: list[dict]) -> None:
 
 class SuppressedMintError(Exception):
     """Raised when the classifier is too uncertain to commit to a viz substrate.
-    Per memory/feedback_text_cells_uninteresting.md, low-confidence picks no
-    longer demote to text — they suppress the mint entirely. Silent > text."""
+    Low-confidence picks no longer demote to text — they suppress the mint
+    entirely. Silent > text."""
 
     pass
 
@@ -149,8 +149,7 @@ def classify(snippet: str) -> str:
     naive classifier would have made the right call so we can compare
     against the LLM later.
 
-    v0.5 target (inherited from station/sensors/leg5_spec.md, lines 60-69
-    and 117-122): replace with a Claude-based classifier whose primary
+    v0.5 target: replace with a Claude-based classifier whose primary
     target is the *discourse move* (structural | temporal | comparative
     | causal | quantitative) plus a confidence score. Cell type follows
     from move + confidence, not the other way around. Confidence gates:
@@ -300,7 +299,7 @@ def load_cells() -> dict:
 
 
 def closed_loop_stats(cells: list[dict]) -> dict:
-    """Closed-loop metric proposed in learnings.md.
+    """Closed-loop metric.
 
     A cell *closes a loop* if at least one is true:
       1. it was retriggered (replaces or replaced_by populated)
@@ -462,8 +461,7 @@ def is_trivial(cell_type: str, spec, html: str | None) -> str | None:
     """Heuristic: would this viz be more informative as a caption-only text
     cell? If trivial, returns a short reason; else None.
 
-    Inherited from station/sensors/leg5_spec.md confidence-gate idea, applied
-    at the rendering stage rather than the classification stage. Conservative:
+    Conservative:
     catches obvious cases (single-row vega, edgeless or stacking-only mermaid,
     single-data-cell html) and lets borderline cases through.
     """
@@ -673,27 +671,18 @@ def append_proposal(
                 f"{llm.discourse_move}/{llm.cell_type}@{llm.confidence:.2f} "
                 f"[v0→{auto_type_v0}] {cache_info}"
             )
-            # Confidence gate. Originally inherited from leg5_spec.md:117-122
-            # ("no viz update; panel holds last good" at <0.6 → suppress).
-            # Lucida initially diverged to demote-to-text, but per
-            # memory/feedback_text_cells_uninteresting.md, text cells are the
-            # value-prop failure mode and the user explicitly preferred silent
-            # over text. Now: <0.6 raises SuppressedMintError; the watcher
-            # counts these as suppressed (logged to stderr, not persisted).
+            # Confidence gate: <0.6 raises SuppressedMintError.
+            # Text cells are the value-prop failure mode; silent > text.
             if llm.confidence < 0.6:
                 raise SuppressedMintError(
                     f"classifier confidence {llm.confidence:.2f} < 0.6 "
                     f"(would-be {llm.cell_type}); silent > text"
                 )
-            # Text gate: text cells are the value-prop failure mode at
-            # ordinary confidences, but suppressing them entirely forced
-            # the classifier to pick a viz substrate for narrative-prose
-            # snippets and pushed substrate hallucination to 55% (audit
-            # 2026-04-28, kill #3 tripped). High-confidence text mints
-            # restore the escape valve — only fires for genuinely text-
-            # shaped content the classifier is very sure about (aphorisms,
-            # explicit falsifications, single-claim reflections). Per
-            # memory/feedback_text_cells_uninteresting.md (re-tuned).
+            # Text gate: suppressing text entirely pushed substrate hallucination
+            # to 55% (audit 2026-04-28). High-confidence text mints restore the
+            # escape valve for genuinely text-shaped content (aphorisms, explicit
+            # falsifications). Threshold 0.92 — only fires when the classifier
+            # is very sure.
             if llm.cell_type == "text" and llm.confidence < 0.92:
                 raise SuppressedMintError(
                     f"text @{llm.confidence:.2f} below 0.92 floor; silent > low-confidence text"
@@ -982,7 +971,7 @@ def append_proposal(
             If edit_base is set, run image-to-image edit on that PNG using
             p.prompt as the (short) corrective brief. Otherwise text-to-image
             from p.prompt. Routing is done by the caller based on
-            evaluator.failure_mode (see learnings.md → i2i mode-conditional).
+            evaluator.failure_mode.
             """
             import nano_banana
 
@@ -1057,9 +1046,8 @@ def append_proposal(
                 # Failure-mode gate: wrong_genre means the cell-type itself
                 # was probably wrong (snippet is meta-commentary or abstract,
                 # not a renderable scene). Re-attempting won't help; abort.
-                # See learnings.md → i2i mini-batch (cell-0005 went from a
-                # generic-pensioner scene to score 0.15 even with explicit
-                # corrective text).
+                # wrong_genre means the snippet is meta-commentary or abstract,
+                # not a renderable scene — re-attempting won't help.
                 if eval_result.failure_mode == "wrong_genre":
                     current.notes += (
                         " [wrong_genre — aborting retrigger; snippet may not be image-genre]"
@@ -1098,11 +1086,9 @@ def append_proposal(
                 prev_guidance = guidance
 
                 # Mode-aware routing: i2i edit fixes missed_detail and
-                # literal_simile_color reliably (per learnings.md mini-batch),
-                # but makes literal_simile_metaphor worse (the wrong-
-                # interpretation is in the base PNG and Gemini anchors on
-                # it — cell-0010 COSTCO sign survived an explicit removal
-                # corrective). Default-on; LUCIDA_RETRIGGER_USE_I2I=0 disables.
+                # literal_simile_color reliably, but makes literal_simile_metaphor
+                # worse (model anchors on the wrong interpretation in the base
+                # image). Default-on; LUCIDA_RETRIGGER_USE_I2I=0 disables.
                 i2i_modes = {"missed_detail", "literal_simile_color"}
                 use_i2i = (
                     os.environ.get("LUCIDA_RETRIGGER_USE_I2I", "1") == "1"

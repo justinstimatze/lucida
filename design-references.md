@@ -1,6 +1,6 @@
 # Design references for lucida visual substrates
 
-Captured 2026-04-27. Sources reviewed in support of the "rich insightful dynamic visuals" / iron-man-inspired direction (per `memory/lucida_vision.md`).
+Captured 2026-04-27. Sources reviewed in support of the FUI / mission-control aesthetic direction.
 
 ## Sources
 
@@ -127,7 +127,7 @@ reference, so future redesigns know what's load-bearing vs decorative:
 - **Hero / ambient auto-layout** (Hojlund's hero/ambient principle)
   — `:first-child` cell gets full-row hero treatment; older cells
   flow into a responsive ambient grid. CSS-only, no JS layout engine
-  (per `memory/no_react_flow.md`).
+  (no JS layout engine needed).
 - **Reflections always full-row** (Noessel's four-awarenesses
   framework — context awareness) — a cell synthesizing other cells
   gets prominence regardless of recency position; SVG connection
@@ -152,8 +152,7 @@ Captured 2026-04-29 after user flagged that custom layout iteration was
 reinventing window-manager patterns ("is there not a library for this
 kind of thing already? or documented hci ui/ux best practices?"). These
 are the load-bearing principles to consult before adding more layout /
-interaction features. The library catalog lives in
-`memory/window_layout_libs.md`.
+interaction features. 
 
 ### Mark Weiser — calm computing (1991, 1996)
 Calm technology engages both the center and the periphery of our
@@ -331,6 +330,4 @@ conventions, etc."
   - **Open-Color** — neutral product UI palette (JSON, MIT).
   - **LCARS47** + **thelcars.com** — LCARS-specific palette + assets.
 
-The full strategy + library catalog: `memory/visual_consistency_
-theming_pass.md`. The library catalog for layouts (separate concern):
-`memory/window_layout_libs.md`.
+

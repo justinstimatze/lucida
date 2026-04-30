@@ -12,8 +12,7 @@ etc.). Without these, the segmenter mints cells about model parameter
 tables and SDK boilerplate.
 
 This module was previously the standalone jsonl_to_transcript.py;
-relocated 2026-04-28 as part of the adapter refactor (memory/
-multi_assistant_dashboard.md).
+relocated 2026-04-28 as part of the adapter refactor.
 """
 
 from __future__ import annotations

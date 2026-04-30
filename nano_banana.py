@@ -6,8 +6,8 @@ Two entry points:
   feeds the base image + corrective prompt to Gemini and writes the
   edited output. Used by the orchestrator's retrigger path when a
   previous attempt exists; addresses the prior-strength finding from
-  learnings.md (corrective text alone doesn't reliably break a strong
-  visual prior — but editing the previous attempt directly may).
+  corrective text alone doesn't reliably break a strong visual prior —
+  but editing the previous attempt directly may.
 
 Daily-cap is advisory — stored in a tiny JSON sidecar so it survives
 process restarts.

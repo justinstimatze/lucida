@@ -24,9 +24,8 @@ quality matters more than the ~3x input-cost premium -- and its lower
 2048-token minimum cacheable prefix means caching activates immediately
 at our current size.
 
-Discourse-move taxonomy inherited from station/sensors/leg5_spec.md
-(lines 60-69 and 117-122). Worked examples drawn from this lucida
-session's own classifications (cell-0006 onward).
+Discourse-move taxonomy: structural | temporal | comparative | causal | quantitative.
+Worked examples drawn from live lucida session classifications.
 """
 
 from __future__ import annotations

@@ -1,10 +1,9 @@
 """Pluggable transcript adapters for the lucida watcher.
 
-Per memory/multi_assistant_dashboard.md: lucida's positioning is
-"passive companion to AI sessions" — currently scoped to Claude Code,
+Pluggable transcript adapters. Currently scoped to Claude Code and Aider,
 but the segmenter + classifier + specialists are format-agnostic.
-The only AI-tool-specific code is the transcript extractor (turning
-the tool's native log/history format into flat prose).
+The only tool-specific code is the transcript extractor (turning
+the tool's native log format into flat prose).
 
 Each adapter implements the same interface:
 

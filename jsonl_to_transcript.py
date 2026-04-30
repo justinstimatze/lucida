@@ -1,7 +1,6 @@
-"""Backward-compat shim — the real logic moved to adapters/claude_code.py
-as part of the multi-assistant adapter refactor (memory/
-multi_assistant_dashboard.md). The hooks/recent_mints.sh + the live
-watcher loop both invoke this script with the legacy CLI; keep working.
+"""Backward-compat shim — the real logic moved to adapters/claude_code.py.
+The hooks/recent_mints.sh + the live watcher loop both invoke this
+script with the legacy CLI; keep working.
 
 For new integrations prefer:
 
