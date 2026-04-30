@@ -13,7 +13,7 @@ readme = "README.md"
 [project.optional-dependencies]
 image = [
     "google-genai>=0.3,<3",
-    "Pillow>=10.0",
+    "Pillow>=12.2.0",
 ]
 dev = [
     "ruff>=0.5",
