@@ -37,6 +37,9 @@ audits/
 Pasted image*.png
 Pasted image*.jpg
 
+# generated demo artifacts — run demo/make_demo_cells.py to recreate
+demo/demo_cells.json
+
 # local-only research scrapes/exhaustive surveys — not committed.
 # Curated synthesis with bookmarks lives in design-references.md (committed);
 # raw per-entry tables and competitor URL surveys live here for local lookup.
