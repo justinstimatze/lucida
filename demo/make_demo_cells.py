@@ -15,6 +15,7 @@ Options:
     --session ID    session_id tag (default: lucida-demo)
     --no-scene3d    skip scene3d cell (slower / more variable quality)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -49,8 +50,8 @@ class Seed:
     title: str
     snippet: str
     context: str = ""
-    subtype_hint: str = ""   # mermaid only
-    layout_hint: str = ""    # html only
+    subtype_hint: str = ""  # mermaid only
+    layout_hint: str = ""  # html only
 
 
 SEEDS: list[Seed] = [
@@ -230,7 +231,9 @@ def _discourse_move(cell_type: str) -> str:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--out", type=Path, default=Path(__file__).parent / "demo_cells.json")
     p.add_argument("--session", default="lucida-demo")
     p.add_argument("--no-scene3d", action="store_true", help="skip scene3d (can be slow/variable)")
@@ -259,7 +262,8 @@ def main() -> None:
         cells.append(cell)
 
         cache_note = (
-            f"cache_hit={result.cache_read_tokens}t" if result.cache_read_tokens
+            f"cache_hit={result.cache_read_tokens}t"
+            if result.cache_read_tokens
             else f"cache_wrote={result.cache_creation_tokens}t"
         )
         print(f"ok ({cache_note}  in={result.input_tokens} out={result.output_tokens})")

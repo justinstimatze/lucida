@@ -16,6 +16,7 @@ Run in background while recording:
     python demo/replay.py --interval 6 &
     bash demo/record.sh
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,15 +43,24 @@ def save_cells(data: dict) -> None:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--source", type=Path, default=DEFAULT_SOURCE,
-                   help="demo cells source (default: demo/demo_cells.json)")
-    p.add_argument("--interval", type=float, default=6.0,
-                   help="seconds between each cell mint (default: 6)")
-    p.add_argument("--reset", action="store_true",
-                   help="clear cells.json to empty state and exit")
-    p.add_argument("--session", default=None,
-                   help="session_id to write to cells.json (default: from source file)")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--source",
+        type=Path,
+        default=DEFAULT_SOURCE,
+        help="demo cells source (default: demo/demo_cells.json)",
+    )
+    p.add_argument(
+        "--interval", type=float, default=6.0, help="seconds between each cell mint (default: 6)"
+    )
+    p.add_argument("--reset", action="store_true", help="clear cells.json to empty state and exit")
+    p.add_argument(
+        "--session",
+        default=None,
+        help="session_id to write to cells.json (default: from source file)",
+    )
     args = p.parse_args()
 
     if args.reset:
@@ -77,7 +87,8 @@ def main() -> None:
     live = load_cells()
     demo_ids = {c["id"] for c in demo_cells}
     live["cells"] = [
-        c for c in live.get("cells", [])
+        c
+        for c in live.get("cells", [])
         if c.get("session_id") != session_id and c.get("id") not in demo_ids
     ]
     live["session_id"] = session_id
@@ -90,7 +101,9 @@ def main() -> None:
         live = load_cells()
         live["cells"].append(cell)
         save_cells(live)
-        print(f"  [{i:2d}/{len(demo_cells)}] {cell.get('cell_type','')} — {cell.get('title','')[:50]}")
+        print(
+            f"  [{i:2d}/{len(demo_cells)}] {cell.get('cell_type', '')} — {cell.get('title', '')[:50]}"
+        )
         if i < len(demo_cells):
             time.sleep(args.interval)
 

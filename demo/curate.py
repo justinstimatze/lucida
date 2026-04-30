@@ -17,6 +17,7 @@ Usage:
     python demo/curate.py --list
     python demo/curate.py --list --session nif-demo
 """
+
 from __future__ import annotations
 
 import argparse
@@ -61,11 +62,12 @@ def auto_select(session: str) -> list[dict]:
             selected.append(max(candidates, key=_score))  # richest spec
         else:
             # Fall back to any session — pick the most recent non-empty cell of this type
-            all_cells = [c for c in _load_all()
-                         if c.get("cell_type") == sub and _has_content(c)]
+            all_cells = [c for c in _load_all() if c.get("cell_type") == sub and _has_content(c)]
             if all_cells:
                 selected.append(all_cells[-1])
-                print(f"  note: {sub} not in session {session!r}, using {all_cells[-1]['id']} from {all_cells[-1].get('session_id','?')}")
+                print(
+                    f"  note: {sub} not in session {session!r}, using {all_cells[-1]['id']} from {all_cells[-1].get('session_id', '?')}"
+                )
             else:
                 print(f"  warning: no {sub} cell found anywhere")
 
@@ -109,11 +111,13 @@ def list_candidates(session: str | None = None) -> None:
         print(f"\n── {sub} ──")
         for c in by_sub.get(sub, [])[-8:]:
             has = "ok" if _has_content(c) else "empty"
-            print(f"  {c['id']} [{has}] {c.get('title','')[:55]}")
+            print(f"  {c['id']} [{has}] {c.get('title', '')[:55]}")
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--session", help="auto-select best cell per substrate from this session_id")
     p.add_argument("--ids", help="comma-separated cell IDs to include")
     p.add_argument("--out", type=Path, default=OUT_PATH, help="output path")
@@ -139,7 +143,7 @@ def main() -> None:
     print(f"Curated {len(cells)} cells → {args.out}")
     for c in cells:
         has = "ok" if _has_content(c) else "EMPTY"
-        print(f"  {c['id']} {c.get('cell_type',''):14s} [{has}] {c.get('title','')[:55]}")
+        print(f"  {c['id']} {c.get('cell_type', ''):14s} [{has}] {c.get('title', '')[:55]}")
 
     # Normalize all cell session_ids so replay.py drips them under the right filter
     demo_session = args.session or "lucida-demo"

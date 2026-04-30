@@ -8,6 +8,7 @@ Usage:
 The output transcript is what the watcher consumes regardless of the
 source AI tool — single contract, one watcher, many adapters.
 """
+
 from __future__ import annotations
 
 import argparse

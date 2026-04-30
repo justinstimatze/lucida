@@ -28,6 +28,7 @@ Discourse-move taxonomy inherited from station/sensors/leg5_spec.md
 (lines 60-69 and 117-122). Worked examples drawn from this lucida
 session's own classifications (cell-0006 onward).
 """
+
 from __future__ import annotations
 
 import os
@@ -36,6 +37,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -221,14 +223,21 @@ CLASSIFY_TOOL = {
         "properties": {
             "discourse_move": {
                 "type": "string",
-                "enum": ["structural", "temporal", "comparative",
-                         "causal", "quantitative", "none"],
+                "enum": ["structural", "temporal", "comparative", "causal", "quantitative", "none"],
             },
             "cell_type": {
                 "type": "string",
-                "enum": ["text", "image", "vega", "mermaid", "html",
-                         "animated_svg", "scene3d", "treemap",
-                         "sparkline"],
+                "enum": [
+                    "text",
+                    "image",
+                    "vega",
+                    "mermaid",
+                    "html",
+                    "animated_svg",
+                    "scene3d",
+                    "treemap",
+                    "sparkline",
+                ],
             },
             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
             "reasoning": {
@@ -242,8 +251,16 @@ CLASSIFY_TOOL = {
             },
             "mermaid_subtype": {
                 "type": "string",
-                "enum": ["timeline", "mindmap", "sankey-beta", "sequenceDiagram",
-                         "stateDiagram-v2", "quadrantChart", "flowchart", "n/a"],
+                "enum": [
+                    "timeline",
+                    "mindmap",
+                    "sankey-beta",
+                    "sequenceDiagram",
+                    "stateDiagram-v2",
+                    "quadrantChart",
+                    "flowchart",
+                    "n/a",
+                ],
                 "description": "If cell_type=mermaid, the diagram subtype matching the snippet's shape. Use 'n/a' when cell_type is not mermaid. The shape-hint guidance section explains when each fits.",
             },
             "html_layout": {
@@ -252,7 +269,15 @@ CLASSIFY_TOOL = {
                 "description": "If cell_type=html, the layout pattern matching the snippet's shape. Use 'n/a' when cell_type is not html. The shape-hint guidance section explains when each fits.",
             },
         },
-        "required": ["discourse_move", "cell_type", "confidence", "reasoning", "title", "mermaid_subtype", "html_layout"],
+        "required": [
+            "discourse_move",
+            "cell_type",
+            "confidence",
+            "reasoning",
+            "title",
+            "mermaid_subtype",
+            "html_layout",
+        ],
     },
 }
 
@@ -286,9 +311,7 @@ def classify(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> Cla
     try:
         import anthropic
     except ImportError as e:
-        raise ClassifierError(
-            "anthropic SDK not installed; run `uv pip install -e .`"
-        ) from e
+        raise ClassifierError("anthropic SDK not installed; run `uv pip install -e .`") from e
 
     client = anthropic.Anthropic(api_key=api_key)
 
@@ -323,16 +346,15 @@ def classify(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> Cla
                 title=inp.get("title", "").strip()[:60],
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0)
+                or 0,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
                 mermaid_subtype=inp.get("mermaid_subtype", "n/a") or "n/a",
                 html_layout=inp.get("html_layout", "n/a") or "n/a",
             )
 
-    raise ClassifierError(
-        f"no tool_use block in response (stop_reason={response.stop_reason})"
-    )
+    raise ClassifierError(f"no tool_use block in response (stop_reason={response.stop_reason})")
 
 
 def main() -> None:

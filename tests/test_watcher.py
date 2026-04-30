@@ -6,6 +6,7 @@ Tests only the deterministic, no-I/O helpers:
 - discover_active_transcripts: filesystem walk with mtime filter
 - WatcherStep: dataclass defaults
 """
+
 from __future__ import annotations
 
 import time
@@ -14,6 +15,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # _is_dup
 # ---------------------------------------------------------------------------
+
 
 def test_is_dup_empty_snippet_always_dup():
     from watcher import _is_dup
@@ -72,6 +74,7 @@ def test_is_dup_empty_existing_set():
 # _project_name_from_transcript
 # ---------------------------------------------------------------------------
 
+
 def test_project_name_strips_home_documents_prefix():
     from watcher import _project_name_from_transcript
 
@@ -112,6 +115,7 @@ def test_project_name_non_standard_parent():
 # discover_active_transcripts
 # ---------------------------------------------------------------------------
 
+
 def test_discover_active_transcripts_empty_root(tmp_path: Path):
     from watcher import discover_active_transcripts
 
@@ -147,6 +151,7 @@ def test_discover_active_transcripts_ignores_stale(tmp_path: Path):
     # backdate to 2 hours ago
     old_time = time.time() - 7200
     import os
+
     os.utime(stale, (old_time, old_time))
 
     result = discover_active_transcripts(tmp_path, active_window_min=30.0)
@@ -162,6 +167,7 @@ def test_discover_active_transcripts_one_per_project(tmp_path: Path):
     older = proj / "old.jsonl"
     older.write_text("old")
     import time as _time
+
     _time.sleep(0.01)
     newer = proj / "new.jsonl"
     newer.write_text("new")
@@ -186,6 +192,7 @@ def test_discover_active_transcripts_multiple_projects(tmp_path: Path):
 # ---------------------------------------------------------------------------
 # WatcherStep defaults
 # ---------------------------------------------------------------------------
+
 
 def test_watcher_step_defaults():
     from watcher import WatcherStep

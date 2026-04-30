@@ -18,6 +18,7 @@ specialists may not always trigger caching unless the snippet pushes
 the prefix over -- still set cache_control on the system block for
 forward-compat.
 """
+
 from __future__ import annotations
 
 import os
@@ -26,6 +27,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -100,7 +102,8 @@ def _call_specialist(
             return {
                 "input": block.input,
                 "cache_read_tokens": getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                "cache_creation_tokens": getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                "cache_creation_tokens": getattr(response.usage, "cache_creation_input_tokens", 0)
+                or 0,
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
             }
@@ -189,9 +192,11 @@ def split_mermaid_subgraphs(spec: str) -> list[tuple[str, str]] | None:
         stripped = line.strip()
         if stripped.startswith("subgraph "):
             if depth == 0:
-                rest = stripped[len("subgraph "):].strip()
+                rest = stripped[len("subgraph ") :].strip()
                 if "[" in rest and "]" in rest:
-                    label = rest[rest.index("[") + 1:rest.rindex("]")].strip().strip('"').strip("'")
+                    label = (
+                        rest[rest.index("[") + 1 : rest.rindex("]")].strip().strip('"').strip("'")
+                    )
                 else:
                     label = rest.split(None, 1)[0] if rest else "subgraph"
                 current_label = label
@@ -373,8 +378,14 @@ MERMAID_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "spec": {"type": "string", "description": "Valid mermaid syntax in any of the supported diagram types (timeline, mindmap, sankey-beta, sequenceDiagram, stateDiagram-v2, quadrantChart, flowchart). Pick by snippet shape."},
-            "caption": {"type": "string", "description": "1-2 sentence summary of what the diagram shows."},
+            "spec": {
+                "type": "string",
+                "description": "Valid mermaid syntax in any of the supported diagram types (timeline, mindmap, sankey-beta, sequenceDiagram, stateDiagram-v2, quadrantChart, flowchart). Pick by snippet shape.",
+            },
+            "caption": {
+                "type": "string",
+                "description": "1-2 sentence summary of what the diagram shows.",
+            },
             "should_demote_to_text": {"type": "boolean"},
             "demotion_reason": {"type": "string", "description": "If demoting, why; else empty."},
         },
@@ -392,7 +403,9 @@ def generate_mermaid_spec(
     hint = ""
     if subtype_hint and subtype_hint != "n/a":
         hint = f"diagram type = {subtype_hint}. Produce a {subtype_hint} spec unless the snippet shape genuinely cannot support it (in which case demote to text)"
-    raw = _call_specialist(MERMAID_SYSTEM, MERMAID_TOOL, "build_mermaid_spec", snippet, context, model, shape_hint=hint)
+    raw = _call_specialist(
+        MERMAID_SYSTEM, MERMAID_TOOL, "build_mermaid_spec", snippet, context, model, shape_hint=hint
+    )
     return _result(raw["input"], raw, model)
 
 
@@ -500,7 +513,9 @@ VEGA_TOOL = {
 }
 
 
-def generate_vega_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
+def generate_vega_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
     raw = _call_specialist(VEGA_SYSTEM, VEGA_TOOL, "build_vega_spec", snippet, context, model)
     return _result(raw["input"], raw, model)
 
@@ -614,7 +629,10 @@ HTML_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "html": {"type": "string", "description": "Clean semantic HTML using one of the supported layout patterns (<table>, <div class=\"callouts\">, <dl>, or <div class=\"kanban\">). No inline styles. Pick by snippet shape."},
+            "html": {
+                "type": "string",
+                "description": 'Clean semantic HTML using one of the supported layout patterns (<table>, <div class="callouts">, <dl>, or <div class="kanban">). No inline styles. Pick by snippet shape.',
+            },
             "caption": {"type": "string"},
             "should_demote_to_text": {"type": "boolean"},
             "demotion_reason": {"type": "string"},
@@ -633,7 +651,9 @@ def generate_html_spec(
     hint = ""
     if layout_hint and layout_hint != "n/a":
         hint = f"layout pattern = {layout_hint}. Produce a {layout_hint} layout unless the snippet shape genuinely cannot support it (in which case demote to text)"
-    raw = _call_specialist(HTML_SYSTEM, HTML_TOOL, "build_html_spec", snippet, context, model, shape_hint=hint)
+    raw = _call_specialist(
+        HTML_SYSTEM, HTML_TOOL, "build_html_spec", snippet, context, model, shape_hint=hint
+    )
     return _result(raw["input"], raw, model, spec_field="html")
 
 
@@ -732,8 +752,12 @@ TREEMAP_TOOL = {
 }
 
 
-def generate_treemap_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(TREEMAP_SYSTEM, TREEMAP_TOOL, "build_treemap_spec", snippet, context, model)
+def generate_treemap_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        TREEMAP_SYSTEM, TREEMAP_TOOL, "build_treemap_spec", snippet, context, model
+    )
     return _result(raw["input"], raw, model)
 
 
@@ -854,8 +878,12 @@ ANIMATED_SVG_TOOL = {
 }
 
 
-def generate_animated_svg_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(ANIMATED_SVG_SYSTEM, ANIMATED_SVG_TOOL, "build_animated_svg_spec", snippet, context, model)
+def generate_animated_svg_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        ANIMATED_SVG_SYSTEM, ANIMATED_SVG_TOOL, "build_animated_svg_spec", snippet, context, model
+    )
     return _result(raw["input"], raw, model)
 
 
@@ -1021,8 +1049,12 @@ SCENE3D_TOOL = {
 }
 
 
-def generate_scene3d_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(SCENE3D_SYSTEM, SCENE3D_TOOL, "build_scene3d_spec", snippet, context, model)
+def generate_scene3d_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        SCENE3D_SYSTEM, SCENE3D_TOOL, "build_scene3d_spec", snippet, context, model
+    )
     return _result(raw["input"], raw, model)
 
 
@@ -1109,8 +1141,12 @@ SPARKLINE_TOOL = {
 }
 
 
-def generate_sparkline_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(SPARKLINE_SYSTEM, SPARKLINE_TOOL, "build_sparkline_spec", snippet, context, model)
+def generate_sparkline_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        SPARKLINE_SYSTEM, SPARKLINE_TOOL, "build_sparkline_spec", snippet, context, model
+    )
     return _result(raw["input"], raw, model)
 
 
@@ -1122,9 +1158,11 @@ def main() -> None:
     from dataclasses import asdict
 
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--type", required=True,
-                   choices=["mermaid", "vega", "html", "animated_svg",
-                            "scene3d", "treemap", "sparkline"])
+    p.add_argument(
+        "--type",
+        required=True,
+        choices=["mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline"],
+    )
     p.add_argument("--snippet", required=True)
     p.add_argument("--context", default="")
     p.add_argument("--model", default=DEFAULT_MODEL)

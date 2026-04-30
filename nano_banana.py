@@ -16,6 +16,7 @@ Reference:
 - https://ai.google.dev/gemini-api/docs/image-generation
 - https://deepmind.google/models/gemini-image/
 """
+
 from __future__ import annotations
 
 import json
@@ -28,6 +29,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -72,24 +74,20 @@ def _check_and_bump_daily_cap() -> None:
         )
     usage[today] = count + 1
     cutoff = date.today().toordinal() - 30
-    usage = {k: v for k, v in usage.items()
-             if date.fromisoformat(k).toordinal() >= cutoff}
+    usage = {k: v for k, v in usage.items() if date.fromisoformat(k).toordinal() >= cutoff}
     _save_usage(usage)
 
 
 def _client_and_types():
     api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        raise NanoBananaError(
-            "GOOGLE_API_KEY not set. copy .env.example to .env and fill it in."
-        )
+        raise NanoBananaError("GOOGLE_API_KEY not set. copy .env.example to .env and fill it in.")
     try:
         from google import genai
         from google.genai import types
     except ImportError as e:
         raise NanoBananaError(
-            "google-genai not installed. run `uv pip install -e .` or "
-            "`pip install google-genai`."
+            "google-genai not installed. run `uv pip install -e .` or `pip install google-genai`."
         ) from e
     return genai.Client(api_key=api_key), types
 
@@ -120,12 +118,17 @@ def _perturb_bytes(img_bytes: bytes) -> bytes:
     from io import BytesIO
 
     from PIL import Image as PilImage
+
     img = PilImage.open(BytesIO(img_bytes))
     w, h = img.size
-    crop = img.crop((
-        int(w * 0.013), int(h * 0.011),
-        int(w * 0.987), int(h * 0.989),
-    ))
+    crop = img.crop(
+        (
+            int(w * 0.013),
+            int(h * 0.011),
+            int(w * 0.987),
+            int(h * 0.989),
+        )
+    )
     cw, ch = crop.size
     resized = crop.resize(
         (int(cw * 0.95), int(ch * 0.95)),
@@ -154,22 +157,23 @@ def generate(prompt: str, out_path: Path, model: str = DEFAULT_MODEL) -> GenResu
     )
     image_bytes, finish_reasons = _extract_image_bytes_or_reasons(resp)
     if image_bytes is None:
-        raise NanoBananaError(
-            f"no image returned by {model}. finish_reasons: {finish_reasons}"
-        )
+        raise NanoBananaError(f"no image returned by {model}. finish_reasons: {finish_reasons}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(image_bytes)
-    return GenResult(image_path=out_path, model=model,
-                     bytes_written=len(image_bytes))
+    return GenResult(image_path=out_path, model=model, bytes_written=len(image_bytes))
 
 
-def transform_image(input_image: Path, prompt: str, out_path: Path,
-                    model: str = DEFAULT_MODEL,
-                    reference_images: list[Path] | None = None,
-                    system_instruction: str | None = None,
-                    temperature: float | None = None,
-                    seed: int | None = None,
-                    aspect_ratio: str | None = None) -> GenResult:
+def transform_image(
+    input_image: Path,
+    prompt: str,
+    out_path: Path,
+    model: str = DEFAULT_MODEL,
+    reference_images: list[Path] | None = None,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+    seed: int | None = None,
+    aspect_ratio: str | None = None,
+) -> GenResult:
     """Image-to-image. Apply `prompt` as a transform of `input_image`.
 
     The base image is sent as an inline_data part alongside the text
@@ -195,10 +199,7 @@ def transform_image(input_image: Path, prompt: str, out_path: Path,
     for ref in reference_images or []:
         if not ref.exists():
             raise NanoBananaError(f"reference image not found: {ref}")
-        contents.append(
-            types.Part.from_bytes(data=ref.read_bytes(),
-                                  mime_type=_mime_for(ref))
-        )
+        contents.append(types.Part.from_bytes(data=ref.read_bytes(), mime_type=_mime_for(ref)))
     contents.append(prompt)
 
     config_kwargs: dict = {"response_modalities": ["IMAGE", "TEXT"]}
@@ -209,12 +210,12 @@ def transform_image(input_image: Path, prompt: str, out_path: Path,
     if seed is not None:
         config_kwargs["seed"] = seed
     if aspect_ratio:
-        config_kwargs["image_config"] = types.ImageConfig(
-            aspect_ratio=aspect_ratio
-        )
+        config_kwargs["image_config"] = types.ImageConfig(aspect_ratio=aspect_ratio)
     cfg = types.GenerateContentConfig(**config_kwargs)
     resp = client.models.generate_content(
-        model=model, contents=contents, config=cfg,
+        model=model,
+        contents=contents,
+        config=cfg,
     )
     image_bytes, finish_reasons = _extract_image_bytes_or_reasons(resp)
 
@@ -227,40 +228,46 @@ def transform_image(input_image: Path, prompt: str, out_path: Path,
         )
         perturbed = _perturb_bytes(img_bytes)
         contents[0] = types.Part.from_bytes(
-            data=perturbed, mime_type="image/jpeg",
+            data=perturbed,
+            mime_type="image/jpeg",
         )
         resp = client.models.generate_content(
-            model=model, contents=contents, config=cfg,
+            model=model,
+            contents=contents,
+            config=cfg,
         )
         image_bytes, finish_reasons = _extract_image_bytes_or_reasons(resp)
 
     if image_bytes is None:
         raise NanoBananaError(
-            f"no image returned by {model}. "
-            f"finish_reasons (after retry if any): {finish_reasons}"
+            f"no image returned by {model}. finish_reasons (after retry if any): {finish_reasons}"
         )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(image_bytes)
-    return GenResult(image_path=out_path, model=model,
-                     bytes_written=len(image_bytes))
+    return GenResult(image_path=out_path, model=model, bytes_written=len(image_bytes))
 
 
 def main() -> None:
     import argparse
+
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prompt", required=True)
     p.add_argument("--out", required=True, help="output PNG path")
     p.add_argument("--model", default=DEFAULT_MODEL)
-    p.add_argument("--input-image", help="if set, do image-to-image edit "
-                   "of this PNG instead of text-to-image")
-    p.add_argument("--ref", action="append", default=[],
-                   help="reference image (i2i only); repeatable")
+    p.add_argument(
+        "--input-image", help="if set, do image-to-image edit of this PNG instead of text-to-image"
+    )
+    p.add_argument(
+        "--ref", action="append", default=[], help="reference image (i2i only); repeatable"
+    )
     args = p.parse_args()
 
     try:
         if args.input_image:
             result = transform_image(
-                Path(args.input_image), args.prompt, Path(args.out),
+                Path(args.input_image),
+                args.prompt,
+                Path(args.out),
                 model=args.model,
                 reference_images=[Path(r) for r in args.ref] or None,
             )
@@ -270,8 +277,7 @@ def main() -> None:
         print(f"error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"wrote {result.bytes_written} bytes to {result.image_path} "
-          f"(model: {result.model})")
+    print(f"wrote {result.bytes_written} bytes to {result.image_path} (model: {result.model})")
 
 
 if __name__ == "__main__":

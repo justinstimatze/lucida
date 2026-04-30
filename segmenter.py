@@ -16,6 +16,7 @@ For typical inputs, cache fires from the first call.
 
 Override the model via LUCIDA_SEGMENTER_MODEL env var.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,6 +25,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -171,6 +173,7 @@ def segment_document(text: str, model: str = DEFAULT_MODEL) -> SegmentationResul
             # "segments" that mostly dedup but occasionally slip through.
             if isinstance(raw_segments, str):
                 import json as _json
+
                 try:
                     raw_segments = _json.loads(raw_segments)
                 except _json.JSONDecodeError:
@@ -181,11 +184,13 @@ def segment_document(text: str, model: str = DEFAULT_MODEL) -> SegmentationResul
                     if isinstance(s, dict) and s.get("snippet"):
                         snippet = s["snippet"].strip()
                         if len(snippet) >= 20:  # min meaningful snippet
-                            segments.append(Segment(
-                                snippet=snippet,
-                                context=s.get("context", ""),
-                                rationale=s.get("rationale", ""),
-                            ))
+                            segments.append(
+                                Segment(
+                                    snippet=snippet,
+                                    context=s.get("context", ""),
+                                    rationale=s.get("rationale", ""),
+                                )
+                            )
                     elif isinstance(s, str):
                         snippet = s.strip()
                         if len(snippet) >= 20:
@@ -195,7 +200,8 @@ def segment_document(text: str, model: str = DEFAULT_MODEL) -> SegmentationResul
                 summary=inp.get("summary", ""),
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0)
+                or 0,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
             )

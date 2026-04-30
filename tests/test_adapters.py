@@ -1,4 +1,5 @@
 """Adapter-pattern smoke tests."""
+
 from __future__ import annotations
 
 import json
@@ -20,26 +21,32 @@ def test_claude_code_adapter_roundtrip(tmp_path: Path):
 
     jsonl = tmp_path / "session.jsonl"
     lines = [
-        json.dumps({
-            "type": "user",
-            "message": {"role": "user", "content": "fix the bug in foo.py"},
-        }),
-        json.dumps({
-            "type": "assistant",
-            "message": {
-                "role": "assistant",
-                "content": [
-                    {"type": "thinking", "thinking": "noisy reasoning"},
-                    {"type": "text", "text": "I'll look at foo.py"},
-                    {"type": "tool_use", "name": "Read", "input": {"path": "foo.py"}},
-                ],
-            },
-        }),
+        json.dumps(
+            {
+                "type": "user",
+                "message": {"role": "user", "content": "fix the bug in foo.py"},
+            }
+        ),
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "noisy reasoning"},
+                        {"type": "text", "text": "I'll look at foo.py"},
+                        {"type": "tool_use", "name": "Read", "input": {"path": "foo.py"}},
+                    ],
+                },
+            }
+        ),
         # System-injected user message — should be dropped
-        json.dumps({
-            "type": "user",
-            "message": {"role": "user", "content": "<command-name>/help</command-name>"},
-        }),
+        json.dumps(
+            {
+                "type": "user",
+                "message": {"role": "user", "content": "<command-name>/help</command-name>"},
+            }
+        ),
     ]
     jsonl.write_text("\n".join(lines) + "\n")
 
@@ -58,16 +65,21 @@ def test_claude_code_thinking_passthrough(tmp_path: Path):
     from adapters.claude_code import extract
 
     jsonl = tmp_path / "session.jsonl"
-    jsonl.write_text(json.dumps({
-        "type": "assistant",
-        "message": {
-            "role": "assistant",
-            "content": [
-                {"type": "thinking", "thinking": "load-bearing reasoning"},
-                {"type": "text", "text": "answer"},
-            ],
-        },
-    }) + "\n")
+    jsonl.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "load-bearing reasoning"},
+                        {"type": "text", "text": "answer"},
+                    ],
+                },
+            }
+        )
+        + "\n"
+    )
     text, _ = extract(jsonl, include_thinking=True)
     assert "load-bearing reasoning" in text
     assert "answer" in text

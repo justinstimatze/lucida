@@ -2,6 +2,7 @@
 
 No API calls. Tests the deterministic extraction/serialization helpers.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,6 +12,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # text_evaluator._substrate_text
 # ---------------------------------------------------------------------------
+
 
 def test_substrate_text_vega_with_spec():
     from text_evaluator import _substrate_text
@@ -84,6 +86,7 @@ def test_substrate_text_missing_cell_type_raises():
 # reflect._is_visible
 # ---------------------------------------------------------------------------
 
+
 def test_is_visible_normal_cell():
     from reflect import _is_visible
 
@@ -103,25 +106,30 @@ def test_is_visible_demoted_text_not_visible():
     from reflect import _is_visible
 
     # text cell with attempted_cell_type = was demoted by trivial filter
-    assert not _is_visible({
-        "cell_type": "text",
-        "attempted_cell_type": "vega",
-        "caption": "Raw snippet text",
-    })
+    assert not _is_visible(
+        {
+            "cell_type": "text",
+            "attempted_cell_type": "vega",
+            "caption": "Raw snippet text",
+        }
+    )
 
 
 def test_is_visible_demoted_from_html():
     from reflect import _is_visible
 
-    assert not _is_visible({
-        "cell_type": "text",
-        "attempted_cell_type": "html",
-    })
+    assert not _is_visible(
+        {
+            "cell_type": "text",
+            "attempted_cell_type": "html",
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # reflect._cell_summary_text
 # ---------------------------------------------------------------------------
+
 
 def _base_cell(**kwargs) -> dict:
     base = {"id": "cell-0001", "cell_type": "vega", "trigger_snippet": "prices rose 10%"}

@@ -4,6 +4,7 @@ Tests that the classifier routes representative snippets to the expected
 substrate types. One call per test; relies on prompt-caching for the
 system prompt so repeated runs are cheap.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -37,8 +38,7 @@ def test_classify_relational_snippet_routes_to_mermaid():
     )
     result = classify(snippet)
     assert result.cell_type == "mermaid", (
-        f"expected mermaid, got {result.cell_type!r} "
-        f"(confidence={result.confidence:.2f})"
+        f"expected mermaid, got {result.cell_type!r} (confidence={result.confidence:.2f})"
     )
     assert result.confidence >= 0.6
 
@@ -55,8 +55,7 @@ def test_classify_comparison_table_snippet_routes_to_html():
     )
     result = classify(snippet)
     assert result.cell_type == "html", (
-        f"expected html, got {result.cell_type!r} "
-        f"(confidence={result.confidence:.2f})"
+        f"expected html, got {result.cell_type!r} (confidence={result.confidence:.2f})"
     )
 
 

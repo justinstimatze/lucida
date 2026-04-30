@@ -4,6 +4,7 @@ Tests that each specialist produces a syntactically plausible output for
 a well-targeted snippet. Not a quality audit — just confirms the pipeline
 doesn't crash and returns the expected structure.
 """
+
 from __future__ import annotations
 
 import json

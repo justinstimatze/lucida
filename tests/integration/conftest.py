@@ -9,6 +9,7 @@ Run explicitly with:
 Or include in a full run with:
     pytest --run-integration
 """
+
 from __future__ import annotations
 
 import os
@@ -17,9 +18,7 @@ import pytest
 
 
 def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "integration: mark test as requiring live API access"
-    )
+    config.addinivalue_line("markers", "integration: mark test as requiring live API access")
 
 
 @pytest.fixture(scope="session", autouse=True)

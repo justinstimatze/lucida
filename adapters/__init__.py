@@ -17,6 +17,7 @@ flat transcript without caring which AI tool produced it.
 Add a new adapter by writing one Python file with the extract()
 function and registering it in ADAPTERS below.
 """
+
 from __future__ import annotations
 
 from .aider import extract as aider_extract

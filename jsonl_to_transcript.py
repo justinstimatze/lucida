@@ -7,6 +7,7 @@ For new integrations prefer:
 
     python -m adapters.cli --source claude-code <jsonl> --out <txt>
 """
+
 from __future__ import annotations
 
 import argparse

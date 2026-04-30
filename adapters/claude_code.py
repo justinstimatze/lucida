@@ -15,6 +15,7 @@ This module was previously the standalone jsonl_to_transcript.py;
 relocated 2026-04-28 as part of the adapter refactor (memory/
 multi_assistant_dashboard.md).
 """
+
 from __future__ import annotations
 
 import json
@@ -58,8 +59,11 @@ def extract(source_path: Path, *, include_thinking: bool = False) -> tuple[str, 
     """Read a Claude Code .jsonl session log; return (flat transcript, stats)."""
     out: list[str] = []
     stats = {
-        "kept": 0, "skipped_prefix": 0, "skipped_empty": 0,
-        "stripped_chars": 0, "kept_chars": 0,
+        "kept": 0,
+        "skipped_prefix": 0,
+        "skipped_empty": 0,
+        "stripped_chars": 0,
+        "kept_chars": 0,
     }
     with Path(source_path).open() as f:
         for line in f:

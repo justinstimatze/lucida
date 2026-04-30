@@ -24,6 +24,7 @@ last system block; ImageBrief exposes cache_*_tokens for verification.
 
 Override the model via LUCIDA_IMAGE_SPECIALIST_MODEL env var.
 """
+
 from __future__ import annotations
 
 import os
@@ -32,6 +33,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -113,7 +115,10 @@ BRIEF_TOOL = {
         "type": "object",
         "properties": {
             "subject": {"type": "string", "description": "Central figure or scene."},
-            "setting": {"type": "string", "description": "Place + time of day + atmospheric conditions."},
+            "setting": {
+                "type": "string",
+                "description": "Place + time of day + atmospheric conditions.",
+            },
             "props": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -170,9 +175,7 @@ def shape_prompt(snippet: str, context: str = "", model: str = DEFAULT_MODEL) ->
     try:
         import anthropic
     except ImportError as e:
-        raise ImageSpecialistError(
-            "anthropic SDK not installed; run `uv pip install -e .`"
-        ) from e
+        raise ImageSpecialistError("anthropic SDK not installed; run `uv pip install -e .`") from e
 
     client = anthropic.Anthropic(api_key=api_key)
     user_msg = f"Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
@@ -208,7 +211,8 @@ def shape_prompt(snippet: str, context: str = "", model: str = DEFAULT_MODEL) ->
                 should_demote_to_text=bool(inp["should_demote_to_text"]),
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0)
+                or 0,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
             )
@@ -220,14 +224,8 @@ def shape_prompt(snippet: str, context: str = "", model: str = DEFAULT_MODEL) ->
 
 def build_gemini_prompt(brief: ImageBrief, snippet: str) -> str:
     """Step 2: compose the brief into a nano_banana prompt."""
-    props_str = (
-        "\n".join(f"  - {p}" for p in brief.props)
-        if brief.props else "  (none specified)"
-    )
-    avoid_str = (
-        "\n".join(f"  - {a}" for a in brief.avoid)
-        if brief.avoid else "  (none specified)"
-    )
+    props_str = "\n".join(f"  - {p}" for p in brief.props) if brief.props else "  (none specified)"
+    avoid_str = "\n".join(f"  - {a}" for a in brief.avoid) if brief.avoid else "  (none specified)"
     return f"""(nano banana prompt, v0.5 specialist-shaped)
 
 Subject: {brief.subject}
@@ -261,7 +259,9 @@ def main() -> None:
     p.add_argument("--snippet", required=True)
     p.add_argument("--context", default="")
     p.add_argument("--model", default=DEFAULT_MODEL)
-    p.add_argument("--show-prompt", action="store_true", help="also print the composed Gemini prompt")
+    p.add_argument(
+        "--show-prompt", action="store_true", help="also print the composed Gemini prompt"
+    )
     args = p.parse_args()
 
     try:

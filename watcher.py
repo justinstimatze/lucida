@@ -19,6 +19,7 @@ cells we'd want; false negatives mint a duplicate. Tune threshold.
 State (last_offset) persists across runs; if you delete the state
 file, next run reprocesses the whole transcript.
 """
+
 from __future__ import annotations
 
 import json
@@ -77,6 +78,7 @@ def _is_dup(snippet: str, existing_snippets: set[str], jaccard_threshold: float 
 @dataclass
 class WatcherStep:
     """Result of one watcher pass."""
+
     new_chars: int
     segments_found: int
     cells_minted: int
@@ -164,8 +166,11 @@ def process_once(
         seg_result = _seg.segment_document(new_text)
     except Exception as e:
         return WatcherStep(
-            new_chars=len(new_text), segments_found=0, cells_minted=0,
-            cells_skipped_dup=0, note=f"segmenter error: {e}",
+            new_chars=len(new_text),
+            segments_found=0,
+            cells_minted=0,
+            cells_skipped_dup=0,
+            note=f"segmenter error: {e}",
         )
 
     existing = load_cells()
@@ -185,7 +190,9 @@ def process_once(
         )
         try:
             proposal = append_proposal(
-                s.snippet, ctx, None,
+                s.snippet,
+                ctx,
+                None,
                 write=write,
                 generate_image=generate,
                 use_llm=use_llm,
@@ -213,6 +220,7 @@ def process_once(
         if pending >= reflect_every:
             try:
                 from orchestrator import reflect_and_persist
+
                 proposal = reflect_and_persist(reflect_n, write=write, session_id=session_id)
                 reflection_id = proposal.id
                 pending = 0
@@ -252,11 +260,11 @@ def _project_name_from_transcript(transcript_path: Path) -> str:
     parent_name = transcript_path.parent.name
     home_prefix = "-" + str(Path.home()).replace("/", "-").lstrip("-") + "-"
     if parent_name.startswith(home_prefix):
-        trailing = parent_name[len(home_prefix):]
+        trailing = parent_name[len(home_prefix) :]
         # strip the deepest common ancestor, typically "Documents-"
         for anchor in ("Documents-", "code-", "src-"):
             if trailing.startswith(anchor):
-                return trailing[len(anchor):]
+                return trailing[len(anchor) :]
         return trailing
     return transcript_path.stem
 
@@ -311,9 +319,11 @@ def watch_auto_discover(
     same window doesn't drop out mid-cycle. Set to 1 for paranoid rescanning,
     higher for less filesystem churn.
     """
-    print(f"[watcher] auto-discover mode; root={root}; interval={interval}s; "
-          f"active-window={active_window_min}min; rescan-every={rescan_every} ticks",
-          file=sys.stderr)
+    print(
+        f"[watcher] auto-discover mode; root={root}; interval={interval}s; "
+        f"active-window={active_window_min}min; rescan-every={rescan_every} ticks",
+        file=sys.stderr,
+    )
     # session_id is derived per-transcript inside the loop; the kwarg gets
     # popped here and re-set per call so a stale outer-scope value doesn't leak.
     kwargs.pop("session_id", None)
@@ -324,14 +334,19 @@ def watch_auto_discover(
             if tick % rescan_every == 0:
                 active = discover_active_transcripts(root, active_window_min=active_window_min)
                 if not active:
-                    print(f"[watcher {time.strftime('%H:%M:%S')}] no active transcripts in last {active_window_min:.0f}min; sleeping",
-                          file=sys.stderr)
+                    print(
+                        f"[watcher {time.strftime('%H:%M:%S')}] no active transcripts in last {active_window_min:.0f}min; sleeping",
+                        file=sys.stderr,
+                    )
             for transcript_path in active:
                 session_id = _project_name_from_transcript(transcript_path)
                 try:
                     step = process_once(transcript_path, session_id=session_id, **kwargs)
                 except Exception as e:
-                    print(f"[watcher] {session_id} ({transcript_path.name}): error {e!r}", file=sys.stderr)
+                    print(
+                        f"[watcher] {session_id} ({transcript_path.name}): error {e!r}",
+                        file=sys.stderr,
+                    )
                     continue
                 ts = time.strftime("%H:%M:%S")
                 if step.cells_minted or step.cells_suppressed:
@@ -343,8 +358,10 @@ def watch_auto_discover(
                         file=sys.stderr,
                     )
                 elif step.new_chars > 0:
-                    print(f"[watcher {ts}] {session_id}: idle ({step.new_chars} chars; {step.note})",
-                          file=sys.stderr)
+                    print(
+                        f"[watcher {ts}] {session_id}: idle ({step.new_chars} chars; {step.note})",
+                        file=sys.stderr,
+                    )
             tick += 1
             time.sleep(interval)
     except KeyboardInterrupt:
@@ -358,8 +375,7 @@ def watch(
     **kwargs,
 ) -> None:
     """Polling loop: process_once every `interval` seconds until interrupted."""
-    print(f"[watcher] tailing {transcript_path}; interval={interval}s",
-          file=sys.stderr)
+    print(f"[watcher] tailing {transcript_path}; interval={interval}s", file=sys.stderr)
     try:
         while True:
             step = process_once(transcript_path, **kwargs)
@@ -373,6 +389,7 @@ def watch(
             if step.cells_minted or step.cells_suppressed:
                 try:
                     from orchestrator import closed_loop_stats, load_cells
+
                     cl = closed_loop_stats(load_cells()["cells"])
                     metric = (
                         f" closed-loop {cl['closed_cells']}/{cl['content_cells']}"
@@ -381,7 +398,9 @@ def watch(
                 except Exception:
                     metric = ""
                 refl = f" + reflection {step.reflection_id}" if step.reflection_id else ""
-                supp = f", {step.cells_suppressed} suppressed (<0.6)" if step.cells_suppressed else ""
+                supp = (
+                    f", {step.cells_suppressed} suppressed (<0.6)" if step.cells_suppressed else ""
+                )
                 print(
                     f"[watcher {ts}] +{step.cells_minted} cells "
                     f"({step.cells_skipped_dup} dups skipped{supp}, "
@@ -390,8 +409,7 @@ def watch(
                 )
             else:
                 print(
-                    f"[watcher {ts}] idle ({step.new_chars} new chars; "
-                    f"{step.note})",
+                    f"[watcher {ts}] idle ({step.new_chars} new chars; {step.note})",
                     file=sys.stderr,
                 )
             time.sleep(interval)
@@ -404,47 +422,89 @@ def main() -> None:
     import argparse
 
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--transcript", default=None,
-                   help="path to a single transcript file (omit to use --auto-discover)")
-    p.add_argument("--auto-discover", action="store_true",
-                   help="multi-stream mode: scan ~/.claude/projects/ for active transcripts "
-                        "and tail one watcher-loop per project. Implies --watch (default 30s).")
-    p.add_argument("--auto-discover-root", type=Path,
-                   default=Path.home() / ".claude" / "projects",
-                   help="directory to scan in --auto-discover mode "
-                        "(default: ~/.claude/projects)")
-    p.add_argument("--auto-active-min", type=float, default=30.0,
-                   help="--auto-discover only watches transcripts modified within this many "
-                        "minutes; transcripts older than this are treated as stale sessions")
-    p.add_argument("--auto-rescan-every", type=int, default=4,
-                   help="re-walk the projects directory every N ticks "
-                        "(default 4; lower = pick up brand-new sessions sooner)")
-    p.add_argument("--watch", type=float, default=None,
-                   help="poll every N seconds (default: one-pass and exit; "
-                        "auto-discover defaults to 30s if --watch omitted)")
-    p.add_argument("--write", action="store_true", default=True,
-                   help="persist minted cells to cells.json (default true)")
-    p.add_argument("--no-write", action="store_false", dest="write",
-                   help="dry-run; don't persist")
-    p.add_argument("--generate", action="store_true",
-                   help="actually generate specs (specialists/Gemini); else proposals only")
-    p.add_argument("--no-llm-classify", action="store_true",
-                   help="force the v0 keyword classifier (off by default)")
-    p.add_argument("--no-auto-retrigger", action="store_true",
-                   help="disable retrigger loop")
+    p.add_argument(
+        "--transcript",
+        default=None,
+        help="path to a single transcript file (omit to use --auto-discover)",
+    )
+    p.add_argument(
+        "--auto-discover",
+        action="store_true",
+        help="multi-stream mode: scan ~/.claude/projects/ for active transcripts "
+        "and tail one watcher-loop per project. Implies --watch (default 30s).",
+    )
+    p.add_argument(
+        "--auto-discover-root",
+        type=Path,
+        default=Path.home() / ".claude" / "projects",
+        help="directory to scan in --auto-discover mode (default: ~/.claude/projects)",
+    )
+    p.add_argument(
+        "--auto-active-min",
+        type=float,
+        default=30.0,
+        help="--auto-discover only watches transcripts modified within this many "
+        "minutes; transcripts older than this are treated as stale sessions",
+    )
+    p.add_argument(
+        "--auto-rescan-every",
+        type=int,
+        default=4,
+        help="re-walk the projects directory every N ticks "
+        "(default 4; lower = pick up brand-new sessions sooner)",
+    )
+    p.add_argument(
+        "--watch",
+        type=float,
+        default=None,
+        help="poll every N seconds (default: one-pass and exit; "
+        "auto-discover defaults to 30s if --watch omitted)",
+    )
+    p.add_argument(
+        "--write",
+        action="store_true",
+        default=True,
+        help="persist minted cells to cells.json (default true)",
+    )
+    p.add_argument("--no-write", action="store_false", dest="write", help="dry-run; don't persist")
+    p.add_argument(
+        "--generate",
+        action="store_true",
+        help="actually generate specs (specialists/Gemini); else proposals only",
+    )
+    p.add_argument(
+        "--no-llm-classify",
+        action="store_true",
+        help="force the v0 keyword classifier (off by default)",
+    )
+    p.add_argument("--no-auto-retrigger", action="store_true", help="disable retrigger loop")
     p.add_argument("--max-retriggers", type=int, default=3)
-    p.add_argument("--min-new-chars", type=int, default=200,
-                   help="don't fire the segmenter unless the delta is at least this large")
-    p.add_argument("--reflect-every", type=int,
-                   default=int(os.environ.get("LUCIDA_WATCHER_REFLECT_EVERY", "0") or "0"),
-                   help="trigger a reflection cell after every N minted cells "
-                        "(cumulative across passes; 0 disables; default 0). "
-                        "Without this, shape A is one-way and the closed-loop ratio only goes down.")
-    p.add_argument("--reflect-n", type=int, default=5,
-                   help="number of recent visible cells the reflection covers (default 5)")
-    p.add_argument("--session-id", default=None,
-                   help="stamp this id on every minted cell (multi-stream arc step 1). "
-                        "Defaults to the transcript path's filename stem when unset.")
+    p.add_argument(
+        "--min-new-chars",
+        type=int,
+        default=200,
+        help="don't fire the segmenter unless the delta is at least this large",
+    )
+    p.add_argument(
+        "--reflect-every",
+        type=int,
+        default=int(os.environ.get("LUCIDA_WATCHER_REFLECT_EVERY", "0") or "0"),
+        help="trigger a reflection cell after every N minted cells "
+        "(cumulative across passes; 0 disables; default 0). "
+        "Without this, shape A is one-way and the closed-loop ratio only goes down.",
+    )
+    p.add_argument(
+        "--reflect-n",
+        type=int,
+        default=5,
+        help="number of recent visible cells the reflection covers (default 5)",
+    )
+    p.add_argument(
+        "--session-id",
+        default=None,
+        help="stamp this id on every minted cell (multi-stream arc step 1). "
+        "Defaults to the transcript path's filename stem when unset.",
+    )
     args = p.parse_args()
 
     use_llm = False if args.no_llm_classify else None
@@ -484,16 +544,21 @@ def main() -> None:
         watch(transcript_path, interval=args.watch, **kwargs)
     else:
         step = process_once(transcript_path, **kwargs)
-        print(json.dumps({
-            "new_chars": step.new_chars,
-            "segments_found": step.segments_found,
-            "cells_minted": step.cells_minted,
-            "cells_skipped_dup": step.cells_skipped_dup,
-            "cells_suppressed": step.cells_suppressed,
-            "minted_ids": step.minted_ids,
-            "reflection_id": step.reflection_id,
-            "note": step.note,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "new_chars": step.new_chars,
+                    "segments_found": step.segments_found,
+                    "cells_minted": step.cells_minted,
+                    "cells_skipped_dup": step.cells_skipped_dup,
+                    "cells_suppressed": step.cells_suppressed,
+                    "minted_ids": step.minted_ids,
+                    "reflection_id": step.reflection_id,
+                    "note": step.note,
+                },
+                indent=2,
+            )
+        )
 
 
 if __name__ == "__main__":

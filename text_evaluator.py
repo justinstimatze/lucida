@@ -12,6 +12,7 @@ for the cell types that now dominate the corpus post-image-demote.
 Cost per evaluation: ~$0.01 on Sonnet 4.6 with caching. ~$0.30 across
 the 26 active vega/mermaid/html cells.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ from typing import Any
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -114,9 +116,12 @@ EVALUATE_TOOL = {
             },
         },
         "required": [
-            "quality_score", "snippet_claims",
-            "invented_substrate_items", "invented_caption_items",
-            "should_demote_to_text", "summary",
+            "quality_score",
+            "snippet_claims",
+            "invented_substrate_items",
+            "invented_caption_items",
+            "should_demote_to_text",
+            "summary",
         ],
     },
 }
@@ -180,9 +185,7 @@ def evaluate_substrate_cell(
     client = anthropic.Anthropic(api_key=api_key)
 
     user_text = (
-        f"Trigger snippet:\n{snippet}\n\n"
-        f"Generated {label}:\n{substrate}\n\n"
-        f"Caption:\n{caption}"
+        f"Trigger snippet:\n{snippet}\n\nGenerated {label}:\n{substrate}\n\nCaption:\n{caption}"
     )
 
     try:
@@ -215,14 +218,13 @@ def evaluate_substrate_cell(
                 summary=inp.get("summary", ""),
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0)
+                or 0,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
             )
 
-    raise TextEvaluatorError(
-        f"no tool_use block in response (stop_reason={response.stop_reason})"
-    )
+    raise TextEvaluatorError(f"no tool_use block in response (stop_reason={response.stop_reason})")
 
 
 def main() -> None:

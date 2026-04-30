@@ -5,6 +5,7 @@ produce, call the matching specialist to generate a spec, and optionally mint
 the cell into cells.json.  With --generate, image cells are generated via
 nano_banana; non-image cells use the LLM specialist pipeline in specialists.py.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,6 +20,7 @@ from textwrap import dedent
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -35,13 +37,18 @@ def _log_mints(cell_dicts: list[dict]) -> None:
         with MINT_LOG_PATH.open("a") as f:
             for c in cell_dicts:
                 snippet = (c.get("trigger_snippet") or "").strip().replace("\n", " ")
-                f.write(json.dumps({
-                    "timestamp": c.get("timestamp"),
-                    "cell_id": c.get("id"),
-                    "cell_type": c.get("cell_type"),
-                    "snippet_head": snippet[:120],
-                    "caption": (c.get("caption") or "").strip()[:200],
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": c.get("timestamp"),
+                            "cell_id": c.get("id"),
+                            "cell_type": c.get("cell_type"),
+                            "snippet_head": snippet[:120],
+                            "caption": (c.get("caption") or "").strip()[:200],
+                        }
+                    )
+                    + "\n"
+                )
     except OSError:
         pass  # mint_log is best-effort; never block a write on it
 
@@ -50,6 +57,7 @@ class SuppressedMintError(Exception):
     """Raised when the classifier is too uncertain to commit to a viz substrate.
     Per memory/feedback_text_cells_uninteresting.md, low-confidence picks no
     longer demote to text — they suppress the mint entirely. Silent > text."""
+
     pass
 
 
@@ -57,7 +65,7 @@ class SuppressedMintError(Exception):
 class CellProposal:
     id: str
     timestamp: str
-    cell_type: str          # image | vega | mermaid | html | text
+    cell_type: str  # image | vega | mermaid | html | text
     trigger_snippet: str
     prompt: str
     # one of these populated depending on cell_type
@@ -82,10 +90,10 @@ class CellProposal:
     # populated when this cell is a reflection -- ids of the cells reflected on
     reflection_source_ids: list[str] | None = None
     # populated by the autonomous retrigger loop (image cells only):
-    replaces: str | None = None         # predecessor cell this one supersedes
-    replaced_by: str | None = None      # successor (set on the predecessor when retriggered)
-    retrigger_count: int = 0            # how many retriggers this cell has gone through
-    retrigger_reason: str | None = None # evaluator's corrective guidance from the predecessor
+    replaces: str | None = None  # predecessor cell this one supersedes
+    replaced_by: str | None = None  # successor (set on the predecessor when retriggered)
+    retrigger_count: int = 0  # how many retriggers this cell has gone through
+    retrigger_reason: str | None = None  # evaluator's corrective guidance from the predecessor
     # multi-stream arc step 1: which Claude Code session minted this cell.
     # Watcher stamps from --session-id or transcript-path stem; the renderer
     # uses it for ?session= filtering (step 2) and N-column layout (step 3).
@@ -175,7 +183,7 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             {snippet}
 
             Context:
-            {context or '(none)'}
+            {context or "(none)"}
         """).strip()
     if cell_type == "vega":
         return dedent(f"""
@@ -187,7 +195,7 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             {snippet}
 
             Context:
-            {context or '(none)'}
+            {context or "(none)"}
         """).strip()
     if cell_type == "image":
         return dedent(f"""
@@ -200,7 +208,7 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             says — resist generic stock-illustration furniture.
 
             Context:
-            {context or '(none)'}
+            {context or "(none)"}
         """).strip()
     if cell_type == "html":
         return dedent(f"""
@@ -215,7 +223,7 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             {snippet}
 
             Context:
-            {context or '(none)'}
+            {context or "(none)"}
         """).strip()
     if cell_type == "animated_svg":
         return dedent(f"""
@@ -237,7 +245,7 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             {snippet}
 
             Context:
-            {context or '(none)'}
+            {context or "(none)"}
         """).strip()
     if cell_type == "scene3d":
         return dedent(f"""
@@ -274,7 +282,7 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
             {snippet}
 
             Context:
-            {context or '(none)'}
+            {context or "(none)"}
         """).strip()
     return dedent(f"""
         Caption only — no chart, no diagram. Summarize the snippet in
@@ -305,14 +313,15 @@ def closed_loop_stats(cells: list[dict]) -> dict:
     Returns a dict suitable for both human-readable logging and machine
     parsing.
     """
+
     def seed_or_demo(c: dict) -> bool:
-        return (
-            c.get("id", "").startswith("seed-")
-            or "infrastructure demo" in (c.get("trigger_snippet") or "")
+        return c.get("id", "").startswith("seed-") or "infrastructure demo" in (
+            c.get("trigger_snippet") or ""
         )
+
     referenced_ids: set[str] = set()
     for c in cells:
-        for src in (c.get("reflection_source_ids") or []):
+        for src in c.get("reflection_source_ids") or []:
             referenced_ids.add(src)
 
     content_cells = [c for c in cells if not seed_or_demo(c)]
@@ -339,7 +348,9 @@ def closed_loop_stats(cells: list[dict]) -> dict:
     }
 
 
-def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None = None) -> CellProposal:
+def reflect_and_persist(
+    n: int = 5, write: bool = True, session_id: str | None = None
+) -> CellProposal:
     """Run a reflection pass over the last n visible cells and persist the
     resulting reflection cell. Returns the CellProposal (returned even if
     write=False, for dry-run callers).
@@ -350,13 +361,16 @@ def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None =
     ReflectError on missing key/SDK or no visible cells).
     """
     import reflect as _reflect
+
     result = _reflect.reflect_on_recent_cells(n)
 
     data = load_cells()
     cell_id = next_id(data["cells"])
     cache_info = (
-        f"cache:hit/{result.cache_read_tokens}t" if result.cache_read_tokens > 0
-        else f"cache:wrote/{result.cache_creation_tokens}t" if result.cache_creation_tokens > 0
+        f"cache:hit/{result.cache_read_tokens}t"
+        if result.cache_read_tokens > 0
+        else f"cache:wrote/{result.cache_creation_tokens}t"
+        if result.cache_creation_tokens > 0
         else "cache:miss"
     )
     # Reflection cells now pick their own substrate (mermaid / vega / html)
@@ -371,10 +385,7 @@ def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None =
     html_artifact: str | None = None
 
     def _esc(s: object) -> str:
-        return (str(s or "")
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;"))
+        return str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     if substrate == "mermaid":
         spec_obj = spec_str  # mermaid spec is a string
@@ -383,7 +394,9 @@ def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None =
             spec_obj = json.loads(spec_str)
         except json.JSONDecodeError:
             substrate = "html"
-            html_artifact = f"<p><em>vega spec parse failed; falling back.</em></p><pre>{_esc(spec_str)}</pre>"
+            html_artifact = (
+                f"<p><em>vega spec parse failed; falling back.</em></p><pre>{_esc(spec_str)}</pre>"
+            )
     if substrate == "html" and html_artifact is None:
         # Either the model picked html, or vega parse failed and we fell back.
         if spec_str:
@@ -417,7 +430,9 @@ def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None =
 
     caption = result.reflection
     short_model = result.model.replace("claude-", "")
-    notes_parts = [f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]"]
+    notes_parts = [
+        f"reflection via {short_model} [{cache_info}; {result.input_tokens}u/{result.output_tokens}o]"
+    ]
     if analysis_lines:
         notes_parts.append(" | ".join(analysis_lines))
 
@@ -499,30 +514,27 @@ def _trivial_mermaid(spec) -> str | None:
     for ln in edge_lines:
         # Grab identifiers from edge endpoints. Strip [...] / (...) / {...}
         # node-shape brackets first so e.g. `A[Foo] --> B(Bar)` yields A, B.
-        cleaned = re.sub(r'[\[\(\{][^\]\)\}]*[\]\)\}]', '', ln)
+        cleaned = re.sub(r"[\[\(\{][^\]\)\}]*[\]\)\}]", "", ln)
         # Split on edge tokens to get LHS / RHS endpoints.
-        parts = re.split(r'-->|<--|-\.->|\.->|==>|---', cleaned)
+        parts = re.split(r"-->|<--|-\.->|\.->|==>|---", cleaned)
         for p in parts:
-            m = re.search(r'\b(\w+)\b', p.strip())
+            m = re.search(r"\b(\w+)\b", p.strip())
             if m:
                 nodes.add(m.group(1))
     # Plus explicit declarations (in case a node has no edges).
     for ln in lines:
-        m = re.match(r'^(\w+)\s*[\[\({]', ln)
+        m = re.match(r"^(\w+)\s*[\[\({]", ln)
         if m:
             nodes.add(m.group(1))
     if len(nodes) < 3:
         return f"too few nodes ({len(nodes)} unique) -- a 1-2 node graph reads as prose"
     if not edge_lines:
         return "no edges (just a node list)"
-    has_directed = any(
-        any(t in ln for t in ["-->", "==>", "-.->", ".->"])
-        for ln in edge_lines
-    )
+    has_directed = any(any(t in ln for t in ["-->", "==>", "-.->", ".->"]) for ln in edge_lines)
     has_edge_label = any(
-        re.search(r'-\.\s*"[^"]+"\s*\.->', ln) or       # -. "label" .->
-        re.search(r'-\.[^.]+\.->', ln) or                # -.label.->
-        re.search(r'\|"?[^"|]+"?\|', ln)                 # |label| or |"label"|
+        re.search(r'-\.\s*"[^"]+"\s*\.->', ln)  # -. "label" .->
+        or re.search(r"-\.[^.]+\.->", ln)  # -.label.->
+        or re.search(r'\|"?[^"|]+"?\|', ln)  # |label| or |"label"|
         for ln in edge_lines
     )
     if not has_directed and not has_edge_label:
@@ -567,7 +579,9 @@ def demote_if_trivial(proposal: CellProposal) -> str | None:
     proposal.cell_type = "text"
     proposal.spec = None
     proposal.html = None
-    proposal.caption = (proposal.caption or "") + f" [demoted from {proposal.attempted_cell_type}: {reason}]"
+    proposal.caption = (
+        proposal.caption or ""
+    ) + f" [demoted from {proposal.attempted_cell_type}: {reason}]"
     return reason
 
 
@@ -592,7 +606,9 @@ def sweep_trivial(write: bool = False) -> list[str]:
         cell["cell_type"] = "text"
         cell["spec"] = None
         cell["html"] = None
-        cell["caption"] = (cell.get("caption") or "") + f" [demoted from {cell['attempted_cell_type']}: {reason}]"
+        cell["caption"] = (
+            cell.get("caption") or ""
+        ) + f" [demoted from {cell['attempted_cell_type']}: {reason}]"
         cell["notes"] = (cell.get("notes") or "") + " [trivial-filter applied]"
         demoted.append(f"{cell['id']}: {reason}")
     if write and demoted:
@@ -600,12 +616,17 @@ def sweep_trivial(write: bool = False) -> list[str]:
     return demoted
 
 
-def append_proposal(snippet: str, context: str = "", cell_type: str | None = None,
-                    write: bool = False, generate_image: bool = False,
-                    use_llm: bool | None = None,
-                    auto_retrigger: bool = True,
-                    max_retriggers: int = 3,
-                    session_id: str | None = None) -> CellProposal:
+def append_proposal(
+    snippet: str,
+    context: str = "",
+    cell_type: str | None = None,
+    write: bool = False,
+    generate_image: bool = False,
+    use_llm: bool | None = None,
+    auto_retrigger: bool = True,
+    max_retriggers: int = 3,
+    session_id: str | None = None,
+) -> CellProposal:
     data = load_cells()
     auto_type_v0 = classify(snippet)  # always run keyword classifier for comparison
 
@@ -615,7 +636,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     # cell_type to be None (it's deciding the type); the image specialist
     # runs whenever we're generating an image cell regardless of how
     # cell_type was determined.
-    llm_explicitly_off = (use_llm is False)
+    llm_explicitly_off = use_llm is False
     llm_available = bool(os.environ.get("ANTHROPIC_API_KEY")) and not llm_explicitly_off
 
     discourse_move = None
@@ -632,6 +653,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     if llm_available and cell_type is None:
         try:
             import classifier as _classifier
+
             llm = _classifier.classify(snippet, context)
             discourse_move = llm.discourse_move
             confidence = llm.confidence
@@ -674,8 +696,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             # memory/feedback_text_cells_uninteresting.md (re-tuned).
             if llm.cell_type == "text" and llm.confidence < 0.92:
                 raise SuppressedMintError(
-                    f"text @{llm.confidence:.2f} below 0.92 floor; "
-                    f"silent > low-confidence text"
+                    f"text @{llm.confidence:.2f} below 0.92 floor; silent > low-confidence text"
                 )
             if llm.confidence < 0.8:
                 chosen_type = llm.cell_type
@@ -716,8 +737,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     # specialist line ~778) — the rule is consistent: silent > empty text.
     if chosen_type == "image" and cell_type != "image":
         raise SuppressedMintError(
-            "image-demote per kill #1 (image is opt-in via --type image); "
-            "silent > empty text stub"
+            "image-demote per kill #1 (image is opt-in via --type image); silent > empty text stub"
         )
 
     # Substrate diversity bias. The classifier honestly picks the
@@ -729,7 +749,8 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     # classifier toward substrate hallucination.
     if cell_type is None and chosen_type and confidence is not None:
         recent_active = [
-            c for c in data["cells"]
+            c
+            for c in data["cells"]
             if not c.get("replaced_by")
             and not (c.get("cell_type") == "text" and c.get("attempted_cell_type"))
         ][-4:]
@@ -751,10 +772,13 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     if llm_available and chosen_type == "image" and generate_image:
         try:
             import image_specialist as _imgspec
+
             brief = _imgspec.shape_prompt(snippet, context)
             spec_cache_info = (
-                f"cache:hit/{brief.cache_read_tokens}t" if brief.cache_read_tokens > 0
-                else f"cache:wrote/{brief.cache_creation_tokens}t" if brief.cache_creation_tokens > 0
+                f"cache:hit/{brief.cache_read_tokens}t"
+                if brief.cache_read_tokens > 0
+                else f"cache:wrote/{brief.cache_creation_tokens}t"
+                if brief.cache_creation_tokens > 0
                 else "cache:miss"
             )
             if brief.should_demote_to_text:
@@ -782,11 +806,16 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     non_image_spec = None
     non_image_html = None
     non_image_caption = ""
-    if (llm_available and generate_image
-            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline")
-            and os.environ.get("ANTHROPIC_API_KEY")):
+    if (
+        llm_available
+        and generate_image
+        and chosen_type
+        in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline")
+        and os.environ.get("ANTHROPIC_API_KEY")
+    ):
         try:
             import specialists as _specs
+
             fns = {
                 "mermaid": _specs.generate_mermaid_spec,
                 "vega": _specs.generate_vega_spec,
@@ -798,17 +827,19 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             }
             specialist_kwargs: dict = {}
             if chosen_type == "mermaid" and llm is not None:
-                hint = (llm.mermaid_subtype or "n/a")
+                hint = llm.mermaid_subtype or "n/a"
                 if hint and hint != "n/a":
                     specialist_kwargs["subtype_hint"] = hint
             elif chosen_type == "html" and llm is not None:
-                hint = (llm.html_layout or "n/a")
+                hint = llm.html_layout or "n/a"
                 if hint and hint != "n/a":
                     specialist_kwargs["layout_hint"] = hint
             spec_result = fns[chosen_type](snippet, context, **specialist_kwargs)
             spec_cache_info = (
-                f"cache:hit/{spec_result.cache_read_tokens}t" if spec_result.cache_read_tokens > 0
-                else f"cache:wrote/{spec_result.cache_creation_tokens}t" if spec_result.cache_creation_tokens > 0
+                f"cache:hit/{spec_result.cache_read_tokens}t"
+                if spec_result.cache_read_tokens > 0
+                else f"cache:wrote/{spec_result.cache_creation_tokens}t"
+                if spec_result.cache_creation_tokens > 0
                 else "cache:miss"
             )
             if spec_result.should_demote_to_text:
@@ -876,6 +907,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     if chosen_type == "mermaid" and non_image_spec is not None:
         try:
             import specialists as _specs_split
+
             children = _specs_split.split_mermaid_subgraphs(non_image_spec)
         except Exception:
             children = None
@@ -897,25 +929,23 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
 
             cells_to_write = []
             for i, (child_spec, child_label) in enumerate(children):
-                child_id = (
-                    cell_id if i == 0
-                    else f"cell-{int(cell_id.split('-')[1]) + i:04d}"
-                )
+                child_id = cell_id if i == 0 else f"cell-{int(cell_id.split('-')[1]) + i:04d}"
                 body_lines = child_spec.split("\n")[1:]  # drop header
                 n_edges = sum(
-                    1 for ln in body_lines
+                    1
+                    for ln in body_lines
                     if any(arr in _strip_brackets(ln) for arr in ("-->", "-.->", "==>", "---"))
                 )
                 n_nodes = sum(
-                    1 for ln in body_lines
+                    1
+                    for ln in body_lines
                     if ln.strip()
                     and not any(arr in _strip_brackets(ln) for arr in ("-->", "-.->", "==>", "---"))
                     and "subgraph" not in ln
                     and ln.strip() != "end"
                 )
-                child_caption = (
-                    f"{child_label} — {n_nodes} node{'s' if n_nodes != 1 else ''}"
-                    + (f", {n_edges} edge{'s' if n_edges != 1 else ''}" if n_edges else "")
+                child_caption = f"{child_label} — {n_nodes} node{'s' if n_nodes != 1 else ''}" + (
+                    f", {n_edges} edge{'s' if n_edges != 1 else ''}" if n_edges else ""
                 )
                 child_notes = (
                     f"small-multiples child {i + 1}/{len(children)} of {sibling_group} "
@@ -944,8 +974,9 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     if generate_image and chosen_type == "image":
         out_dir = Path(__file__).parent / "cells"
 
-        def _generate_into(p: CellProposal, attempt_label: str,
-                           edit_base: Path | None = None) -> None:
+        def _generate_into(
+            p: CellProposal, attempt_label: str, edit_base: Path | None = None
+        ) -> None:
             """Mutate p with nano_banana result; preserve classifier_label in notes.
 
             If edit_base is set, run image-to-image edit on that PNG using
@@ -954,11 +985,15 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             evaluator.failure_mode (see learnings.md → i2i mode-conditional).
             """
             import nano_banana
+
             out_path = out_dir / f"{p.id}.png"
             try:
                 if edit_base is not None:
                     result = nano_banana.transform_image(
-                        edit_base, p.prompt, out_path, temperature=0.4,
+                        edit_base,
+                        p.prompt,
+                        out_path,
+                        temperature=0.4,
                     )
                     mode_tag = f"i2i-edit of {edit_base.name}"
                 else:
@@ -974,8 +1009,12 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
 
         _generate_into(proposal, "generated")
 
-        if (auto_retrigger and llm_available and proposal.image_path
-                and os.environ.get("ANTHROPIC_API_KEY")):
+        if (
+            auto_retrigger
+            and llm_available
+            and proposal.image_path
+            and os.environ.get("ANTHROPIC_API_KEY")
+        ):
             score_floor = float(os.environ.get("LUCIDA_RETRIGGER_SCORE_FLOOR", "0.5"))
             score_ceiling = float(os.environ.get("LUCIDA_RETRIGGER_SCORE_CEILING", "0.8"))
             prev_guidance: str = ""
@@ -983,6 +1022,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             for attempt in range(max_retriggers):
                 try:
                     import evaluator as _eval
+
                     eval_result = _eval.evaluate_image_cell(
                         snippet,
                         Path(__file__).parent / current.image_path,
@@ -1022,8 +1062,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 # corrective text).
                 if eval_result.failure_mode == "wrong_genre":
                     current.notes += (
-                        " [wrong_genre — aborting retrigger; "
-                        "snippet may not be image-genre]"
+                        " [wrong_genre — aborting retrigger; snippet may not be image-genre]"
                     )
                     break
 
@@ -1113,12 +1152,10 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 )
                 current.replaced_by = new_id
 
-                edit_base = (
-                    Path(__file__).parent / current.image_path
-                    if use_i2i else None
-                )
+                edit_base = Path(__file__).parent / current.image_path if use_i2i else None
                 _generate_into(
-                    new_proposal, f"retrigger {attempt + 1}",
+                    new_proposal,
+                    f"retrigger {attempt + 1}",
                     edit_base=edit_base,
                 )
                 cells_to_write.append(new_proposal)
@@ -1146,33 +1183,81 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--snippet", help="conversation excerpt that triggers a cell")
-    p.add_argument("--context", default="", help="optional extra context (file paths, prior cells, etc.)")
-    p.add_argument("--type", default=None,
-                   choices=["image", "vega", "mermaid", "html", "text",
-                            "animated_svg", "scene3d", "treemap", "sparkline"],
-                   help="force a cell type; default = naive classifier")
-    p.add_argument("--write", action="store_true",
-                   help="append the proposal to cells.json (or, with --sweep-trivial, persist the demotions)")
-    p.add_argument("--generate", action="store_true",
-                   help="for image cells, actually call nano banana to generate")
-    p.add_argument("--sweep-trivial", action="store_true",
-                   help="walk cells.json and demote trivial cells in place; pair with --write to persist")
-    p.add_argument("--no-llm-classify", action="store_true",
-                   help="disable the v0.5 LLM classifier; force the keyword classifier even if ANTHROPIC_API_KEY is set")
-    p.add_argument("--reflect", action="store_true",
-                   help="reflective loop: read back recent visible cells (incl. images) and synthesize a reflection cell")
-    p.add_argument("-n", "--reflect-on", type=int, default=5,
-                   help="number of recent visible cells to reflect on (with --reflect)")
-    p.add_argument("--no-auto-retrigger", action="store_true",
-                   help="disable the autonomous evaluate-and-retrigger loop on image cells")
-    p.add_argument("--max-retriggers", type=int, default=3,
-                   help="cap on retriggers per cell (default 3)")
-    p.add_argument("--segment", default=None,
-                   help="path to a document; segment it into salient passages and run each through the orchestrator")
-    p.add_argument("--metric", default=None, choices=["closed-loop"],
-                   help="report a corpus-level metric and exit")
-    p.add_argument("--session-id", default=None,
-                   help="stamp this id on the minted cell (multi-stream arc step 1)")
+    p.add_argument(
+        "--context", default="", help="optional extra context (file paths, prior cells, etc.)"
+    )
+    p.add_argument(
+        "--type",
+        default=None,
+        choices=[
+            "image",
+            "vega",
+            "mermaid",
+            "html",
+            "text",
+            "animated_svg",
+            "scene3d",
+            "treemap",
+            "sparkline",
+        ],
+        help="force a cell type; default = naive classifier",
+    )
+    p.add_argument(
+        "--write",
+        action="store_true",
+        help="append the proposal to cells.json (or, with --sweep-trivial, persist the demotions)",
+    )
+    p.add_argument(
+        "--generate",
+        action="store_true",
+        help="for image cells, actually call nano banana to generate",
+    )
+    p.add_argument(
+        "--sweep-trivial",
+        action="store_true",
+        help="walk cells.json and demote trivial cells in place; pair with --write to persist",
+    )
+    p.add_argument(
+        "--no-llm-classify",
+        action="store_true",
+        help="disable the v0.5 LLM classifier; force the keyword classifier even if ANTHROPIC_API_KEY is set",
+    )
+    p.add_argument(
+        "--reflect",
+        action="store_true",
+        help="reflective loop: read back recent visible cells (incl. images) and synthesize a reflection cell",
+    )
+    p.add_argument(
+        "-n",
+        "--reflect-on",
+        type=int,
+        default=5,
+        help="number of recent visible cells to reflect on (with --reflect)",
+    )
+    p.add_argument(
+        "--no-auto-retrigger",
+        action="store_true",
+        help="disable the autonomous evaluate-and-retrigger loop on image cells",
+    )
+    p.add_argument(
+        "--max-retriggers", type=int, default=3, help="cap on retriggers per cell (default 3)"
+    )
+    p.add_argument(
+        "--segment",
+        default=None,
+        help="path to a document; segment it into salient passages and run each through the orchestrator",
+    )
+    p.add_argument(
+        "--metric",
+        default=None,
+        choices=["closed-loop"],
+        help="report a corpus-level metric and exit",
+    )
+    p.add_argument(
+        "--session-id",
+        default=None,
+        help="stamp this id on the minted cell (multi-stream arc step 1)",
+    )
     args = p.parse_args()
 
     if args.metric == "closed-loop":
@@ -1201,7 +1286,9 @@ def main() -> None:
 
     if args.reflect:
         try:
-            proposal = reflect_and_persist(args.reflect_on, write=args.write, session_id=args.session_id)
+            proposal = reflect_and_persist(
+                args.reflect_on, write=args.write, session_id=args.session_id
+            )
         except Exception as e:
             print(f"reflect error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -1212,6 +1299,7 @@ def main() -> None:
     if args.segment:
         try:
             import segmenter as _seg
+
             doc_path = Path(args.segment)
             text = doc_path.read_text()
             seg_result = _seg.segment_document(text)
@@ -1219,30 +1307,35 @@ def main() -> None:
             print(f"segmenter error: {e}", file=sys.stderr)
             sys.exit(1)
 
-        print(f"segmented {doc_path.name}: {len(seg_result.segments)} passages",
-              file=sys.stderr)
+        print(f"segmented {doc_path.name}: {len(seg_result.segments)} passages", file=sys.stderr)
         print(f"summary: {seg_result.summary}", file=sys.stderr)
         cache_info = (
-            f"cache:hit/{seg_result.cache_read_tokens}t" if seg_result.cache_read_tokens > 0
-            else f"cache:wrote/{seg_result.cache_creation_tokens}t" if seg_result.cache_creation_tokens > 0
+            f"cache:hit/{seg_result.cache_read_tokens}t"
+            if seg_result.cache_read_tokens > 0
+            else f"cache:wrote/{seg_result.cache_creation_tokens}t"
+            if seg_result.cache_creation_tokens > 0
             else "cache:miss"
         )
-        print(f"segmenter usage: {seg_result.input_tokens}u / {seg_result.output_tokens}o "
-              f"[{cache_info}]", file=sys.stderr)
+        print(
+            f"segmenter usage: {seg_result.input_tokens}u / {seg_result.output_tokens}o "
+            f"[{cache_info}]",
+            file=sys.stderr,
+        )
 
         use_llm = False if args.no_llm_classify else None
         proposals = []
         for i, s in enumerate(seg_result.segments):
             preview = s.snippet[:80].replace("\n", " ")
-            print(f"  [{i + 1}/{len(seg_result.segments)}] {preview}...",
-                  file=sys.stderr)
+            print(f"  [{i + 1}/{len(seg_result.segments)}] {preview}...", file=sys.stderr)
             ctx = (
                 f"Document: {doc_path.name}. "
                 f"Document summary: {seg_result.summary}. "
                 f"Surrounding context: {s.context}"
             )
             proposal = append_proposal(
-                s.snippet, ctx, args.type,
+                s.snippet,
+                ctx,
+                args.type,
                 write=args.write,
                 generate_image=args.generate,
                 use_llm=use_llm,
@@ -1261,11 +1354,17 @@ def main() -> None:
         p.error("--snippet is required (unless --sweep-trivial / --reflect / --segment)")
 
     use_llm = False if args.no_llm_classify else None  # None = auto-detect via env
-    proposal = append_proposal(args.snippet, args.context, args.type, args.write, args.generate,
-                               use_llm=use_llm,
-                               auto_retrigger=not args.no_auto_retrigger,
-                               max_retriggers=args.max_retriggers,
-                               session_id=args.session_id)
+    proposal = append_proposal(
+        args.snippet,
+        args.context,
+        args.type,
+        args.write,
+        args.generate,
+        use_llm=use_llm,
+        auto_retrigger=not args.no_auto_retrigger,
+        max_retriggers=args.max_retriggers,
+        session_id=args.session_id,
+    )
     json.dump(asdict(proposal), sys.stdout, indent=2)
     print()
 

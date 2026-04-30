@@ -5,6 +5,7 @@ that silently moves a function or breaks a circular-import chain.
 Doesn't exercise the LLM-call paths (those need ANTHROPIC_API_KEY +
 network) — those belong in integration tests when we add them.
 """
+
 from __future__ import annotations
 
 
@@ -32,14 +33,20 @@ def test_classifier_imports():
     # Keep an explicit guard so the schema doesn't drift silently.
     # mermaid_subtype + html_layout added in task #43 (shape hints).
     expected = {
-        "discourse_move", "cell_type", "confidence", "reasoning", "title",
-        "mermaid_subtype", "html_layout",
-        "model", "cache_read_tokens", "cache_creation_tokens",
-        "input_tokens", "output_tokens",
+        "discourse_move",
+        "cell_type",
+        "confidence",
+        "reasoning",
+        "title",
+        "mermaid_subtype",
+        "html_layout",
+        "model",
+        "cache_read_tokens",
+        "cache_creation_tokens",
+        "input_tokens",
+        "output_tokens",
     }
-    assert expected <= set(fields), (
-        f"ClassifierResult missing fields: {expected - set(fields)}"
-    )
+    assert expected <= set(fields), f"ClassifierResult missing fields: {expected - set(fields)}"
 
 
 def test_specialists_imports():
@@ -72,7 +79,10 @@ def test_jsonl_to_transcript_imports():
 
     assert callable(extract)
     assert is_skipped_message("<command-name>foo")
-    assert clean_message("hello <system-reminder>noise</system-reminder> world").strip() == "hello  world".strip()
+    assert (
+        clean_message("hello <system-reminder>noise</system-reminder> world").strip()
+        == "hello  world".strip()
+    )
 
 
 def test_text_evaluator_imports():
@@ -96,8 +106,9 @@ def test_reflect_imports():
 
     assert callable(reflect_on_recent_cells)
     fields = ReflectionResult.__dataclass_fields__
-    assert {"reflection", "synthesis_substrate", "synthesis_spec",
-            "source_ids", "model"} <= set(fields)
+    assert {"reflection", "synthesis_substrate", "synthesis_spec", "source_ids", "model"} <= set(
+        fields
+    )
     assert ReflectError.__bases__[0] is RuntimeError
 
 

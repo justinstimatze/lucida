@@ -19,6 +19,7 @@ Bounded by:
 Cost per evaluation: ~\$0.02 (one image + ~700 token system prompt
 on Sonnet 4.6). Caching applies; first call writes the cache.
 """
+
 from __future__ import annotations
 
 import base64
@@ -28,6 +29,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -175,15 +177,22 @@ EVALUATE_TOOL = {
             "failure_mode": {
                 "type": "string",
                 "enum": [
-                    "missed_detail", "literal_simile_color",
-                    "literal_simile_metaphor", "wrong_genre", "none",
+                    "missed_detail",
+                    "literal_simile_color",
+                    "literal_simile_metaphor",
+                    "wrong_genre",
+                    "none",
                 ],
                 "description": "Primary failure mode (see system prompt). Routes orchestrator to i2i edit vs. fresh generate vs. abort. Pick the single most load-bearing mode if multiple apply.",
             },
         },
         "required": [
-            "quality_score", "what_worked", "what_didnt_work",
-            "should_retrigger", "retrigger_guidance", "failure_mode",
+            "quality_score",
+            "what_worked",
+            "what_didnt_work",
+            "should_retrigger",
+            "retrigger_guidance",
+            "failure_mode",
         ],
     },
 }
@@ -277,14 +286,13 @@ def evaluate_image_cell(
                 failure_mode=inp.get("failure_mode", "none"),
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0)
+                or 0,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
             )
 
-    raise EvaluatorError(
-        f"no tool_use block in response (stop_reason={response.stop_reason})"
-    )
+    raise EvaluatorError(f"no tool_use block in response (stop_reason={response.stop_reason})")
 
 
 def main() -> None:

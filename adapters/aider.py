@@ -26,6 +26,7 @@ versions and configurations. If the output is empty or surprising,
 diff a real .aider.chat.history.md against this parser. Per
 memory/multi_assistant_dashboard.md.
 """
+
 from __future__ import annotations
 
 import re
@@ -34,8 +35,8 @@ from pathlib import Path
 # Lines aider produces that aren't conversation prose:
 SKIP_LINE_PATTERNS = (
     re.compile(r"^# aider chat started"),  # session header
-    re.compile(r"^> /"),                      # /command invocations
-    re.compile(r"^> \^C"),                   # interrupts
+    re.compile(r"^> /"),  # /command invocations
+    re.compile(r"^> \^C"),  # interrupts
     re.compile(r"^Files? added|^Files? edited|^Applied edit"),
     re.compile(r"^Tokens: |^Cost: |^Repo-map: "),
 )
@@ -54,11 +55,16 @@ def extract(source_path: Path) -> tuple[str, dict]:
     """
     text = Path(source_path).read_text()
     stats = {
-        "kept": 0, "skipped_lines": 0, "kept_chars": 0,
-        "user_blocks": 0, "assistant_blocks": 0,
+        "kept": 0,
+        "skipped_lines": 0,
+        "kept_chars": 0,
+        "user_blocks": 0,
+        "assistant_blocks": 0,
     }
     out: list[str] = []
-    current_role = None  # "user" while inside a #### block; "assistant" otherwise (after first ####)
+    current_role = (
+        None  # "user" while inside a #### block; "assistant" otherwise (after first ####)
+    )
     current_lines: list[str] = []
     seen_first_user = False
 

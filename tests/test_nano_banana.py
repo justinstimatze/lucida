@@ -8,6 +8,7 @@ Tests the deterministic, no-API helpers:
 The daily-cap tests patch nano_banana.USAGE_PATH to a tmp file so they
 don't touch the real sidecar and don't need GOOGLE_API_KEY.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,6 +21,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # _is_recitation
 # ---------------------------------------------------------------------------
+
 
 def test_is_recitation_true():
     from nano_banana import _is_recitation
@@ -52,6 +54,7 @@ def test_is_recitation_case_sensitive():
 # ---------------------------------------------------------------------------
 # _mime_for
 # ---------------------------------------------------------------------------
+
 
 def test_mime_for_png():
     from nano_banana import _mime_for
@@ -87,6 +90,7 @@ def test_mime_for_no_extension():
 # ---------------------------------------------------------------------------
 # _check_and_bump_daily_cap
 # ---------------------------------------------------------------------------
+
 
 def _patch_usage_path(tmp_path: Path, initial: dict | None = None):
     """Context manager that patches USAGE_PATH to a tmp file."""
@@ -143,8 +147,7 @@ def test_check_daily_cap_does_not_raise_just_below_limit(tmp_path: Path):
     from nano_banana import _check_and_bump_daily_cap
 
     today = date.today().isoformat()
-    with _patch_usage_path(tmp_path, {today: 199}), \
-         patch("nano_banana.DAILY_CAP", 200):
+    with _patch_usage_path(tmp_path, {today: 199}), patch("nano_banana.DAILY_CAP", 200):
         _check_and_bump_daily_cap()  # count was 199, now 200 — OK
 
 

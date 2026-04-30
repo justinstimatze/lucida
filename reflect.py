@@ -22,6 +22,7 @@ The orchestrator persists it like any other cell.
 Cost: ~$0.02-0.05 per reflect call, depending on N and image sizes.
 Image tokens dominate (~1500/image at 1024-px on Sonnet 4.6).
 """
+
 from __future__ import annotations
 
 import base64
@@ -32,6 +33,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -106,8 +108,18 @@ REFLECT_TOOL = {
             },
             "proposed_next_cell_type": {
                 "type": "string",
-                "enum": ["text", "image", "vega", "mermaid", "html",
-                         "animated_svg", "scene3d", "treemap", "sparkline", "none"],
+                "enum": [
+                    "text",
+                    "image",
+                    "vega",
+                    "mermaid",
+                    "html",
+                    "animated_svg",
+                    "scene3d",
+                    "treemap",
+                    "sparkline",
+                    "none",
+                ],
                 "description": "What kind of cell would naturally come next. 'none' if nothing useful is missing.",
             },
             "proposed_next_snippet": {
@@ -120,9 +132,14 @@ REFLECT_TOOL = {
             },
         },
         "required": [
-            "reflection", "synthesis_substrate", "synthesis_spec",
-            "what_worked", "what_didnt_work",
-            "proposed_next_cell_type", "proposed_next_snippet", "reasoning",
+            "reflection",
+            "synthesis_substrate",
+            "synthesis_spec",
+            "what_worked",
+            "what_didnt_work",
+            "proposed_next_cell_type",
+            "proposed_next_snippet",
+            "reasoning",
         ],
     },
 }
@@ -158,9 +175,7 @@ def _load_cells(cells_path: Path) -> list[dict]:
 
 def _is_visible(cell: dict) -> bool:
     """Match the renderer's filter: skip cells demoted by trivial filter."""
-    return not (
-        cell.get("cell_type") == "text" and cell.get("attempted_cell_type")
-    )
+    return not (cell.get("cell_type") == "text" and cell.get("attempted_cell_type"))
 
 
 def _cell_summary_text(cell: dict) -> str:
@@ -212,24 +227,28 @@ def reflect_on_recent_cells(
 
     # Build multimodal content: text summary + image bytes for image cells
     content: list[dict] = []
-    content.append({
-        "type": "text",
-        "text": f"Below are the {len(recent)} most recent visible cells (out of {len(visible)} total). Read them, including the images, and reflect.",
-    })
+    content.append(
+        {
+            "type": "text",
+            "text": f"Below are the {len(recent)} most recent visible cells (out of {len(visible)} total). Read them, including the images, and reflect.",
+        }
+    )
     for cell in recent:
         content.append({"type": "text", "text": _cell_summary_text(cell)})
         if cell.get("cell_type") == "image" and cell.get("image_path"):
             img_path = cells_path.parent / cell["image_path"]
             if img_path.exists() and img_path.suffix.lower() == ".png":
                 data = base64.standard_b64encode(img_path.read_bytes()).decode("utf-8")
-                content.append({
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/png",
-                        "data": data,
-                    },
-                })
+                content.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": data,
+                        },
+                    }
+                )
 
     client = anthropic.Anthropic(api_key=api_key)
     try:
@@ -265,14 +284,13 @@ def reflect_on_recent_cells(
                 source_ids=[c["id"] for c in recent],
                 model=model,
                 cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0)
+                or 0,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
             )
 
-    raise ReflectError(
-        f"no tool_use in response (stop_reason={response.stop_reason})"
-    )
+    raise ReflectError(f"no tool_use in response (stop_reason={response.stop_reason})")
 
 
 def main() -> None:
@@ -282,10 +300,14 @@ def main() -> None:
     from dataclasses import asdict
 
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("-n", "--num-cells", type=int, default=5,
-                   help="number of recent visible cells to reflect on")
-    p.add_argument("--cells-path", default=None,
-                   help="override path to cells.json")
+    p.add_argument(
+        "-n",
+        "--num-cells",
+        type=int,
+        default=5,
+        help="number of recent visible cells to reflect on",
+    )
+    p.add_argument("--cells-path", default=None, help="override path to cells.json")
     p.add_argument("--model", default=DEFAULT_MODEL)
     args = p.parse_args()
 

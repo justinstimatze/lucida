@@ -6,6 +6,7 @@ score and invention counts, plus aggregate by cell type.
 Cost: ~$0.31 across ~26 cells on Sonnet 4.6 with caching.
 Outputs report to audits/substrate_eval_YYYY-MM-DD.md.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -31,7 +32,8 @@ def main() -> None:
 
     data = json.loads(CELLS_JSON.read_text())
     targets = [
-        c for c in data["cells"]
+        c
+        for c in data["cells"]
         if c.get("cell_type") in {"vega", "mermaid", "html"}
         and not c.get("replaced_by")
         and (c.get("spec") is not None or c.get("html") is not None)
@@ -54,7 +56,10 @@ def main() -> None:
             print(f"ERROR: {e}", file=sys.stderr)
             rows.append({"id": cid, "ctype": ctype, "error": str(e)})
             continue
-        print(f"score={r.quality_score:.2f} inventions={len(r.invented_substrate_items)}+{len(r.invented_caption_items)}", file=sys.stderr)
+        print(
+            f"score={r.quality_score:.2f} inventions={len(r.invented_substrate_items)}+{len(r.invented_caption_items)}",
+            file=sys.stderr,
+        )
         row = {
             "id": cid,
             "ctype": ctype,
@@ -78,7 +83,9 @@ def main() -> None:
     report.append(f"# substrate hallucination eval — {today}\n")
     report.append("Kill #3 trigger: substrate hallucination >20% of cells.\n")
     report.append("## Summary\n")
-    report.append(f"- evaluated: {len(rows)} cells ({len(by_type['vega'])} vega, {len(by_type['mermaid'])} mermaid, {len(by_type['html'])} html)")
+    report.append(
+        f"- evaluated: {len(rows)} cells ({len(by_type['vega'])} vega, {len(by_type['mermaid'])} mermaid, {len(by_type['html'])} html)"
+    )
     report.append(f"- cells with any invention: {len(has_inv)}/{len(rows)} = {rate:.1%}")
     report.append(f"- kill #3 (>20%) tripped: **{'YES' if kill3_tripped else 'no'}**")
     report.append(f"- tokens: in={total_in} out={total_out} cache_read={total_cache_read}")
