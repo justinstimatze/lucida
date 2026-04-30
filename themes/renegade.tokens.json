@@ -1,0 +1,46 @@
+{
+  "_comment": "Mass Effect / BioWare omnitool aesthetic. Warm near-black, omnitool orange (#FF7700), nav/map cyan (#0eb9fe). Diagonal bottom-left corner cut mirrors the N7 stripe geometry. Warm heroic counterpoint to vigil's cold-heroic palette.",
+  "accent": {
+    "primary":   "#ff7700",
+    "secondary": "#0eb9fe",
+    "warning":   "#ffaa00",
+    "danger":    "#ff3344",
+    "ok":        "#44ddaa"
+  },
+  "surface": {
+    "bg":     "#171614",
+    "cell":   "#1c1a18",
+    "header": "#141210",
+    "code":   "#1a1816",
+    "muted":  "#5a4a38",
+    "line":   "#2a2218"
+  },
+  "text": {
+    "fg":    "#e8e0d5",
+    "muted": "#5a4a38"
+  },
+  "data": {
+    "_comment": "Orange omnitool primary, nav cyan, warm gold, amber, red, steel. Combat-systems warm palette.",
+    "cat": ["#ff7700", "#0eb9fe", "#ffaa00", "#ffd060", "#ff3344", "#44b8cc"]
+  },
+  "type": {
+    "body": "\"Eurostile\", \"Orbitron\", \"Arial Narrow\", sans-serif",
+    "head": "\"Eurostile\", \"Orbitron\", \"Arial Narrow\", sans-serif",
+    "mono": "\"Courier New\", ui-monospace, monospace"
+  },
+  "fx": {
+    "glow":      "rgba(255, 119, 0, 0.45)",
+    "glow-line": "rgba(255, 119, 0, 0.3)"
+  },
+  "palette": {
+    "stroke1": "#ff7700",
+    "stroke2": "#0eb9fe",
+    "stroke3": "#ffaa00",
+    "accent":  "#ff7700",
+    "fg":      "#e8e0d5",
+    "muted":   "#5a4a38",
+    "bg":      "#171614",
+    "panel":   "#1c1a18"
+  },
+  "layout": "tactical"
+}

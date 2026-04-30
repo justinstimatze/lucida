@@ -245,10 +245,10 @@ main {
    cell-id stays (zoom target) and cell-time (HH:MM) stays. */
 @container (max-width: 560px) {
   /* !important AND a (0,2,0)-specificity selector via `.cell` parent
-     so the rule beats `.theme-lcars .cell-move { display: inline-flex
+     so the rule beats `.theme-ops .cell-move { display: inline-flex
      !important }` at line ~1612. Both are !important, so within the
      important origin specificity wins; `.cell .cell-move` (0,2,0) ties
-     with `.theme-lcars .cell-move` (0,2,0) and the later rule wins —
+     with `.theme-ops .cell-move` (0,2,0) and the later rule wins —
      this rule lives below the LCARS chip-uniformity block, so it
      overrides. */
   .cell .cell-head .cell-move,
@@ -258,7 +258,7 @@ main {
 }
 /* All-four-edge feathered fade. Per user 2026-04-29: every edge
    should have the nice blur/fade effect the bottom edge had.
-   Packed into ::after only (theme-lcars + theme-magi already use
+   Packed into ::after only (theme-ops + theme-conclave already use
    ::before for the side rail; mixing ownership got the rail
    clobbered). Four layered linear-gradients, one per edge, each
    fading from transparent at the cell interior to opaque cell-bg
@@ -301,6 +301,60 @@ main {
    first cell distinguishes itself via position + breath glow, not
    size. */
 #notebook[data-auto] > .cell { max-height: 50vh; }
+
+/* Tactical layout: asymmetric command-center split.
+   Left column (~55%): hero cell spans 3 rows, full height.
+   Right column (~45%): subsequent cells stack vertically.
+   Source: most FUI bridge interfaces (MCU, Westworld S4) use an
+   asymmetric primary + secondary-stack spatial split. Collapses to
+   single-column below 700px. */
+#notebook[data-layout="tactical"] {
+  display: grid;
+  grid-template-columns: 55fr 45fr;
+  grid-template-rows: auto;
+  align-items: start;
+  gap: 0.7rem;
+}
+#notebook[data-layout="tactical"] > .cell:first-child {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  min-height: 320px;
+}
+#notebook[data-layout="tactical"] > .cell:first-child:last-child {
+  grid-column: 1 / -1;  /* sole cell: full width */
+}
+#notebook[data-layout="tactical"] > .cell:nth-child(n+2) {
+  grid-column: 2;
+}
+@media (max-width: 700px) {
+  #notebook[data-layout="tactical"] {
+    grid-template-columns: 1fr;
+  }
+  #notebook[data-layout="tactical"] > .cell:first-child,
+  #notebook[data-layout="tactical"] > .cell:nth-child(n+2) {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+/* Terminal layout: single-column CRT stream. All cells full-width,
+   uniform height (natural content height), no hero distinction.
+   Source: Blade Runner 2049 amber-terminal aesthetic; also MAGI
+   single-monitor diagnostic mode. */
+#notebook[data-layout="terminal"] {
+  display: block;
+}
+#notebook[data-layout="terminal"] > .cell {
+  grid-column: auto !important;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 0.9rem 0;
+  box-sizing: border-box;
+}
+#notebook[data-layout="terminal"] > .cell:first-child {
+  /* No hero sizing in terminal — stream is the message */
+  grid-row: auto !important;
+}
 
 /* ?layout=treemap and ?layout=organic: cells are absolutely positioned
    by JS (squarifiedTreemap / applyOrganicLayout). Disable the grid
@@ -396,10 +450,10 @@ main {
       0 0 32px color-mix(in srgb, var(--accent) 22%, transparent);
   }
 }
-.theme-magi #notebook[data-stream="active"] .cell:first-child {
-  animation: hero-live-breath-magi 3.2s ease-in-out infinite;
+.theme-conclave #notebook[data-stream="active"] .cell:first-child {
+  animation: hero-live-breath-conclave 3.2s ease-in-out infinite;
 }
-@keyframes hero-live-breath-magi {
+@keyframes hero-live-breath-conclave {
   0%, 100% {
     box-shadow:
       0 0 0 1px rgba(255, 140, 0, 0.6),
@@ -500,7 +554,7 @@ main {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.theme-magi .cell-title {
+.theme-conclave .cell-title {
   color: #ff8c00;
   text-shadow: 0 0 4px rgba(255, 140, 0, 0.35);
 }
@@ -593,7 +647,7 @@ main {
   background: color-mix(in srgb, var(--vis-ok, var(--accent)) 14%, transparent);
   color: var(--vis-ok, var(--accent));
 }
-.theme-magi .cell-id {
+.theme-conclave .cell-id {
   text-shadow: 0 0 3px rgba(255, 140, 0, 0.4);
 }
 .cell-trigger, .cell-prompt {
@@ -923,7 +977,7 @@ main {
 
 /* MAGI -- Evangelion / NERV. Amber + green on near-black, monospace.
    Glow + escalation token system lifted from gemotvis/frontend/src/styles/themes.css. */
-.theme-magi {
+.theme-conclave {
   --bg: #050505;
   --cell-bg: #0c0c0c;
   --header-bg: #0c0c0c;
@@ -940,17 +994,30 @@ main {
   --vis-warn: #ffaa00;
   --vis-tripped: #ff2020;
 }
-.theme-magi body {
+.theme-conclave body {
   font-family: "Courier New", "Lucida Console", monospace;
 }
-.theme-magi header,
-.theme-magi .cell-head,
-.theme-magi .cell-type,
-.theme-magi .cell-id {
+.theme-conclave header,
+.theme-conclave .cell-head,
+.theme-conclave .cell-type,
+.theme-conclave .cell-id {
   text-transform: uppercase;
 }
-.theme-magi header h1 {
+.theme-conclave header h1 {
   text-shadow: 0 0 4px rgba(255, 140, 0, 0.5);
+}
+/* NERV unit color-coding: each section was identified by a solid accent
+   stripe. Left amber edge marks the primary ops unit — same amber that
+   appears in the scan lines and glow treatments throughout the theme. */
+.theme-conclave body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent 0%, #ff8c00 12%, #ff8c00 88%, transparent 100%);
+  box-shadow: 0 0 8px rgba(255, 140, 0, 0.65), 0 0 20px rgba(255, 140, 0, 0.25);
+  z-index: 310;
+  pointer-events: none;
 }
 
 /* MINIMAL -- Vercel / Linear / Geist. Clean light. */
@@ -1010,7 +1077,7 @@ main {
 /* LCARS -- Star Trek TNG ops board. Saturated orange + peach + magenta on
    navy/black, condensed-bold display type. Flat color fills (no glow / no
    CRT scanlines — LCARS reads as printed UI panels, not amber CRT). */
-.theme-lcars {
+.theme-ops {
   --bg: #000000;
   --cell-bg: #000044;
   --header-bg: #000000;
@@ -1028,7 +1095,7 @@ main {
   --vis-tripped: #cc6666;
   /* LCARS frame geometry: a horizontal top bar + vertical left pillar
      joined by a canonical quarter-circle elbow sweep. Pure-CSS via two
-     pseudo-elements on body + one on html — see the .theme-lcars body
+     pseudo-elements on body + one on html — see the .theme-ops body
      and html rules below. The elbow circle's bottom-right quadrant is
      the visible sweep; its other three quadrants overlap the bar/pillar
      where they're already painted. */
@@ -1040,8 +1107,8 @@ main {
      time, the eye expects them to share one geometry. */
   --lcars-elbow-r: 24px;
 }
-.theme-lcars .hud-scanline { display: none; }
-.theme-lcars body {
+.theme-ops .hud-scanline { display: none; }
+.theme-ops body {
   font-family: "Antonio", "Avenir Next Condensed", "Helvetica Neue Condensed", "Arial Narrow", sans-serif;
   /* Push content clear of the LCARS frame chrome. Margin (not padding)
      so sticky header still sticks to the new origin. The +12px is a
@@ -1054,7 +1121,7 @@ main {
    viewport which excludes the scrollbar, leaving a visible ~14px black
    gap between the bar's rounded terminus and the screen edge. The bar
    is position:fixed so 100vw can't trigger a horizontal scrollbar. */
-.theme-lcars body::before {
+.theme-ops body::before {
   content: "";
   position: fixed;
   top: 0;
@@ -1088,7 +1155,7 @@ main {
     var(--data-cat-4, #ffcc33) 336px 396px,
     var(--bg) 396px 400px
   );
-  z-index: 250;
+  z-index: 310;
   pointer-events: none;
   border-radius: 0 14px 14px 0;
 }
@@ -1099,7 +1166,7 @@ main {
    visible segments cycle through the same five LCARS hues as the bar,
    so a horizontal scan along the bar and a vertical scan down the pillar
    share the same color vocabulary. */
-.theme-lcars body::after {
+.theme-ops body::after {
   content: "";
   position: fixed;
   top: 0;
@@ -1121,7 +1188,7 @@ main {
     var(--data-cat-4, #ffcc33) 336px 396px,
     var(--bg) 396px 400px
   );
-  z-index: 251;
+  z-index: 311;
   pointer-events: none;
 }
 /* Quarter-circle elbow joint with smooth tangents at both ends. The
@@ -1133,7 +1200,7 @@ main {
    curve), so the CSS uses clip-path: path() with an SVG arc whose
    center is at the OUTER corner of the carve rectangle (+elbow-r,
    +elbow-r). The path: top edge to (30, 0), arc to (0, 30), close. */
-html.theme-lcars::before {
+html.theme-ops::before {
   content: "";
   position: fixed;
   /* Overlap the bar (top) and pillar (left) by 1px each so subpixel
@@ -1154,10 +1221,10 @@ html.theme-lcars::before {
   z-index: 252;
   pointer-events: none;
 }
-.theme-lcars header,
-.theme-lcars .cell-head,
-.theme-lcars .cell-type,
-.theme-lcars .cell-id {
+.theme-ops header,
+.theme-ops .cell-head,
+.theme-ops .cell-type,
+.theme-ops .cell-id {
   font-family: "Antonio", "Avenir Next Condensed", "Helvetica Neue Condensed Bold", "Arial Narrow", sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1168,7 +1235,7 @@ html.theme-lcars::before {
    capsules always have breathing room. align-items: center (vs base
    `baseline`) so chips with different font sizes don't visually
    stair-step on the text baseline. */
-.theme-lcars .cell-head {
+.theme-ops .cell-head {
   gap: 0.55rem;
   flex-wrap: wrap;
   align-items: center;
@@ -1191,7 +1258,7 @@ html.theme-lcars::before {
    zoom level and avoids the corner-blending problem. nth-child(6n+X)
    cycles the rail color through --data-cat-0..5 so adjacent cells
    show different "section colors". */
-.theme-lcars .cell {
+.theme-ops .cell {
   border-radius: 24px 4px 4px 24px;
   border: 1px solid var(--line);
   padding-left: calc(14px + 1.25rem);
@@ -1206,7 +1273,7 @@ html.theme-lcars::before {
    with the lcars left border").
    Inherits the top inset (2.6rem) from the base rule so cell-head
    chips stay sharp. */
-.theme-lcars .cell::after {
+.theme-ops .cell::after {
   /* Inset-left 16px = rail right edge (-1 + 15) + 2px clearance buffer.
      Initial fix at 15px gave 1px clearance but user reported the fade
      still bled onto the rail by ~1px on the hero cell — likely a
@@ -1231,7 +1298,7 @@ html.theme-lcars::before {
       color-mix(in srgb, var(--cell-bg) 70%, transparent) calc(100% - 0.55rem),
       var(--cell-bg) 100%);
 }
-.theme-lcars .cell::before {
+.theme-ops .cell::before {
   /* Override the .cell.cell-still-warm::before fade ring rule from
      line 1252 — in LCARS, ::before is the rail; the still-warm cue
      uses outline + box-shadow instead (see below).
@@ -1275,19 +1342,19 @@ html.theme-lcars::before {
    should we still have the hero cell lcars border difference").
    Specificity (0,2,1) wins over the base .cell padding rule (0,1,1)
    AND over the ambient cell padding override at line ~383. */
-.theme-lcars .cell {
+.theme-ops .cell {
   padding-left: calc(14px + 1.25rem);
 }
-.theme-lcars .cell:nth-child(6n+1)::before { background: var(--data-cat-0, #ff9900); }
-.theme-lcars .cell:nth-child(6n+2)::before { background: var(--data-cat-1, #ffcc99); }
-.theme-lcars .cell:nth-child(6n+3)::before { background: var(--data-cat-2, #cc5599); }
-.theme-lcars .cell:nth-child(6n+4)::before { background: var(--data-cat-3, #9999cc); }
-.theme-lcars .cell:nth-child(6n+5)::before { background: var(--data-cat-4, #ffcc33); }
-.theme-lcars .cell:nth-child(6n+6)::before { background: var(--data-cat-5, #cc6666); }
+.theme-ops .cell:nth-child(6n+1)::before { background: var(--data-cat-0, #ff9900); }
+.theme-ops .cell:nth-child(6n+2)::before { background: var(--data-cat-1, #ffcc99); }
+.theme-ops .cell:nth-child(6n+3)::before { background: var(--data-cat-2, #cc5599); }
+.theme-ops .cell:nth-child(6n+4)::before { background: var(--data-cat-3, #9999cc); }
+.theme-ops .cell:nth-child(6n+5)::before { background: var(--data-cat-4, #ffcc33); }
+.theme-ops .cell:nth-child(6n+6)::before { background: var(--data-cat-5, #cc6666); }
 /* Still-warm cue uses outline + box-shadow in LCARS so ::before stays
    the rail. Keeps the live-recency visual without fighting for the
    pseudo-element. */
-.theme-lcars .cell.cell-still-warm {
+.theme-ops .cell.cell-still-warm {
   outline: 1px solid #ff9900;
   outline-offset: 1px;
   box-shadow: 0 0 16px rgba(255, 153, 0, 0.4);
@@ -1307,29 +1374,834 @@ html.theme-lcars::before {
     border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   }
 }
-.theme-lcars .cell.cell-fresh .cell-id,
-.theme-lcars .cell.cell-fresh .cell-move,
-.theme-lcars .cell.cell-fresh .cell-conf,
-.theme-lcars .cell.cell-fresh .cell-time {
+.theme-ops .cell.cell-fresh .cell-id,
+.theme-ops .cell.cell-fresh .cell-move,
+.theme-ops .cell.cell-fresh .cell-conf,
+.theme-ops .cell.cell-fresh .cell-time {
   animation: lcars-chip-pulse 1.1s ease-out;
 }
 /* HUD capsule chips also pulse on .hud-flash (the existing flash
    announcement that fires when a new mint lands in HUD scope). */
-.theme-lcars .hud.hud-flash .hud-cell {
+.theme-ops .hud.hud-flash .hud-cell {
   animation: lcars-chip-pulse 0.8s ease-out;
 }
 
 /* Dropdown polish in LCARS — uppercase header in display font + drop
    italic from descriptions so the dropdown reads as a TNG-ops list,
    not a generic subtitle pattern. */
-.theme-lcars .session-dropdown-header {
+.theme-ops .session-dropdown-header {
   font-family: var(--type-head, inherit);
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
-.theme-lcars .session-dropdown-count {
+.theme-ops .session-dropdown-count {
   font-style: normal;
   letter-spacing: 0.04em;
+}
+
+/* STARK — Iron Man / JARVIS. Cold electric cyan on void black. Arc reactor
+   gold secondary. Military aviation HUD aesthetic — condensed heavy sans,
+   volumetric glow (not CRT scanlines), no decorative chrome beyond the
+   glow itself. Color reference: Jayse Hansen MCU interface work + real
+   F-15/F-18 HUD design language. */
+.theme-vigil {
+  --bg: #000000;
+  --cell-bg: #050508;
+  --header-bg: #020205;
+  --line: #0a2a3f;
+  --fg: #b8e0f7;
+  --muted: #2a5a7a;
+  --accent: #00bfff;
+  --code-bg: #040408;
+  /* Reuse --vis-amber-glow as the generic glow token — stark's glow is
+     cyan, not amber, but all glow rules reference this variable. */
+  --vis-amber-glow: rgba(0, 191, 255, 0.45);
+  --glow-sm: 0 0 2px rgba(0, 191, 255, 0.45);
+  --glow-md: 0 0 4px rgba(0, 191, 255, 0.5);
+  --glow-lg: 0 0 8px rgba(0, 191, 255, 0.6), 0 0 2px rgba(0, 191, 255, 0.35);
+  --vis-ok: #00e5a0;
+  --vis-warn: #ffd700;      /* arc reactor gold for warn state */
+  --vis-tripped: #ff3333;
+}
+.theme-vigil body {
+  font-family: "DIN Condensed", "Avenir Next Condensed", "Helvetica Neue Condensed", "Arial Narrow", sans-serif;
+}
+.theme-vigil header,
+.theme-vigil .cell-head,
+.theme-vigil .cell-type,
+.theme-vigil .cell-id {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.theme-vigil .hud-scanline { display: none; }  /* holographic, not CRT */
+.theme-vigil .hud {
+  background: #000000;
+  border-left-color: #00bfff;
+  border-radius: 0;  /* sharp wireframe corners on HUD too */
+}
+.theme-vigil .hud-value {
+  text-shadow:
+    0 0 4px rgba(0, 191, 255, 0.6),
+    0 0 10px rgba(0, 191, 255, 0.2);
+}
+.theme-vigil .hud-status .hud-value { color: #00bfff; }
+.theme-vigil .hud[data-status="idle"] .hud-status .hud-value { color: #2a5a7a; }
+
+/* Wireframe geometry: sharp corners + angled cut at top-right, per Iron Man
+   HUD reference (Jayse Hansen MCU work). clip-path cuts the corner cleanly;
+   filter: drop-shadow provides glow outside the clip boundary since box-shadow
+   is rendered inside the clip region and would be invisible. */
+.theme-vigil .cell {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+/* Still-warm: drop-shadow instead of ::before box-shadow (clip-path clips it). */
+.theme-vigil .cell.cell-still-warm {
+  filter: drop-shadow(0 0 6px rgba(0, 191, 255, 0.45));
+}
+.theme-vigil .cell.cell-still-warm::before {
+  display: none;
+}
+/* Fresh cell: glow via filter; suppress border-left + box-shadow from base rule
+   since the angled clip makes a 3px left border look asymmetric at the bottom
+   corner. The filter drop-shadow provides the arrival glow instead. */
+.theme-vigil .cell.cell-fresh {
+  box-shadow: none;
+  border-left-width: 1px;
+  filter: drop-shadow(0 0 8px rgba(0, 191, 255, 0.55));
+}
+
+/* Mermaid: cyan edges + gold cluster borders, marching dashes. */
+.theme-vigil {
+  --mermaid-edge-stroke-width: 1.4px;
+  --mermaid-edge-color: #00bfff;
+  --mermaid-edge-glow: rgba(0, 191, 255, 0.4);
+  --mermaid-node-stroke-width: 1.6px;
+  --mermaid-node-glow: rgba(0, 191, 255, 0.28);
+  --mermaid-node-glow-hover: rgba(0, 191, 255, 0.6);
+  --mermaid-edge-label-bg: #050508;
+  --mermaid-edge-label-border: rgba(0, 191, 255, 0.4);
+  --mermaid-cluster-glow: rgba(0, 229, 255, 0.2);
+  --mermaid-dash-anim: vigil-dash-march 1.4s linear infinite;
+}
+@keyframes vigil-dash-march {
+  to { stroke-dashoffset: -16; }
+}
+/* Vigil scan-build entrance: a bright cyan scan line sweeps downward,
+   revealing cell content in its wake. More faithful to JARVIS assembly
+   than the default slide-up. The ::before is repurposed as the scan line
+   for fresh cells — it's reset once cell-fresh drops. */
+.theme-vigil {
+  --cell-entrance-anim: vigil-scan-build;
+  --cell-entrance-duration: 0.55s;
+  --cell-entrance-easing: linear;
+  --kill-bloom-radius: 0;  /* square bloom — holographic, not soft */
+}
+@keyframes vigil-scan-build {
+  0%   { clip-path: inset(0 0 100% 0); opacity: 0.85; }
+  55%  { clip-path: inset(0 0 0% 0);   opacity: 1; }
+  100% { clip-path: none; opacity: 1; }
+}
+/* Scan line visual: a 2px cyan bar moves down the fresh cell */
+.theme-vigil .cell.cell-fresh::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(0, 191, 255, 0.9) 30%,
+    rgba(0, 229, 255, 1.0) 50%,
+    rgba(0, 191, 255, 0.9) 70%,
+    transparent 100%);
+  animation: vigil-scan-line 0.55s linear forwards;
+  pointer-events: none;
+  z-index: 10;
+}
+@keyframes vigil-scan-line {
+  0%   { top: 0;    opacity: 1; }
+  90%  { top: 100%; opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+/* HUD targeting-frame brackets: thin top edge + partial right edge mirror
+   the top-right clip-path on cells. Jayse Hansen MCU reference — HUD always
+   uses corner-anchored marks, never a full-surround border. */
+.theme-vigil body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0, #00bfff 8%, #00bfff 92%, transparent 100%);
+  box-shadow: 0 0 8px rgba(0, 191, 255, 0.7), 0 0 20px rgba(0, 191, 255, 0.3);
+  z-index: 310;
+  pointer-events: none;
+}
+.theme-vigil body::after {
+  content: "";
+  position: fixed;
+  top: 0; right: 0;
+  width: 2px;
+  height: 35vh;
+  background: linear-gradient(180deg, #00bfff 0, #00bfff 60%, transparent 100%);
+  box-shadow: 0 0 8px rgba(0, 191, 255, 0.7);
+  z-index: 310;
+  pointer-events: none;
+}
+
+/* ============================================================
+   CIRCUIT theme — Tron Legacy / GMUNK grid aesthetic.
+   Reference: gmunk.com/TRON-Board-Room, pushing-pixels.org GMUNK
+   interview (2011). Strict grid, binary two-color, flat — no
+   gradients. Motion-as-focus: animation signals recency, not size.
+   ============================================================ */
+.theme-circuit {
+  --bg:        #030504;
+  --cell-bg:   #070a06;
+  --header-bg: #040704;
+  --code-bg:   #060906;
+  --accent:    #7dfdfe;
+  --fg:        #9ff8f9;
+  --muted:     #1a5a5a;
+  --line:      #0d2e2e;
+  --font-body: "OCR A Extended", "Courier New", ui-monospace, monospace;
+  --font-head: "OCR A Extended", "Courier New", ui-monospace, monospace;
+
+  --cell-entrance-anim:     circuit-lightribbon;
+  --cell-entrance-duration: 0.65s;
+  --cell-entrance-easing:   ease-in-out;
+  --kill-bloom-radius: 0;
+
+  /* Crosshatch grid background — the Tron world grid */
+  --bg-texture:
+    linear-gradient(rgba(125, 253, 254, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 253, 254, 0.028) 1px, transparent 1px);
+  --bg-size: 42px 42px;
+
+  /* Mermaid: teal circuit edges, fast march */
+  --mermaid-edge-stroke-width: 1.3px;
+  --mermaid-edge-color: #7dfdfe;
+  --mermaid-edge-glow: rgba(125, 253, 254, 0.38);
+  --mermaid-node-stroke-width: 1.4px;
+  --mermaid-node-glow: rgba(125, 253, 254, 0.22);
+  --mermaid-node-glow-hover: rgba(125, 253, 254, 0.55);
+  --mermaid-edge-label-bg: #070a06;
+  --mermaid-edge-label-border: rgba(125, 253, 254, 0.35);
+  --mermaid-cluster-glow: rgba(125, 253, 254, 0.15);
+  --mermaid-dash-anim: circuit-march 0.55s linear infinite;  /* fast circuit-speed */
+}
+.theme-circuit body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+}
+.theme-circuit header,
+.theme-circuit .cell-head,
+.theme-circuit .cell-type,
+.theme-circuit .cell-id {
+  font-family: var(--font-head);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.theme-circuit .hud-scanline { display: none; }
+.theme-circuit .hud {
+  border-radius: 0;
+  border-color: rgba(125, 253, 254, 0.35);
+}
+.theme-circuit .hud-value {
+  color: #7dfdfe;
+  text-shadow: 0 0 6px rgba(125, 253, 254, 0.55);
+}
+.theme-circuit .cell {
+  border-radius: 0;
+  border: 1px solid rgba(125, 253, 254, 0.18);
+  background: var(--cell-bg);
+}
+.theme-circuit .cell.cell-still-warm {
+  border-color: rgba(125, 253, 254, 0.55);
+  box-shadow: 0 0 14px rgba(125, 253, 254, 0.22),
+              0 0 1px  rgba(125, 253, 254, 0.5) inset;
+}
+/* Fresh: suppress default border-left/box-shadow; filter provides glow */
+.theme-circuit .cell.cell-fresh {
+  box-shadow: none;
+  border-left-width: 1px;
+  filter: drop-shadow(0 0 10px rgba(125, 253, 254, 0.5));
+}
+/* Border-travel: animated light point orbiting the perimeter on fresh cells */
+.theme-circuit .cell.cell-fresh::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(var(--cell-bg), var(--cell-bg)),
+    conic-gradient(from var(--border-angle, 0deg),
+      transparent 0deg,
+      #7dfdfe 60deg,
+      transparent 120deg);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  animation: circuit-border-travel 1.8s linear forwards;
+  pointer-events: none;
+  z-index: 2;
+}
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+@keyframes circuit-border-travel {
+  0%   { --border-angle: 0deg;   opacity: 1; }
+  80%  { --border-angle: 360deg; opacity: 1; }
+  100% { --border-angle: 360deg; opacity: 0; }
+}
+@keyframes circuit-lightribbon {
+  0%   { opacity: 0; clip-path: inset(0 100% 0 0); }
+  45%  { opacity: 1; clip-path: inset(0 0% 0 0); }
+  100% { opacity: 1; clip-path: none; }
+}
+@keyframes circuit-march {
+  to { stroke-dashoffset: -10; }
+}
+.theme-circuit .kill-bloom-hero {
+  background: #030504;
+  border-color: #7dfdfe;
+  box-shadow:
+    0 0 20px rgba(125, 253, 254, 0.5),
+    0 0 60px rgba(125, 253, 254, 0.2),
+    inset 0 0 10px rgba(125, 253, 254, 0.15);
+}
+/* Tron Legacy right-edge data stream. GMUNK's TRON Board Room had vertical
+   neon light strips along right panels of the data grid — the "highway"
+   framing the arena. */
+.theme-circuit body::before {
+  content: "";
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, transparent 0%, #7dfdfe 15%, #7dfdfe 85%, transparent 100%);
+  box-shadow: 0 0 12px rgba(125, 253, 254, 0.8), 0 0 28px rgba(125, 253, 254, 0.35);
+  z-index: 310;
+  pointer-events: none;
+  animation: circuit-edge-pulse 3.5s ease-in-out infinite;
+}
+@keyframes circuit-edge-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 1; }
+}
+
+/* ============================================================
+   NOIR theme — Blade Runner 2049 / Territory Studio.
+   Reference: Territory Studio cited palette (#f78b04 amber,
+   #0c1a2e blue-black, #3aff8c phosphor-green). CRT phosphor,
+   amber holograms, rain-soaked noir aesthetic.
+   ============================================================ */
+.theme-noir {
+  --bg:        #0c1a2e;
+  --cell-bg:   #0f1e35;
+  --header-bg: #0a1628;
+  --code-bg:   #0d1c30;
+  --accent:    #f78b04;
+  --fg:        #e8c87a;
+  --muted:     #3a5a7a;
+  --line:      #162438;
+  --font-body: "Courier New", "Courier", ui-monospace, monospace;
+  --font-head: "Courier New", "Courier", ui-monospace, monospace;
+
+  --cell-entrance-anim:     noir-flicker;
+  --cell-entrance-duration: 0.5s;
+  --cell-entrance-easing:   linear;
+
+  /* Vertical rain streaks — very subtle, 2% opacity */
+  --bg-texture:
+    repeating-linear-gradient(
+      175deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(247, 139, 4, 0.012) 3px,
+      rgba(247, 139, 4, 0.012) 4px
+    );
+  --bg-size: 60px 120px;
+
+  /* Mermaid: amber edges with interference gaps */
+  --mermaid-edge-stroke-width: 1.5px;
+  --mermaid-edge-color: #f78b04;
+  --mermaid-edge-glow: rgba(247, 139, 4, 0.35);
+  --mermaid-node-stroke-width: 1.5px;
+  --mermaid-node-glow: rgba(247, 139, 4, 0.22);
+  --mermaid-node-glow-hover: rgba(247, 139, 4, 0.5);
+  --mermaid-edge-label-bg: #0f1e35;
+  --mermaid-edge-label-border: rgba(247, 139, 4, 0.35);
+  --mermaid-cluster-glow: rgba(247, 139, 4, 0.15);
+  --mermaid-dash-anim: noir-interference 2.2s linear infinite;
+}
+.theme-noir body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+}
+.theme-noir header,
+.theme-noir .cell-head,
+.theme-noir .cell-type,
+.theme-noir .cell-id {
+  font-family: var(--font-head);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.theme-noir .hud {
+  border-color: rgba(247, 139, 4, 0.35);
+}
+.theme-noir .hud-value {
+  color: #f78b04;
+  text-shadow: 0 0 8px rgba(247, 139, 4, 0.5);
+}
+.theme-noir .cell {
+  border: 1px solid rgba(247, 139, 4, 0.18);
+  background: var(--cell-bg);
+  position: relative;
+  overflow: hidden;
+}
+.theme-noir .cell.cell-still-warm {
+  border-color: rgba(247, 139, 4, 0.5);
+  box-shadow: 0 0 16px rgba(247, 139, 4, 0.2);
+}
+.theme-noir .cell.cell-fresh {
+  box-shadow: 0 0 20px rgba(247, 139, 4, 0.28);
+  border-left-color: #f78b04;
+}
+/* Drift scanline: a slow amber CRT refresh line drifts down fresh cells */
+.theme-noir .cell.cell-fresh::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(247, 139, 4, 0.5) 40%,
+    rgba(247, 139, 4, 0.5) 60%, transparent 100%);
+  animation: noir-drift-scan 8s linear forwards;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.6;
+}
+@keyframes noir-drift-scan {
+  0%   { top: 0;    opacity: 0.6; }
+  95%  { top: 100%; opacity: 0.4; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes noir-flicker {
+  0%   { opacity: 0; }
+  8%   { opacity: 0.65; }
+  14%  { opacity: 0.25; }
+  22%  { opacity: 0.88; }
+  28%  { opacity: 0.45; }
+  38%  { opacity: 0.92; }
+  46%  { opacity: 0.78; }
+  60%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+@keyframes noir-interference {
+  0%   { stroke-dashoffset: 0;  opacity: 1; }
+  30%  { stroke-dashoffset: -8; opacity: 0.85; }
+  35%  { stroke-dashoffset: -8; opacity: 0.4; }   /* interference gap */
+  40%  { stroke-dashoffset: -9; opacity: 0.85; }
+  100% { stroke-dashoffset: -16; opacity: 1; }
+}
+.theme-noir .kill-bloom-hero {
+  background: #0c1a2e;
+  border-color: #f78b04;
+  box-shadow:
+    0 0 24px rgba(247, 139, 4, 0.55),
+    0 0 70px rgba(247, 139, 4, 0.22),
+    inset 0 0 10px rgba(247, 139, 4, 0.18);
+}
+/* Blade Runner 2049 screen-edge atmospheric amber glow. Territory Studio
+   source work used soft amber haze at terminal edges — atmosphere, not
+   chrome. Bottom bar only: BR2049 UIs glow upward from the surface. */
+.theme-noir body::before {
+  content: "";
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent 0%, #f78b04 18%, #f78b04 82%, transparent 100%);
+  box-shadow: 0 0 16px rgba(247, 139, 4, 0.65), 0 -10px 30px rgba(247, 139, 4, 0.12);
+  z-index: 310;
+  pointer-events: none;
+}
+
+/* ============================================================
+   RENEGADE theme — Mass Effect / BioWare omnitool aesthetic.
+   Palette: warm near-black, omnitool orange (#FF7700), nav cyan
+   (#0eb9fe). Diagonal bottom-left corner cut mirrors the N7 stripe.
+   ============================================================ */
+.theme-renegade {
+  --bg:        #171614;
+  --cell-bg:   #1c1a18;
+  --header-bg: #141210;
+  --code-bg:   #1a1816;
+  --accent:    #ff7700;
+  --fg:        #e8e0d5;
+  --muted:     #5a4a38;
+  --line:      #2a2218;
+  --font-body: "Eurostile", "Orbitron", "Arial Narrow", sans-serif;
+  --font-head: "Eurostile", "Orbitron", "Arial Narrow", sans-serif;
+
+  --cell-entrance-anim:     renegade-diagonal-wipe;
+  --cell-entrance-duration: 0.5s;
+  --cell-entrance-easing:   cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Hex grid — the ME galaxy map overlay */
+  --bg-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='48'%3E%3Cpolygon points='28,2 52,14 52,34 28,46 4,34 4,14' fill='none' stroke='%23ff770008' stroke-width='1'/%3E%3C/svg%3E");
+  --bg-size: 56px 48px;
+
+  /* Mermaid: orange edges, cyan arrowheads */
+  --mermaid-edge-stroke-width: 1.5px;
+  --mermaid-edge-color: #ff7700;
+  --mermaid-edge-glow: rgba(255, 119, 0, 0.38);
+  --mermaid-node-stroke-width: 1.5px;
+  --mermaid-node-glow: rgba(255, 119, 0, 0.22);
+  --mermaid-node-glow-hover: rgba(255, 119, 0, 0.55);
+  --mermaid-edge-label-bg: #1c1a18;
+  --mermaid-edge-label-border: rgba(255, 119, 0, 0.38);
+  --mermaid-cluster-glow: rgba(255, 119, 0, 0.18);
+  --mermaid-dash-anim: renegade-march 1.1s linear infinite;
+}
+.theme-renegade body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  margin-left: 12px;
+}
+.theme-renegade header,
+.theme-renegade .cell-head,
+.theme-renegade .cell-type,
+.theme-renegade .cell-id {
+  font-family: var(--font-head);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.theme-renegade .hud {
+  border-color: rgba(255, 119, 0, 0.35);
+}
+.theme-renegade .hud-value {
+  color: #ff7700;
+  text-shadow: 0 0 8px rgba(255, 119, 0, 0.5);
+}
+/* Diagonal bottom-left corner cut — N7 stripe geometry */
+.theme-renegade .cell {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  border: 1px solid rgba(255, 119, 0, 0.18);
+  background: var(--cell-bg);
+}
+.theme-renegade .cell.cell-still-warm {
+  filter: drop-shadow(0 0 7px rgba(255, 119, 0, 0.42));
+}
+.theme-renegade .cell.cell-still-warm::before {
+  display: none;
+}
+.theme-renegade .cell.cell-fresh {
+  box-shadow: none;
+  border-left-width: 1px;
+  filter: drop-shadow(0 0 10px rgba(255, 119, 0, 0.52));
+}
+/* Orange leading edge glow during diagonal wipe */
+.theme-renegade .cell.cell-fresh::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    rgba(255, 119, 0, 0.15) 75%,
+    rgba(255, 119, 0, 0.06) 100%
+  );
+  animation: renegade-wipe-glow 0.5s ease-out forwards;
+  pointer-events: none;
+  z-index: 3;
+}
+@keyframes renegade-wipe-glow {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes renegade-diagonal-wipe {
+  0%   {
+    opacity: 0.6;
+    clip-path: polygon(0 100%, 0 100%, 0 100%, 0 100%, 0 100%);
+  }
+  100% {
+    opacity: 1;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  }
+}
+@keyframes renegade-march {
+  to { stroke-dashoffset: -14; }
+}
+.theme-renegade .kill-bloom-hero {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background: #171614;
+  border-color: #ff7700;
+  box-shadow:
+    0 0 22px rgba(255, 119, 0, 0.5),
+    0 0 60px rgba(255, 119, 0, 0.2),
+    inset 0 0 10px rgba(255, 119, 0, 0.15);
+}
+/* Mass Effect N7 left accent rail. The Commander's display used a solid
+   orange vertical stripe — the N7 design language anchors every screen
+   with a left-side solid accent strip. */
+.theme-renegade body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 8px;
+  background: #ff7700;
+  box-shadow: 4px 0 14px rgba(255, 119, 0, 0.6);
+  z-index: 310;
+  pointer-events: none;
+}
+
+/* ============================================================
+   MAINFRAME theme — ReBoot (1994) Mainframe city aesthetic.
+   Reference: reboot.fandom.com. Neon aqua Energy Sea primary,
+   deep indigo city sky, Game Cube purple accent/secondary.
+   ============================================================ */
+.theme-mainframe {
+  --bg:        #0a1428;
+  --cell-bg:   #0d1a32;
+  --header-bg: #081020;
+  --code-bg:   #0c1830;
+  --accent:    #00e5cc;
+  --fg:        #a8c8e8;
+  --muted:     #1a4060;
+  --line:      #122040;
+  --font-body: "Share Tech Mono", "Courier New", ui-monospace, monospace;
+  --font-head: "Share Tech Mono", "Courier New", ui-monospace, monospace;
+
+  --cell-entrance-anim:     mainframe-gamecube;
+  --cell-entrance-duration: 0.7s;
+  --cell-entrance-easing:   ease-out;
+
+  /* Mermaid: aqua edges */
+  --mermaid-edge-stroke-width: 1.5px;
+  --mermaid-edge-color: #00e5cc;
+  --mermaid-edge-glow: rgba(0, 229, 204, 0.38);
+  --mermaid-node-stroke-width: 1.5px;
+  --mermaid-node-glow: rgba(0, 229, 204, 0.22);
+  --mermaid-node-glow-hover: rgba(0, 229, 204, 0.55);
+  --mermaid-edge-label-bg: #0d1a32;
+  --mermaid-edge-label-border: rgba(0, 229, 204, 0.35);
+  --mermaid-cluster-glow: rgba(0, 229, 204, 0.18);
+  --mermaid-dash-anim: mainframe-march 1.2s linear infinite;
+}
+.theme-mainframe body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+}
+.theme-mainframe header,
+.theme-mainframe .cell-head,
+.theme-mainframe .cell-type,
+.theme-mainframe .cell-id {
+  font-family: var(--font-head);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.theme-mainframe .hud {
+  border-color: rgba(0, 229, 204, 0.35);
+}
+.theme-mainframe .hud-value {
+  color: #00e5cc;
+  text-shadow: 0 0 8px rgba(0, 229, 204, 0.55);
+}
+.theme-mainframe .cell {
+  border: 1px solid rgba(0, 229, 204, 0.18);
+  background: var(--cell-bg);
+}
+.theme-mainframe .cell.cell-still-warm {
+  border-color: rgba(0, 229, 204, 0.55);
+  box-shadow:
+    0 0 18px rgba(0, 229, 204, 0.22),
+    0 0 2px  rgba(0, 229, 204, 0.45) inset;
+}
+.theme-mainframe .cell.cell-fresh {
+  box-shadow: 0 0 24px rgba(0, 229, 204, 0.32);
+  border-left-color: #00e5cc;
+}
+/* Game Cube flash: brief purple overlay that clears as cell arrives */
+.theme-mainframe .cell.cell-fresh::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(123, 63, 191, 0.35);
+  animation: mainframe-cube-clear 0.7s ease-out forwards;
+  pointer-events: none;
+  z-index: 4;
+}
+@keyframes mainframe-cube-clear {
+  0%   { opacity: 1; }
+  40%  { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+@keyframes mainframe-gamecube {
+  0%   { opacity: 0; transform: scale(0.94); filter: saturate(3) hue-rotate(-30deg); }
+  35%  { opacity: 1; transform: scale(1.01); filter: saturate(1.5) hue-rotate(-10deg); }
+  100% { opacity: 1; transform: scale(1);    filter: none; }
+}
+@keyframes mainframe-march {
+  to { stroke-dashoffset: -16; }
+}
+/* Game Cube purple kill bloom */
+.theme-mainframe .kill-bloom-hero {
+  background: #0a1428;
+  border-color: #7b3fbf;
+  box-shadow:
+    0 0 20px rgba(123, 63, 191, 0.55),
+    0 0 60px rgba(123, 63, 191, 0.22),
+    inset 0 0 10px rgba(123, 63, 191, 0.18);
+}
+/* ReBoot (1994) Mainframe city viewport bracket framing. The show's
+   camera/interface views used colored bars at top and bottom — teal primary
+   with purple accent corner, matching the Energy Sea + Game Cube palette. */
+.theme-mainframe body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #7b3fbf 0 36px, transparent 36px 40px, #00e5cc 40px);
+  box-shadow: 0 0 10px rgba(0, 229, 204, 0.55), 0 0 24px rgba(0, 229, 204, 0.2);
+  z-index: 310;
+  pointer-events: none;
+}
+.theme-mainframe body::after {
+  content: "";
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #00e5cc 0 calc(100% - 40px), transparent calc(100% - 40px) calc(100% - 36px), #7b3fbf calc(100% - 36px));
+  box-shadow: 0 0 10px rgba(0, 229, 204, 0.55), 0 0 24px rgba(0, 229, 204, 0.2);
+  z-index: 310;
+  pointer-events: none;
+}
+
+/* ============================================================
+   TERMINUS theme — Alien (1979) / Nostromo MU/TH/UR 6000.
+   Reference: typesetinthefuture.com (Berthold City Light, green
+   phosphor confirmed), ha-weylandyutani theme (#0d0a08 panel,
+   #33ff33 green). Raspberry Pi Magazine M314 build (tracker blue).
+   Ron Cobb Semiotic Standard: red=alive, yellow=hazard, blue=cold.
+   "Used future" aesthetic — sparse, austere, functional.
+   NOT amber; that is Alien:Isolation's secondary terminal choice.
+   ============================================================ */
+.theme-terminus {
+  --bg:        #080705;
+  --cell-bg:   #0d0a08;
+  --header-bg: #060504;
+  --code-bg:   #0b0908;
+  --accent:    #33ff33;
+  --fg:        #33ff33;
+  --muted:     #1a3318;
+  --line:      #0f180e;
+  --font-body: "Courier New", "Courier", ui-monospace, monospace;
+  --font-head: "Courier New", "Courier", ui-monospace, monospace;
+
+  --cell-entrance-anim:     terminus-phosphor-on;
+  --cell-entrance-duration: 0.4s;
+  --cell-entrance-easing:   steps(8, end);  /* stepped: CRT pixels lighting up */
+
+  /* Phosphor glow — P31 green bloom. Very subtle to not wash out text */
+  --mermaid-edge-stroke-width: 1.4px;
+  --mermaid-edge-color: #33ff33;
+  --mermaid-edge-glow: rgba(51, 255, 51, 0.3);
+  --mermaid-node-stroke-width: 1.4px;
+  --mermaid-node-glow: rgba(51, 255, 51, 0.2);
+  --mermaid-node-glow-hover: rgba(51, 255, 51, 0.45);
+  --mermaid-edge-label-bg: #0d0a08;
+  --mermaid-edge-label-border: rgba(51, 255, 51, 0.3);
+  --mermaid-cluster-glow: rgba(51, 255, 51, 0.15);
+  --mermaid-dash-anim: terminus-march 1.8s linear infinite;
+}
+.theme-terminus body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+}
+.theme-terminus header,
+.theme-terminus .cell-head,
+.theme-terminus .cell-type,
+.theme-terminus .cell-id {
+  font-family: var(--font-head);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.theme-terminus .hud {
+  border-color: rgba(51, 255, 51, 0.3);
+}
+.theme-terminus .hud-value {
+  color: #33ff33;
+  text-shadow: 0 0 6px rgba(51, 255, 51, 0.55);
+}
+.theme-terminus .cell {
+  border: 1px solid rgba(51, 255, 51, 0.14);
+  background: var(--cell-bg);
+  /* Phosphor halation: very subtle green glow on cells */
+  box-shadow: 0 0 1px rgba(51, 255, 51, 0.08) inset;
+}
+.theme-terminus .cell.cell-still-warm {
+  border-color: rgba(51, 255, 51, 0.4);
+  box-shadow: 0 0 12px rgba(51, 255, 51, 0.18),
+              0 0 2px  rgba(51, 255, 51, 0.35) inset;
+}
+.theme-terminus .cell.cell-fresh {
+  box-shadow: 0 0 18px rgba(51, 255, 51, 0.25);
+  border-left-color: #33ff33;
+  /* Phosphor text glow on fresh cell content */
+  text-shadow: 0 0 4px rgba(51, 255, 51, 0.45);
+}
+/* Phosphor boot-up entrance: stepped opacity, like a terminal powering on */
+@keyframes terminus-phosphor-on {
+  0%   { opacity: 0; }
+  12%  { opacity: 0.15; }
+  25%  { opacity: 0.35; }
+  37%  { opacity: 0.2; }  /* slight flicker */
+  50%  { opacity: 0.7; }
+  62%  { opacity: 0.55; } /* second flicker */
+  75%  { opacity: 0.85; }
+  87%  { opacity: 0.95; }
+  100% { opacity: 1; }
+}
+@keyframes terminus-march {
+  to { stroke-dashoffset: -20; }
+}
+/* Phosphor kill bloom: green glow on dark warm-black */
+.theme-terminus .kill-bloom-hero {
+  background: #0d0a08;
+  border-color: #33ff33;
+  color: #33ff33;
+  box-shadow:
+    0 0 18px rgba(51, 255, 51, 0.5),
+    0 0 50px rgba(51, 255, 51, 0.2),
+    inset 0 0 8px rgba(51, 255, 51, 0.15);
+}
+.theme-terminus .kill-bloom-label,
+.theme-terminus .kill-bloom-status {
+  color: #33ff33;
+  text-shadow: 0 0 4px rgba(51, 255, 51, 0.55);
+}
+.theme-terminus .kill-bloom-value {
+  color: #33ff33;
+  font-family: "Courier New", monospace;
+}
+/* Alien/Nostromo MU-TH-UR 6000 CRT barrel vignette. The original Nostromo
+   screens were phosphor CRTs — the rounded mask and edge darkening are the
+   defining visual signature of that interface system. */
+html.theme-terminus::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 85% 80% at 50% 50%, transparent 52%, rgba(0, 0, 0, 0.5) 75%, rgba(0, 0, 0, 0.82) 94%);
+  pointer-events: none;
+  z-index: 309;
 }
 
 .cell-caption {
@@ -1523,6 +2395,30 @@ th, td {
   50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%,  transparent); }
 }
 
+/* ============================================================
+   Theme animation architecture — CSS custom property hooks.
+
+   Each theme block can redefine these vars to wire in its own
+   entrance animation, kill bloom geometry, and background texture
+   without touching the base rules. Defaults replicate the pre-2026
+   behaviour so existing themes are unchanged unless they opt in.
+   ============================================================ */
+:root {
+  /* Cell entrance animation. Themes set this to their own keyframe name. */
+  --cell-entrance-anim:     cell-arrive;
+  --cell-entrance-duration: 1.0s;
+  --cell-entrance-easing:   ease-out;
+  /* Kill bloom card shape. 0 = square (vigil/circuit), 4px = default soft */
+  --kill-bloom-radius:      4px;
+  /* Background texture. Themes can supply a CSS gradient pattern. */
+  --bg-texture:    none;
+  --bg-size:       auto;
+}
+body {
+  background-image: var(--bg-texture);
+  background-size:  var(--bg-size);
+}
+
 /* Scanline overlay — subtle horizontal lines that never block content */
 .hud-scanline {
   position: absolute;
@@ -1549,19 +2445,19 @@ th, td {
 
 /* Theme-specific HUD overrides — magi gets amber HUD with green accent
    (matches the existing magi --accent: #00ff41 chartreuse). */
-.theme-magi .hud {
+.theme-conclave .hud {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0) 50%),
     #060606;
   border-left-color: #00ff41;
 }
-.theme-magi .hud-value {
+.theme-conclave .hud-value {
   text-shadow:
     0 0 4px rgba(255, 140, 0, 0.55),
     0 0 10px rgba(255, 140, 0, 0.18);
 }
-.theme-magi .hud-status .hud-value { color: #00ff41; }
-.theme-magi .hud[data-status="idle"] .hud-status .hud-value { color: #884600; }
+.theme-conclave .hud-status .hud-value { color: #00ff41; }
+.theme-conclave .hud[data-status="idle"] .hud-status .hud-value { color: #884600; }
 
 /* Minimal theme: tone the HUD down — no glow, just structured monospace */
 .theme-minimal .hud {
@@ -1576,10 +2472,10 @@ th, td {
    bar reads as the dashboard's "first cell" — same shape language top
    to bottom. Each .hud-cell chip becomes a capsule-shaped pill (rounded
    ends, padded interior, subtle dark-blue fill) — the canonical LCARS
-   nav-button shape. Geometry knobs live on the .theme-lcars block
+   nav-button shape. Geometry knobs live on the .theme-ops block
    (--lcars-bar-h etc.) so other themes leave the HUD's default flat
    geometry untouched. */
-.theme-lcars .hud {
+.theme-ops .hud {
   position: relative;
   /* HUD takes the chrome of a hero cell (same cell-bg, orange border,
      padding-left clearance for the rail) but stays compact in its
@@ -1599,17 +2495,17 @@ th, td {
   padding-bottom: 0.25rem;
   max-height: 1.6rem;
 }
-.theme-lcars .hud:hover,
-.theme-lcars .hud[data-expanded="true"] {
+.theme-ops .hud:hover,
+.theme-ops .hud[data-expanded="true"] {
   /* Expanded state matches a hero cell's vertical padding. The
-     .theme-lcars .hud rule above is more specific than .hud:hover from
+     .theme-ops .hud rule above is more specific than .hud:hover from
      the base styles, so the expanded padding has to be re-declared
      here to win the cascade in LCARS. */
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
   max-height: 14rem;
 }
-.theme-lcars .hud::before {
+.theme-ops .hud::before {
   content: "";
   position: absolute;
   top: -1px;
@@ -1621,7 +2517,7 @@ th, td {
   pointer-events: none;
   z-index: 1;
 }
-.theme-lcars .hud-cell {
+.theme-ops .hud-cell {
   /* Canonical LCARS chip: solid orange + black text + no border, matching
      the cell-head chip family. The translucent-with-border treatment we
      had before split the visual vocabulary between HUD and cell-head;
@@ -1636,38 +2532,38 @@ th, td {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.theme-lcars .hud-cell .hud-label {
+.theme-ops .hud-cell .hud-label {
   color: #000;
   opacity: 1;
   letter-spacing: 0.08em;
 }
-.theme-lcars .hud-cell .hud-value {
+.theme-ops .hud-cell .hud-value {
   color: #000;
   text-shadow: none;
 }
-.theme-lcars .hud-status .hud-value { color: #000; }
-.theme-lcars .hud-pulse {
+.theme-ops .hud-status .hud-value { color: #000; }
+.theme-ops .hud-pulse {
   /* On orange bg, gray-on-orange dots vanish. Use dark fill for visible
      active/idle states. */
   background: rgba(0, 0, 0, 0.4);
 }
-.theme-lcars .hud[data-status="active"] .hud-pulse {
+.theme-ops .hud[data-status="active"] .hud-pulse {
   background: #000;
 }
-.theme-lcars .hud-cells-bar rect {
+.theme-ops .hud-cells-bar rect {
   /* Dark fill so the inline bar reads on the orange chip. */
   fill: rgba(0, 0, 0, 0.6);
 }
-.theme-lcars .hud-scanline { display: none; }
+.theme-ops .hud-scanline { display: none; }
 
 /* In-cell chips also become LCARS capsules so the shape language is
    consistent across HUD chips and cell-head chips (cell-id button,
    discourse_move, confidence, timestamp). Background is a subtle
    dark fill scoped via color-mix so it tracks the cell-bg navy. */
-.theme-lcars .cell-id,
-.theme-lcars .cell-move,
-.theme-lcars .cell-conf,
-.theme-lcars .cell-time {
+.theme-ops .cell-id,
+.theme-ops .cell-move,
+.theme-ops .cell-conf,
+.theme-ops .cell-time {
   /* Force complete uniformity across all cell-head capsule chips —
      same size, same color, same weight, same font, same padding. Base
      styles set different font-sizes (id 0.95rem, move 0.65rem, conf
@@ -1701,7 +2597,7 @@ th, td {
   border: none !important;
   opacity: 1 !important;
 }
-.theme-lcars .cell-id {
+.theme-ops .cell-id {
   /* Cell-id stays mono so the alphanumeric reads as a code badge — and
      the existing data-cell-type left-border accent in the base
      .cell-id rule is hidden by the capsule's full border. */
@@ -1723,14 +2619,16 @@ th, td {
 /* Use the new glow tokens in the steady-state HUD too, replacing the
    ad-hoc text-shadow that originally hard-coded a color-mix. */
 .hud-value { text-shadow: var(--glow-md); }
-.theme-magi .hud-value { text-shadow: var(--glow-md); }
+.theme-conclave .hud-value { text-shadow: var(--glow-md); }
 .theme-minimal .hud-value { text-shadow: none; }
 
 /* Live-append animation: cells that arrive after first paint slide in
    with a brief accent-bordered glow so the user sees them land. The
    class is stripped after the animation so re-renders don't replay. */
 .cell.cell-fresh {
-  animation: cell-arrive 1.0s ease-out;
+  animation: var(--cell-entrance-anim, cell-arrive)
+             var(--cell-entrance-duration, 1.0s)
+             var(--cell-entrance-easing, ease-out);
   border-left: 3px solid var(--accent);
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 32%, transparent);
 }
@@ -1831,7 +2729,7 @@ th, td {
 .hud-cells-bar rect {
   transition: width 0.4s ease;
 }
-.theme-magi .hud-cells-bar {
+.theme-conclave .hud-cells-bar {
   filter: drop-shadow(0 0 3px rgba(255, 140, 0, 0.45));
 }
 .theme-minimal .hud-cells-bar {
@@ -1843,7 +2741,7 @@ th, td {
 
    Mermaid's themeVariables only set colors; stroke widths, glow
    filters, and edge animation need post-render CSS. Pre-2026-04-28
-   these were ~9 .theme-magi-prefixed rules with hardcoded values +
+   these were ~9 .theme-conclave-prefixed rules with hardcoded values +
    !important. Now consolidated: theme-agnostic selectors consume
    --mermaid-* tokens, themes redefine the tokens. Adding a new theme
    is one block of var declarations, not a copy-paste of every rule.
@@ -1868,7 +2766,7 @@ th, td {
   --mermaid-cluster-glow: rgba(102, 204, 255, 0.25);
   --mermaid-dash-anim: none;
 }
-.theme-magi {
+.theme-conclave {
   --mermaid-edge-stroke-width: 1.4px;
   --mermaid-edge-color: #00ff41;
   --mermaid-edge-glow: rgba(0, 255, 65, 0.4);
@@ -1899,7 +2797,7 @@ th, td {
   --mermaid-edge-label-bg: #f5e6d3;
   --mermaid-edge-label-border: #cd7f32;
 }
-.theme-lcars {
+.theme-ops {
   --mermaid-edge-stroke-width: 1.6px;
   --mermaid-edge-color: #ff9900;
   --mermaid-edge-glow: transparent;
@@ -1931,6 +2829,7 @@ th, td {
    across mermaid versions. */
 .mermaid-target .edgePath path,
 .mermaid-target .flowchart-link {
+  stroke: var(--mermaid-edge-color) !important;
   stroke-width: var(--mermaid-edge-stroke-width) !important;
   filter: drop-shadow(0 0 1px var(--mermaid-edge-glow));
 }
@@ -2012,7 +2911,7 @@ th, td {
   60%  { opacity: 0.5; }
   100% { opacity: 0; }
 }
-.theme-magi .cell.cell-still-warm::before {
+.theme-conclave .cell.cell-still-warm::before {
   /* Magi still-warm in amber to match the live-breath hero pulse;
      the green flavor was the original "giant green bar" report and
      was switched to amber 2026-04-28. */
@@ -2027,7 +2926,7 @@ th, td {
 .theme-gastown .cell.cell-still-warm::before {
   display: none;
 }
-.theme-lcars .cell.cell-still-warm::before {
+.theme-ops .cell.cell-still-warm::before {
   /* LCARS still-warm: flat orange border, no glow — matches the printed
      ops-board aesthetic. */
   border-color: #ff9900;
@@ -2229,7 +3128,7 @@ th, td {
 }
 /* Magi keeps its glow flourish; other themes inherit the
    token-driven base rule above. */
-.theme-magi .session-dropdown {
+.theme-conclave .session-dropdown {
   background: #050505;
   box-shadow: 0 0 12px rgba(255,140,0,0.3);
 }
@@ -2407,7 +3306,7 @@ th, td {
 /* Magi-specific: scan line sweeping vertically across the table, plus
    amber accents on borders and the first-row header. Reads as a live
    FUI readout rather than a static spreadsheet. */
-.theme-magi .html-target {
+.theme-conclave .html-target {
   border: 1px solid rgba(255, 140, 0, 0.25);
   border-radius: 2px;
   background:
@@ -2419,10 +3318,10 @@ th, td {
    brightness; the sweep blurred into the border. Refinement: a wider
    soft-edged gradient band that's brighter in the middle and fades
    out at the row edges, with a subtle blur that distinguishes it
-   from solid borders. Theme-scoped (.theme-magi) — other themes
+   from solid borders. Theme-scoped (.theme-conclave) — other themes
    (Bladerunner, Severance, Tron etc) won't inherit; they pick their
    own visual signatures via the --vis-* token vocabulary. */
-.theme-magi .html-target::before {
+.theme-conclave .html-target::before {
   content: "";
   position: absolute;
   left: 15%; right: 15%;  /* tighter inset — the band is a hint, not a width */
@@ -2460,20 +3359,20 @@ th, td {
    intended fine texture. The hud-scanline + html-target scanline +
    hero-scan still provide localized CRT feel without the full-
    viewport blend hazard. */
-.theme-magi .html-target th {
+.theme-conclave .html-target th {
   background: rgba(255, 140, 0, 0.1);
   color: #ff8c00;
   text-shadow: 0 0 4px rgba(255, 140, 0, 0.4);
   border-color: rgba(255, 140, 0, 0.3);
 }
-.theme-magi .html-target td {
+.theme-conclave .html-target td {
   border-color: rgba(255, 140, 0, 0.12);
 }
-.theme-magi .html-target td:first-child {
+.theme-conclave .html-target td:first-child {
   color: #ff8c00;
   text-shadow: 0 0 2px rgba(255, 140, 0, 0.3);
 }
-.theme-magi .html-target tr:hover td {
+.theme-conclave .html-target tr:hover td {
   background: rgba(255, 140, 0, 0.05);
   box-shadow: inset 0 0 4px rgba(255, 140, 0, 0.15);
 }
@@ -2511,9 +3410,9 @@ th, td {
   position: fixed;
   z-index: 1000;
   pointer-events: none;
-  background: var(--panel, #131318);
+  background: var(--cell-bg);
   border: 2px solid var(--vis-tripped);
-  border-radius: 4px;
+  border-radius: var(--kill-bloom-radius, 4px);
   padding: 1.2rem 1.4rem;
   box-shadow:
     0 0 32px color-mix(in srgb, var(--vis-tripped) 60%, transparent),
@@ -2545,7 +3444,7 @@ th, td {
   color: var(--vis-tripped);
   text-shadow: 0 0 4px var(--vis-tripped);
 }
-.theme-magi .kill-bloom-hero {
+.theme-conclave .kill-bloom-hero {
   background: #050505;
   border-color: var(--vis-tripped);
   box-shadow:

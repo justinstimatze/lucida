@@ -158,7 +158,7 @@ def process_once(
 
     # Lazy imports so the watcher module loads even without the deps
     import segmenter as _seg
-    from orchestrator import append_proposal, load_cells, SuppressedMintError
+    from orchestrator import SuppressedMintError, append_proposal, load_cells
 
     try:
         seg_result = _seg.segment_document(new_text)

@@ -71,6 +71,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S105", "S106"]  # asserts + hardcoded passwords are fine in tests
+# System prompts use × for matrix dimensions (e.g. "3×2 table") — not ambiguous identifiers
+"classifier.py" = ["RUF001"]
+"specialists.py" = ["RUF001"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -87,7 +90,11 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+pythonpath = ["."]
 addopts = "-v --tb=short"
+markers = [
+    "integration: mark test as requiring live API access (ANTHROPIC_API_KEY)",
+]
 
 [tool.coverage.run]
 source = ["."]

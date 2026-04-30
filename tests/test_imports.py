@@ -83,7 +83,7 @@ def test_text_evaluator_imports():
 
 
 def test_segmenter_imports():
-    from segmenter import Segment, SegmentationResult, SegmenterError, segment_document
+    from segmenter import SegmentationResult, SegmenterError, segment_document
 
     assert callable(segment_document)
     fields = SegmentationResult.__dataclass_fields__
@@ -92,7 +92,7 @@ def test_segmenter_imports():
 
 
 def test_reflect_imports():
-    from reflect import ReflectionResult, ReflectError, reflect_on_recent_cells
+    from reflect import ReflectError, ReflectionResult, reflect_on_recent_cells
 
     assert callable(reflect_on_recent_cells)
     fields = ReflectionResult.__dataclass_fields__

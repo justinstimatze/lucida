@@ -118,6 +118,7 @@ def _perturb_bytes(img_bytes: bytes) -> bytes:
     without changing the image perceptually. Asymmetric crop fractions
     break perceptual hashing."""
     from io import BytesIO
+
     from PIL import Image as PilImage
     img = PilImage.open(BytesIO(img_bytes))
     w, h = img.size

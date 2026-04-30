@@ -1,4 +1,4 @@
-"""v0.5 cell evaluator -- closes the autonomous Wakisaka loop.
+r"""v0.5 cell evaluator -- closes the autonomous Wakisaka loop.
 
 Scores a single cell (currently image cells only) against its trigger
 snippet's specific claims. If the score is below threshold, the
@@ -34,7 +34,6 @@ except ImportError:
 
 
 DEFAULT_MODEL = os.environ.get("LUCIDA_EVALUATOR_MODEL", "claude-sonnet-4-6")
-DEFAULT_THRESHOLD = float(os.environ.get("LUCIDA_RETRIGGER_THRESHOLD", "0.6"))
 
 
 SYSTEM_PROMPT = """You are the cell evaluator for lucida -- you score a single image cell against its trigger snippet to decide whether the image-specialist + Gemini collaboration got it right.

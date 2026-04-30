@@ -189,22 +189,22 @@ Cues this trap is firing:
 
 When you see these cues, route to text with confidence 0.3-0.5 (suppress). The right cell will be re-minted when the same idea returns as stated structure ("the new adapters/ module exports..." in Example 9).
 
-## Example 10 -- operational status / directive (text, low confidence -- will suppress)
+## Example 12 -- operational status / directive (text, low confidence -- will suppress)
 Snippet: "Watcher restarted as pid 1427837 with the image-demote suppression fix loaded. Log confirms auto-discover mode is active (30s tick, 4-tick rescan)."
 Decision: discourse_move=none, cell_type=text, confidence=0.4
 Reasoning: This is an operational status report -- a process restart confirmation with PID, fix description, and mode flags. It is purely meta-narration about the lucida watcher's runtime, not a load-bearing claim about anything the user is investigating. There is no viz angle (no quantitative comparison, no relational structure between named entities the user cares about, no temporal sequence at the level of the claim) AND no caption-worthy single claim (the "claim" is just "the runtime is now in state Y" which is operational chatter, not insight). Suppress per the operational-status-shape cue.
 
-## Example 11 -- next-action directive (text, low confidence -- will suppress)
+## Example 13 -- next-action directive (text, low confidence -- will suppress)
 Snippet: "Next: restart watcher and reload renderer to verify."
 Decision: discourse_move=none, cell_type=text, confidence=0.4
 Reasoning: Imperative next-action directive closing an away-summary. Pure meta-narration about what to do next, not a claim about a topic. No viz angle, no caption-worthy claim -- this is the kind of snippet that should never have made it to the classifier and the right outcome is silent suppression.
 
-## Example 12 -- process unfolding over time (animated_svg)
+## Example 14 -- process unfolding over time (animated_svg)
 Snippet: "The hill-climbing controller increments music intensity by 1 step each tick if rmssd_trend exceeds IMPROVEMENT_THRESHOLD; otherwise it holds. Over the first 60 ticks the trajectory smooths into a sigmoid as parasympathetic tone stabilizes, after which it plateaus."
 Decision: discourse_move=temporal, cell_type=animated_svg, confidence=0.82
 Reasoning: The load-bearing content is the *trajectory*, not the static control-flow. A mermaid flowchart of the if/else would render the controller's logic but lose the sigmoid-then-plateau dynamic that the snippet actually emphasizes. A vega line chart would show the curve but lose the controller's threshold gating. animated_svg can show the trajectory growing tick-by-tick into the sigmoid, with the threshold line as a static reference -- motion encodes the temporal smoothing the snippet calls out. Classic "process running" (animated_svg) vs "process topology" (mermaid) split.
 
-## Example 13 -- spatial / anatomical layout (scene3d)
+## Example 15 -- spatial / anatomical layout (scene3d)
 Snippet: "The Muse 2 headset places dry electrodes at TP9, AF7, AF8, and TP10 -- frontal and posterior pairs forming a four-point grid that approximates a 10-20 montage subset. Reference electrode sits at FpZ on the forehead band."
 Decision: discourse_move=structural, cell_type=scene3d, confidence=0.84
 Reasoning: Five named entities (four electrodes + reference) arranged on a *physical* head shape, with explicit spatial relationships (frontal/posterior pairs, forehead band). A 2D mermaid graph would flatten the geometry and the "four-point grid" reading would be lost. A wireframe scalp with four labeled markers preserves the spatial structure directly and reads as on-brand FUI biometric vocabulary. Topology benefits from rotation/depth -- the user can see the frontal-posterior split that makes the montage choice meaningful.

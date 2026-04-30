@@ -1,0 +1,46 @@
+{
+  "_comment": "Alien (1979) / Nostromo MU/TH/UR 6000 aesthetic. Reference: typesetinthefuture.com (Berthold City Light font, green phosphor confirmed), ha-weylandyutani GitHub theme (#0d0a08 panel, #33ff33 phosphor green), filmsite.org (green letters). Motion tracker: blue, per Raspberry Pi Magazine M314 build. Ron Cobb Semiotic Standard: red=alive, yellow=hazard, blue=cold/cryo. NOT amber — that is Alien:Isolation's secondary terminal design choice, not the 1979 film.",
+  "accent": {
+    "primary":   "#33ff33",
+    "secondary": "#4488cc",
+    "warning":   "#d4a000",
+    "danger":    "#cc2200",
+    "ok":        "#33ff33"
+  },
+  "surface": {
+    "bg":     "#080705",
+    "cell":   "#0d0a08",
+    "header": "#060504",
+    "code":   "#0b0908",
+    "muted":  "#1a3318",
+    "line":   "#0f180e"
+  },
+  "text": {
+    "fg":    "#33ff33",
+    "muted": "#1a3318"
+  },
+  "data": {
+    "_comment": "Phosphor green primary, tracker blue, Cobb semiotic: hazard-yellow, cryo-blue, alert-red, life-support grey. Every color is Ron Cobb's documented vocabulary.",
+    "cat": ["#33ff33", "#4488cc", "#d4a000", "#6699ff", "#cc2200", "#9a9a8e"]
+  },
+  "type": {
+    "body": "\"Courier New\", \"Courier\", ui-monospace, monospace",
+    "head": "\"Courier New\", \"Courier\", ui-monospace, monospace",
+    "mono": "\"Courier New\", ui-monospace, monospace"
+  },
+  "fx": {
+    "glow":      "rgba(51, 255, 51, 0.4)",
+    "glow-line": "rgba(51, 255, 51, 0.25)"
+  },
+  "palette": {
+    "stroke1": "#33ff33",
+    "stroke2": "#4488cc",
+    "stroke3": "#d4a000",
+    "accent":  "#33ff33",
+    "fg":      "#33ff33",
+    "muted":   "#1a3318",
+    "bg":      "#080705",
+    "panel":   "#0d0a08"
+  },
+  "layout": "terminal"
+}

@@ -1,5 +1,5 @@
 {
-  "_comment": "LCARS / Star Trek TNG. Saturated orange + peach + magenta + purple on navy/black, condensed-bold display type. Source of truth for lcars mermaid + vega + html accents + HUD.",
+  "_comment": "Operations board aesthetic — Star Trek TNG inspired. Saturated orange + peach + magenta + purple on navy/black, condensed-bold display type. Color-band bracket framing.",
   "accent": {
     "primary":   "#ff9900",
     "secondary": "#ffcc99",

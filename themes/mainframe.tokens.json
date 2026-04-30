@@ -1,0 +1,46 @@
+{
+  "_comment": "ReBoot (1994) Mainframe city aesthetic. Reference: reboot.fandom.com. Energy Sea = neon aqua #00e5cc (cited). Mainframe sky = deep indigo #0a1428 (screencap-consistent). Game Cube = purple #7b3fbf (wiki: 'gigantic purple cubes'). Guardian icon gold #c8a030.",
+  "accent": {
+    "primary":   "#00e5cc",
+    "secondary": "#7b3fbf",
+    "warning":   "#c8a030",
+    "danger":    "#cc1010",
+    "ok":        "#20c060"
+  },
+  "surface": {
+    "bg":     "#0a1428",
+    "cell":   "#0d1a32",
+    "header": "#081020",
+    "code":   "#0c1830",
+    "muted":  "#1a4060",
+    "line":   "#122040"
+  },
+  "text": {
+    "fg":    "#a8c8e8",
+    "muted": "#1a4060"
+  },
+  "data": {
+    "_comment": "Aqua Energy Sea, Game Cube purple, Guardian gold, viral green, red danger, cold blue. All from canonical wiki color descriptions.",
+    "cat": ["#00e5cc", "#7b3fbf", "#c8a030", "#20c060", "#4488cc", "#cc1010"]
+  },
+  "type": {
+    "body": "\"Share Tech Mono\", \"Courier New\", ui-monospace, monospace",
+    "head": "\"Share Tech Mono\", \"Courier New\", ui-monospace, monospace",
+    "mono": "\"Courier New\", ui-monospace, monospace"
+  },
+  "fx": {
+    "glow":      "rgba(0, 229, 204, 0.45)",
+    "glow-line": "rgba(0, 229, 204, 0.3)"
+  },
+  "palette": {
+    "stroke1": "#00e5cc",
+    "stroke2": "#7b3fbf",
+    "stroke3": "#c8a030",
+    "accent":  "#00e5cc",
+    "fg":      "#a8c8e8",
+    "muted":   "#1a4060",
+    "bg":      "#0a1428",
+    "panel":   "#0d1a32"
+  },
+  "layout": "organic"
+}

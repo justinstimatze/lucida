@@ -19,7 +19,7 @@
   // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
   // Adapted from gemotvis/frontend/src/stores/theme.ts.
   (function () {
-    var valid = ["lab", "magi", "minimal", "gastown", "lcars"];
+    var valid = ["lab", "conclave", "minimal", "gastown", "ops", "vigil", "circuit", "noir", "renegade", "mainframe", "terminus"];
     var theme = "lab";
     try {
       var url = new URLSearchParams(window.location.search).get("theme");
@@ -330,11 +330,17 @@ function buildLayoutDropdown() {
 // Theme selection writes the cookie via the head bootstrap script and the
 // ?theme= URL param; both are read on next load.
 const THEME_REGISTRY = {
-  lab:     { id: "lab",     label: "LAB",     description: "cyan/magenta on near-black; default" },
-  magi:    { id: "magi",    label: "MAGI",    description: "amber + green Eva/NERV monospace" },
-  minimal: { id: "minimal", label: "MINIMAL", description: "Vercel/Linear clean light" },
-  gastown: { id: "gastown", label: "GASTOWN", description: "steampunk brass on cream serif" },
-  lcars:   { id: "lcars",   label: "LCARS",   description: "Star Trek TNG ops board, condensed display" },
+  lab:       { id: "lab",       label: "LAB",       description: "cyan/magenta on near-black; default" },
+  conclave:  { id: "conclave",  label: "CONCLAVE",  description: "amber + green three-machine consensus" },
+  minimal:   { id: "minimal",   label: "MINIMAL",   description: "Vercel/Linear clean light" },
+  gastown:   { id: "gastown",   label: "GASTOWN",   description: "steampunk brass on cream serif" },
+  ops:       { id: "ops",       label: "OPS",       description: "color-band operations board, condensed display" },
+  vigil:     { id: "vigil",     label: "VIGIL",     description: "cold electric cyan on void black — always watching" },
+  circuit:   { id: "circuit",   label: "CIRCUIT",   description: "teal-blue + orange binary on pure black" },
+  noir:      { id: "noir",      label: "NOIR",      description: "amber hologram on rain-soaked blue-black" },
+  renegade:  { id: "renegade",  label: "RENEGADE",  description: "omnitool orange + nav cyan on warm-black" },
+  mainframe: { id: "mainframe", label: "MAINFRAME", description: "neon aqua city grid, Game Cube purple accent" },
+  terminus:  { id: "terminus",  label: "TERMINUS",  description: "phosphor on black — end of the line" },
 };
 
 function buildThemeDropdown() {
@@ -581,6 +587,9 @@ function applyTokensToCSSVars(t) {
 const TOKENS = await loadTokens(ACTIVE);
 applyTokensToCSSVars(TOKENS);
 const TC = buildThemeConfig(TOKENS);
+
+// Token-declared layout preference applied after LAYOUT_REGISTRY is defined
+// (see applyTokenLayout call below the registry).
 
 // flowchart.htmlLabels: false renders edge labels as native SVG <text>
 // instead of foreignObject+HTML. The foreignObject path measures label
@@ -1355,16 +1364,16 @@ function parsePct(s) {
 function applyKillState(slotId, pct, warnAt, trippedAt) {
   const slot = document.getElementById(slotId);
   if (!slot) return;
-  let state = "ok";
-  if (pct == null) state = "unknown";
-  else if (pct >= trippedAt) state = "tripped";
-  else if (pct >= warnAt) state = "warn";
+  let killState = "ok";
+  if (pct == null) killState = "unknown";
+  else if (pct >= trippedAt) killState = "tripped";
+  else if (pct >= warnAt) killState = "warn";
   const prev = state.hud.killHistory.get(slotId);
-  slot.dataset.state = state;
-  if (prev !== undefined && prev !== "tripped" && state === "tripped") {
+  slot.dataset.state = killState;
+  if (prev !== undefined && prev !== "tripped" && killState === "tripped") {
     bloomKillTrip(slot, pct);
   }
-  state.hud.killHistory.set(slotId, state);
+  state.hud.killHistory.set(slotId, killState);
   const fill = slot.querySelector(".hud-ring-fill");
   if (!fill) return;
   const circ = 2 * Math.PI * 10;  // r=10
@@ -1867,10 +1876,32 @@ const LAYOUT_REGISTRY = {
     apply: () => applyScatterLayout(),
     cap: 12,
   },
-  // Future: lcars (LCARS47 / thelcars asset library), masonry (Muuri),
-  // dock (Dockview / FlexLayout). Reference list:
-  // memory/window_layout_libs.md.
+  tactical: {
+    id: "tactical",
+    label: "tactical",
+    description: "asymmetric command center — hero left, stack right",
+    apply: () => { /* CSS grid handles it */ },
+  },
+  terminal: {
+    id: "terminal",
+    label: "terminal",
+    description: "single-column CRT stream",
+    apply: () => { /* CSS block handles it */ },
+  },
+  // Future: masonry (Muuri), dock (Dockview / FlexLayout).
+  // Reference list: memory/window_layout_libs.md.
 };
+// Apply token-declared layout preference as default when no ?layout= override.
+// Runs here so LAYOUT_REGISTRY is already defined above.
+(function applyTokenLayout() {
+  const urlLayout = new URLSearchParams(window.location.search).get("layout");
+  if (!urlLayout && TOKENS.layout && LAYOUT_REGISTRY[TOKENS.layout]) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("layout", TOKENS.layout);
+    history.replaceState(null, "", url.toString());
+  }
+})();
+
 function getLayoutMode() {
   try {
     const v = (new URLSearchParams(window.location.search).get("layout") || "").trim();
@@ -2023,10 +2054,15 @@ function applyTreemapLayout() {
   const h = window.innerHeight - headerH - 32;
   if (w <= 0 || h <= 0) return;
   cells.forEach((c, i) => { if (!c.id) c.id = `__cell-${i}`; });
+  // Floor weight keeps smallest cell at least (N/2) relative weight,
+  // preventing the squarify ratio from going past ~3:1 (newest:oldest).
+  // Without this, 8 cells produce an 8:1 ratio and the trailing cells
+  // become unreadably small.
+  const weightFloor = Math.ceil(cells.length / 2);
   const root_ = window.d3.hierarchy({
     children: cells.map((c, i) => ({
       id: c.id,
-      weight: cells.length - i,
+      weight: (cells.length - i) + weightFloor,
     })),
   }).sum(d => d.weight ?? 0)
     .sort((a, b) => b.value - a.value);
@@ -3021,9 +3057,9 @@ function renderCell(c, snippetGroups) {
 }
 
 function initScene3D(container, spec) {
-  const T = window.THREE || (window.AFRAME && window.AFRAME.THREE);
+  const T = window.THREE;
   if (!T) {
-    container.textContent = "Three.js not available (A-Frame failed to load?)";
+    container.textContent = "Three.js not available";
     return null;
   }
   const w = container.clientWidth || 600;

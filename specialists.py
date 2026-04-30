@@ -882,7 +882,7 @@ The lucida renderer turns spec.objects into Three.js meshes. Supported kinds and
 - **label** -- size (number, render scale; ~0.5 typical for short labels); text (string, the actual label content). A text sprite that always faces the camera. Use for axis labels on 3D charts, names on electrodes / nodes / towers, identifiers in semantic scenes.
 
 Every object additionally accepts:
-- **color** (string) -- a theme token like "$accent", "$stroke1", "$stroke2", "$stroke3", "$fg", "$muted", or a literal hex like "#ff8c00". Prefer theme tokens; the renderer substitutes them per the active theme (lab/magi/minimal/gastown).
+- **color** (string) -- a theme token like "$accent", "$stroke1", "$stroke2", "$stroke3", "$fg", "$muted", or a literal hex like "#ff8c00". Prefer theme tokens; the renderer substitutes them per the active theme (lab/conclave/minimal/gastown/ops/vigil/circuit/noir/renegade/mainframe/terminus).
 - **position** (array of three numbers) -- [x, y, z]; default [0,0,0]
 - **rotation_speed** (array of three numbers) -- [rx, ry, rz] radians per frame; omit for static objects. Keep speeds in 0.001-0.015 range; faster reads as nervous motion.
 
@@ -1027,86 +1027,6 @@ def generate_scene3d_spec(snippet: str, context: str = "", model: str = DEFAULT_
 
 
 # ============================================================
-# CODE — syntax-highlighted code blocks
-# ============================================================
-
-CODE_SYSTEM = """You are the code specialist for lucida. The classifier has decided this snippet's load-bearing claim is *the code itself* -- a function definition, a class, a config block, a query, a regex, a CLI command. The substrate exists so code reads with proper monospaced layout and syntax highlighting instead of being flattened into prose.
-
-# When code fits
-
-Pick code only when:
-- The snippet quotes or names a specific code artifact (function, class, struct, query, command line) AND seeing the actual source clarifies the load-bearing claim that prose alone wouldn't.
-- The artifact is short enough to render readably in a cell -- roughly ≤25 lines of source. Longer than that, the cell becomes a wall of text and a one-sentence text caption is more honest.
-- A reader unfamiliar with the function would read the source itself rather than your description of it.
-
-# When to demote to text
-
-Set should_demote_to_text=true if:
-- The snippet talks ABOUT code without quoting any (use text — your prose IS the content).
-- The "code" is pseudo-code or sketched-syntax that wouldn't actually run (use mermaid for control flow or text).
-- The artifact would exceed 30 lines of source — too dense for a cell at glanceable size.
-- The source is ≤2 lines (one-line CLI commands, single-line shell pipelines, two-line struct stubs) — rendering one line of token-colored text doesn't earn a cell. Demote to text; the caption alone IS the content.
-- The source is a vanilla CRUD function, single-purpose JSON loader, error-handling boilerplate, or struct definition that maps 1:1 to a prose caption. The visual weight of a syntax-highlighted block isn't paying for itself when the caption ("loads X from Y") already substitutes. The bar is: would a reader unfamiliar with the function read the source itself rather than your caption? If the caption suffices, demote to text.
-- The source is a directory listing, file paths, or output dump rather than actual code structure — those belong in text or html, not code.
-
-# Output
-
-- `language`: short identifier matching what Prism.js recognizes. Common: python, javascript, typescript, json, yaml, html, css, sql, bash, rust, go, ruby, java, c, cpp, regex, diff, markdown, toml. If the snippet doesn't make the language obvious, use "text".
-- `source`: the actual source code as a string. Preserve indentation; no leading/trailing blank lines.
-- `caption`: one-sentence caption naming what the code does + why it's load-bearing in this snippet (NOT a redescription of every line).
-- Do NOT add comments to the code that weren't in the original snippet. Do NOT prettify or reformat — pass through what the snippet actually contains.
-- If the snippet describes code abstractly without quoting it, you must reconstruct from the description; in that case prefer the smallest plausible faithful rendering and call it out in the caption ("approximate from prose").
-
-# Worked example
-
-Snippet: "The trivial-filter regression came down to a single regex in _trivial_mermaid that only matched `graph TD/LR` headers — anything starting with `mindmap`, `timeline`, `sankey-beta` etc. fell through to the regex's count-nodes branch and tripped the trivial gate. Fix was a subtype gate at the top: only run the rest of the function if the spec begins with `graph` or `flowchart`."
-
-spec:
-language: "python"
-source:
-def _trivial_mermaid(spec: str) -> bool:
-    header = (spec.lstrip().splitlines() or [""])[0].lower()
-    if not (header.startswith("graph ") or header.startswith("flowchart ")):
-        return False  # subtypes (mindmap/timeline/sankey-beta/...) skip the trivial gate
-    nodes = _count_flowchart_nodes(spec)
-    return nodes < 3
-
-caption: "Trivial-filter subtype gate: skip the count-nodes branch unless the spec is a flowchart, so mindmap/timeline/sankey-beta no longer false-positive."
-should_demote_to_text: false
-
-# Output via the build_code_spec tool.
-"""
-
-CODE_TOOL = {
-    "name": "build_code_spec",
-    "description": "Emit a code-substrate spec when the snippet's load-bearing claim is the source code itself.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "spec": {
-                "type": "object",
-                "description": "{ language: string, source: string }. language is a Prism.js identifier; source is the actual code with original indentation.",
-                "properties": {
-                    "language": {"type": "string"},
-                    "source": {"type": "string"},
-                },
-                "required": ["language", "source"],
-            },
-            "caption": {"type": "string"},
-            "should_demote_to_text": {"type": "boolean"},
-            "demotion_reason": {"type": "string"},
-        },
-        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
-    },
-}
-
-
-def generate_code_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(CODE_SYSTEM, CODE_TOOL, "build_code_spec", snippet, context, model)
-    return _result(raw["input"], raw, model)
-
-
-# ============================================================
 # SPARKLINE — single-row mini-chart for inline temporal density
 # ============================================================
 
@@ -1194,107 +1114,6 @@ def generate_sparkline_spec(snippet: str, context: str = "", model: str = DEFAUL
     return _result(raw["input"], raw, model)
 
 
-# ============================================================
-# ASCII — box-drawing monospace diagrams
-# ============================================================
-
-ASCII_SYSTEM = """You are the ascii specialist for lucida. The classifier has decided this snippet warrants a terminal-aesthetic monospace diagram built from box-drawing characters. ASCII art is on-brand for the FUI / movie-computer-interface look and renders crisply on every theme without dependencies.
-
-# When ascii fits
-
-Pick ascii when:
-- The snippet's structure is simple enough that box-drawing carries it clearly (a directory tree, a small pipeline of 3-6 boxes, a state stack, a memory layout, a register diagram, a queue/buffer).
-- The structure has alignment requirements -- columns of fields, ASCII tables, indented trees -- that a graphical diagram would over-render.
-- Terminal-aesthetic IS the point (system status, log layout, tty session shapes).
-
-# When NOT to ascii
-
-Don't pick ascii when:
-- The structure has more than ~6 nodes/boxes -- mermaid renders denser graphs better.
-- The relationships are non-rectilinear (curves, force-graph layouts) -- use animated_svg / mermaid.
-- The content is a comparison matrix -- use html.
-- Quantitative magnitudes are involved -- use vega / treemap.
-
-# Box-drawing vocabulary
-
-Standard box-drawing (Unicode Block 2500-257F):
-┌ ┬ ┐  ╔ ╦ ╗   single  / double  corners + tees
-├ ┼ ┤  ╠ ╬ ╣   single  / double  intersections
-└ ┴ ┘  ╚ ╩ ╝
-─ │     ═ ║   single  / double  lines
-↑ ↓ ← → ↖ ↗ ↘ ↙   arrows for directionality
-▏▎▍▌▋▊▉█   horizontal bar fill (use sparingly; sparkline is better for quantitative)
-○ ● ◇ ◆ □ ■ ▲ ▼   markers / status pips
-
-Use single-line by default. Use double-line for hero / outermost frames or to signal "this is the canonical entity." Mix sparingly.
-
-# Layout rules
-
-- Pure monospace -- every column must align. Use spaces, never tabs.
-- Indent step is 2 spaces (or 4 for tree branches).
-- Aim for ≤ 60 columns wide and ≤ 20 rows tall so the cell renders without horizontal scroll at typical density.
-- Labels go INSIDE boxes, centered or left-aligned; keep them short (≤12 chars typical).
-- Arrows annotate flow ON the line, not floating: `─→`, `←─`, `↓│↑`.
-
-# Output
-
-- `ascii`: the full diagram as a single multi-line string.
-- `kind` (optional): one of "tree", "pipeline", "stack", "table", "memory", "free" -- semantic label for the renderer (no behavior change today; future-proofing).
-
-# When to demote to text
-
-Set should_demote_to_text=true if:
-- The structure is too dense for box-drawing (route to mermaid).
-- The snippet doesn't actually have a structure -- it's prose.
-- The content has quantitative magnitudes that demand precise visual encoding (route to vega/treemap/sparkline).
-
-# Worked example
-
-Snippet: "The classifier sits between the conversation transcript and the substrate specialists -- it routes each snippet to the cell type best suited to surface its load-bearing claim."
-
-spec:
-ascii:
-┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
-│ transcript  │───→│  classifier  │───→│  specialists    │
-│  snippets   │    │  (cell_type) │    │ mermaid/vega/.. │
-└─────────────┘    └──────────────┘    └─────────────────┘
-kind: "pipeline"
-
-caption: "Three-stage classifier pipeline: transcript snippet → classifier picks cell_type → matching specialist generates the spec."
-should_demote_to_text: false
-
-# Output via the build_ascii_spec tool.
-"""
-
-ASCII_TOOL = {
-    "name": "build_ascii_spec",
-    "description": "Emit an ascii / box-drawing diagram spec when the snippet's structure benefits from terminal-aesthetic monospace layout.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "spec": {
-                "type": "object",
-                "description": "ASCII spec: { ascii: string, kind?: 'tree'|'pipeline'|'stack'|'table'|'memory'|'free' }",
-                "properties": {
-                    "ascii": {"type": "string"},
-                    "kind": {"type": "string"},
-                },
-                "required": ["ascii"],
-            },
-            "caption": {"type": "string"},
-            "should_demote_to_text": {"type": "boolean"},
-            "demotion_reason": {"type": "string"},
-        },
-        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
-    },
-}
-
-
-def generate_ascii_spec(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> SpecialistResult:
-    raw = _call_specialist(ASCII_SYSTEM, ASCII_TOOL, "build_ascii_spec", snippet, context, model)
-    return _result(raw["input"], raw, model)
-
-
 def main() -> None:
     """CLI for testing a specialist in isolation."""
     import argparse
@@ -1303,7 +1122,9 @@ def main() -> None:
     from dataclasses import asdict
 
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--type", required=True, choices=["mermaid", "vega", "html", "animated_svg"])
+    p.add_argument("--type", required=True,
+                   choices=["mermaid", "vega", "html", "animated_svg",
+                            "scene3d", "treemap", "sparkline"])
     p.add_argument("--snippet", required=True)
     p.add_argument("--context", default="")
     p.add_argument("--model", default=DEFAULT_MODEL)
@@ -1314,6 +1135,9 @@ def main() -> None:
         "vega": generate_vega_spec,
         "html": generate_html_spec,
         "animated_svg": generate_animated_svg_spec,
+        "scene3d": generate_scene3d_spec,
+        "treemap": generate_treemap_spec,
+        "sparkline": generate_sparkline_spec,
     }[args.type]
     try:
         result = fn(args.snippet, args.context, args.model)

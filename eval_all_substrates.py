@@ -11,15 +11,17 @@ from __future__ import annotations
 import datetime
 import json
 import sys
-from dataclasses import asdict
 from pathlib import Path
 
 from text_evaluator import TextEvaluatorError, evaluate_substrate_cell
 
-
 REPO = Path(__file__).parent
 CELLS_JSON = REPO / "cells.json"
 AUDITS_DIR = REPO / "audits"
+
+# Sonnet 4.6 pricing (USD per 1M tokens)
+_INPUT_COST_PER_M = 3.0
+_OUTPUT_COST_PER_M = 15.0
 
 
 def main() -> None:
@@ -74,13 +76,14 @@ def main() -> None:
 
     report = []
     report.append(f"# substrate hallucination eval — {today}\n")
-    report.append("Companion to audit_2026-04-27.md (image-only). Kill #3 trigger: substrate hallucination >20% of cells.\n")
-    report.append(f"## Summary\n")
+    report.append("Kill #3 trigger: substrate hallucination >20% of cells.\n")
+    report.append("## Summary\n")
     report.append(f"- evaluated: {len(rows)} cells ({len(by_type['vega'])} vega, {len(by_type['mermaid'])} mermaid, {len(by_type['html'])} html)")
     report.append(f"- cells with any invention: {len(has_inv)}/{len(rows)} = {rate:.1%}")
     report.append(f"- kill #3 (>20%) tripped: **{'YES' if kill3_tripped else 'no'}**")
     report.append(f"- tokens: in={total_in} out={total_out} cache_read={total_cache_read}")
-    report.append(f"- est. cost: ~${(total_in * 3 + total_out * 15) / 1_000_000:.3f}\n")
+    est_cost = (total_in * _INPUT_COST_PER_M + total_out * _OUTPUT_COST_PER_M) / 1_000_000
+    report.append(f"- est. cost: ~${est_cost:.3f}\n")
 
     for ctype in ("vega", "mermaid", "html"):
         type_rows = by_type[ctype]

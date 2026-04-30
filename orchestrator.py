@@ -1,10 +1,9 @@
-"""lucida orchestrator — v0.
+"""lucida orchestrator.
 
-Given a conversation snippet + optional context, classify what cell
-type to produce and build the prompt for the appropriate specialist.
-With --generate, image cells are actually generated via nano_banana.
-Vega/Mermaid spec generation is stubbed in v0 — fill in `spec` manually
-until LLM specialists land in v0.5.
+Given a conversation snippet + optional context, classify what cell type to
+produce, call the matching specialist to generate a spec, and optionally mint
+the cell into cells.json.  With --generate, image cells are generated via
+nano_banana; non-image cells use the LLM specialist pipeline in specialists.py.
 """
 from __future__ import annotations
 
@@ -13,8 +12,8 @@ import json
 import os
 import re
 import sys
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from textwrap import dedent
 
@@ -94,7 +93,7 @@ class CellProposal:
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def next_id(cells: list[dict]) -> str:
@@ -306,10 +305,11 @@ def closed_loop_stats(cells: list[dict]) -> dict:
     Returns a dict suitable for both human-readable logging and machine
     parsing.
     """
-    seed_or_demo = lambda c: (
-        c.get("id", "").startswith("seed-")
-        or "infrastructure demo" in (c.get("trigger_snippet") or "")
-    )
+    def seed_or_demo(c: dict) -> bool:
+        return (
+            c.get("id", "").startswith("seed-")
+            or "infrastructure demo" in (c.get("trigger_snippet") or "")
+        )
     referenced_ids: set[str] = set()
     for c in cells:
         for src in (c.get("reflection_source_ids") or []):
@@ -339,7 +339,7 @@ def closed_loop_stats(cells: list[dict]) -> dict:
     }
 
 
-def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None = None) -> "CellProposal":
+def reflect_and_persist(n: int = 5, write: bool = True, session_id: str | None = None) -> CellProposal:
     """Run a reflection pass over the last n visible cells and persist the
     resulting reflection cell. Returns the CellProposal (returned even if
     write=False, for dry-run callers).
@@ -473,7 +473,7 @@ def _trivial_vega(spec) -> str | None:
 def _trivial_mermaid(spec) -> str | None:
     if not isinstance(spec, str) or not spec.strip():
         return None
-    lines = [l.strip() for l in spec.splitlines() if l.strip()]
+    lines = [ln.strip() for ln in spec.splitlines() if ln.strip()]
     if not lines:
         return None
     # Subtype gate: the node/edge-count heuristic is flowchart-specific.
@@ -495,11 +495,11 @@ def _trivial_mermaid(spec) -> str | None:
     # at the start (declaration) or as an edge endpoint.
     nodes = set()
     edge_tokens = ["-->", "---", "-.->", ".->", "==>", "<--"]
-    edge_lines = [l for l in lines if any(t in l for t in edge_tokens)]
-    for l in edge_lines:
+    edge_lines = [ln for ln in lines if any(t in ln for t in edge_tokens)]
+    for ln in edge_lines:
         # Grab identifiers from edge endpoints. Strip [...] / (...) / {...}
         # node-shape brackets first so e.g. `A[Foo] --> B(Bar)` yields A, B.
-        cleaned = re.sub(r'[\[\(\{][^\]\)\}]*[\]\)\}]', '', l)
+        cleaned = re.sub(r'[\[\(\{][^\]\)\}]*[\]\)\}]', '', ln)
         # Split on edge tokens to get LHS / RHS endpoints.
         parts = re.split(r'-->|<--|-\.->|\.->|==>|---', cleaned)
         for p in parts:
@@ -507,8 +507,8 @@ def _trivial_mermaid(spec) -> str | None:
             if m:
                 nodes.add(m.group(1))
     # Plus explicit declarations (in case a node has no edges).
-    for l in lines:
-        m = re.match(r'^(\w+)\s*[\[\({]', l)
+    for ln in lines:
+        m = re.match(r'^(\w+)\s*[\[\({]', ln)
         if m:
             nodes.add(m.group(1))
     if len(nodes) < 3:
@@ -516,14 +516,14 @@ def _trivial_mermaid(spec) -> str | None:
     if not edge_lines:
         return "no edges (just a node list)"
     has_directed = any(
-        any(t in l for t in ["-->", "==>", "-.->", ".->"])
-        for l in edge_lines
+        any(t in ln for t in ["-->", "==>", "-.->", ".->"])
+        for ln in edge_lines
     )
     has_edge_label = any(
-        re.search(r'-\.\s*"[^"]+"\s*\.->', l) or       # -. "label" .->
-        re.search(r'-\.[^.]+\.->', l) or                # -.label.->
-        re.search(r'\|"?[^"|]+"?\|', l)                 # |label| or |"label"|
-        for l in edge_lines
+        re.search(r'-\.\s*"[^"]+"\s*\.->', ln) or       # -. "label" .->
+        re.search(r'-\.[^.]+\.->', ln) or                # -.label.->
+        re.search(r'\|"?[^"|]+"?\|', ln)                 # |label| or |"label"|
+        for ln in edge_lines
     )
     if not has_directed and not has_edge_label:
         return "edges are unlabeled and undirected (---), purely structural stacking"
@@ -700,7 +700,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 raise SuppressedMintError(
                     f"LLM classifier failed ({e}) and v0 fallback is text "
                     f"(no specialist exists for text); silent > empty stub"
-                )
+                ) from None
             chosen_type = auto_type_v0
             gate_note = f" [LLM classifier failed: {e}; using v0→{auto_type_v0}]"
     elif cell_type and cell_type != auto_type_v0:
@@ -783,7 +783,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
     non_image_html = None
     non_image_caption = ""
     if (llm_available and generate_image
-            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "code", "sparkline", "ascii")
+            and chosen_type in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline")
             and os.environ.get("ANTHROPIC_API_KEY")):
         try:
             import specialists as _specs
@@ -794,9 +794,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                 "animated_svg": _specs.generate_animated_svg_spec,
                 "scene3d": _specs.generate_scene3d_spec,
                 "treemap": _specs.generate_treemap_spec,
-                "code": _specs.generate_code_spec,
                 "sparkline": _specs.generate_sparkline_spec,
-                "ascii": _specs.generate_ascii_spec,
             }
             specialist_kwargs: dict = {}
             if chosen_type == "mermaid" and llm is not None:
@@ -883,25 +881,26 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
             children = None
         if children:
             sibling_group = cell_id  # parent's id labels the sibling group
+
+            # Strip [...] label content so arrows inside node labels
+            # (e.g. O1["A\n--Disputes-->\nB"]) don't misread as edges.
+            def _strip_brackets(s: str) -> str:
+                out, depth = [], 0
+                for ch in s:
+                    if ch == "[":
+                        depth += 1
+                    elif ch == "]":
+                        depth = max(0, depth - 1)
+                    elif depth == 0:
+                        out.append(ch)
+                return "".join(out)
+
             cells_to_write = []
             for i, (child_spec, child_label) in enumerate(children):
                 child_id = (
                     cell_id if i == 0
                     else f"cell-{int(cell_id.split('-')[1]) + i:04d}"
                 )
-                # Edge/node count for caption suffix. Strip [...] label
-                # content first so arrows inside node labels (e.g.
-                # O1["A\n--Disputes-->\nB"]) don't misread as edges.
-                def _strip_brackets(s: str) -> str:
-                    out, depth = [], 0
-                    for ch in s:
-                        if ch == "[":
-                            depth += 1
-                        elif ch == "]":
-                            depth = max(0, depth - 1)
-                        elif depth == 0:
-                            out.append(ch)
-                    return "".join(out)
                 body_lines = child_spec.split("\n")[1:]  # drop header
                 n_edges = sum(
                     1 for ln in body_lines
@@ -1072,8 +1071,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
                     and current.image_path
                 )
 
-                new_id_num = len(data["cells"]) + len(cells_to_write) + 1
-                new_id = f"cell-{new_id_num:04d}"
+                new_id = next_id(data["cells"] + cells_to_write)
                 if use_i2i:
                     # For i2i, the prompt is just the short corrective brief;
                     # the base image carries the rest of the context.
@@ -1140,7 +1138,7 @@ def append_proposal(snippet: str, context: str = "", cell_type: str | None = Non
         new_dicts = [asdict(c) for c in cells_to_write]
         for d in new_dicts:
             data["cells"].append(d)
-        CELLS_PATH.write_text(json.dumps(data, indent=2))
+        CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
         _log_mints(new_dicts)
     return proposal
 
@@ -1151,8 +1149,7 @@ def main() -> None:
     p.add_argument("--context", default="", help="optional extra context (file paths, prior cells, etc.)")
     p.add_argument("--type", default=None,
                    choices=["image", "vega", "mermaid", "html", "text",
-                            "animated_svg", "scene3d", "treemap",
-                            "code", "sparkline", "ascii"],
+                            "animated_svg", "scene3d", "treemap", "sparkline"],
                    help="force a cell type; default = naive classifier")
     p.add_argument("--write", action="store_true",
                    help="append the proposal to cells.json (or, with --sweep-trivial, persist the demotions)")
