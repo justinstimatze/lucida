@@ -14,6 +14,21 @@
      leaf rectangles back. -->
 <script src="https://cdn.jsdelivr.net/npm/d3-array@3"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-hierarchy@3"></script>
+<!-- d3-force + d3-dispatch + d3-quadtree + d3-timer: canonical Verlet
+     spring layout for force_graph cells. Pulls in just the force module
+     family (~10KB combined) — not the full d3 bundle. Used for entity-
+     mesh snippets where mermaid would render a hairball. -->
+<script src="https://cdn.jsdelivr.net/npm/d3-dispatch@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-timer@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-quadtree@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-force@3"></script>
+<!-- Muuri: bin-packing layout engine. Used by the `pack` layout mode to
+     subsume the old grid+treemap behavior with rock-sand density: cells
+     keep their natural sizes (no proportional squish like treemap) and
+     small cells fill gaps under tall ones (fixing wasted-whitespace under
+     CSS auto-fit). fillGaps:true rearranges out-of-order *only when it
+     produces denser packing*. ~50KB. -->
+<script src="https://cdn.jsdelivr.net/npm/muuri@0.9.5/dist/muuri.min.js"></script>
 <script>
   // Theme bootstrap -- runs synchronously in head to avoid FOUC.
   // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
@@ -318,7 +333,9 @@ function buildLayoutDropdown() {
     btn.addEventListener("click", () => {
       const v = btn.dataset.layout;
       const url = new URL(window.location.href);
-      if (v === "grid") url.searchParams.delete("layout");
+      // pack is the default — strip the param when picking it so the
+      // URL stays clean. Other modes get an explicit ?layout=<id>.
+      if (v === "pack") url.searchParams.delete("layout");
       else url.searchParams.set("layout", v);
       window.location.replace(url.toString());
     });
@@ -1109,6 +1126,9 @@ const SUBSTRATE_COLORS = {
   treemap:      "var(--vis-ok, #4ade80)",
   code:         "var(--accent)",
   sparkline:    "var(--accent)",
+  timeline_ribbon: "var(--vis-ok, #4ade80)",
+  trajectory:   "var(--accent)",
+  force_graph:  "var(--vis-ok, #4ade80)",
   ascii:        "var(--vis-warn, #fbbf24)",
   text:         "var(--muted)",
   image:        "var(--vis-tripped, #f87171)",
@@ -1128,7 +1148,7 @@ function renderCellsBar(byType, total) {
   // Stable order: prioritize visible/high-value substrates first so the
   // bar reads left-to-right by importance.
   const order = ["vega", "mermaid", "html", "animated_svg", "scene3d",
-                 "treemap", "code", "sparkline", "ascii", "image", "text"];
+                 "treemap", "code", "sparkline", "timeline_ribbon", "trajectory", "force_graph", "ascii", "image", "text"];
   const present = order.filter(t => byType[t]);
   for (const t of Object.keys(byType)) {
     if (!present.includes(t)) present.push(t);
@@ -1849,19 +1869,11 @@ function getRecentCap() {
 // No other code path needs to change — keep this contract.
 // =============================================================
 const LAYOUT_REGISTRY = {
-  grid: {
-    id: "grid",
-    label: "grid",
-    description: "auto-fit, the default",
-    apply: () => { /* CSS auto-fit handles it */ },
-  },
-  treemap: {
-    id: "treemap",
-    label: "treemap",
-    description: "weight-proportional tiles (d3)",
-    apply: () => applyTreemapLayout(),
-    cap: 8,
-  },
+  // `grid` and `treemap` removed 2026-05-01 — user: "drop grid and treemap
+  // this is much better." `pack` (Muuri rock-sand bin pack, fillGaps:true)
+  // subsumes both: keeps natural sizes (unlike treemap's proportional
+  // squish) and fills gaps (unlike grid's flex-wrap whitespace). Per
+  // memory/feedback_pack_layout_validated.md.
   organic: {
     id: "organic",
     label: "organic",
@@ -1888,7 +1900,17 @@ const LAYOUT_REGISTRY = {
     description: "single-column CRT stream",
     apply: () => { /* CSS block handles it */ },
   },
-  // Future: masonry (Muuri), dock (Dockview / FlexLayout).
+  pack: {
+    id: "pack",
+    label: "pack",
+    description: "rock-sand bin pack (Muuri, fillGaps)",
+    apply: () => applyPackLayout(),
+    // Cap: Muuri's layout work is O(n²)-ish in fillGaps mode; 1000+ items
+    // freezes the browser. 60 keeps the pack responsive while showing far
+    // more density than treemap (cap 8). Tunable; raise as Muuri proves
+    // it can absorb more.
+    cap: 60,
+  },
   // Reference list: memory/window_layout_libs.md.
 };
 // Apply token-declared layout preference as default when no ?layout= override.
@@ -1907,7 +1929,7 @@ function getLayoutMode() {
     const v = (new URLSearchParams(window.location.search).get("layout") || "").trim();
     if (v && LAYOUT_REGISTRY[v]) return v;
   } catch (e) { /* fallthrough */ }
-  return "grid";
+  return "pack";  // pack replaced the grid default 2026-05-01
 }
 function sessionKey(c) {
   return c.session_id || "untagged";
@@ -1977,8 +1999,9 @@ async function load() {
     if (state.sessions.autoMode) root.dataset.auto = "true";
     else delete root.dataset.auto;
     const layout = getLayoutMode();
-    if (layout !== "grid") root.dataset.layout = layout;
-    else delete root.dataset.layout;
+    // Always set data-layout — every layout mode (including pack, the
+    // default) needs CSS rules to switch off the base flex-wrap.
+    root.dataset.layout = layout;
     // Reverse-chrono render: newest cells live at the top so they're
     // immediately visible without autoscroll. Iterating chronologically
     // and prepending each puts the last (newest) cell at the very top.
@@ -2039,61 +2062,114 @@ async function load() {
 // reads as still settling. New cells from liveAppendNewCells also get
 // this treatment via the cell-fresh path. Reverse-chrono: newest is at
 // index 0 (the first .cell in document order is the most-recent mint).
+// applyTreemapLayout removed 2026-05-01 — pack mode (Muuri rock-sand)
+// replaced grid+treemap as the default; treemap's proportional squish
+// of cells was the load-bearing complaint in user feedback. The
+// d3-hierarchy import is kept because the *treemap substrate type*
+// (cell_type === "treemap") still uses it for in-cell rendering. Per
+// memory/feedback_pack_layout_validated.md.
+
 // ----------------------------------------------------------------
-// Treemap layout via d3-hierarchy (canonical squarified treemap from
-// Bruls/Huijsen/van Wijk 2000). Replaces ~80 lines of custom squarify
-// per memory/window_layout_libs.md ("don't reinvent"). Newest cell
-// gets the highest weight → biggest tile.
+// Pack layout (Muuri, fillGaps:true). Rock-sand packing — cells keep
+// their natural sizes and small cells fill gaps under tall ones, fixing
+// the wasted-whitespace mode of the default flex layout AND the squish-
+// everything-proportional mode of treemap. User-flagged 2026-05-01:
+// "could replace both grid and treemap probably".
+//
+// Singleton Muuri instance kept on window so we can destroy() before
+// re-init (e.g. user switches treemap → pack → treemap → pack).
 // ----------------------------------------------------------------
-function applyTreemapLayout() {
+let _muuriGrid = null;
+function applyPackLayout() {
   const root = document.getElementById("notebook");
+  window._lucidaPackDebug = window._lucidaPackDebug || { calls: [] };
+  const dbg = { ts: Date.now(), root: !!root, hasMuuri: !!window.Muuri };
+  if (!window.Muuri) {
+    // Muuri loads async via CDN; if not ready, the apply retries at 600ms
+    // and 2000ms (called by the load() flow) will catch up. As a
+    // safety net for "Muuri CDN failed entirely", strip data-layout so
+    // the base flex-wrap CSS takes over instead of leaving cells
+    // position:absolute and stacked at (0,0).
+    dbg.bail = "no-muuri";
+    window._lucidaPackDebug.calls.push(dbg);
+    if (root) delete root.dataset.layout;
+    return;
+  }
+  // Tear down any prior alternate-layout inline styles so Muuri has a
+  // clean slate. Treemap leaves left/top/width/height set on each cell;
+  // those would override Muuri's transform-based positioning.
   const cells = [...root.querySelectorAll(":scope > .cell")];
-  if (!cells.length || !window.d3) return;
-  const headerH = 80;
-  const w = window.innerWidth - 32;
-  const h = window.innerHeight - headerH - 32;
-  if (w <= 0 || h <= 0) return;
-  cells.forEach((c, i) => { if (!c.id) c.id = `__cell-${i}`; });
-  // Floor weight keeps smallest cell at least (N/2) relative weight,
-  // preventing the squarify ratio from going past ~3:1 (newest:oldest).
-  // Without this, 8 cells produce an 8:1 ratio and the trailing cells
-  // become unreadably small.
-  const weightFloor = Math.ceil(cells.length / 2);
-  const root_ = window.d3.hierarchy({
-    children: cells.map((c, i) => ({
-      id: c.id,
-      weight: (cells.length - i) + weightFloor,
-    })),
-  }).sum(d => d.weight ?? 0)
-    .sort((a, b) => b.value - a.value);
-  window.d3.treemap()
-    .size([w, h])
-    .paddingInner(14)
-    .paddingOuter(0)
-    .round(true)
-    .tile(window.d3.treemapSquarify)(root_);
-  const byId = new Map(root_.leaves().map(leaf => [leaf.data.id, leaf]));
-  cells.forEach((cell, i) => {
-    const leaf = byId.get(cell.id);
-    if (!leaf) return;
-    Object.assign(cell.style, {
-      position: "absolute",
-      left: leaf.x0 + "px",
-      top: leaf.y0 + "px",
-      width: (leaf.x1 - leaf.x0) + "px",
-      height: (leaf.y1 - leaf.y0) + "px",
-      maxHeight: "none",
-      maxWidth: "none",
-      // Above the connection-overlay (z=50) so session-thread lines
-      // pass behind cell tiles and are visible in the gutter.
-      zIndex: String(100 + (cells.length - i)),
+  cells.forEach(c => {
+    c.style.left = "";
+    c.style.top = "";
+    c.style.width = "";
+    c.style.height = "";
+    c.style.maxHeight = "";
+    c.style.maxWidth = "";
+    c.style.zIndex = "";
+    c.style.transform = "";
+  });
+  // Reset container — Muuri requires position: relative on the parent
+  // and absolute on items. Height auto-grows via Muuri's layout calc.
+  root.style.height = "";
+  root.style.minHeight = "";
+  // Defer construction until cells actually have non-zero offsetWidth.
+  // Muuri caches _width / _height on item construction; if every cell
+  // has size 0 at that moment (substrates lazy-mount async), refreshItems
+  // doesn't reliably re-read them, so the grid stays stuck at 0×0
+  // stacked at (0, 0). Easier to wait + (re)construct fresh than to
+  // chase Muuri's refresh semantics.
+  const itemEls = [...root.children].filter(el => el.classList.contains("cell"));
+  const sized = itemEls.filter(el => el.offsetWidth > 0 && el.offsetHeight > 0);
+  dbg.itemCount = itemEls.length;
+  dbg.sizedCount = sized.length;
+  if (sized.length === 0) {
+    dbg.bail = "no-sized-items-yet";
+    window._lucidaPackDebug.calls.push(dbg);
+    return; // retry timer (600ms / 2000ms) catches up after hydration
+  }
+  // Tear down any previous instance — re-construct from scratch each
+  // call so Muuri's item-size cache is always fresh. The cost is small
+  // at cap=60.
+  if (_muuriGrid) { try { _muuriGrid.destroy(); } catch (e) {} _muuriGrid = null; }
+  dbg.path = "create";
+  _muuriGrid = new window.Muuri(root, {
+    items: sized,
+    // fillGaps:true is the load-bearing setting — small items fill
+    // earlier gaps left by larger items, allowing the layout to deviate
+    // a little from insertion order to maximize density. User signed
+    // off on "rearrange (a little)" 2026-05-01.
+    layout: { fillGaps: true, rounding: true },
+    dragEnabled: false,
+    // No animations — the user wants a static settled grid, not a
+    // tweened arrival. Animations on 60+ cells also tax the renderer
+    // and produce the "particles still drifting" feel we don't want.
+    layoutDuration: 0,
+    showDuration: 0,
+    hideDuration: 0,
+    layoutEasing: "linear",
+  });
+  window._muuriGrid = _muuriGrid;
+  window._lucidaPackDebug.calls.push(dbg);
+}
+
+// Tear down Muuri when leaving pack mode so its position:absolute styles
+// don't fight the next layout. Called from applyActiveLayout when the
+// active mode is NOT pack.
+function teardownPackLayout() {
+  if (!_muuriGrid) return;
+  try {
+    const items = _muuriGrid.getItems();
+    items.forEach(it => {
+      const el = it.getElement();
+      el.style.transform = "";
+      el.style.position = "";
+      el.style.left = "";
+      el.style.top = "";
     });
-  });
-  Object.assign(root.style, {
-    position: "relative",
-    height: h + "px",
-    minHeight: h + "px",
-  });
+    _muuriGrid.destroy();
+  } catch (e) { /* best-effort */ }
+  _muuriGrid = null;
 }
 
 // ----------------------------------------------------------------
@@ -2315,7 +2391,11 @@ function applyScatterLayout() {
 // Apply the active layout mode, if any. Called after load() and on
 // window resize. No-op for grid mode (the CSS auto-fit handles it).
 function applyActiveLayout() {
-  const entry = LAYOUT_REGISTRY[getLayoutMode()];
+  const mode = getLayoutMode();
+  // Tear down Muuri before applying any non-pack layout, so its
+  // absolute-positioned items don't fight the next mode's CSS / JS.
+  if (mode !== "pack" && _muuriGrid) teardownPackLayout();
+  const entry = LAYOUT_REGISTRY[mode];
   if (entry && typeof entry.apply === "function") entry.apply();
   // Inter-cell connection lines anchor to getBoundingClientRect, which
   // changes when cells are absolutely positioned by the layout funcs
@@ -2531,9 +2611,33 @@ function renderCell(c, snippetGroups) {
     head.appendChild(el("span", "cell-move", c.discourse_move));
   }
   if (typeof c.confidence === "number") {
-    const conf = el("span", "cell-conf", c.confidence.toFixed(2));
+    // Edge telemetry: confidence as a small graphical bar + numeric chip,
+    // not just a number. The bar makes confidence-distribution across the
+    // dashboard scannable at a glance (the 0.40 cells stand out from 0.85
+    // cells without the user having to read each value). Per Task #68 MVP.
+    const conf = el("span", "cell-conf");
+    const cv = Math.max(0, Math.min(1, c.confidence));
+    const bar = el("span", "cell-conf-bar");
+    const fill = el("span", "cell-conf-bar-fill");
+    fill.style.width = (cv * 100).toFixed(1) + "%";
+    // Low-confidence cells (<0.6) get a desaturated fill so they read as
+    // "the system flagged this one as uncertain" without needing the number.
+    if (cv < 0.6) fill.classList.add("cell-conf-bar-low");
+    bar.appendChild(fill);
+    conf.appendChild(bar);
+    conf.appendChild(el("span", "cell-conf-num", c.confidence.toFixed(2)));
     conf.title = `classifier confidence: ${c.confidence}`;
     head.appendChild(conf);
+  }
+  // Edge telemetry: retrigger pip — only renders when a cell was retried.
+  // Most cells have retrigger_count=0, so this is selectively visible
+  // (the FUI "thing you only see when it matters" pattern). Per Task #68.
+  if (typeof c.retrigger_count === "number" && c.retrigger_count > 0) {
+    const pip = el("span", "cell-retrigger", "↻" + c.retrigger_count);
+    pip.title = c.retrigger_reason
+      ? `retried ${c.retrigger_count}× — ${c.retrigger_reason}`
+      : `retried ${c.retrigger_count}×`;
+    head.appendChild(pip);
   }
   if (snippetGroups && c.trigger_snippet) {
     const group = snippetGroups.get(c.trigger_snippet);
@@ -2588,6 +2692,39 @@ function renderCell(c, snippetGroups) {
     img.alt = c.caption || "generated image";
     body.appendChild(img);
   } else if (c.cell_type === "vega" && c.spec) {
+    // Local helper: deep-clone the spec and remove literal hex colors so
+    // the vega-embed theme config (TC.vega) drives the palette instead.
+    // Touches mark.color/fill/stroke and scale.range arrays whose entries
+    // are all hex strings.
+    if (typeof window.stripVegaLiteralColors !== "function") {
+      window.stripVegaLiteralColors = function (spec) {
+        if (!spec || typeof spec !== "object") return spec;
+        const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+        const isHex = v => typeof v === "string" && HEX_RE.test(v.trim());
+        const clone = JSON.parse(JSON.stringify(spec));
+        const stripMarkColors = m => {
+          if (!m || typeof m !== "object") return m;
+          if (isHex(m.color)) delete m.color;
+          if (isHex(m.fill)) delete m.fill;
+          if (isHex(m.stroke)) delete m.stroke;
+          return m;
+        };
+        if (clone.mark) clone.mark = stripMarkColors(clone.mark);
+        // Also strip scale.range arrays of hex literals from any encoding.
+        const walk = obj => {
+          if (!obj || typeof obj !== "object") return;
+          if (Array.isArray(obj)) { obj.forEach(walk); return; }
+          if (obj.scale && obj.scale.range && Array.isArray(obj.scale.range)
+              && obj.scale.range.every(isHex)) {
+            delete obj.scale.range;
+          }
+          for (const k of Object.keys(obj)) walk(obj[k]);
+        };
+        walk(clone);
+        return clone;
+      };
+    }
+    const stripVegaLiteralColors = window.stripVegaLiteralColors;
     const target = el("div", "vega-target");
     // Stash the spec on the target so the click-zoom modal can
     // re-embed vega in its clone. Without this, cloneNode(true)
@@ -2599,7 +2736,14 @@ function renderCell(c, snippetGroups) {
     let currentEmbed = null;
     let currentView = null;
     const renderVega = () => {
-      currentEmbed = vegaEmbed(target, c.spec, { actions: false, ...TC.vega }).then(result => {
+      // Defense-in-depth: strip literal hex colors from mark.color /
+      // mark.fill / mark.stroke and any scale.range arrays. Pre-2026-05-01
+      // some specialist outputs hardcoded colors like "#6a9fb5" steel-blue
+      // into the mark, which bypassed the vega-embed theme config and
+      // pinned the chart off-theme. The specialist prompt now forbids this
+      // for new mints; this strip handles legacy cells.
+      const themedSpec = stripVegaLiteralColors(c.spec);
+      currentEmbed = vegaEmbed(target, themedSpec, { actions: false, ...TC.vega }).then(result => {
         currentView = result && result.view;
         // If the spec declares a numeric width, use it as the cell's
         // natural width. Otherwise (`"width": "container"` style)
@@ -2928,6 +3072,581 @@ function renderCell(c, snippetGroups) {
       }
     };
     lazyMount(target, renderSpark);
+  } else if (c.cell_type === "timeline_ribbon" && c.spec) {
+    // Timeline ribbon substrate: 3-7 ordered stages laid out left→right,
+    // each with a marker, label, optional detail, and a status (done /
+    // active / pending / skipped / failed). Pure SVG, no dep. Spec:
+    //   { stages: [{label, detail?, status?}, ...], axis_label? }
+    // Status semantics drive the marker style; the renderer reads theme
+    // tokens (--accent, --muted, --fg, --bg, --vis-ok, --vis-tripped)
+    // so it follows magi/lcars/etc without per-substrate CSS branches.
+    const target = el("div", "timeline-ribbon-target");
+    body.appendChild(target);
+    const renderRibbon = () => {
+      try {
+        const spec = c.spec || {};
+        const stages = Array.isArray(spec.stages) ? spec.stages : [];
+        if (stages.length < 3) {
+          target.textContent = "timeline_ribbon: needs ≥3 stages";
+          return;
+        }
+        const colW = 132;
+        const padL = 28, padR = 28, padT = 26, padB = 22;
+        const innerW = colW * (stages.length - 1);
+        const w = padL + innerW + padR;
+        const h = padT + 90 + padB;
+        const trackY = padT + 18;
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", w);
+        svg.setAttribute("height", h);
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        svg.style.maxWidth = "100%";
+        svg.style.height = "auto";
+        // Optional axis label, top-left corner.
+        if (spec.axis_label) {
+          const ax = document.createElementNS(svgNS, "text");
+          ax.setAttribute("x", padL);
+          ax.setAttribute("y", 14);
+          ax.setAttribute("font-family", "var(--type-mono, monospace)");
+          ax.setAttribute("font-size", "10");
+          ax.setAttribute("fill", "var(--muted)");
+          ax.setAttribute("letter-spacing", "0.08em");
+          ax.textContent = String(spec.axis_label).toUpperCase();
+          svg.appendChild(ax);
+        }
+        const xAt = i => padL + i * colW;
+        const colorFor = status => {
+          if (status === "active") return "var(--accent)";
+          if (status === "failed") return "var(--vis-tripped, #f87171)";
+          if (status === "skipped") return "var(--muted)";
+          if (status === "pending") return "var(--muted)";
+          return "var(--vis-ok, var(--accent))";  // done (default)
+        };
+        // Connection track: a single line under all markers, drawn first
+        // so markers sit on top. Per-segment color reflects the *earlier*
+        // stage's status (the segment is the "after-this-finished" path).
+        for (let i = 0; i < stages.length - 1; i++) {
+          const s = stages[i] || {};
+          const seg = document.createElementNS(svgNS, "line");
+          seg.setAttribute("x1", xAt(i) + 12);
+          seg.setAttribute("y1", trackY);
+          seg.setAttribute("x2", xAt(i + 1) - 12);
+          seg.setAttribute("y2", trackY);
+          const segColor = (s.status === "done" || s.status === "active")
+            ? colorFor(s.status)
+            : "var(--line, var(--muted))";
+          seg.setAttribute("stroke", segColor);
+          seg.setAttribute("stroke-width", "1.5");
+          if (s.status === "skipped" || s.status === "pending") {
+            seg.setAttribute("stroke-dasharray", "3,3");
+          }
+          svg.appendChild(seg);
+        }
+        // Stage markers + labels.
+        stages.forEach((stg, i) => {
+          const status = stg.status || (i === stages.length - 1 ? "pending" : "done");
+          const cx = xAt(i), cy = trackY;
+          const color = colorFor(status);
+          // Marker: filled circle for done / failed; ring for active /
+          // pending; X for skipped. Active also gets a pulsing outer ring.
+          if (status === "skipped") {
+            // Diagonal X marker, ~9px arms.
+            const mk = (x1, y1, x2, y2) => {
+              const ln = document.createElementNS(svgNS, "line");
+              ln.setAttribute("x1", x1); ln.setAttribute("y1", y1);
+              ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
+              ln.setAttribute("stroke", color);
+              ln.setAttribute("stroke-width", "1.5");
+              ln.setAttribute("stroke-linecap", "round");
+              svg.appendChild(ln);
+            };
+            mk(cx - 5, cy - 5, cx + 5, cy + 5);
+            mk(cx - 5, cy + 5, cx + 5, cy - 5);
+          } else if (status === "pending") {
+            const ring = document.createElementNS(svgNS, "circle");
+            ring.setAttribute("cx", cx); ring.setAttribute("cy", cy);
+            ring.setAttribute("r", "5");
+            ring.setAttribute("fill", "var(--bg)");
+            ring.setAttribute("stroke", color);
+            ring.setAttribute("stroke-width", "1.5");
+            ring.setAttribute("stroke-dasharray", "2,2");
+            svg.appendChild(ring);
+          } else if (status === "active") {
+            // Outer pulsing ring + inner solid core. Pulse via SMIL so it
+            // works without requiring a JS timer.
+            const pulse = document.createElementNS(svgNS, "circle");
+            pulse.setAttribute("cx", cx); pulse.setAttribute("cy", cy);
+            pulse.setAttribute("r", "6");
+            pulse.setAttribute("fill", "none");
+            pulse.setAttribute("stroke", color);
+            pulse.setAttribute("stroke-width", "1.4");
+            const anim = document.createElementNS(svgNS, "animate");
+            anim.setAttribute("attributeName", "r");
+            anim.setAttribute("values", "5;10;5");
+            anim.setAttribute("dur", "1.6s");
+            anim.setAttribute("repeatCount", "indefinite");
+            pulse.appendChild(anim);
+            const animO = document.createElementNS(svgNS, "animate");
+            animO.setAttribute("attributeName", "opacity");
+            animO.setAttribute("values", "0.85;0.15;0.85");
+            animO.setAttribute("dur", "1.6s");
+            animO.setAttribute("repeatCount", "indefinite");
+            pulse.appendChild(animO);
+            svg.appendChild(pulse);
+            const core = document.createElementNS(svgNS, "circle");
+            core.setAttribute("cx", cx); core.setAttribute("cy", cy);
+            core.setAttribute("r", "4");
+            core.setAttribute("fill", color);
+            svg.appendChild(core);
+          } else {
+            // done OR failed — solid filled marker. Failed gets a thin
+            // contrasting outline so it reads as "stopped here" not "ok".
+            const dot = document.createElementNS(svgNS, "circle");
+            dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+            dot.setAttribute("r", "5");
+            dot.setAttribute("fill", color);
+            if (status === "failed") {
+              dot.setAttribute("stroke", "var(--fg)");
+              dot.setAttribute("stroke-width", "1");
+            }
+            svg.appendChild(dot);
+          }
+          // Label (mono caps).
+          const lbl = document.createElementNS(svgNS, "text");
+          lbl.setAttribute("x", cx);
+          lbl.setAttribute("y", trackY + 24);
+          lbl.setAttribute("text-anchor", "middle");
+          lbl.setAttribute("font-family", "var(--type-mono, monospace)");
+          lbl.setAttribute("font-size", "11");
+          lbl.setAttribute("font-weight", "600");
+          lbl.setAttribute("fill", "var(--fg)");
+          lbl.setAttribute("letter-spacing", "0.04em");
+          lbl.textContent = String(stg.label || "").toUpperCase();
+          svg.appendChild(lbl);
+          // Detail (body, optional).
+          if (stg.detail) {
+            const det = document.createElementNS(svgNS, "text");
+            det.setAttribute("x", cx);
+            det.setAttribute("y", trackY + 40);
+            det.setAttribute("text-anchor", "middle");
+            det.setAttribute("font-family", "var(--type-body, sans-serif)");
+            det.setAttribute("font-size", "10");
+            det.setAttribute("fill", "var(--muted)");
+            // Trim detail to roughly fit colW.
+            const maxChars = Math.max(8, Math.floor((colW - 12) / 5.5));
+            const t = String(stg.detail);
+            det.textContent = t.length > maxChars ? t.slice(0, maxChars - 1) + "…" : t;
+            svg.appendChild(det);
+          }
+          // Status chip (small caps under detail).
+          if (status && status !== "done") {
+            const chip = document.createElementNS(svgNS, "text");
+            chip.setAttribute("x", cx);
+            chip.setAttribute("y", trackY + 56);
+            chip.setAttribute("text-anchor", "middle");
+            chip.setAttribute("font-family", "var(--type-mono, monospace)");
+            chip.setAttribute("font-size", "9");
+            chip.setAttribute("fill", color);
+            chip.setAttribute("letter-spacing", "0.10em");
+            chip.textContent = status.toUpperCase();
+            svg.appendChild(chip);
+          }
+        });
+        target.innerHTML = "";
+        target.appendChild(svg);
+        applyNaturalCellSize(target, w);
+      } catch (err) {
+        target.classList.add("timeline-ribbon-error");
+        target.textContent = "timeline_ribbon render error: " + err.message;
+      }
+    };
+    lazyMount(target, renderRibbon);
+  } else if (c.cell_type === "trajectory" && c.spec) {
+    // Trajectory substrate: ordered path through a 2D state space. Pure
+    // SVG, no dep. Spec:
+    //   { points: [{x, y, label?}, ...], x_label?, y_label?, x_range?,
+    //     y_range?, annotation_start?, annotation_end? }
+    // Start point renders as a hollow ring; end point as a filled accent
+    // dot; the connecting polyline traces the path; small dashed crosshairs
+    // mark the median (x, y) so the four quadrants of drift are visible
+    // at a glance. Theme tokens (--accent, --fg, --muted, --line) drive
+    // color so the substrate follows magi/lcars/etc without per-substrate
+    // CSS branches.
+    const target = el("div", "trajectory-target");
+    body.appendChild(target);
+    const renderTraj = () => {
+      try {
+        const spec = c.spec || {};
+        const points = (Array.isArray(spec.points) ? spec.points : [])
+          .filter(p => p && Number.isFinite(+p.x) && Number.isFinite(+p.y))
+          .map(p => ({ x: +p.x, y: +p.y, label: p.label }));
+        if (points.length < 3) {
+          target.textContent = "trajectory: needs ≥3 numeric points";
+          return;
+        }
+        const w = 400, h = 260;
+        const padL = 44, padR = 22, padT = 22, padB = 38;
+        const innerW = w - padL - padR, innerH = h - padT - padB;
+        const xs = points.map(p => p.x);
+        const ys = points.map(p => p.y);
+        const xRange = (Array.isArray(spec.x_range) && spec.x_range.length === 2)
+          ? [+spec.x_range[0], +spec.x_range[1]]
+          : [Math.min(...xs), Math.max(...xs)];
+        const yRange = (Array.isArray(spec.y_range) && spec.y_range.length === 2)
+          ? [+spec.y_range[0], +spec.y_range[1]]
+          : [Math.min(...ys), Math.max(...ys)];
+        const padFrac = 0.08;
+        const xPad = (xRange[1] - xRange[0]) * padFrac || 1;
+        const yPad = (yRange[1] - yRange[0]) * padFrac || 1;
+        const xLo = xRange[0] - xPad, xHi = xRange[1] + xPad;
+        const yLo = yRange[0] - yPad, yHi = yRange[1] + yPad;
+        const xRangeSpan = (xHi - xLo) || 1;
+        const yRangeSpan = (yHi - yLo) || 1;
+        const xAt = v => padL + ((v - xLo) / xRangeSpan) * innerW;
+        const yAt = v => padT + innerH - ((v - yLo) / yRangeSpan) * innerH;
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", w);
+        svg.setAttribute("height", h);
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        svg.style.maxWidth = "100%";
+        svg.style.height = "auto";
+        // Frame: thin baseline + left axis lines using --line.
+        const xAxis = document.createElementNS(svgNS, "line");
+        xAxis.setAttribute("x1", padL); xAxis.setAttribute("y1", h - padB);
+        xAxis.setAttribute("x2", w - padR); xAxis.setAttribute("y2", h - padB);
+        xAxis.setAttribute("stroke", "var(--line, var(--muted))");
+        xAxis.setAttribute("stroke-width", "1");
+        svg.appendChild(xAxis);
+        const yAxis = document.createElementNS(svgNS, "line");
+        yAxis.setAttribute("x1", padL); yAxis.setAttribute("y1", padT);
+        yAxis.setAttribute("x2", padL); yAxis.setAttribute("y2", h - padB);
+        yAxis.setAttribute("stroke", "var(--line, var(--muted))");
+        yAxis.setAttribute("stroke-width", "1");
+        svg.appendChild(yAxis);
+        // Median crosshair — faint dashed lines marking the (median x, median y)
+        // so quadrants of drift are visible at a glance.
+        const med = arr => {
+          const s = [...arr].sort((a, b) => a - b);
+          const m = Math.floor(s.length / 2);
+          return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+        };
+        const mx = med(xs), my = med(ys);
+        const medV = document.createElementNS(svgNS, "line");
+        medV.setAttribute("x1", xAt(mx)); medV.setAttribute("y1", padT);
+        medV.setAttribute("x2", xAt(mx)); medV.setAttribute("y2", h - padB);
+        medV.setAttribute("stroke", "var(--muted)");
+        medV.setAttribute("stroke-width", "1");
+        medV.setAttribute("stroke-dasharray", "2,4");
+        medV.setAttribute("opacity", "0.35");
+        svg.appendChild(medV);
+        const medH = document.createElementNS(svgNS, "line");
+        medH.setAttribute("x1", padL); medH.setAttribute("y1", yAt(my));
+        medH.setAttribute("x2", w - padR); medH.setAttribute("y2", yAt(my));
+        medH.setAttribute("stroke", "var(--muted)");
+        medH.setAttribute("stroke-width", "1");
+        medH.setAttribute("stroke-dasharray", "2,4");
+        medH.setAttribute("opacity", "0.35");
+        svg.appendChild(medH);
+        // Trajectory polyline.
+        const polyPoints = points
+          .map(p => `${xAt(p.x).toFixed(1)},${yAt(p.y).toFixed(1)}`)
+          .join(" ");
+        const poly = document.createElementNS(svgNS, "polyline");
+        poly.setAttribute("points", polyPoints);
+        poly.setAttribute("fill", "none");
+        poly.setAttribute("stroke", "var(--accent)");
+        poly.setAttribute("stroke-width", "1.6");
+        poly.setAttribute("stroke-linecap", "round");
+        poly.setAttribute("stroke-linejoin", "round");
+        svg.appendChild(poly);
+        // Direction arrow on the final segment so the path "reads" as
+        // start → end. Compute angle from the second-to-last to last point.
+        if (points.length >= 2) {
+          const a = points[points.length - 2];
+          const b = points[points.length - 1];
+          const ax = xAt(a.x), ay = yAt(a.y), bx = xAt(b.x), by = yAt(b.y);
+          const dx = bx - ax, dy = by - ay;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          const ux = dx / len, uy = dy / len;
+          const arrowLen = 8, arrowSpread = 4;
+          const tipX = bx, tipY = by;
+          const baseX = bx - ux * arrowLen, baseY = by - uy * arrowLen;
+          const perpX = -uy, perpY = ux;
+          const arrow = document.createElementNS(svgNS, "polygon");
+          arrow.setAttribute("points",
+            `${tipX.toFixed(1)},${tipY.toFixed(1)} ` +
+            `${(baseX + perpX * arrowSpread).toFixed(1)},${(baseY + perpY * arrowSpread).toFixed(1)} ` +
+            `${(baseX - perpX * arrowSpread).toFixed(1)},${(baseY - perpY * arrowSpread).toFixed(1)}`);
+          arrow.setAttribute("fill", "var(--accent)");
+          svg.appendChild(arrow);
+        }
+        // Per-point markers + labels.
+        points.forEach((p, i) => {
+          const cx = xAt(p.x), cy = yAt(p.y);
+          const isStart = i === 0, isEnd = i === points.length - 1;
+          if (isStart) {
+            // Hollow ring at start.
+            const ring = document.createElementNS(svgNS, "circle");
+            ring.setAttribute("cx", cx); ring.setAttribute("cy", cy);
+            ring.setAttribute("r", "5");
+            ring.setAttribute("fill", "var(--bg)");
+            ring.setAttribute("stroke", "var(--accent)");
+            ring.setAttribute("stroke-width", "1.6");
+            svg.appendChild(ring);
+          } else if (isEnd) {
+            // Solid filled accent dot at end (covered by arrow tip; keep
+            // small inner dot for the "current state" affordance).
+            const dot = document.createElementNS(svgNS, "circle");
+            dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+            dot.setAttribute("r", "3");
+            dot.setAttribute("fill", "var(--accent)");
+            svg.appendChild(dot);
+          } else {
+            // Small intermediate dot.
+            const dot = document.createElementNS(svgNS, "circle");
+            dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+            dot.setAttribute("r", "2.4");
+            dot.setAttribute("fill", "var(--accent)");
+            dot.setAttribute("opacity", "0.75");
+            svg.appendChild(dot);
+          }
+          if (p.label) {
+            const lbl = document.createElementNS(svgNS, "text");
+            // Offset above-right of the marker; flip below if too close to top.
+            const offsetY = cy < padT + 14 ? 14 : -8;
+            const offsetX = cx > w - padR - 30 ? -6 : 8;
+            lbl.setAttribute("x", cx + offsetX);
+            lbl.setAttribute("y", cy + offsetY);
+            lbl.setAttribute("text-anchor", offsetX < 0 ? "end" : "start");
+            lbl.setAttribute("font-family", "var(--type-mono, monospace)");
+            lbl.setAttribute("font-size", "10");
+            lbl.setAttribute("fill", "var(--fg)");
+            lbl.textContent = String(p.label).slice(0, 8);
+            svg.appendChild(lbl);
+          }
+        });
+        // Start / end annotations (small caps near the corresponding marker,
+        // distinct from the per-point label).
+        const startAnn = spec.annotation_start;
+        if (startAnn) {
+          const t = document.createElementNS(svgNS, "text");
+          const sx = xAt(points[0].x), sy = yAt(points[0].y);
+          t.setAttribute("x", sx + 8);
+          t.setAttribute("y", sy + 14);
+          t.setAttribute("font-family", "var(--type-mono, monospace)");
+          t.setAttribute("font-size", "9");
+          t.setAttribute("fill", "var(--muted)");
+          t.setAttribute("letter-spacing", "0.10em");
+          t.textContent = String(startAnn).toUpperCase().slice(0, 20);
+          svg.appendChild(t);
+        }
+        const endAnn = spec.annotation_end;
+        if (endAnn) {
+          const t = document.createElementNS(svgNS, "text");
+          const ex = xAt(points[points.length - 1].x);
+          const ey = yAt(points[points.length - 1].y);
+          const right = ex < w - padR - 60;
+          t.setAttribute("x", ex + (right ? 8 : -8));
+          t.setAttribute("y", ey - 12);
+          t.setAttribute("text-anchor", right ? "start" : "end");
+          t.setAttribute("font-family", "var(--type-mono, monospace)");
+          t.setAttribute("font-size", "9");
+          t.setAttribute("fill", "var(--accent)");
+          t.setAttribute("letter-spacing", "0.10em");
+          t.textContent = String(endAnn).toUpperCase().slice(0, 20);
+          svg.appendChild(t);
+        }
+        // Axis labels.
+        if (spec.x_label) {
+          const xl = document.createElementNS(svgNS, "text");
+          xl.setAttribute("x", padL + innerW / 2);
+          xl.setAttribute("y", h - 8);
+          xl.setAttribute("text-anchor", "middle");
+          xl.setAttribute("font-family", "var(--type-mono, monospace)");
+          xl.setAttribute("font-size", "10");
+          xl.setAttribute("fill", "var(--muted)");
+          xl.setAttribute("letter-spacing", "0.06em");
+          xl.textContent = String(spec.x_label).toUpperCase();
+          svg.appendChild(xl);
+        }
+        if (spec.y_label) {
+          const yl = document.createElementNS(svgNS, "text");
+          yl.setAttribute("x", 12);
+          yl.setAttribute("y", padT + innerH / 2);
+          yl.setAttribute("text-anchor", "middle");
+          yl.setAttribute("font-family", "var(--type-mono, monospace)");
+          yl.setAttribute("font-size", "10");
+          yl.setAttribute("fill", "var(--muted)");
+          yl.setAttribute("letter-spacing", "0.06em");
+          yl.setAttribute("transform", `rotate(-90, 12, ${padT + innerH / 2})`);
+          yl.textContent = String(spec.y_label).toUpperCase();
+          svg.appendChild(yl);
+        }
+        // Min/max value tics on each axis (low-chrome — just the bound numbers).
+        const fmt = v => {
+          const a = Math.abs(v);
+          if (a !== 0 && (a < 0.1 || a >= 10000)) return v.toExponential(1);
+          return Number.isInteger(v) ? String(v) : v.toFixed(a < 1 ? 2 : 1);
+        };
+        const tic = (x, y, anchor, text) => {
+          const t = document.createElementNS(svgNS, "text");
+          t.setAttribute("x", x); t.setAttribute("y", y);
+          t.setAttribute("text-anchor", anchor);
+          t.setAttribute("font-family", "var(--type-mono, monospace)");
+          t.setAttribute("font-size", "9");
+          t.setAttribute("fill", "var(--muted)");
+          t.textContent = text;
+          svg.appendChild(t);
+        };
+        tic(padL, h - padB + 12, "middle", fmt(xRange[0]));
+        tic(w - padR, h - padB + 12, "middle", fmt(xRange[1]));
+        tic(padL - 4, h - padB + 4, "end", fmt(yRange[0]));
+        tic(padL - 4, padT + 4, "end", fmt(yRange[1]));
+        target.innerHTML = "";
+        target.appendChild(svg);
+        applyNaturalCellSize(target, w);
+      } catch (err) {
+        target.classList.add("trajectory-error");
+        target.textContent = "trajectory render error: " + err.message;
+      }
+    };
+    lazyMount(target, renderTraj);
+  } else if (c.cell_type === "force_graph" && c.spec) {
+    // force_graph substrate: d3-force layout for entity meshes where
+    // mermaid would render a hairball. Spec:
+    //   { nodes: [{id, label?, group?, size?}, ...],
+    //     edges: [{source, target, label?, weight?}, ...] }
+    // We run the simulation deterministically: 300 ticks with a fixed
+    // seed-equivalent (alpha schedule), then snapshot the final positions
+    // to static SVG. No always-running animation — the cell renders once,
+    // settles, and is done. Per-group color cycles through --data-cat-N.
+    const target = el("div", "force-graph-target");
+    body.appendChild(target);
+    const renderForceGraph = () => {
+      try {
+        if (!window.d3 || !window.d3.forceSimulation) {
+          target.classList.add("force-graph-error");
+          target.textContent = "force_graph: d3-force not loaded";
+          return;
+        }
+        const spec = c.spec || {};
+        const rawNodes = Array.isArray(spec.nodes) ? spec.nodes : [];
+        const rawEdges = Array.isArray(spec.edges) ? spec.edges : [];
+        if (rawNodes.length < 5) {
+          target.textContent = "force_graph: needs ≥5 nodes";
+          return;
+        }
+        const w = 420, h = 320;
+        // Nodes — d3 will mutate these in place with x/y. Defensive copy.
+        const nodes = rawNodes.map(n => ({
+          id: n.id,
+          label: n.label || n.id,
+          group: n.group || "_default",
+          size: typeof n.size === "number" ? Math.max(0.5, Math.min(2.5, n.size)) : 1.0,
+        }));
+        const idSet = new Set(nodes.map(n => n.id));
+        const edges = rawEdges
+          .filter(e => idSet.has(e.source) && idSet.has(e.target))
+          .map(e => ({
+            source: e.source,
+            target: e.target,
+            label: e.label,
+            weight: typeof e.weight === "number" ? Math.max(0.5, Math.min(3, e.weight)) : 1.0,
+          }));
+        // Group → --data-cat-N color (cycle 0..5 like treemap does).
+        const groups = [...new Set(nodes.map(n => n.group))];
+        const colorFor = group => {
+          const idx = groups.indexOf(group);
+          return `var(--data-cat-${idx % 6}, var(--accent))`;
+        };
+        // Run the simulation deterministically: stop the timer-driven
+        // ticking and step manually until alpha cools. This avoids the
+        // "particles still drifting when the user scrolls past" cost of
+        // many cells running animations forever.
+        const sim = window.d3.forceSimulation(nodes)
+          .force("link", window.d3.forceLink(edges).id(d => d.id).distance(60).strength(0.6))
+          .force("charge", window.d3.forceManyBody().strength(-180))
+          .force("center", window.d3.forceCenter(w / 2, h / 2).strength(0.05))
+          .force("collide", window.d3.forceCollide().radius(d => 6 + d.size * 4 + 2))
+          .stop();
+        for (let i = 0; i < 300; i++) sim.tick();
+        // Clamp positions inside the SVG box so nodes that wandered off
+        // are still visible at the edge.
+        const pad = 18;
+        nodes.forEach(n => {
+          n.x = Math.max(pad, Math.min(w - pad, n.x));
+          n.y = Math.max(pad, Math.min(h - pad, n.y));
+        });
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", w);
+        svg.setAttribute("height", h);
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        svg.style.maxWidth = "100%";
+        svg.style.height = "auto";
+        // Edges first, so node circles draw on top.
+        edges.forEach(e => {
+          const s = typeof e.source === "object" ? e.source : nodes.find(n => n.id === e.source);
+          const t = typeof e.target === "object" ? e.target : nodes.find(n => n.id === e.target);
+          if (!s || !t) return;
+          const ln = document.createElementNS(svgNS, "line");
+          ln.setAttribute("x1", s.x.toFixed(1));
+          ln.setAttribute("y1", s.y.toFixed(1));
+          ln.setAttribute("x2", t.x.toFixed(1));
+          ln.setAttribute("y2", t.y.toFixed(1));
+          ln.setAttribute("stroke", "var(--line, var(--muted))");
+          ln.setAttribute("stroke-width", (1 * e.weight).toFixed(2));
+          ln.setAttribute("opacity", "0.6");
+          svg.appendChild(ln);
+          if (e.label) {
+            const mx = (s.x + t.x) / 2;
+            const my = (s.y + t.y) / 2;
+            const lbl = document.createElementNS(svgNS, "text");
+            lbl.setAttribute("x", mx);
+            lbl.setAttribute("y", my - 2);
+            lbl.setAttribute("text-anchor", "middle");
+            lbl.setAttribute("font-family", "var(--type-mono, monospace)");
+            lbl.setAttribute("font-size", "9");
+            lbl.setAttribute("fill", "var(--muted)");
+            lbl.textContent = String(e.label).slice(0, 12);
+            svg.appendChild(lbl);
+          }
+        });
+        // Nodes.
+        nodes.forEach(n => {
+          const r = 6 + n.size * 4;
+          const dot = document.createElementNS(svgNS, "circle");
+          dot.setAttribute("cx", n.x.toFixed(1));
+          dot.setAttribute("cy", n.y.toFixed(1));
+          dot.setAttribute("r", r.toFixed(1));
+          dot.setAttribute("fill", colorFor(n.group));
+          dot.setAttribute("fill-opacity", "0.85");
+          dot.setAttribute("stroke", "var(--bg)");
+          dot.setAttribute("stroke-width", "1.5");
+          svg.appendChild(dot);
+          // Label below the node, mono caps small.
+          const lbl = document.createElementNS(svgNS, "text");
+          lbl.setAttribute("x", n.x.toFixed(1));
+          lbl.setAttribute("y", (n.y + r + 11).toFixed(1));
+          lbl.setAttribute("text-anchor", "middle");
+          lbl.setAttribute("font-family", "var(--type-mono, monospace)");
+          lbl.setAttribute("font-size", "10");
+          lbl.setAttribute("fill", "var(--fg)");
+          const t = String(n.label).slice(0, 16);
+          lbl.textContent = t;
+          svg.appendChild(lbl);
+        });
+        target.innerHTML = "";
+        target.appendChild(svg);
+        applyNaturalCellSize(target, w);
+      } catch (err) {
+        target.classList.add("force-graph-error");
+        target.textContent = "force_graph render error: " + err.message;
+      }
+    };
+    lazyMount(target, renderForceGraph);
   } else if (c.cell_type === "ascii" && c.spec) {
     // ASCII substrate: monospace box-drawing block. Spec is { ascii, kind? }.
     // Pure <pre>; theme tokens (--fg, --bg, --accent) drive color so it

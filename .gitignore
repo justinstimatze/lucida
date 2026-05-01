@@ -44,3 +44,7 @@ demo/demo_cells.json
 # Curated synthesis with bookmarks lives in design-references.md (committed);
 # raw per-entry tables and competitor URL surveys live here for local lookup.
 research/
+
+# memory dir leaked from auto-memory hook — actual store lives under
+# ~/.claude/projects/.../memory/, not in the project repo.
+memory/

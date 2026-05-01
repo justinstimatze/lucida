@@ -52,6 +52,105 @@ Top reframes for lucida from these:
 - The 2nd-person view (geometrically impossible) is a narrative construct. Films can do this; products cannot.
 - Attention management *is* crisis management when info density is high.
 
+## Workshop-monitor patterns (Iron Man 1 — *transferable*)
+
+Captured 2026-05-01 after a frame-by-frame pass over the Mark III workshop
+scene (Iron Man 2008, design by The Front + The Orphanage — a distinct
+studio from Jayse Hansen's later Mark VII suit-HUD work). The in-suit HUD
+is covered in the four-post deep dive above; this section catalogs
+patterns specific to *monitor-and-bench* FUI, which is closer to lucida's
+actual surface than the cockpit HUD is.
+
+Frames referenced from a 92-second clip; observations are visual-only
+(steady-state motion patterns inferred from the genre, not directly
+observed in stills).
+
+### Patterns transferable to lucida
+
+- **Variety implies intelligence.** A wide surface of viz specificity —
+  many substrate types, niche customizations applied judiciously,
+  particular polish moments per content shape — signals a smart
+  classifier+specialist behind the system. The user's read of system
+  intelligence comes partly from breadth: more cell shapes used
+  appropriately = more inferred reasoning power. Counter-pressure on
+  consolidation; favor adding distinct substrate types over making one
+  substrate do everything.
+- **Theme-specific flair.** Every theme deserves its own satisfying
+  flourishes — not a shared chrome library reskinned with palette
+  swaps. `vigil` wants spinning reticles and rotating loader rings;
+  `terminus` wants phosphor scanlines and CRT bulge; `gastown` wants
+  brass dials and serif numerals; `mainframe` wants 1994-Energy-Sea
+  geometric grid pulses. Lean *into* the cosplay when a theme is
+  active. The discipline is per-theme depth, not cross-theme
+  consistency.
+- **Holographic / volumetric depth.** Floating layered UI is *hard to
+  do well* — and that fragility is part of the signal. A robust browser
+  implementation (CSS perspective + translateZ layers, scene3d for true
+  depth, depth-cue chrome on flat cells) registers as system intelligence
+  because flat-and-easy is the default everyone else settles for. Don't
+  sleep on it. Existing infrastructure: scene3d via Three.js, the 2D/3D
+  mix arc.
+- **Edge telemetry density.** Tony's monitors crowd corners with tiny
+  gauges, sparklines, numeric readouts — the screen is never just one
+  big display. Lucida cells use corner pixels for nothing. Cell-corner
+  micro-meta (mint timestamp, classifier confidence, token cost, source
+  line range) at 3-5px sparkline scale would honor this without changing
+  layout. Pairs with Tufte's data-ink ratio.
+- **Annotation overlay system.** Dot + thin-line + ALL-CAPS callouts
+  pointing at 3D models (frames 0:16, 1:20). Lucida's mermaid / scene3d /
+  treemap cells could surface span-or-node annotations — pointing at
+  *which* part of the source snippet anchored which sub-element. Closes
+  the classifier→render provenance loop visibly.
+- **Wireframe→solid temporal reveal.** Frame 0:00 is a cyan wireframe
+  helmet; 1:22 is fully painted and assembled. The build state itself
+  is content. Cells could mint as outlined entity → geometry →
+  color/labels rather than atomically. Echoes reflect.py's role at
+  synthesis time, applied at cell render time.
+- **Multi-version comparison strip.** Frame 1:16 shows palette variants
+  side-by-side; 1:20 shows a multi-suit summary panel. Lucida overwrites
+  cells on re-mint. Snapshotting prior versions as a horizontal strip
+  below the cell would expose lineage as a feature — no current
+  substrate offers this.
+- **Real-bezel / hardware-frame chrome.** Frame 1:20 deliberately keeps
+  the DELL monitor bezel visible. FUI *inside* hardware reads more
+  believable than free-floating UI. LCARS already does this; could
+  generalize as a per-theme "device" framing language applied to cells.
+- **Selective high-saturation accent.** The hot-rod-red moment lands
+  because every other shot is desaturated cyan/grey. Audit `--accent`
+  usage per theme: reserved for *moments* (new mint, error, completion),
+  or sprayed across all chrome? Mostly disciplined; worth periodic
+  re-checks per the visual-consistency theming pass.
+- **Always-running ambient motion.** Inferred (not visible in stills):
+  workshop monitors never freeze. Lucida's animated_svg cells move;
+  html / mermaid / vega don't. A low-amplitude ambient layer (scanline
+  drift, breathing corner dot) on every cell regardless of substrate
+  would kill the "frozen" feeling without becoming busy. Bounded budget
+  critical.
+### Cross-theme bleed to avoid
+
+The discipline isn't avoiding Iron-Man-y elements — many of them
+(reticles, loaders, holograms) are exactly the kind of theme-locked
+flair lucida wants. The discipline is keeping each theme's flourishes
+*to* that theme. Cross-theme bleed is the failure mode, not the
+patterns themselves.
+
+- The cyan/gold accent palette belongs to `vigil`. Don't ship it into
+  `mainframe` or `gastown`.
+- Stark-style spinning reticles and rotating ring loaders fit `vigil`
+  well; would feel wrong in `terminus` (which wants phosphor CRT
+  artifacts) or `gastown` (steam gauges + brass).
+- Cosplay when a theme is *active* is a feature, not a bug — `vigil`
+  should feel maximally MCU/Jarvis. The constraint is: each theme
+  should feel *uniquely satisfying* in its own register, not a reskin
+  of the same chrome.
+
+### Priority for landing
+
+If picking 1–3 to ship first: **edge telemetry** (highest leverage,
+dense without layout change), **ambient motion** (cheap global feel
+transformation), **multi-version strip** (unlocks lineage-as-feature,
+no current substrate has it).
+
 ## Tech-stack pointers
 
 - Working pipeline for film FUI is Photoshop + After Effects + Illustrator. The browser-rendered analog is static SVG composition + animated transforms (animated_svg specialist territory). Three.js / A-Frame are the native dynamic substrates for anything depth-based.
@@ -330,4 +429,113 @@ conventions, etc."
   - **Open-Color** — neutral product UI palette (JSON, MIT).
   - **LCARS47** + **thelcars.com** — LCARS-specific palette + assets.
 
+## Roadmap from FUI insights (drafted 2026-05-01)
+
+Phased plan grounded in the workshop-monitor patterns above and the
+adjacent `feedback_*` memos. Order is dependency-driven (foundation
+chrome before depth, depth before lineage). Long-horizon items live in
+their own arc memos: `multi_stream_arc`, `audio_reactive_arc`,
+`station_vr_loopback`, `multi_assistant_dashboard`,
+`demo_screen_recording_arc`.
+
+### Phase 0 — Audit (read-only)
+
+Baseline inputs for the chrome work:
+- `--accent` usage map across 11 themes; flag spray-vs-moment.
+- Per-substrate motion inventory; identify frozen substrates.
+- Per-theme flair gap matrix: what does each theme *uniquely* do today?
+
+#### Phase 0 findings (2026-05-01)
+
+**Accent audit.** All 11 themes have distinct `--accent` token values
+(no palette collisions). `var(--accent)` resolves to ~50 call sites in
+`notebook.css`. Categorization:
+- *Moment-correct (~6 sites):* outline focus (line 32), cell-fresh
+  new-mint pulse (443-450), kill/trigger states (642-648), HUD chip
+  active (1217, 1325).
+- *Spray (~30 sites, demote candidates):* title/header colors
+  (184, 188, 541, 577, 856, 933, 945, 963), code syntax tokens
+  (814, 823, 827), border-bottom (186), cell shadows (392, 396-397),
+  hero shadows (404-405, 411-412), reflection borders (799, 859, 909,
+  940, 947).
+- *Fallback-only (OK):* cell-id substrate borders 617-627 use
+  `--accent` only as fallback under `--data-cat-N`.
+- *Phase 1 work:* introduce `--title-color`, `--label-muted`,
+  `--syntax-keyword`, `--cell-edge` tokens, demote spray sites.
+
+**Motion inventory.** Substantially less frozen than first thought.
+- *Always-on ambient already shipping:* `html-scan` 22s linear infinite
+  on every html cell; `hud-pulse` 1.6s on the HUD; per-cell entrance
+  animations (`cell-arrive`, `cell-arrive-unfold`, `cell-arrive-render`,
+  `cell-arrive-sweep`); `cell-still-warm-fade` 60s post-mint.
+- *Hero pulse:* `hero-live-breath` / `hero-live-breath-conclave` 3.2s
+  on the hero cell only.
+- *Per-substrate gap (Phase 1 ambient-motion target):* mermaid, vega,
+  treemap, sparkline have entrance only — no infinite ambient layer.
+  animated_svg + scene3d self-animate by definition.
+
+**Per-theme flair gap matrix.** Keyframe count per theme prefix:
+- *Rich (4-5 keyframes each):* circuit (5), vigil/noir/renegade/
+  mainframe (4 each).
+- *Mid (3):* terminus.
+- *Sparse (1, work needed):* lab, ops, conclave, magi, gastown.
+- *Intentionally flat:* minimal (per CSS comment "keep minimal flat").
+- *Phase 2A hero candidates:* gastown (brass dials + serif numerals
+  named explicitly by user; currently sparse) and ops (LCARS — heavy
+  chrome already, light on motion). Then lab and conclave/magi.
+
+**Open infra gap (blocks Task #68):** classifier confidence is tracked
+in `cells.json`; source line range / `source_line` is *not* surfaced
+through the watcher pipeline. Phase 1 edge-telemetry work needs that
+field added to the cell record before it can render. Audit either
+extends Task #68 description or spawns a precursor task.
+
+### Phase 1 — Edge polish foundation
+
+Cheap, broad, foundational. Compounds everything later.
+- Edge telemetry density on every cell (mint timestamp, classifier
+  confidence, source line range as 3-5px sparkline-scale glyphs).
+- Always-running low-amplitude ambient motion on
+  html/mermaid/vega/treemap. <2% pixel-area motion budget.
+- Accent moment-only enforcement (new-mint pulse, kill-state,
+  completion only — no spray).
+
+### Phase 2 — Variety arcs (parallel ribbons)
+
+Both serve *variety implies intelligence*.
+
+**2A. Theme-specific flair.** Per-theme flourishes that don't bleed:
+vigil reticles + rotating loaders, terminus phosphor decay + CRT
+bulge, gastown brass dials + serif numerals, mainframe Energy-Sea
+geometric pulses, etc. 2-4 distinct moves per theme.
+
+**2B. Substrate diversification.** Identified gaps in mermaid/html
+dominance: force-directed graph, timeline ribbon, coordinate-plot
+trajectory.
+
+### Phase 3 — Depth and provenance
+
+The ambitious aesthetic phase per `feedback_holographic_depth_yes`.
+- CSS perspective + translateZ depth (theme-opt-in).
+- Scene3d content richness pivot — primitive vocabulary + semantic
+  geometry (per `scene3d_content_richness`).
+- Annotation overlay layer — dot+line+ALL-CAPS on
+  mermaid/scene3d/treemap; closes classifier→render provenance.
+- Wireframe→solid temporal cell-mint reveal.
+
+### Phase 4 — Lineage and framing
+
+- Multi-version comparison strip — cell re-mints snapshot prior
+  versions; horizontal scrubbable strip below cell.
+- Real-bezel chrome generalization — per-theme `device-frame` token
+  applied as cell decoration. LCARS pattern extended.
+
+### Resolutions (2026-05-01)
+
+1. Phase 0 audit first — yes.
+2. 2B (substrate diversification) before 2A (per-theme flair).
+3. Phase 3 — all four items, but stay in low-hanging-fruit register
+   per item; don't yak-shave any single one.
+4. Phase 2A — hero themes first (4-5 of the 11). Note to spread the
+   love to remaining themes after first wave; learn as we go.
 

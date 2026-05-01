@@ -440,6 +440,7 @@ VEGA_SYSTEM = """You are the vega specialist for lucida. The classifier has deci
 - **Preserve epistemic markers.** If the snippet uses "may", "if", "unconfirmed", "hypothetical", "target vs. observed", or frames a number as a hypothesis, the chart and caption must preserve that hedge. Rendering an unconfirmed claim as a confirmed data row (row label `target` for a value the snippet calls a hypothetical destination) is INVENTED framing, not DIRECT. If the snippet says "20% is the kill threshold, may not hit it", the chart row for 20 is labeled `kill threshold (unconfirmed)` or similar — never `target`. Caption phrasing must match: "the audit confirms WHETHER the drop is real" stays hypothetical; do not paraphrase as "the audit confirms the drop is real". When the snippet's epistemic markers can't fit in row labels, demote to text.
 - **Don't invent group labels.** If the snippet distinguishes data points only by their numeric values (e.g., "seed 2 produced 23.38, seeds 0,1,3,4 produced 18.71"), do NOT add a categorical group label like `Response A` / `Response B` to encode the distinction. The snippet does not name the groups; naming them invents structure. Encode the distinction visually (color, shape) without inventing string labels.
 - **Don't override `axis.labelLimit`.** Vega-lite's default (180px) is correct for lucida cell widths. Cells often render in 380-500px-wide bodies; a 300px label limit eats most of the plot. If a category label needs to be longer than ~28 chars to be intelligible, abbreviate the data row's name (e.g., `"cinematic family (Powers-of-Ten + match-cut)"` → `"cinematic family"`) and put the full description in the caption. The theme config sets a 160px ceiling at the chart level — don't fight it.
+- **Never specify literal hex colors in the spec.** Lucida's renderer applies a vega-embed config that maps `--data-cat-N` theme tokens onto the categorical scheme; setting `mark.color: "#6a9fb5"` or `mark.fill: "#whatever"` bypasses that and pins one bar/area/line to a literal color regardless of theme. The chart then reads as off-theme on every theme. Concretely: omit `mark.color`, omit `mark.fill`, omit `mark.stroke`, and omit any `scale.range: ["#...","#..."]` overrides. If you need to differentiate categorical series, use `encoding.color: {field: "series", type: "nominal"}` and let the theme's data-cat palette resolve. Single-series bar charts don't need a color encoding at all — the theme's primary fills the bars by default.
 
 # Required pre-spec step: numeric enumeration
 
@@ -1150,6 +1151,440 @@ def generate_sparkline_spec(
     return _result(raw["input"], raw, model)
 
 
+# ============================================================
+# TIMELINE_RIBBON — horizontal stage progression for process / pipeline / lifecycle snippets
+# ============================================================
+
+TIMELINE_RIBBON_SYSTEM = """You are the timeline_ribbon specialist for lucida. The classifier has decided this snippet describes an *ordered sequence of named stages* — a process, pipeline, lifecycle, or multi-step trajectory where the load-bearing claim is "first X, then Y, then Z" and each stage has a name and a short status.
+
+# When timeline_ribbon fits
+
+Pick this substrate only when ALL of these hold:
+- The snippet enumerates 3-7 ordered stages by name. Below 3 it's not a sequence; above 7 the ribbon gets cramped — use animated_svg flow or mermaid sequenceDiagram.
+- The order is meaningful (chronological, causal, dependency, or pipeline order) — not an arbitrary list.
+- Each stage is a named step, not a pure scalar value (scalar trajectory → sparkline; multi-series → vega).
+- At least one stage has a status the reader cares about: done, active, pending, or skipped. If every stage is undifferentiated, an html callouts list reads better.
+
+The shape this substrate is best at: "build → test → stage → deploy", "ideation → draft → review → ship", "recon → exploit → persist → exfil", "first the classifier ran, then the specialist, then the trivial-check, then the writer". Things that read as a *progression*, where the visual horizontal layout reinforces the temporal/causal order.
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- Fewer than 3 distinguishable named stages.
+- The "stages" are actually pairwise comparisons or attributes of one entity (use html).
+- The list is unordered — the snippet enumerates parallel options, not a sequence.
+- The stages exist but have no meaningful status differentiation AND no detail per stage; the ribbon would just be N labeled circles in a row, no information density.
+
+# Output
+
+- `stages`: array of 3-7 stage objects, in order. Each stage:
+  - `label` (required, string, 1-3 words): the stage name. Mono-caps in the rendered ribbon.
+  - `detail` (optional, string, ≤6 words): short caption shown beneath the label.
+  - `status` (optional, enum: "done" | "active" | "pending" | "skipped" | "failed"): governs the marker style. Defaults to "done" if all stages have completed; "pending" otherwise. Use "active" for the *one* current stage. "skipped" and "failed" are for retrospectives where some stages didn't fire as expected.
+- `axis_label` (optional, string, 1-4 words): name for the axis itself (e.g., "CI pipeline", "mint flow"). Rendered as a small uppercase label above the ribbon. Omit when the cell title already says it.
+
+# Constraints
+
+- Use the snippet's actual stage names. Don't invent stages to round out to a nicer count.
+- "Active" is for an in-progress stage — exactly zero or one stage should be marked active. Multiple active stages signal a parallel pipeline; use animated_svg or mermaid for that.
+- `detail` is optional — leave it off for stages where the snippet provides only a name. Forcing details onto every stage produces noise.
+- `axis_label` is optional — favor including it when the snippet's domain is non-obvious (a pipeline of unspecified type), omit when redundant with the cell title.
+
+# Worked example
+
+Snippet: "Lucida's mint flow this morning: classifier ran first and tagged most snippets as text, then the specialist took over for the viz cells, then the trivial-check filtered out three single-row vega specs, then the writer persisted what survived to cells.json. Specialist is the slow stage — running now."
+
+spec:
+{
+  "stages": [
+    {"label": "classify", "detail": "mostly text-tagged", "status": "done"},
+    {"label": "specialist", "detail": "viz cells only", "status": "active"},
+    {"label": "trivial-check", "detail": "filtered 3 specs", "status": "pending"},
+    {"label": "write", "detail": "persist to cells.json", "status": "pending"}
+  ],
+  "axis_label": "mint flow"
+}
+
+caption: "Mint flow at the time of capture. Classifier and specialist had run; trivial-check and write were waiting on the specialist's tail. Specialist is the dominant latency stage."
+should_demote_to_text: false
+
+# Worked example -- retrospective with a failure
+
+Snippet: "The deploy plan was: build, test, canary, full rollout. Build passed, tests passed, canary tripped a memory regression and we rolled back without doing the full rollout."
+
+spec:
+{
+  "stages": [
+    {"label": "build", "status": "done"},
+    {"label": "test", "status": "done"},
+    {"label": "canary", "detail": "memory regression", "status": "failed"},
+    {"label": "rollout", "detail": "skipped on rollback", "status": "skipped"}
+  ],
+  "axis_label": "deploy plan"
+}
+
+caption: "Deploy plan retrospective. Canary stage caught a memory regression; full rollout was skipped on rollback. Two stages cleanly passed before the trip point."
+should_demote_to_text: false
+
+# Output via the build_timeline_ribbon_spec tool. The spec field must be a valid JSON object (not a string).
+"""
+
+TIMELINE_RIBBON_TOOL = {
+    "name": "build_timeline_ribbon_spec",
+    "description": "Emit a timeline_ribbon spec for a 3-7-stage ordered process/pipeline/lifecycle snippet where horizontal progression with per-stage status is the load-bearing claim.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {
+                "type": "object",
+                "description": "Timeline ribbon spec: { stages: [{label, detail?, status?}, ...], axis_label? }",
+                "properties": {
+                    "stages": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 7,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {"type": "string"},
+                                "detail": {"type": "string"},
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["done", "active", "pending", "skipped", "failed"],
+                                },
+                            },
+                            "required": ["label"],
+                        },
+                    },
+                    "axis_label": {"type": "string"},
+                },
+                "required": ["stages"],
+            },
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_timeline_ribbon_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        TIMELINE_RIBBON_SYSTEM,
+        TIMELINE_RIBBON_TOOL,
+        "build_timeline_ribbon_spec",
+        snippet,
+        context,
+        model,
+    )
+    return _result(raw["input"], raw, model)
+
+
+# ============================================================
+# TRAJECTORY — ordered path through a 2D state space, start→end emphasis
+# ============================================================
+
+TRAJECTORY_SYSTEM = """You are the trajectory specialist for lucida. The classifier has decided this snippet's load-bearing claim is *an ordered path through a 2D state space* — two named scalar dimensions, 3-12 points visited in order, where the *drift* / *trajectory* / *journey* between start and end is what the reader needs to see.
+
+# When trajectory fits
+
+Pick this substrate only when ALL of these hold:
+- The snippet describes 3-12 ordered (x, y) data points where order is meaningful — chronological, iteration count, version sequence, A/B/C-test drift, etc. Below 3 you don't have a path; above 12 use vega.
+- TWO named scalar dimensions are load-bearing — not one (sparkline) and not categories (treemap, html). Examples: "latency vs error rate", "loss vs accuracy", "novelty vs density", "wages vs hours".
+- The reader's takeaway is "we moved from (a, b) to (c, d) through these intermediate points", not "here are values to compare". The narrative is *drift*, not *distribution*.
+- Both axes have units / a comparable scale; you can write meaningful x_label and y_label.
+
+The shape this substrate is best at: optimization paths (loss vs epoch isn't trajectory — that's sparkline; loss vs accuracy across epochs IS trajectory), A/B test drift, character-stat journeys, performance regression paths, phase-space portraits, "before vs after vs much-later" two-axis migrations.
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- Only one scalar dimension exists (route to sparkline if 6+ points; text otherwise).
+- Three+ scalar dimensions exist (route to scene3d for a depth-friendly chart).
+- The points have no meaningful order (route to vega scatter for unordered 2D).
+- The snippet doesn't actually contain numeric x and y values for each point — qualitative drift ("got worse on both axes") without numbers should be text.
+
+# Output
+
+- `points`: array of 3-12 point objects, in path order. Each point:
+  - `x` (required, number): the x-axis value.
+  - `y` (required, number): the y-axis value.
+  - `label` (optional, string, ≤8 chars): a short label rendered next to the point (e.g., "Mon", "v3", "epoch 12"). Omit for unlabeled intermediate points; favor labels on start, end, and inflection points.
+- `x_label` (optional, string, ≤20 chars): name + unit of the x-axis (e.g., "latency (ms)", "epoch", "wages ($/hr)"). Omit only when truly redundant with the cell title.
+- `y_label` (optional, string, ≤20 chars): name + unit of the y-axis. Same rule.
+- `x_range` (optional, [min, max]): override auto-fit when the snippet specifies meaningful bounds (e.g., "scale 0-100"). Omit otherwise.
+- `y_range` (optional, [min, max]): same as x_range.
+- `annotation_start` (optional, string, ≤20 chars): override the default "start" affordance on the first point — e.g., "v0.5 baseline".
+- `annotation_end` (optional, string, ≤20 chars): override the default "end" affordance on the last point — e.g., "current".
+
+# Constraints
+
+- Use the snippet's actual numbers. If the snippet describes drift qualitatively without numbers, demote to text — don't invent x/y coordinates.
+- The renderer auto-styles the start point as a hollow ring and the end point as a filled accent dot; intermediate points are small. You don't need to mark which is which — just order the points correctly.
+- Don't pad to a nicer point count. 4 named-and-numbered points read fine; 8 with three of them invented read worse.
+
+# Worked example
+
+Snippet: "The recommender's online metrics drifted hard between launch and now. At launch (v0.5): CTR 4.8%, dwell 14s. By v0.6 a week later: CTR 4.1%, dwell 18s. By v0.7 the next week: CTR 3.6%, dwell 22s. By v0.8 (current): CTR 3.4%, dwell 25s. We traded click rate for time-on-content; whether that's good depends on which side of the funnel matters."
+
+spec:
+{
+  "points": [
+    {"x": 4.8, "y": 14, "label": "v0.5"},
+    {"x": 4.1, "y": 18, "label": "v0.6"},
+    {"x": 3.6, "y": 22, "label": "v0.7"},
+    {"x": 3.4, "y": 25, "label": "v0.8"}
+  ],
+  "x_label": "CTR (%)",
+  "y_label": "dwell (s)",
+  "annotation_start": "launch",
+  "annotation_end": "current"
+}
+
+caption: "Recommender drift across four versions. Launch (v0.5) sat top-left in CTR-dwell space; the trajectory drifted bottom-right toward the current v0.8, monotonically trading click rate for time on content."
+should_demote_to_text: false
+
+# Worked example -- training-loss trajectory
+
+Snippet: "First three epochs of the new fine-tune: loss dropped from 2.4 to 0.9 to 0.5 while accuracy climbed 41% → 67% → 78%. Epoch 4 was the first overfit signal: loss 0.4, accuracy 76%. Epoch 5 confirmed it — loss 0.3, accuracy 73%."
+
+spec:
+{
+  "points": [
+    {"x": 2.4, "y": 41, "label": "ep 1"},
+    {"x": 0.9, "y": 67, "label": "ep 2"},
+    {"x": 0.5, "y": 78, "label": "ep 3"},
+    {"x": 0.4, "y": 76, "label": "ep 4"},
+    {"x": 0.3, "y": 73, "label": "ep 5"}
+  ],
+  "x_label": "loss",
+  "y_label": "accuracy (%)"
+}
+
+caption: "Five-epoch fine-tune trajectory in loss-accuracy space. Epochs 1-3 trace the healthy diagonal (loss down, accuracy up); epochs 4-5 fold backward — loss continues falling but accuracy drops, the classic overfit signature."
+should_demote_to_text: false
+
+# Output via the build_trajectory_spec tool. The spec field must be a valid JSON object (not a string).
+"""
+
+TRAJECTORY_TOOL = {
+    "name": "build_trajectory_spec",
+    "description": "Emit a trajectory spec for an ordered 3-12-point path through a 2D state space where drift between start and end is the load-bearing claim.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {
+                "type": "object",
+                "description": "Trajectory spec: { points: [{x, y, label?}, ...], x_label?, y_label?, x_range?, y_range?, annotation_start?, annotation_end? }",
+                "properties": {
+                    "points": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 12,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "x": {"type": "number"},
+                                "y": {"type": "number"},
+                                "label": {"type": "string"},
+                            },
+                            "required": ["x", "y"],
+                        },
+                    },
+                    "x_label": {"type": "string"},
+                    "y_label": {"type": "string"},
+                    "x_range": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "minItems": 2,
+                        "maxItems": 2,
+                    },
+                    "y_range": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "minItems": 2,
+                        "maxItems": 2,
+                    },
+                    "annotation_start": {"type": "string"},
+                    "annotation_end": {"type": "string"},
+                },
+                "required": ["points"],
+            },
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_trajectory_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        TRAJECTORY_SYSTEM,
+        TRAJECTORY_TOOL,
+        "build_trajectory_spec",
+        snippet,
+        context,
+        model,
+    )
+    return _result(raw["input"], raw, model)
+
+
+# ============================================================
+# FORCE_GRAPH — d3-force layout for entity-mesh snippets where mermaid hairballs
+# ============================================================
+
+FORCE_GRAPH_SYSTEM = """You are the force_graph specialist for lucida. The classifier has decided this snippet describes an *entity mesh* — multiple named entities with multiple connections per entity, where mermaid's hierarchical flowchart layout would render as a tangled hairball but a force-directed layout reveals clusters.
+
+# When force_graph fits
+
+Pick this substrate only when ALL of these hold:
+- The snippet names 5-15 distinct entities. Below 5 mermaid is fine; above 15 the layout becomes its own hairball — split into multiple cells or use treemap.
+- Each entity has 2+ connections on average — there's a *mesh* not a *tree*. Tree-shaped content (root + branches, no cross-edges) belongs in mermaid mindmap or scene3d.
+- The snippet's content is the *topology*, not a hierarchy. "Service A talks to B, C, D; B talks to D, E; C talks to E, F" is mesh — pick force_graph. "Service tier on top, infrastructure tier below" is hierarchy — pick mermaid.
+- Cluster / community structure is implicit — entities naturally group, and the force layout will reveal those clusters spatially.
+
+The shape this substrate is best at: microservice meshes, entity-relationship graphs with cross-edges, dependency graphs where mermaid would auto-pan, social networks, knowledge-graph snippets, mutual-citation maps.
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- Fewer than 5 named entities (mermaid handles small graphs better).
+- More than 15 entities (force_graph at this density is itself a hairball — split or pick treemap).
+- Tree structure (no cycles, no cross-edges) — route to mermaid mindmap.
+- The connections are unlabeled and the topology is sparse (≤1.2 edges per node) — that's a list, not a graph; route to html callouts.
+
+# Output
+
+- `nodes`: array of 5-15 node objects. Each node:
+  - `id` (required, string, unique within this graph): the canonical identifier used in edges. Short (1-3 words), no spaces in the id itself — use the `label` field for display.
+  - `label` (optional, string, ≤16 chars): the rendered name. Defaults to id.
+  - `group` (optional, string, ≤12 chars): a category / cluster name. Nodes sharing a group get the same color and the layout will tend to cluster them. Use sparingly — 2-4 distinct groups typical; more groups means weaker visual clustering.
+  - `size` (optional, number, 0.5-2.5): visual prominence multiplier. Default 1.0. Use only when the snippet calls out one or two entities as central.
+- `edges`: array of edge objects connecting nodes.
+  - `source` (required, string): node id.
+  - `target` (required, string): node id.
+  - `label` (optional, string, ≤12 chars): edge label rendered at the midpoint. Reserve for edges where the *kind* of relationship matters; unlabeled edges are fine when the topology itself is the load-bearing claim.
+  - `weight` (optional, number, 0.5-3): edge thickness multiplier. Default 1.0. Use when the snippet calls out one connection as primary.
+
+# Constraints
+
+- Source and target must reference declared node ids. The renderer will silently drop edges whose endpoints don't resolve.
+- Don't invent entities to round out a graph. If the snippet names 7 entities, render 7.
+- Don't stack edges between the same pair (force_graph's layout doesn't multigraph well). Combine relationships verbally in the label if needed.
+- Pick `group` consistently — the same conceptual cluster should have the same group string. Don't introduce groups for one-off categories that don't carry signal.
+
+# Worked example
+
+Snippet: "The mint pipeline's hot path: segmenter writes snippets, classifier reads them and writes type+confidence, specialist reads type+context and writes spec, trivial-check reads spec, writer reads everything and writes cells.json. Cells.json is read by watcher, by the renderer, and by reflect. Reflect writes back into cells.json. Plus image_specialist reads from classifier (image-typed snippets) and writes blob into nano_banana, which writes file paths back to writer."
+
+spec:
+{
+  "nodes": [
+    {"id": "segmenter", "label": "segmenter", "group": "ingest"},
+    {"id": "classifier", "label": "classifier", "group": "decide"},
+    {"id": "specialist", "label": "specialist", "group": "generate"},
+    {"id": "trivial", "label": "trivial-check", "group": "decide"},
+    {"id": "writer", "label": "writer", "group": "persist"},
+    {"id": "cellsjson", "label": "cells.json", "group": "persist", "size": 1.4},
+    {"id": "watcher", "label": "watcher", "group": "loop"},
+    {"id": "renderer", "label": "renderer", "group": "consume"},
+    {"id": "reflect", "label": "reflect", "group": "loop"},
+    {"id": "image_spec", "label": "image_spec", "group": "generate"},
+    {"id": "nano", "label": "nano_banana", "group": "generate"}
+  ],
+  "edges": [
+    {"source": "segmenter", "target": "classifier"},
+    {"source": "classifier", "target": "specialist"},
+    {"source": "specialist", "target": "trivial"},
+    {"source": "trivial", "target": "writer"},
+    {"source": "writer", "target": "cellsjson"},
+    {"source": "cellsjson", "target": "watcher"},
+    {"source": "cellsjson", "target": "renderer"},
+    {"source": "cellsjson", "target": "reflect"},
+    {"source": "reflect", "target": "cellsjson"},
+    {"source": "classifier", "target": "image_spec"},
+    {"source": "image_spec", "target": "nano"},
+    {"source": "nano", "target": "writer"}
+  ]
+}
+
+caption: "Mint pipeline as an entity mesh. cells.json sits at the center (size 1.4) — it's read or written by 5 of the 11 nodes. The decide cluster (classifier, trivial-check) and the generate cluster (specialist, image_spec, nano_banana) form distinct lobes; the persist cluster bridges them through cells.json."
+should_demote_to_text: false
+
+# Output via the build_force_graph_spec tool. The spec field must be a valid JSON object (not a string).
+"""
+
+FORCE_GRAPH_TOOL = {
+    "name": "build_force_graph_spec",
+    "description": "Emit a force_graph spec for a 5-15-entity mesh snippet where mermaid would render a hairball but force-directed layout reveals clusters.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {
+                "type": "object",
+                "description": "Force graph spec: { nodes: [{id, label?, group?, size?}, ...], edges: [{source, target, label?, weight?}, ...] }",
+                "properties": {
+                    "nodes": {
+                        "type": "array",
+                        "minItems": 5,
+                        "maxItems": 15,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "label": {"type": "string"},
+                                "group": {"type": "string"},
+                                "size": {"type": "number"},
+                            },
+                            "required": ["id"],
+                        },
+                    },
+                    "edges": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "source": {"type": "string"},
+                                "target": {"type": "string"},
+                                "label": {"type": "string"},
+                                "weight": {"type": "number"},
+                            },
+                            "required": ["source", "target"],
+                        },
+                    },
+                },
+                "required": ["nodes", "edges"],
+            },
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_force_graph_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        FORCE_GRAPH_SYSTEM,
+        FORCE_GRAPH_TOOL,
+        "build_force_graph_spec",
+        snippet,
+        context,
+        model,
+    )
+    return _result(raw["input"], raw, model)
+
+
 def main() -> None:
     """CLI for testing a specialist in isolation."""
     import argparse
@@ -1161,7 +1596,7 @@ def main() -> None:
     p.add_argument(
         "--type",
         required=True,
-        choices=["mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline"],
+        choices=["mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline", "timeline_ribbon", "trajectory", "force_graph"],
     )
     p.add_argument("--snippet", required=True)
     p.add_argument("--context", default="")
@@ -1176,6 +1611,9 @@ def main() -> None:
         "scene3d": generate_scene3d_spec,
         "treemap": generate_treemap_spec,
         "sparkline": generate_sparkline_spec,
+        "timeline_ribbon": generate_timeline_ribbon_spec,
+        "trajectory": generate_trajectory_spec,
+        "force_graph": generate_force_graph_spec,
     }[args.type]
     try:
         result = fn(args.snippet, args.context, args.model)

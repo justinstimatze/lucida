@@ -471,6 +471,12 @@ def is_trivial(cell_type: str, spec, html: str | None) -> str | None:
         return _trivial_mermaid(spec)
     if cell_type == "html":
         return _trivial_html(html)
+    if cell_type == "timeline_ribbon":
+        return _trivial_timeline_ribbon(spec)
+    if cell_type == "trajectory":
+        return _trivial_trajectory(spec)
+    if cell_type == "force_graph":
+        return _trivial_force_graph(spec)
     return None
 
 
@@ -480,6 +486,63 @@ def _trivial_vega(spec) -> str | None:
     values = spec.get("data", {}).get("values")
     if isinstance(values, list) and len(values) <= 1:
         return f"single data point ({len(values)} rows in data.values)"
+    return None
+
+
+def _trivial_timeline_ribbon(spec) -> str | None:
+    if not isinstance(spec, dict):
+        return None
+    stages = spec.get("stages")
+    if not isinstance(stages, list):
+        return "missing stages list"
+    if len(stages) < 3:
+        return f"too few stages ({len(stages)}) -- a 1-2 step sequence reads as prose"
+    return None
+
+
+def _trivial_trajectory(spec) -> str | None:
+    if not isinstance(spec, dict):
+        return None
+    points = spec.get("points")
+    if not isinstance(points, list):
+        return "missing points list"
+    if len(points) < 3:
+        return f"too few points ({len(points)}) -- a 1-2 point path reads as prose"
+    # Defense-in-depth: if every x or every y is identical, the trajectory
+    # collapses to a 1D series and a sparkline would render it more honestly.
+    xs = [p.get("x") for p in points if isinstance(p, dict)]
+    ys = [p.get("y") for p in points if isinstance(p, dict)]
+    if xs and len(set(xs)) <= 1:
+        return "x-axis is constant -- collapses to 1D, sparkline-shaped"
+    if ys and len(set(ys)) <= 1:
+        return "y-axis is constant -- collapses to 1D, sparkline-shaped"
+    return None
+
+
+def _trivial_force_graph(spec) -> str | None:
+    if not isinstance(spec, dict):
+        return None
+    nodes = spec.get("nodes")
+    edges = spec.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        return "missing nodes or edges"
+    if len(nodes) < 5:
+        return f"too few nodes ({len(nodes)}) -- mermaid handles small graphs better"
+    # Edge density: force_graph earns its keep when avg degree ≥ 1.5; below
+    # that the layout has nothing to settle into and a tree-shaped mermaid
+    # mindmap would render the same content more clearly.
+    if len(edges) < int(1.5 * len(nodes) / 2):
+        return f"too sparse ({len(edges)} edges for {len(nodes)} nodes) -- mermaid mindmap reads better"
+    # Validate that edges resolve to declared node ids; if too many dangle,
+    # the layout will be incoherent.
+    ids = {n.get("id") for n in nodes if isinstance(n, dict)}
+    dangling = sum(
+        1 for e in edges
+        if isinstance(e, dict)
+        and (e.get("source") not in ids or e.get("target") not in ids)
+    )
+    if dangling > 0 and dangling >= len(edges) // 2:
+        return f"{dangling}/{len(edges)} edges reference unknown node ids"
     return None
 
 
@@ -799,7 +862,7 @@ def append_proposal(
         llm_available
         and generate_image
         and chosen_type
-        in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline")
+        in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline", "timeline_ribbon", "trajectory", "force_graph")
         and os.environ.get("ANTHROPIC_API_KEY")
     ):
         try:
@@ -813,6 +876,9 @@ def append_proposal(
                 "scene3d": _specs.generate_scene3d_spec,
                 "treemap": _specs.generate_treemap_spec,
                 "sparkline": _specs.generate_sparkline_spec,
+                "timeline_ribbon": _specs.generate_timeline_ribbon_spec,
+                "trajectory": _specs.generate_trajectory_spec,
+                "force_graph": _specs.generate_force_graph_spec,
             }
             specialist_kwargs: dict = {}
             if chosen_type == "mermaid" and llm is not None:
@@ -1185,6 +1251,9 @@ def main() -> None:
             "scene3d",
             "treemap",
             "sparkline",
+            "timeline_ribbon",
+            "trajectory",
+            "force_graph",
         ],
         help="force a cell type; default = naive classifier",
     )

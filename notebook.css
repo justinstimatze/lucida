@@ -72,6 +72,14 @@
   --code-bg: #15151a;
   --cell-bg: #131318;
   --header-bg: #15151a;
+  /* Phase 1 chrome demote (2026-05-01): moves static titles/labels/
+     edges off --accent so it can be reserved for moments (new-mint
+     pulse, kill-state, focus, completion). Per theme override these
+     in the .theme-<name> block to stylize per `feedback_theme_specific_flair`. */
+  --title-color: var(--fg);
+  --label-muted: var(--muted);
+  --syntax-keyword: var(--accent);
+  --cell-edge: color-mix(in srgb, var(--accent) 30%, var(--line));
   /* glow + escalation tokens (lab-theme defaults; magi overrides for FUI feel) */
   --vis-amber-glow: rgba(102, 204, 255, 0.35);
   --glow-sm: 0 0 2px var(--vis-amber-glow);
@@ -181,9 +189,9 @@ main {
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--title-color);
   padding: 0.3rem 0.5rem;
-  border-bottom: 1px solid var(--accent);
+  border-bottom: 1px solid var(--cell-edge);
   margin-bottom: 0.25rem;
   text-shadow: 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent);
 }
@@ -361,15 +369,17 @@ main {
    template + hero full-width row + grid auto-fit so the JS-computed
    x/y/w/h take effect. Margins stripped because absolute positioning
    already handles spacing via the JS gap. */
-#notebook[data-layout="treemap"],
 #notebook[data-layout="organic"],
-#notebook[data-layout="scatter"] {
+#notebook[data-layout="scatter"],
+#notebook[data-layout="pack"] {
   display: block;
   grid-template-columns: none;
   perspective: none;
   transform-style: flat;
+  /* Pack mode needs position:relative for Muuri's absolute children. The
+     other JS-driven modes also rely on relative-positioned root. */
+  position: relative;
 }
-#notebook[data-layout="treemap"] > .cell,
 #notebook[data-layout="organic"] > .cell,
 #notebook[data-layout="scatter"] > .cell {
   /* Cancel the :first-child grid-column: 1 / -1 hero rule and any
@@ -377,7 +387,26 @@ main {
   grid-column: auto !important;
   margin: 0;
 }
-#notebook[data-layout="treemap"] > .cell:first-child,
+/* Pack (Muuri) mode: items are absolute-positioned by Muuri via
+   transform: translate3d(...). We don't set left/top — Muuri manages
+   them. We do cancel the hero-row span and the auto-mode max-height
+   so Muuri reads each cell at its natural size. */
+#notebook[data-layout="pack"] > .cell {
+  position: absolute;
+  margin: 0;
+  grid-column: auto !important;
+  max-height: none;
+  /* Stagger the entry: Muuri animates the layout transform, but the
+     initial position is (0, 0) which would stack every cell at the
+     top-left during the first paint. Hide until Muuri assigns a
+     transform so the user sees the settled layout, not the pile. */
+  visibility: visible;
+}
+#notebook[data-layout="pack"] > .cell:first-child {
+  max-height: none;
+  padding: clamp(0.7rem, 1vw, 1.1rem) clamp(0.85rem, 1.4vw, 1.3rem);
+  font-size: 0.95rem;
+}
 #notebook[data-layout="organic"] > .cell:first-child,
 #notebook[data-layout="scatter"] > .cell:first-child {
   max-height: none;
@@ -389,7 +418,7 @@ main {
    stack. The newest (top z-index) gets the strongest shadow. */
 #notebook[data-layout="scatter"] > .cell {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border: 1px solid var(--cell-edge);
 }
 #notebook[data-layout="scatter"] > .cell:first-child {
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6),
@@ -465,6 +494,23 @@ main {
       0 0 22px rgba(255, 140, 0, 0.45),
       0 0 42px rgba(255, 140, 0, 0.18);
   }
+}
+/* Phase 1 ambient breath (2026-05-01). Non-hero non-reflection cells
+   get a very subtle filter:brightness pulse so the dashboard never
+   feels frozen — the workshop-monitor "always-running ambient motion"
+   pattern. Excludes :first-child (hero has hero-live-breath),
+   .cell-reflection (gets its own promotion), .cell-fresh (entrance
+   owns the slot until the class strips), and substrates that already
+   self-animate (animated_svg, scene3d). minimal stays flat. */
+@keyframes cell-ambient-breath {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.04); }
+}
+.cell:not(:first-child):not(.cell-reflection):not(.cell-fresh):not([data-cell-type="scene3d"]):not([data-cell-type="animated_svg"]) {
+  animation: cell-ambient-breath 9s ease-in-out infinite;
+}
+[data-theme="minimal"] .cell:not(:first-child):not(.cell-reflection):not(.cell-fresh):not([data-cell-type="scene3d"]):not([data-cell-type="animated_svg"]) {
+  animation: none;
 }
 /* All non-hero, non-reflection cells flow into the ambient grid.
    Hero + 2-row ambient grid → 3-5 cells visible at once depending
@@ -571,11 +617,56 @@ main {
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
 }
+/* Edge telemetry: confidence is a tiny bar + numeric chip, not just a
+   number. Per Task #68 MVP — the bar makes confidence distribution
+   scannable at a glance across a column of cells. Bar uses --label-muted
+   for the track and --accent for the fill; low-confidence (<0.6) fills
+   are desaturated to --muted so the eye picks them out as outliers. */
 .cell-conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.7rem;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   color: var(--accent);
   opacity: 0.75;
+}
+.cell-conf-bar {
+  display: inline-block;
+  width: 28px;
+  height: 4px;
+  background: var(--label-muted, var(--muted));
+  border-radius: 1px;
+  overflow: hidden;
+  opacity: 0.45;
+}
+.cell-conf-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+}
+.cell-conf-bar-fill.cell-conf-bar-low {
+  background: var(--muted);
+}
+.cell-conf-num {
+  font-variant-numeric: tabular-nums;
+}
+/* Edge telemetry: retrigger pip — selectively visible (only when
+   retrigger_count > 0). Per Task #68 MVP. The arrow glyph (↻) plus
+   count communicates "this snippet was reclassified N times" without
+   needing a label. Tinted --vis-warn since retries are usually
+   classifier-confidence borderline cases. */
+.cell-retrigger {
+  font-size: 0.65rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--vis-warn, var(--accent));
+  letter-spacing: 0.06em;
+  padding: 0 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  opacity: 0.75;
+  white-space: nowrap;
 }
 .cell-session {
   font-size: 0.65rem;
@@ -622,6 +713,9 @@ main {
 .cell-id[data-cell-type="treemap"]      { border-left: 2px solid var(--data-cat-5, var(--accent)); }
 .cell-id[data-cell-type="code"]         { border-left: 2px solid var(--data-cat-2, var(--accent)); }
 .cell-id[data-cell-type="sparkline"]    { border-left: 2px solid var(--data-cat-2, var(--accent)); }
+.cell-id[data-cell-type="timeline_ribbon"] { border-left: 2px solid var(--data-cat-3, var(--accent)); }
+.cell-id[data-cell-type="trajectory"]   { border-left: 2px solid var(--data-cat-2, var(--accent)); }
+.cell-id[data-cell-type="force_graph"]  { border-left: 2px solid var(--data-cat-0, var(--accent)); }
 .cell-id[data-cell-type="ascii"]        { border-left: 2px solid var(--data-cat-1, var(--accent)); }
 .cell-id[data-cell-type="text"]         { border-left: 2px solid var(--muted); }
 .cell-id[data-cell-type="image"]        { border-left: 2px solid var(--accent-danger, var(--accent)); }
@@ -796,7 +890,7 @@ main {
   color: var(--fg);
   background: var(--code-bg);
   border: 1px solid var(--line);
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--cell-edge);
   border-radius: 3px;
   padding: 0.45rem 0.6rem;
   margin: 0;
@@ -811,7 +905,7 @@ main {
 .code-pre .token.cdata { color: var(--muted); font-style: italic; }
 .code-pre .token.keyword,
 .code-pre .token.boolean,
-.code-pre .token.tag { color: var(--accent); font-weight: 600; }
+.code-pre .token.tag { color: var(--syntax-keyword); font-weight: 600; }
 .code-pre .token.string,
 .code-pre .token.regex,
 .code-pre .token.attr-value { color: var(--vis-ok, #4ade80); }
@@ -820,11 +914,11 @@ main {
 .code-pre .token.symbol { color: var(--vis-warn, #fbbf24); }
 .code-pre .token.function,
 .code-pre .token.class-name,
-.code-pre .token.builtin { color: var(--accent); }
+.code-pre .token.builtin { color: var(--syntax-keyword); }
 .code-pre .token.operator,
 .code-pre .token.punctuation { color: var(--muted); }
 .code-pre .token.property,
-.code-pre .token.attr-name { color: var(--accent); }
+.code-pre .token.attr-name { color: var(--syntax-keyword); }
 .code-pre .token.deleted { color: var(--accent-danger, #f87171); }
 .code-pre .token.inserted { color: var(--vis-ok, #4ade80); }
 
@@ -836,6 +930,57 @@ main {
   overflow: visible;
 }
 .sparkline-target svg { display: block; }
+
+/* Timeline ribbon substrate: horizontal stage progression. Pure SVG, no
+   chrome — width is driven by the inline width attribute set by the
+   renderer. Active-stage SMIL pulses use --accent so they follow the
+   theme. The target is otherwise margin-only; per-status colors flow
+   from theme tokens (--accent, --muted, --vis-ok, --vis-tripped). */
+.timeline-ribbon-target {
+  display: block;
+  margin: 0.35rem 0;
+  overflow: visible;
+}
+.timeline-ribbon-target svg { display: block; }
+.timeline-ribbon-target.timeline-ribbon-error {
+  color: var(--vis-tripped, var(--accent));
+  font-family: var(--type-mono, monospace);
+  font-size: 0.78rem;
+  padding: 0.5rem 0;
+}
+
+/* Trajectory substrate: 2D state-space path with start ring, end accent
+   dot, direction arrow, and median crosshair. Pure SVG; per-instance
+   width comes from the inline width attribute (default 400). All colors
+   flow from theme tokens. */
+.trajectory-target {
+  display: block;
+  margin: 0.35rem 0;
+  overflow: visible;
+}
+.trajectory-target svg { display: block; }
+.trajectory-target.trajectory-error {
+  color: var(--vis-tripped, var(--accent));
+  font-family: var(--type-mono, monospace);
+  font-size: 0.78rem;
+  padding: 0.5rem 0;
+}
+
+/* force_graph substrate: d3-force entity mesh. Pure SVG; per-instance
+   width comes from the inline width attribute (default 420). Group
+   colors flow through --data-cat-N tokens, theming follows. */
+.force-graph-target {
+  display: block;
+  margin: 0.35rem 0;
+  overflow: visible;
+}
+.force-graph-target svg { display: block; }
+.force-graph-target.force-graph-error {
+  color: var(--vis-tripped, var(--accent));
+  font-family: var(--type-mono, monospace);
+  font-size: 0.78rem;
+  padding: 0.5rem 0;
+}
 
 /* ASCII substrate: terminal-aesthetic monospace block. Shares the code-bg
    chrome (panel + accent rail) but renders text in --accent tone so the
@@ -856,7 +1001,7 @@ main {
   color: var(--accent);
   background: var(--code-bg);
   border: 1px solid var(--line);
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--cell-edge);
   border-radius: 3px;
   padding: 0.55rem 0.75rem;
   margin: 0;
@@ -942,9 +1087,9 @@ main {
 }
 .cell-id-link {
   font-family: ui-monospace, SF Mono, Menlo, monospace;
-  color: var(--accent);
+  color: var(--label-muted);
   text-decoration: none;
-  border-bottom: 1px dotted var(--accent);
+  border-bottom: 1px dotted var(--cell-edge);
 }
 .cell-id-link:hover {
   text-decoration: none;
