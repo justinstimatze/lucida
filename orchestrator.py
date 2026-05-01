@@ -916,6 +916,28 @@ def append_proposal(
                     non_image_spec = spec_result.spec
                 non_image_caption = spec_result.caption
                 classifier_label += f" [{chosen_type}-specialist:{spec_cache_info}]"
+
+                # Mermaid lint + auto-fix gate. Bad specs used to land in
+                # cells.json and the renderer hid them at parse time;
+                # now the orchestrator runs mermaid.parse via node
+                # subprocess, and on failure asks Claude to repair the
+                # spec (one retry). Persistent failure → suppress.
+                # Per user 2026-05-01: "lint and fix things like mermaid".
+                if chosen_type == "mermaid" and isinstance(non_image_spec, str):
+                    ok, err = _specs.lint_mermaid_spec(non_image_spec)
+                    if not ok:
+                        fixed, summary, aborted = _specs.fix_mermaid_spec(non_image_spec, err)
+                        if aborted:
+                            raise SuppressedMintError(
+                                f"mermaid lint failed and fixer aborted: {err}; {summary}"
+                            )
+                        ok2, err2 = _specs.lint_mermaid_spec(fixed)
+                        if not ok2:
+                            raise SuppressedMintError(
+                                f"mermaid spec still invalid after fix: {err2} (was: {err})"
+                            )
+                        non_image_spec = fixed
+                        classifier_label += f" [mermaid-fixer:{summary[:60]}]"
         except SuppressedMintError:
             raise  # propagate out — watcher counts as suppressed, not error
         except Exception as e:

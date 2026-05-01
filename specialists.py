@@ -410,6 +410,149 @@ def generate_mermaid_spec(
 
 
 # ============================================================
+# MERMAID LINT + AUTO-FIX
+# ============================================================
+# Bad mermaid specs used to land in cells.json and the renderer
+# would hide them. Now: validate via node subprocess (mermaid.parse
+# is the source of truth), and on failure call Claude with the bad
+# spec + error message to repair it. One retry after fix; if still
+# invalid, the orchestrator suppresses the cell.
+
+import subprocess as _subprocess
+from pathlib import Path as _Path
+
+
+def lint_mermaid_spec(spec: str, timeout: float = 10.0) -> tuple[bool, str]:
+    """Validate a mermaid spec via the local node validator.
+
+    Returns (ok, error_msg). error_msg is empty when ok=True.
+    Runs validate_mermaid.mjs in the lucida project root with the
+    spec piped on stdin. Exit 0 = valid; non-zero = error message
+    on stderr.
+    """
+    if not spec or not spec.strip():
+        return False, "empty spec"
+    project_root = _Path(__file__).parent.resolve()
+    validator = project_root / "validate_mermaid.mjs"
+    if not validator.exists():
+        return True, ""  # no validator installed → assume ok (skip lint)
+    try:
+        result = _subprocess.run(
+            ["node", str(validator)],
+            input=spec,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(project_root),
+        )
+    except (_subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        return True, ""  # node missing / hang → skip lint, keep spec as-is
+    if result.returncode == 0:
+        return True, ""
+    err = (result.stderr or result.stdout or "unknown mermaid error").strip()
+    return False, err.splitlines()[0] if err else "unknown mermaid error"
+
+
+MERMAID_FIX_SYSTEM = """You are the mermaid syntax repair specialist for lucida.
+
+You receive a mermaid spec that FAILED to parse, plus the parser's first-line error message. Your job: return a syntactically valid mermaid spec that preserves the original's STRUCTURE and MEANING as closely as possible.
+
+# Constraints
+
+- Output VALID mermaid v10 syntax. The spec must parse cleanly with `mermaid.parse()`.
+- Preserve the diagram's intent — keep the same nodes, edges, labels, sequence/state structure as the original wherever possible.
+- Common failure patterns to fix:
+  - Literal `\\n` inside node labels (use `<br/>` or split into separate nodes)
+  - Unquoted node labels containing parentheses, brackets, or special chars (wrap label in `"..."`)
+  - Mismatched `[]`, `()`, or `{}` around node shapes
+  - `stateDiagram-v2` issues: trailing `|` lines, empty transitions, missing target states
+  - `sequenceDiagram` issues: undeclared participants, malformed activate/deactivate
+  - `timeline` issues: missing `:` separators between event and label
+  - `mindmap` issues: inconsistent indentation, missing root
+  - Reserved word collisions (e.g., `end` as a node ID)
+- If the spec is so broken that you cannot recover its meaning, set `should_abort=true` with a one-line reason and return the original spec unchanged in `fixed_spec` — the orchestrator will suppress.
+- Do NOT invent new nodes or edges to "improve" the diagram. Repair only.
+
+Return the fixed spec via the `fix_mermaid_spec` tool."""
+
+
+MERMAID_FIX_TOOL = {
+    "name": "fix_mermaid_spec",
+    "description": "Repair an invalid mermaid spec, preserving structure and meaning.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "fixed_spec": {
+                "type": "string",
+                "description": "The repaired mermaid spec, ready to pass to mermaid.parse(). If repair is impossible, return the original spec verbatim and set should_abort=true.",
+            },
+            "fix_summary": {
+                "type": "string",
+                "description": "One short sentence describing what was changed (e.g., 'wrapped node labels containing parens in quotes').",
+            },
+            "should_abort": {
+                "type": "boolean",
+                "description": "True if the spec is too broken to recover meaningfully — orchestrator will suppress the cell.",
+                "default": False,
+            },
+        },
+        "required": ["fixed_spec", "fix_summary"],
+    },
+}
+
+
+def fix_mermaid_spec(
+    bad_spec: str,
+    error_msg: str,
+    model: str = DEFAULT_MODEL,
+) -> tuple[str, str, bool]:
+    """Repair an invalid mermaid spec via Claude.
+
+    Returns (fixed_spec, summary, aborted). When aborted=True, the
+    fixer judged the spec unrecoverable; caller should suppress.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return bad_spec, "no API key — fix skipped", True
+    try:
+        import anthropic
+    except ImportError:
+        return bad_spec, "anthropic SDK missing — fix skipped", True
+    client = anthropic.Anthropic(api_key=api_key)
+    user_msg = (
+        f"Mermaid parser error:\n{error_msg}\n\n"
+        f"Failed spec:\n```\n{bad_spec}\n```\n\n"
+        f"Return a fixed spec that parses cleanly."
+    )
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=2048,
+            system=[
+                {
+                    "type": "text",
+                    "text": MERMAID_FIX_SYSTEM,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            tools=[MERMAID_FIX_TOOL],
+            tool_choice={"type": "tool", "name": "fix_mermaid_spec"},
+            messages=[{"role": "user", "content": user_msg}],
+        )
+    except Exception as e:
+        return bad_spec, f"fixer API call failed: {e}", True
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "fix_mermaid_spec":
+            payload = block.input
+            return (
+                payload.get("fixed_spec", bad_spec),
+                payload.get("fix_summary", ""),
+                bool(payload.get("should_abort", False)),
+            )
+    return bad_spec, "fixer returned no tool call", True
+
+
+# ============================================================
 # VEGA
 # ============================================================
 

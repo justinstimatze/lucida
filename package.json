@@ -1,0 +1,14 @@
+{
+  "name": "lucida-mermaid-lint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "node deps for validate_mermaid.mjs — mermaid lint+fix gate invoked by orchestrator.py before persisting mermaid cells",
+  "type": "commonjs",
+  "scripts": {
+    "validate": "node validate_mermaid.mjs"
+  },
+  "dependencies": {
+    "jsdom": "^29.1.1",
+    "mermaid": "^10.9.5"
+  }
+}

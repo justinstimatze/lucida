@@ -48,3 +48,8 @@ research/
 # memory dir leaked from auto-memory hook — actual store lives under
 # ~/.claude/projects/.../memory/, not in the project repo.
 memory/
+
+# node deps for mermaid lint+fix (validate_mermaid.mjs). package.json
+# is committed; node_modules + lock are regenerable via npm install.
+node_modules/
+package-lock.json
