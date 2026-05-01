@@ -4302,26 +4302,76 @@ body {
 .cell.cell-transient-motion-edge[data-transient-edge="bottom"].cell-transient-leave { animation: transient-leave-bottom 360ms cubic-bezier(0.7, 0.0, 0.9, 0.2) both; }
 
 /* Conclave (magi/NERV terminal): hex register dump, BIOS-style scroll.
-   Mono, glowing, monochrome verdigris on near-black. */
+   Mono, glowing, NERV amber (#ff8c00) on near-black so it reads as a
+   classic Evangelion / MAGI terminal rather than seafoam lab.
+   Fills the cell-body edge-to-edge — the storm IS the content. */
 .transient-conclave {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-around;
   height: 100%;
-  padding: 0.4rem 0.6rem;
+  padding: 0.5rem 0.65rem;
   font-family: var(--font-mono, "Courier New", monospace);
-  font-size: 0.7rem;
-  background: #050a0a;
-  color: #9adfd0;
-  text-shadow: 0 0 4px color-mix(in srgb, #9adfd0 50%, transparent);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background:
+    radial-gradient(ellipse at center, #1a0a00 0%, #050200 100%);
+  color: #ff8c00;
+  text-shadow:
+    0 0 4px color-mix(in srgb, #ff8c00 65%, transparent),
+    0 0 10px color-mix(in srgb, #ff8c00 25%, transparent);
+  /* Scanlines — classic NERV CRT vibe. */
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    color-mix(in srgb, #ff8c00 4%, transparent) 2px,
+    color-mix(in srgb, #ff8c00 4%, transparent) 3px
+  );
+  position: relative;
+  overflow: hidden;
 }
-.transient-conclave-row { display: flex; gap: 0.4rem; line-height: 1.25; }
+/* Subtle horizontal sweep — implies a refresh cycle running. */
+.transient-conclave::after {
+  content: "";
+  position: absolute;
+  inset: -10% 0 auto 0;
+  height: 12%;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, #ff8c00 10%, transparent) 50%,
+    transparent 100%
+  );
+  animation: transient-conclave-sweep 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes transient-conclave-sweep {
+  from { transform: translateY(0); }
+  to   { transform: translateY(900%); }
+}
+.transient-conclave-row {
+  display: flex;
+  gap: 0.5rem;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+}
 .transient-conclave-reg {
-  color: color-mix(in srgb, #9adfd0 60%, transparent);
-  letter-spacing: 0.05em;
+  color: color-mix(in srgb, #ff8c00 55%, transparent);
+  font-weight: 500;
 }
-.transient-conclave-val { font-variant-numeric: tabular-nums; }
-.theme-conclave .cell.cell-transient .cell-transient-tag { color: #5a8e85; }
+.transient-conclave-sep {
+  color: color-mix(in srgb, #ff8c00 40%, transparent);
+}
+.transient-conclave-val {
+  font-variant-numeric: tabular-nums;
+  flex: 1;
+}
+.theme-conclave .cell.cell-transient .cell-transient-tag {
+  color: color-mix(in srgb, #ff8c00 70%, transparent);
+}
 
 /* Gastown: brass schematic — pipes / steam bubbles / pressure gauge. */
 .transient-gastown {

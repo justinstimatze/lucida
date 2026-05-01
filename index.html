@@ -4284,11 +4284,13 @@ function _transientThemeName() {
 
 function _transientGlyphPalette(theme) {
   // Mostly hex/ascii — themes that want richer content build their own
-  // body. Fallback path for the unthemed cell uses this.
+  // body. Fallback path for the unthemed cell uses this. Theme accents
+  // match the live tokens.json palettes (conclave is NERV amber, not
+  // seafoam) so the storm reads as theme-coherent.
   const HEX = "0123456789ABCDEF";
   const ASCII = "▓▒░│┤├┐└┘─┬┴┼╳▢▣◇◆▪▫•·";
   switch (theme) {
-    case "conclave": return { chars: HEX + ":xX", color: "#9adfd0" };
+    case "conclave": return { chars: HEX + ":xX", color: "#ff8c00" };
     case "lab":     return { chars: HEX + ".·-", color: "#76d2c8" };
     case "gastown": return { chars: HEX + "PSI", color: "#c4a772" };
     default: return { chars: HEX + ASCII, color: "currentColor" };
@@ -4311,17 +4313,21 @@ function _transientGlyphStream(rows, cols, palette) {
 }
 
 function _buildTransientConclave(body) {
-  // Hex register dump — six rows of "Rxx: 0xNNNNNNNN" with the values
-  // re-rolling on a CSS-driven timer. Reads as BIOS / NERV terminal.
+  // NERV BIOS hex register dump. 8 rows, more digits per value, fills
+  // the entire cell-body. Values re-roll every ~90ms (~11fps — visibly
+  // mutating without strobing). Two-tone register names for visual
+  // variety: half are MAGI nodes (MEL/BAL/CSP), half are address
+  // labels (ADR/REG/IRQ/PIO).
   const wrap = el("div", "transient-conclave");
-  for (let i = 0; i < 6; i++) {
+  const labels = ["MEL", "BAL", "CSP", "ADR", "REG", "IRQ", "PIO", "BUS"];
+  for (let i = 0; i < labels.length; i++) {
     const row = el("div", "transient-conclave-row");
-    const reg = el("span", "transient-conclave-reg", "R" + String(i).padStart(2, "0"));
+    const reg = el("span", "transient-conclave-reg", labels[i]);
     const sep = el("span", "transient-conclave-sep", ":");
     const val = el("span", "transient-conclave-val");
+    // 8-digit hex matches the cell width better than 4-digit.
     val.textContent = "0x" + Math.floor(Math.random() * 0xFFFFFFFF)
       .toString(16).toUpperCase().padStart(8, "0");
-    val.dataset.flickerOffset = String(i * 37);
     row.appendChild(reg); row.appendChild(sep); row.appendChild(val);
     wrap.appendChild(row);
   }
@@ -4334,7 +4340,7 @@ function _buildTransientConclave(body) {
       v.textContent = "0x" + Math.floor(Math.random() * 0xFFFFFFFF)
         .toString(16).toUpperCase().padStart(8, "0");
     }
-  }, 110);
+  }, 90);
 }
 
 function _buildTransientGastown(body) {
