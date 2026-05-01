@@ -5341,37 +5341,22 @@ function attachMintScrubber(cellNode) {
   // Don't double-attach (defensive — a cell shouldn't re-enter cell-fresh).
   if (body.querySelector(".mint-scrubber")) return;
   const theme = _transientThemeName();
-  const palette = _transientGlyphPalette(theme);
   const overlay = el("div", "mint-scrubber");
-  overlay.style.color = palette.color;
-  // Generate enough glyphs to fill the body — overflow:hidden in CSS
-  // clips anything past the box. 8 rows × 32 cols is comfortably more
-  // than any cell body we render.
-  const ROWS = 8, COLS = 32;
-  function fill() {
-    const lines = [];
-    for (let r = 0; r < ROWS; r++) {
-      let s = "";
-      for (let c = 0; c < COLS; c++) {
-        s += palette.chars[(Math.random() * palette.chars.length) | 0];
-      }
-      lines.push(s);
-    }
-    overlay.textContent = lines.join("\n");
-  }
-  fill();
+  // Theme-coherent body: re-use the same transient body builder so each
+  // cell is born out of the same theme-specific texture that ambient
+  // transient cells use. The overlay tears down after ~700ms, so any
+  // setInterval/setTimeout that gates on overlay.isConnected
+  // self-terminates. Themes whose builders use heavyweight state
+  // (mainframe punchcards, terminus boot sequence) still mount fine —
+  // their 240-720ms cycle barely fires before tear-down, which reads
+  // as a flash rather than a full body.
+  _buildTransientBody(overlay, theme);
   body.appendChild(overlay);
-  // Rapid re-roll for the duration of the storm. 70ms ≈ 14 fps —
-  // visibly mutating but not strobing.
-  const ivl = setInterval(() => {
-    if (!overlay.isConnected) { clearInterval(ivl); return; }
-    fill();
-  }, 70);
-  // Tear-down: fade-out class for 250ms, then remove.
+  // Tear-down: fade-out class for 280ms, then remove. The transient
+  // body's own intervals self-clear when overlay.isConnected goes false.
   setTimeout(() => {
     overlay.classList.add("mint-scrubber-leave");
     setTimeout(() => {
-      clearInterval(ivl);
       overlay.remove();
     }, 280);
   }, 700);
