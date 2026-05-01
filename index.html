@@ -4344,84 +4344,220 @@ function _buildTransientConclave(body) {
 }
 
 function _buildTransientGastown(body) {
-  // Steam-pipe schematic — three vertical pipes with travelling steam
-  // bubbles + a pressure gauge needle that flicks within a band. SVG
-  // so the line work matches the gastown brass register.
+  // Steampunk schematic. Three brass pipes with rising bubbles, steam
+  // puffs vented from the tops, a pressure gauge with twitching
+  // needle, and a flickering PSI readout. SVG-native so the line
+  // work matches the gastown brass register.
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 100 100");
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.classList.add("transient-gastown");
-  const pipes = [20, 50, 80];
+
+  // Pipes — slightly thicker outer + thin inner highlight for brass
+  // shine; cap fittings (small horizontal collars) at top + bottom.
+  const pipes = [22, 50, 78];
   for (const x of pipes) {
     const pipe = document.createElementNS(ns, "line");
     pipe.setAttribute("x1", x); pipe.setAttribute("x2", x);
-    pipe.setAttribute("y1", "10"); pipe.setAttribute("y2", "90");
+    pipe.setAttribute("y1", "20"); pipe.setAttribute("y2", "92");
     pipe.setAttribute("class", "transient-gastown-pipe");
     svg.appendChild(pipe);
-    for (let b = 0; b < 4; b++) {
+    const shine = document.createElementNS(ns, "line");
+    shine.setAttribute("x1", x - 1); shine.setAttribute("x2", x - 1);
+    shine.setAttribute("y1", "20"); shine.setAttribute("y2", "92");
+    shine.setAttribute("class", "transient-gastown-pipe-shine");
+    svg.appendChild(shine);
+    // Cap fittings at top + bottom of each pipe.
+    for (const y of [20, 92]) {
+      const cap = document.createElementNS(ns, "rect");
+      cap.setAttribute("x", x - 4); cap.setAttribute("y", y - 1.5);
+      cap.setAttribute("width", "8"); cap.setAttribute("height", "3");
+      cap.setAttribute("class", "transient-gastown-cap");
+      svg.appendChild(cap);
+    }
+    // Rising bubbles inside the pipe — bigger size variance, varied
+    // animation timing so the column reads as a fluid not a metronome.
+    for (let b = 0; b < 5; b++) {
       const bub = document.createElementNS(ns, "circle");
       bub.setAttribute("cx", x);
       bub.setAttribute("cy", 90);
-      bub.setAttribute("r", 2 + Math.random() * 2);
+      bub.setAttribute("r", (1.2 + Math.random() * 2.4).toFixed(2));
       bub.setAttribute("class", "transient-gastown-bubble");
-      bub.style.animationDelay = (Math.random() * 1.6).toFixed(2) + "s";
-      bub.style.animationDuration = (1.2 + Math.random() * 1.4).toFixed(2) + "s";
+      bub.style.animationDelay = (Math.random() * 1.8).toFixed(2) + "s";
+      bub.style.animationDuration = (1.0 + Math.random() * 1.6).toFixed(2) + "s";
       svg.appendChild(bub);
     }
+    // Steam puff vented from the top of each pipe — single ellipse
+    // that grows + fades up. Phased per-pipe.
+    const puff = document.createElementNS(ns, "ellipse");
+    puff.setAttribute("cx", x); puff.setAttribute("cy", 14);
+    puff.setAttribute("rx", "5"); puff.setAttribute("ry", "3");
+    puff.setAttribute("class", "transient-gastown-puff");
+    puff.style.animationDelay = (pipes.indexOf(x) * 0.6).toFixed(2) + "s";
+    svg.appendChild(puff);
   }
+
   // Pressure gauge in the corner — small dial with twitching needle.
   const gauge = document.createElementNS(ns, "g");
   gauge.setAttribute("transform", "translate(85, 18)");
   const rim = document.createElementNS(ns, "circle");
   rim.setAttribute("r", "10"); rim.setAttribute("class", "transient-gastown-rim");
   gauge.appendChild(rim);
+  // Tick marks on the rim.
+  for (let i = 0; i < 5; i++) {
+    const a = (-110 + i * 55) * Math.PI / 180;
+    const tick = document.createElementNS(ns, "line");
+    tick.setAttribute("x1", (Math.cos(a) * 8.5).toFixed(2));
+    tick.setAttribute("y1", (Math.sin(a) * 8.5).toFixed(2));
+    tick.setAttribute("x2", (Math.cos(a) * 7).toFixed(2));
+    tick.setAttribute("y2", (Math.sin(a) * 7).toFixed(2));
+    tick.setAttribute("class", "transient-gastown-tick");
+    gauge.appendChild(tick);
+  }
   const needle = document.createElementNS(ns, "line");
   needle.setAttribute("x1", "0"); needle.setAttribute("y1", "0");
   needle.setAttribute("x2", "0"); needle.setAttribute("y2", "-8");
   needle.setAttribute("class", "transient-gastown-needle");
   gauge.appendChild(needle);
   svg.appendChild(gauge);
+
+  // PSI readout below the gauge.
+  const psiLabel = document.createElementNS(ns, "text");
+  psiLabel.setAttribute("x", "85"); psiLabel.setAttribute("y", "36");
+  psiLabel.setAttribute("text-anchor", "middle");
+  psiLabel.setAttribute("class", "transient-gastown-psi-label");
+  psiLabel.textContent = "PSI";
+  svg.appendChild(psiLabel);
+  const psiVal = document.createElementNS(ns, "text");
+  psiVal.setAttribute("x", "85"); psiVal.setAttribute("y", "44");
+  psiVal.setAttribute("text-anchor", "middle");
+  psiVal.setAttribute("class", "transient-gastown-psi-val");
+  psiVal.textContent = "117";
+  svg.appendChild(psiVal);
+
   body.appendChild(svg);
-  // Twitch the needle on a timer (CSS @keyframes with fixed angles
-  // looked too rhythmic; randomized targets read more "live").
+
+  // Twitch the needle + PSI readout on a timer. Randomized targets
+  // read more "live" than @keyframes with fixed angles.
   const ivl = setInterval(() => {
     if (!body.isConnected) { clearInterval(ivl); return; }
     const ang = -45 + Math.random() * 90;
     needle.setAttribute("transform", "rotate(" + ang.toFixed(1) + ")");
+    // Map needle angle to PSI 60-180 range for a coherent readout.
+    const psi = Math.round(60 + ((ang + 45) / 90) * 120);
+    psiVal.textContent = String(psi);
   }, 220);
 }
 
 function _buildTransientLab(body) {
-  // ECG-style waveform that scrolls right-to-left with random spikes.
-  // Path is regenerated every ~140ms so the trace has visible noise.
-  // Tear-down: when the SVG itself is no longer in the document
-  // (transient cell removed), the timer self-terminates. We can't gate
-  // on body.isConnected at startup because the cell hasn't been
-  // appended to the dashboard yet when this runs.
+  // Medical monitor: ECG paper grid, two scrolling traces (ECG green,
+  // SPO2 cyan with offset baseline), and a flickering BPM/SPO2
+  // readout panel. Traces share a step() loop that regenerates the
+  // path d-attr every 140ms with noise plus periodic QRS-like spikes
+  // for ECG and slower notch dips for SPO2.
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 200 60");
   svg.setAttribute("preserveAspectRatio", "none");
   svg.classList.add("transient-lab");
-  const path = document.createElementNS(ns, "path");
-  path.setAttribute("class", "transient-lab-trace");
-  svg.appendChild(path);
+
+  // Paper grid background — fine 5px gridlines + thicker 25px lines,
+  // very faint, so the trace reads as drawn on graph paper.
+  const grid = document.createElementNS(ns, "g");
+  grid.setAttribute("class", "transient-lab-grid");
+  for (let gx = 0; gx <= 200; gx += 5) {
+    const v = document.createElementNS(ns, "line");
+    v.setAttribute("x1", gx); v.setAttribute("x2", gx);
+    v.setAttribute("y1", "0"); v.setAttribute("y2", "60");
+    v.setAttribute("class", gx % 25 === 0 ? "transient-lab-grid-major" : "transient-lab-grid-minor");
+    grid.appendChild(v);
+  }
+  for (let gy = 0; gy <= 60; gy += 5) {
+    const h = document.createElementNS(ns, "line");
+    h.setAttribute("x1", "0"); h.setAttribute("x2", "200");
+    h.setAttribute("y1", gy); h.setAttribute("y2", gy);
+    h.setAttribute("class", gy % 25 === 0 ? "transient-lab-grid-major" : "transient-lab-grid-minor");
+    grid.appendChild(h);
+  }
+  svg.appendChild(grid);
+
+  // ECG trace (top half) — green, periodic QRS spike.
+  const ecg = document.createElementNS(ns, "path");
+  ecg.setAttribute("class", "transient-lab-trace transient-lab-ecg");
+  svg.appendChild(ecg);
+  // SPO2 trace (bottom half) — cyan, slow plethysmographic wave.
+  const spo = document.createElementNS(ns, "path");
+  spo.setAttribute("class", "transient-lab-trace transient-lab-spo");
+  svg.appendChild(spo);
+
+  // Readout panel in the upper-right.
+  const bpmLabel = document.createElementNS(ns, "text");
+  bpmLabel.setAttribute("x", "175"); bpmLabel.setAttribute("y", "9");
+  bpmLabel.setAttribute("text-anchor", "end");
+  bpmLabel.setAttribute("class", "transient-lab-readout-label");
+  bpmLabel.textContent = "BPM";
+  svg.appendChild(bpmLabel);
+  const bpmVal = document.createElementNS(ns, "text");
+  bpmVal.setAttribute("x", "198"); bpmVal.setAttribute("y", "9");
+  bpmVal.setAttribute("text-anchor", "end");
+  bpmVal.setAttribute("class", "transient-lab-readout-bpm");
+  bpmVal.textContent = "72";
+  svg.appendChild(bpmVal);
+  const spoLabel = document.createElementNS(ns, "text");
+  spoLabel.setAttribute("x", "175"); spoLabel.setAttribute("y", "57");
+  spoLabel.setAttribute("text-anchor", "end");
+  spoLabel.setAttribute("class", "transient-lab-readout-label");
+  spoLabel.textContent = "SPO2";
+  svg.appendChild(spoLabel);
+  const spoVal = document.createElementNS(ns, "text");
+  spoVal.setAttribute("x", "198"); spoVal.setAttribute("y", "57");
+  spoVal.setAttribute("text-anchor", "end");
+  spoVal.setAttribute("class", "transient-lab-readout-spo");
+  spoVal.textContent = "98";
+  svg.appendChild(spoVal);
+
   body.appendChild(svg);
+
+  // Tear-down: timer self-terminates once SVG leaves the DOM.
   let started = false;
+  let phase = 0;
   function step() {
-    // Once started, exit when the SVG has been pulled from the DOM
-    // (transient cell disposal). Pre-start, keep ticking so the first
-    // paint happens after the card is mounted.
     if (started && !svg.isConnected) return;
     if (svg.isConnected) started = true;
-    const pts = ["M 0 30"];
+    phase++;
+    // ECG: noisy baseline at y=18, spike approximating PQRST every
+    // 60 SVG units, with phase offset to simulate scrolling.
+    const ecgPts = ["M 0 18"];
     for (let x = 4; x < 200; x += 4) {
-      const noise = (Math.random() - 0.5) * 4;
-      const spike = (x % 60 < 4) ? -16 + Math.random() * 4 : 0;
-      pts.push("L " + x + " " + (30 + noise + spike).toFixed(1));
+      const noise = (Math.random() - 0.5) * 1.6;
+      const beat = (x + phase * 4) % 60;
+      let spike = 0;
+      if (beat < 2) spike = 1;            // P wave
+      else if (beat < 4) spike = -1.5;     // Q
+      else if (beat < 7) spike = -10;     // R (downward, since y is inverted)
+      else if (beat < 10) spike = 4;       // S
+      else if (beat < 14) spike = 2;       // T
+      ecgPts.push("L " + x + " " + (18 + noise + spike).toFixed(1));
     }
-    path.setAttribute("d", pts.join(" "));
+    ecg.setAttribute("d", ecgPts.join(" "));
+
+    // SPO2: smooth pleth-ish sine + small notch on every cycle.
+    const spoPts = ["M 0 44"];
+    for (let x = 4; x < 200; x += 4) {
+      const t = (x + phase * 2) / 18;
+      const wave = -Math.sin(t) * 5 - Math.max(0, Math.sin(t - 0.5)) * 3;
+      const noise = (Math.random() - 0.5) * 0.6;
+      spoPts.push("L " + x + " " + (44 + wave + noise).toFixed(1));
+    }
+    spo.setAttribute("d", spoPts.join(" "));
+
+    // BPM/SPO2 readouts flicker mildly so the panel reads "live".
+    if (phase % 6 === 0) {
+      bpmVal.textContent = String(70 + Math.floor(Math.random() * 8));
+      spoVal.textContent = String(96 + Math.floor(Math.random() * 4));
+    }
+
     setTimeout(step, 140);
   }
   step();
