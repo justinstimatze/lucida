@@ -1251,6 +1251,8 @@ function liveAppendNewCells(cellsData) {
   const cellsById = state.rendering.cellsById || new Map();
   for (const c of cellsData.cells) cellsById.set(c.id, c);
   state.rendering.cellsById = cellsById;
+  // Note real-mint activity for the transient-cell spawn gate (Task #94).
+  if (typeof _transientNote === "function") _transientNote(true);
   for (const c of fresh) {
     const node = renderCell(c, snippetGroups, cellsById);
     node.classList.add("cell-fresh");
@@ -4213,6 +4215,327 @@ hudEl?.addEventListener("keydown", (e) => {
 loadHud().catch(() => {});
 setInterval(() => loadHud().catch(() => {}), 1500);
 setInterval(tickSinceLast, 1000);
+
+// =====================================================================
+// Transient cells — ambient "computer thinking fast" flair (Task #94)
+// =====================================================================
+// Iron-Man-HUD-style: ephemeral cells that imply detail without conveying
+// it. Pure client-side decoration — never persisted, never in cells.json.
+// Spawned on a randomized 12-20s timer when watcher has been active in
+// the last 60s (otherwise they'd flicker over a dormant dashboard, which
+// reads as "broken" rather than "thinking"). Live ~5-8s, fade out,
+// Muuri-remove.
+//
+// Theme content (only meaningful in pack mode where the layout treats
+// them as peers — alternate layouts skip them):
+//   magi   → hex register dump (BIOS-style scrolling values, NERV digital)
+//   gastown→ steam/pipe/gauge fluctuating (mechanical thinking-fast)
+//   lab    → ECG-like waveform with rapid noise spikes
+//   *      → generic flickering glyph storm
+//
+// All animation is CSS-driven so removing the node tears down the
+// animation without leftover rAF loops.
+//
+// Tagged data-cell-type="transient" so connection-line drawing,
+// replaces-strip recursion, session-thread routing, and the recent-mint
+// HUD ticker all naturally skip these. They participate in Muuri layout
+// (the point — they sit IN the dashboard like real cells).
+
+const _transientState = {
+  // Last time we saw a real cell mint (any append by liveAppendNewCells).
+  // Spawning is gated on activity within the last 60s.
+  lastRealMintTs: Date.now(),
+  // Active transient cell elements, keyed by their generated id, so we
+  // can dispose during a layout-mode change before they expire.
+  active: new Map(),
+};
+
+function _transientNote(activity) {
+  // Called by the livefeed path on real mint (and by load() at boot)
+  // to keep the spawn gate fresh.
+  _transientState.lastRealMintTs = activity ? Date.now() : _transientState.lastRealMintTs;
+}
+
+function _transientThemeName() {
+  const cls = (document.documentElement.className || "").match(/theme-([a-z]+)/);
+  return cls ? cls[1] : "conclave";
+}
+
+function _transientGlyphPalette(theme) {
+  // Mostly hex/ascii — themes that want richer content build their own
+  // body. Fallback path for the unthemed cell uses this.
+  const HEX = "0123456789ABCDEF";
+  const ASCII = "▓▒░│┤├┐└┘─┬┴┼╳▢▣◇◆▪▫•·";
+  switch (theme) {
+    case "conclave": return { chars: HEX + ":xX", color: "#9adfd0" };
+    case "lab":     return { chars: HEX + ".·-", color: "#76d2c8" };
+    case "gastown": return { chars: HEX + "PSI", color: "#c4a772" };
+    default: return { chars: HEX + ASCII, color: "currentColor" };
+  }
+}
+
+function _transientGlyphStream(rows, cols, palette) {
+  // Build a simple monospace block of randomized characters. CSS
+  // animation (transient-glyph-flicker) cycles each character via
+  // mask + content rotation; here we just ship the initial block.
+  const lines = [];
+  for (let r = 0; r < rows; r++) {
+    let line = "";
+    for (let c = 0; c < cols; c++) {
+      line += palette.chars[(Math.random() * palette.chars.length) | 0];
+    }
+    lines.push(line);
+  }
+  return lines.join("\n");
+}
+
+function _buildTransientConclave(body) {
+  // Hex register dump — six rows of "Rxx: 0xNNNNNNNN" with the values
+  // re-rolling on a CSS-driven timer. Reads as BIOS / NERV terminal.
+  const wrap = el("div", "transient-conclave");
+  for (let i = 0; i < 6; i++) {
+    const row = el("div", "transient-conclave-row");
+    const reg = el("span", "transient-conclave-reg", "R" + String(i).padStart(2, "0"));
+    const sep = el("span", "transient-conclave-sep", ":");
+    const val = el("span", "transient-conclave-val");
+    val.textContent = "0x" + Math.floor(Math.random() * 0xFFFFFFFF)
+      .toString(16).toUpperCase().padStart(8, "0");
+    val.dataset.flickerOffset = String(i * 37);
+    row.appendChild(reg); row.appendChild(sep); row.appendChild(val);
+    wrap.appendChild(row);
+  }
+  body.appendChild(wrap);
+  // Drive value re-rolls with one shared interval, cleared when the
+  // body is gone (transient cell removal nukes the parent).
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    for (const v of wrap.querySelectorAll(".transient-conclave-val")) {
+      v.textContent = "0x" + Math.floor(Math.random() * 0xFFFFFFFF)
+        .toString(16).toUpperCase().padStart(8, "0");
+    }
+  }, 110);
+}
+
+function _buildTransientGastown(body) {
+  // Steam-pipe schematic — three vertical pipes with travelling steam
+  // bubbles + a pressure gauge needle that flicks within a band. SVG
+  // so the line work matches the gastown brass register.
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.classList.add("transient-gastown");
+  const pipes = [20, 50, 80];
+  for (const x of pipes) {
+    const pipe = document.createElementNS(ns, "line");
+    pipe.setAttribute("x1", x); pipe.setAttribute("x2", x);
+    pipe.setAttribute("y1", "10"); pipe.setAttribute("y2", "90");
+    pipe.setAttribute("class", "transient-gastown-pipe");
+    svg.appendChild(pipe);
+    for (let b = 0; b < 4; b++) {
+      const bub = document.createElementNS(ns, "circle");
+      bub.setAttribute("cx", x);
+      bub.setAttribute("cy", 90);
+      bub.setAttribute("r", 2 + Math.random() * 2);
+      bub.setAttribute("class", "transient-gastown-bubble");
+      bub.style.animationDelay = (Math.random() * 1.6).toFixed(2) + "s";
+      bub.style.animationDuration = (1.2 + Math.random() * 1.4).toFixed(2) + "s";
+      svg.appendChild(bub);
+    }
+  }
+  // Pressure gauge in the corner — small dial with twitching needle.
+  const gauge = document.createElementNS(ns, "g");
+  gauge.setAttribute("transform", "translate(85, 18)");
+  const rim = document.createElementNS(ns, "circle");
+  rim.setAttribute("r", "10"); rim.setAttribute("class", "transient-gastown-rim");
+  gauge.appendChild(rim);
+  const needle = document.createElementNS(ns, "line");
+  needle.setAttribute("x1", "0"); needle.setAttribute("y1", "0");
+  needle.setAttribute("x2", "0"); needle.setAttribute("y2", "-8");
+  needle.setAttribute("class", "transient-gastown-needle");
+  gauge.appendChild(needle);
+  svg.appendChild(gauge);
+  body.appendChild(svg);
+  // Twitch the needle on a timer (CSS @keyframes with fixed angles
+  // looked too rhythmic; randomized targets read more "live").
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    const ang = -45 + Math.random() * 90;
+    needle.setAttribute("transform", "rotate(" + ang.toFixed(1) + ")");
+  }, 220);
+}
+
+function _buildTransientLab(body) {
+  // ECG-style waveform that scrolls right-to-left with random spikes.
+  // Path is regenerated every ~140ms so the trace has visible noise.
+  // Tear-down: when the SVG itself is no longer in the document
+  // (transient cell removed), the timer self-terminates. We can't gate
+  // on body.isConnected at startup because the cell hasn't been
+  // appended to the dashboard yet when this runs.
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 200 60");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.classList.add("transient-lab");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("class", "transient-lab-trace");
+  svg.appendChild(path);
+  body.appendChild(svg);
+  let started = false;
+  function step() {
+    // Once started, exit when the SVG has been pulled from the DOM
+    // (transient cell disposal). Pre-start, keep ticking so the first
+    // paint happens after the card is mounted.
+    if (started && !svg.isConnected) return;
+    if (svg.isConnected) started = true;
+    const pts = ["M 0 30"];
+    for (let x = 4; x < 200; x += 4) {
+      const noise = (Math.random() - 0.5) * 4;
+      const spike = (x % 60 < 4) ? -16 + Math.random() * 4 : 0;
+      pts.push("L " + x + " " + (30 + noise + spike).toFixed(1));
+    }
+    path.setAttribute("d", pts.join(" "));
+    setTimeout(step, 140);
+  }
+  step();
+}
+
+function _buildTransientGeneric(body) {
+  // Fallback — five rows of randomized hex/ascii glyphs, monospaced,
+  // shuffled on a timer. Theme accent colour drives the text colour.
+  const palette = _transientGlyphPalette(_transientThemeName());
+  const pre = el("pre", "transient-generic-stream");
+  pre.style.color = palette.color;
+  pre.textContent = _transientGlyphStream(5, 14, palette);
+  body.appendChild(pre);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    pre.textContent = _transientGlyphStream(5, 14, palette);
+  }, 90);
+}
+
+function _buildTransientBody(body, theme) {
+  body.classList.add("transient-body");
+  switch (theme) {
+    case "conclave": return _buildTransientConclave(body);
+    case "gastown":  return _buildTransientGastown(body);
+    case "lab":      return _buildTransientLab(body);
+    default:         return _buildTransientGeneric(body);
+  }
+}
+
+// Per-theme motion choice: "pack" (peer cell in Muuri grid) or "edge"
+// (slides in from a screen edge, hovers, slides out — overlay, doesn't
+// displace real cells). Iron-Man HUD has both vocabularies; the choice
+// per theme is mostly aesthetic. (conclave = magi/NERV theme — there's
+// no separate "magi" theme key, conclave IS that theme.)
+const _TRANSIENT_MOTION = {
+  conclave: "pack",  // NERV terminal feels grid-anchored
+  gastown:  "pack",  // steam pipes feel rooted in the schematic
+  lab:      "edge",  // medical readouts slide in from monitors
+  noir:     "edge",  // typewritten redacts swing in from the side
+  vigil:    "edge",  // surveillance camera popups
+  terminus: "pack",
+  ops:      "edge",  // LCARS panels slide in from the frame
+  circuit:  "pack",
+  mainframe:"pack",
+  renegade: "edge",  // glitch-burst swings in
+  minimal:  "pack",
+};
+
+function spawnTransientCell() {
+  // Activity gate: only spawn if a real cell minted in the last 60s.
+  // Keeps the dashboard quiet when nothing's happening.
+  if (Date.now() - _transientState.lastRealMintTs > 60000) return;
+  const root = document.getElementById("notebook");
+  if (!root) return;
+
+  const theme = _transientThemeName();
+  const motion = _TRANSIENT_MOTION[theme] || "pack";
+  // Pack-mode requires Muuri; alternate layouts (treemap, scatter,
+  // organic) skip the pack variant entirely. Edge-slide is overlay-
+  // positioned so it works in any layout mode.
+  if (motion === "pack" && (getLayoutMode() !== "pack" || !_muuriGrid)) return;
+
+  const card = el("article", "cell cell-transient");
+  card.classList.add("cell-transient-motion-" + motion);
+  card.classList.add("cell-transient-enter");
+  const tid = "ephem-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  card.dataset.cellType = "transient";
+  card.dataset.transientId = tid;
+  card.dataset.transientMotion = motion;
+  const w = 150 + Math.floor(Math.random() * 70);
+  const h = 110 + Math.floor(Math.random() * 70);
+  card.style.width = w + "px";
+  card.style.height = h + "px";
+
+  const head = el("div", "cell-head");
+  head.appendChild(el("span", "cell-transient-tag", "—"));
+  card.appendChild(head);
+  const body = el("div", "cell-body");
+  card.appendChild(body);
+  _buildTransientBody(body, theme);
+
+  if (motion === "pack") {
+    root.appendChild(card);
+    try { _muuriGrid.add([card], { layout: true }); } catch (e) {}
+  } else {
+    // Edge-slide: position fixed-overlay anchored to a screen edge.
+    // Pick a random edge per spawn so the screen doesn't feel like a
+    // single-corner ticker.
+    const edges = ["right", "left", "top", "bottom"];
+    const edge = edges[(Math.random() * edges.length) | 0];
+    card.dataset.transientEdge = edge;
+    // Position depends on edge — the slide-in animation picks up the
+    // anchor via data attribute and CSS handles the keyframe.
+    card.style.position = "fixed";
+    card.style.zIndex = "60";
+    const margin = 32;
+    const along = 80 + Math.random() * (window.innerHeight - 240);
+    const acrossH = 80 + Math.random() * (window.innerWidth - 240);
+    if (edge === "right")  { card.style.right  = margin + "px"; card.style.top  = along  + "px"; }
+    if (edge === "left")   { card.style.left   = margin + "px"; card.style.top  = along  + "px"; }
+    if (edge === "top")    { card.style.top    = margin + "px"; card.style.left = acrossH + "px"; }
+    if (edge === "bottom") { card.style.bottom = margin + "px"; card.style.left = acrossH + "px"; }
+    document.body.appendChild(card);
+  }
+  _transientState.active.set(tid, card);
+
+  // Lifespan 5-8s. Fade out via class swap, then remove.
+  const lifespan = 5000 + Math.floor(Math.random() * 3000);
+  setTimeout(() => removeTransientCell(card), lifespan);
+}
+
+function removeTransientCell(card) {
+  if (!card || !card.isConnected) return;
+  card.classList.add("cell-transient-leave");
+  const motion = card.dataset.transientMotion || "pack";
+  setTimeout(() => {
+    if (!card.isConnected) return;
+    if (motion === "pack") {
+      try { _muuriGrid && _muuriGrid.remove([card], { removeElements: true, layout: true }); }
+      catch (e) { card.remove(); }
+    } else {
+      card.remove();
+    }
+    if (card.dataset.transientId) _transientState.active.delete(card.dataset.transientId);
+  }, 450);
+}
+
+function _transientLoopTick() {
+  spawnTransientCell();
+  // Randomized 12-20s cadence — feels less metronomic than fixed.
+  const next = 12000 + Math.floor(Math.random() * 8000);
+  setTimeout(_transientLoopTick, next);
+}
+
+// First spawn delay 6-10s after page load so initial render settles.
+setTimeout(_transientLoopTick, 6000 + Math.floor(Math.random() * 4000));
+
+// Expose for debugging / power-user manual triggers from console.
+// The module-scoped declarations aren't visible globally otherwise.
+window.spawnTransientCell = spawnTransientCell;
+window._transientState = _transientState;
 </script>
 </body>
 </html>
