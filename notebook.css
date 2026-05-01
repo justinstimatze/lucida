@@ -609,6 +609,12 @@ main {
   font-size: 0.8rem;
   color: var(--muted);
   font-family: ui-monospace, SF Mono, Menlo, monospace;
+  /* Gap keeps chips off each other when space-between collapses
+     (e.g. conf + time touching at the same edge in magi/conclave
+     where the 3-bar magi-vote SVG widens the conf chip). User
+     flagged 2026-05-01: "the confidence overlaps with the timestamp". */
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .cell-type {
   /* Type label dropped from the head per dynamic-only chrome principle;

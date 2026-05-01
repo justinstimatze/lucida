@@ -2715,14 +2715,17 @@ function renderCell(c, snippetGroups) {
     sess.title = `session: ${c.session_id}`;
     head.appendChild(sess);
   }
-  // Time chip: show HH:MM only (compact). The full ISO timestamp lives
-  // in the title attribute for hover. The verbose "2026-04-29T19:20:07+00:00"
-  // chip was eating 40% of the cell-head row width and crowding out the
-  // cell-title (user 2026-04-29 — title truncation in organic layout).
+  // Time chip: HH:MM in the user's LOCAL timezone (full ISO in title
+  // for hover). Pre-2026-05-01 we regex'd HH:MM out of the ISO string,
+  // which left it as UTC — user 2026-05-01: "should probably be in
+  // local". Parse via Date so DST + offset resolve naturally.
   const timeStr = (() => {
     if (!c.timestamp) return "";
-    const m = c.timestamp.match(/T(\d{2}):(\d{2})/);
-    return m ? `${m[1]}:${m[2]}` : c.timestamp;
+    const d = new Date(c.timestamp);
+    if (isNaN(d.getTime())) return c.timestamp;
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
   })();
   const timeChip = el("span", "cell-time", timeStr);
   if (c.timestamp) timeChip.title = c.timestamp;
