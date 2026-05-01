@@ -2848,6 +2848,21 @@ function renderCell(c, snippetGroups) {
         await mermaid.parse(c.spec);
         const { svg } = await mermaid.render(`m-${c.id}`, c.spec);
         target.innerHTML = svg;
+        // Edge-label backplates were sized flush to the text bbox by
+        // mermaid (htmlLabels:false path), so labels read as cramped
+        // chips. Inflate each rect by a few px on each side and re-
+        // center via x/y offset. Per task #89.
+        target.querySelectorAll(".edgeLabel rect").forEach(rect => {
+          const w = parseFloat(rect.getAttribute("width") || 0);
+          const h = parseFloat(rect.getAttribute("height") || 0);
+          const x = parseFloat(rect.getAttribute("x") || 0);
+          const y = parseFloat(rect.getAttribute("y") || 0);
+          const padX = 5, padY = 2;
+          rect.setAttribute("width", w + 2 * padX);
+          rect.setAttribute("height", h + 2 * padY);
+          rect.setAttribute("x", x - padX);
+          rect.setAttribute("y", y - padY);
+        });
         // Mermaid: render at natural viewBox size (not auto-fit). The
         // cell will size to that width via applyNaturalCellSize. Auto-
         // pan only kicks in if the natural-size diagram is itself
@@ -2876,9 +2891,20 @@ function renderCell(c, snippetGroups) {
           }
         }
       } catch (err) {
-        target.classList.add("mermaid-error");
-        target.textContent = "mermaid render error: " +
-          (err && err.message ? err.message.split("\n")[0] : String(err));
+        // Mermaid parse/render failures are noise on the dashboard —
+        // a cell whose spec doesn't parse adds nothing. Hide the cell
+        // entirely (rather than showing "mermaid render error: ...").
+        // Pre-2026-05-01 we rendered the error inline; user flagged
+        // 2026-05-01 they want these caught automatically. The cell
+        // record stays in cells.json so a server-side validation pass
+        // can be added later — see task #91.
+        const cellEl = target.closest(".cell");
+        if (cellEl) {
+          cellEl.classList.add("cell-mermaid-failed");
+          cellEl.style.display = "none";
+        }
+        // Console hint so we still see the bad spec in dev tools.
+        console.warn(`[lucida] mermaid suppress ${c.id}: ${err && err.message ? err.message.split("\n")[0] : err}`);
       }
     };
     lazyMount(target, renderMermaid);
