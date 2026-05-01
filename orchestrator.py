@@ -477,6 +477,28 @@ def is_trivial(cell_type: str, spec, html: str | None) -> str | None:
         return _trivial_trajectory(spec)
     if cell_type == "force_graph":
         return _trivial_force_graph(spec)
+    if cell_type == "sparkline":
+        return _trivial_sparkline(spec)
+    return None
+
+
+def _trivial_sparkline(spec) -> str | None:
+    if not isinstance(spec, dict):
+        return None
+    series = spec.get("series")
+    if not isinstance(series, list):
+        return None
+    nums = [x for x in series if isinstance(x, (int, float))]
+    if len(nums) < 4:
+        return f"too few points ({len(nums)}) -- sparkline needs ≥6 for shape to read"
+    # Flat line — all values within 1% of mean is the same number visually.
+    # cell-2736 case: [1,1,1,1,1,1,1,1] is a single repeated factoid, not
+    # a trajectory; the caption alone says it.
+    lo, hi = min(nums), max(nums)
+    if hi == lo:
+        return f"flat series (all {lo}) -- no shape to surface"
+    if hi - lo < abs(lo) * 0.01 + 1e-9:
+        return "near-flat series (variance < 1%) -- shape isn't load-bearing"
     return None
 
 
@@ -606,25 +628,45 @@ def _trivial_mermaid(spec) -> str | None:
 def _trivial_html(html: str | None) -> str | None:
     if not isinstance(html, str) or not html.strip():
         return None
-    # Layout gate: row/cell counting is table-specific. Bucket-2 added
-    # callouts / dl / kanban layouts; their HTML uses <div class="callout">,
-    # <dl>/<dt>/<dd>, and column-grouped div structures with no <tr> tags.
-    # Falsely reports "too few rows (0)" on every non-table cell. Skip the
-    # check unless the html actually contains a <table>. Per user 2026-04-29
-    # — ~25 demotions/4hr were callouts/dl/kanban being false-positived.
-    if "<table" not in html.lower():
+    h_lower = html.lower()
+    # Layout-aware gates. Each html_layout has its own minimum-richness
+    # threshold so the trivial check works across table / callouts / dl /
+    # kanban shapes. Bumped 2026-05-01 (#91) — user flagged 3-callout
+    # cells like cell-2785/2744 read as "basically text cells".
+    if "<table" in h_lower:
+        rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, flags=re.IGNORECASE | re.DOTALL)
+        if len(rows) < 2:
+            return f"too few rows ({len(rows)})"
+        has_header = "<th" in rows[0].lower()
+        data_rows = rows[1:] if has_header else rows
+        non_empty_data_cells = 0
+        for r in data_rows:
+            cells = re.findall(r"<td[^>]*>(.*?)</td>", r, flags=re.IGNORECASE | re.DOTALL)
+            non_empty_data_cells += sum(1 for c in cells if c.strip())
+        if non_empty_data_cells < 2:
+            return f"too few non-empty data cells ({non_empty_data_cells})"
         return None
-    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, flags=re.IGNORECASE | re.DOTALL)
-    if len(rows) < 2:
-        return f"too few rows ({len(rows)})"
-    has_header = "<th" in rows[0].lower()
-    data_rows = rows[1:] if has_header else rows
-    non_empty_data_cells = 0
-    for r in data_rows:
-        cells = re.findall(r"<td[^>]*>(.*?)</td>", r, flags=re.IGNORECASE | re.DOTALL)
-        non_empty_data_cells += sum(1 for c in cells if c.strip())
-    if non_empty_data_cells < 2:
-        return f"too few non-empty data cells ({non_empty_data_cells})"
+    # Callouts ("big number + label"). 3 stats reads as a sentence in
+    # disguise — bump threshold to 4 so a real comparison/grouping is
+    # needed, not just three discrete factoids.
+    if 'class="callout"' in h_lower or "<div class='callout'" in h_lower:
+        callouts = re.findall(r"<div[^>]*class=[\"'][^\"']*\bcallout\b[^\"']*[\"']", html, flags=re.IGNORECASE)
+        if len(callouts) < 4:
+            return f"too few callouts ({len(callouts)}) — under 4 reads as prose"
+        return None
+    # Definition lists (<dl>/<dt>/<dd>). Same bar — 4 entries.
+    if "<dl" in h_lower:
+        dts = re.findall(r"<dt[^>]*>(.*?)</dt>", html, flags=re.IGNORECASE | re.DOTALL)
+        if len(dts) < 4:
+            return f"too few <dt> entries ({len(dts)})"
+        return None
+    # Kanban-shaped column grids. Require at least 2 columns with 2 cards each.
+    if "kanban" in h_lower:
+        cols = re.findall(r"class=[\"'][^\"']*\bkanban-col\b", html, flags=re.IGNORECASE)
+        cards = re.findall(r"class=[\"'][^\"']*\bkanban-card\b", html, flags=re.IGNORECASE)
+        if len(cols) < 2 or len(cards) < 4:
+            return f"too few kanban cols/cards ({len(cols)}/{len(cards)})"
+        return None
     return None
 
 
