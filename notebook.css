@@ -154,12 +154,35 @@ main {
   perspective: 1500px;
   transform-style: preserve-3d;
 }
-/* Hero translateZ(18px) was tried 2026-04-28 and reverted: caused
-   sub-pixel anti-alias blur on text + clipped at viewport top + made
-   the Three.js connection lines misalign (lines anchor to 2D
-   getBoundingClientRect, which doesn't account for the hero's Z).
-   The depth axis comes from connection-line arcs alone, not cell
-   translateZ. Per memory/2d_3d_mix_arc.md gemotvis lesson updated. */
+/* Phase 3 #75 retry (2026-05-01): translateZ revisited.
+   - Prior failure modes addressed: (1) sub-pixel blur — opted into
+     compositor layer via will-change + backface-visibility; (2)
+     viewport-top clipping — keep Z modest (≤12px) so projected
+     extent stays within cell bbox; (3) connection-line misalign —
+     drawConnections uses getBoundingClientRect which DOES include
+     post-perspective projection, so anchors track Z naturally.
+   - Z is applied to .cell-head/.cell-body, not .cell itself — pack
+     layout owns the cell's outer transform (Muuri inline style),
+     so we drive depth via --cell-z on children. Outer chrome stays
+     flat, content lifts forward — reads as a layered FUI shell. */
+.cell > .cell-body {
+  /* Only translate the body — head has stale inline `transform: scale(1)`
+     debris from pre-2026-05-01 code that would override CSS here, and
+     visually translating the chrome (cell-id/move/conf chips) makes the
+     metadata strip drift out of plane with the cell border. Body alone
+     lifts the chart/viz forward; cell shell stays anchored. */
+  transform: translateZ(var(--cell-z, 0px));
+  will-change: transform;
+  backface-visibility: hidden;
+  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Newest cell pops forward most; second/third lift slightly; the
+   rest sit at base. Pack mode preserves DOM order so :nth-child
+   tracks recency. In multi-stream mode each session column has its
+   own newest at first-child, so the rule still holds per-column. */
+#notebook > .cell:first-child { --cell-z: 12px; }
+#notebook > .cell:nth-child(2),
+#notebook > .cell:nth-child(3) { --cell-z: 6px; }
 /* Multi-stream mode: when 2+ sessions are selected via the HUD
    dropdown, the notebook re-shapes into a flex-row of per-session
    columns. Each column = vertical stack of that session's cells with
@@ -374,11 +397,17 @@ main {
 #notebook[data-layout="pack"] {
   display: block;
   grid-template-columns: none;
-  perspective: none;
-  transform-style: flat;
   /* Pack mode needs position:relative for Muuri's absolute children. The
      other JS-driven modes also rely on relative-positioned root. */
   position: relative;
+}
+/* Organic / scatter: the JS layout already handles spatial composition;
+   keep flat. Pack inherits the base #notebook perspective so Phase 3
+   #75 translateZ on cell-head/cell-body has something to project. */
+#notebook[data-layout="organic"],
+#notebook[data-layout="scatter"] {
+  perspective: none;
+  transform-style: flat;
 }
 #notebook[data-layout="organic"] > .cell,
 #notebook[data-layout="scatter"] > .cell {
