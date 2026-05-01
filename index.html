@@ -3852,16 +3852,17 @@ function renderCell(c, snippetGroups) {
   }
 
   // Trigger snippet + prompt + notes: bottom of cell, collapsed by default.
-  // Reference info — load-bearing only when debugging or auditing
-  // a specific cell. Per memory/feedback_dynamic_only_chrome.md, kept
-  // out of the prime visual real estate at the top. Pre-2026-05-01
-  // these were two separate <details> rows (trigger + prompt+notes);
-  // user flagged that as "too much vertical wasted space". Folded
-  // into one compact expander labeled "source" with snippet + notes
-  // + prompt stacked inside. Per task #92.
+  // Source (trigger / notes / prompt) — debug info, not primary
+  // surface. User 2026-05-01: "really a debug thing anyway no one
+  // will ever click it. Move to a small icon in the title bar".
+  // Lives inside cell-head as a tiny "{·}" icon; content drops
+  // below the head when opened. Per #92/#93 density pass.
   if (c.trigger_snippet || c.prompt || c.notes !== undefined) {
     const src = el("details", "cell-source");
-    src.appendChild(el("summary", null, "source"));
+    const summary = el("summary", null, "");
+    summary.title = "source: trigger snippet / notes / prompt";
+    summary.setAttribute("aria-label", "show cell source");
+    src.appendChild(summary);
     if (c.trigger_snippet) {
       const block = el("div", "cell-source-block");
       block.appendChild(el("div", "cell-source-label", "trigger"));
@@ -3892,7 +3893,7 @@ function renderCell(c, snippetGroups) {
       block.appendChild(el("pre", null, c.prompt));
       src.appendChild(block);
     }
-    card.appendChild(src);
+    head.appendChild(src);
   }
 
   return card;

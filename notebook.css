@@ -612,9 +612,14 @@ main {
   /* Gap keeps chips off each other when space-between collapses
      (e.g. conf + time touching at the same edge in magi/conclave
      where the 3-bar magi-vote SVG widens the conf chip). User
-     flagged 2026-05-01: "the confidence overlaps with the timestamp". */
+     flagged 2026-05-01: "the confidence overlaps with the timestamp".
+     Stay on one line — flex-wrap was tried and reverted because it
+     forced every head to two rows even when items fit comfortably
+     (browsers hold preferred sizes under wrap rather than letting
+     flex:1 ellipsis-compress the title). cell-title's flex:1 +
+     text-overflow:ellipsis handles narrow cells; container queries
+     below hide low-priority chips at narrow widths. */
   gap: 0.5rem;
-  flex-wrap: wrap;
 }
 .cell-type {
   /* Type label dropped from the head per dynamic-only chrome principle;
@@ -779,37 +784,76 @@ main {
 .theme-conclave .cell-id {
   text-shadow: 0 0 3px rgba(255, 140, 0, 0.4);
 }
-/* cell-source: combined trigger + notes + prompt expander. Replaced
-   the two separate cell-trigger / cell-prompt blocks 2026-05-01
-   (#92) — user flagged "two lines for trigger snippet and also
-   prompt is too much vertical waste". Single hairline summary
-   labeled "source" opens to show all three blocks stacked. */
-.cell-source {
-  margin: 0.25rem 0 0 0;
-  font-size: 0.78rem;
+/* cell-source: trigger + notes + prompt — debug-only data per user
+   2026-05-01 ("really a debug thing anyway no one will ever click
+   it"). Lives inside cell-head as a tiny "{·}" icon. When opened,
+   content blocks render below the head (escapes the head row via
+   100% flex-basis). */
+.cell-head .cell-source {
+  margin: 0;
+  flex-shrink: 0;
 }
-.cell-source > summary {
+.cell-head .cell-source > summary {
   cursor: pointer;
-  color: color-mix(in srgb, var(--muted) 70%, transparent);
+  color: color-mix(in srgb, var(--muted) 40%, transparent);
   user-select: none;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.15rem 0;
+  letter-spacing: 0;
+  padding: 0;
   list-style: none;
-}
-.cell-source > summary::-webkit-details-marker { display: none; }
-.cell-source > summary::before {
-  content: "▸ ";
   display: inline-block;
-  font-size: 0.6rem;
-  opacity: 0.7;
-  margin-right: 0.15rem;
-  transition: transform 0.15s ease;
+  width: 1rem;
+  text-align: center;
+  border-radius: 2px;
+  transition: color 0.15s ease, background 0.15s ease;
 }
-.cell-source[open] > summary::before { transform: rotate(90deg); }
-.cell-source > summary:hover {
-  color: var(--muted);
+.cell-head .cell-source > summary::-webkit-details-marker { display: none; }
+.cell-head .cell-source > summary::before {
+  content: "{·}";  /* terse debug-data signifier */
+}
+.cell-head .cell-source[open] > summary::before {
+  content: "{×}";  /* close affordance when open */
+  color: var(--accent);
+}
+.cell-head .cell-source > summary:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+/* When opened, expand content blocks to the full cell width by
+   forcing a new flex line. cell-head uses display:flex; the source
+   element is a flex item, so its open content needs flex-basis:100%
+   on a wrapping line — but flex-wrap is off, so we work around with
+   absolute-positioned content below the head. */
+.cell-head .cell-source[open] > .cell-source-block,
+.cell-head .cell-source[open] > .cell-prompt-notes {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  top: 100%;
+  margin-top: 0.3rem;
+  background: var(--cell-bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.4rem 0.6rem;
+  z-index: 10;
+}
+/* Stack multiple open blocks vertically: each adds to the offset.
+   Simple approach — wrap them in a container. The JS appends them
+   as siblings under .cell-source so they stack via the next rule. */
+.cell-head .cell-source[open] {
+  position: relative;
+}
+/* Hide blocks until details is open (default <details> behavior
+   already does this; this rule just guards against any inherited
+   visibility from before). */
+.cell-source > .cell-source-block,
+.cell-source > .cell-prompt-notes {
+  display: none;
+}
+.cell-source[open] > .cell-source-block,
+.cell-source[open] > .cell-prompt-notes {
+  display: block;
 }
 .cell-source-block {
   margin: 0.4rem 0 0 0;
