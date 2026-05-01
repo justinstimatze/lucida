@@ -4262,8 +4262,19 @@ const _transientState = {
 
 function _transientNote(activity) {
   // Called by the livefeed path on real mint (and by load() at boot)
-  // to keep the spawn gate fresh.
-  _transientState.lastRealMintTs = activity ? Date.now() : _transientState.lastRealMintTs;
+  // to keep the spawn gate fresh. On a real mint, also fire a small
+  // burst of transients with random delays — Iron-Man-HUD-style
+  // "thunderclap": one real readout lands and several secondary
+  // flickers cascade with it. Reads as "system processed many things,
+  // here's the one that crystallised". Per Task #96 option C.
+  if (!activity) return;
+  _transientState.lastRealMintTs = Date.now();
+  // 0-2 burst spawns. Most mints get 0 (quiet), some get 1, occasional
+  // 2 — keeps the burst from feeling metronomic. Stagger 200-900ms.
+  const burst = Math.random() < 0.55 ? (Math.random() < 0.7 ? 1 : 2) : 0;
+  for (let i = 0; i < burst; i++) {
+    setTimeout(() => spawnTransientCell(), 200 + Math.random() * 700);
+  }
 }
 
 function _transientThemeName() {
@@ -4534,8 +4545,21 @@ function removeTransientCell(card) {
 
 function _transientLoopTick() {
   spawnTransientCell();
-  // Randomized 12-20s cadence — feels less metronomic than fixed.
-  const next = 12000 + Math.floor(Math.random() * 8000);
+  // Activity-density-aware cadence (Task #96 option C). The dashboard
+  // should feel like "computer thinking fast" *when actual computation
+  // is happening fast*, and quiet down to a slow ambient pulse when
+  // the watcher is idle. Buckets:
+  //   <10s since last real mint  → 4-8s   (burst window — system busy)
+  //   10-30s since last real mint → 12-20s (steady ambient)
+  //   30-60s since last real mint → 30-60s (drift, low rate)
+  //   >60s                        → activity gate inside spawnTransient
+  //                                 will suppress; pick a slow check.
+  const idle = Date.now() - _transientState.lastRealMintTs;
+  let next;
+  if (idle < 10000)      next =  4000 + Math.floor(Math.random() * 4000);
+  else if (idle < 30000) next = 12000 + Math.floor(Math.random() * 8000);
+  else if (idle < 60000) next = 30000 + Math.floor(Math.random() * 30000);
+  else                   next = 30000;
   setTimeout(_transientLoopTick, next);
 }
 
