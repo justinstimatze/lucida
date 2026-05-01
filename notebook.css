@@ -4570,7 +4570,20 @@ body {
 .transient-vigil-sweep {
   fill: color-mix(in srgb, #4dffaa 22%, transparent);
   transform-origin: 50% 50%;
-  animation: transient-vigil-sweep-rot 2.4s linear infinite;
+  animation: transient-vigil-sweep-rot var(--vigil-sweep-dur, 2.4s) linear infinite;
+}
+.transient-vigil-reverse .transient-vigil-sweep {
+  animation-direction: reverse;
+}
+.transient-vigil-amber .transient-vigil-sweep {
+  fill: color-mix(in srgb, #ffaa44 26%, transparent);
+}
+.transient-vigil-amber .transient-vigil-blip {
+  fill: #ffaa44;
+  filter: drop-shadow(0 0 3px #ffaa44);
+}
+.transient-vigil-amber .transient-vigil-ring {
+  stroke: color-mix(in srgb, #ffaa44 35%, transparent);
 }
 @keyframes transient-vigil-sweep-rot {
   from { transform: rotate(0); }

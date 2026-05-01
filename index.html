@@ -4312,38 +4312,141 @@ function _transientGlyphStream(rows, cols, palette) {
   return lines.join("\n");
 }
 
-function _buildTransientConclave(body) {
-  // NERV BIOS hex register dump. 8 rows, more digits per value, fills
-  // the entire cell-body. Values re-roll every ~90ms (~11fps — visibly
-  // mutating without strobing). Two-tone register names for visual
-  // variety: half are MAGI nodes (MEL/BAL/CSP), half are address
-  // labels (ADR/REG/IRQ/PIO).
+// Conclave label pools — picked per spawn so consecutive hex variants
+// look different ("MAGI nodes" vs "system regs" vs "firmware addrs").
+const _CONCLAVE_LABEL_POOLS = [
+  ["MEL", "BAL", "CSP", "ADR", "REG", "IRQ", "PIO", "BUS"],
+  ["R00", "R01", "R02", "R03", "R04", "R05", "R06", "R07"],
+  ["EAX", "EBX", "ECX", "EDX", "ESI", "EDI", "ESP", "EBP"],
+  ["MEL", "BAL", "CSP", "DEC", "VOTE", "QUO", "AUX", "OBS"],
+  ["NERV", "MAGI", "AT.F", "EVA", "ACT", "MGT", "AUX", "DUM"],
+];
+
+function _buildTransientConclaveHex(body) {
+  // Picks one of the label pools and randomizes digit width (4 or 8)
+  // so hex spawns don't all look like the same readout.
   const wrap = el("div", "transient-conclave");
-  const labels = ["MEL", "BAL", "CSP", "ADR", "REG", "IRQ", "PIO", "BUS"];
+  const labels = _CONCLAVE_LABEL_POOLS[Math.floor(Math.random() * _CONCLAVE_LABEL_POOLS.length)];
+  const digits = Math.random() < 0.6 ? 8 : 4;
+  const max = digits === 8 ? 0xFFFFFFFF : 0xFFFF;
+  const pad = digits;
   for (let i = 0; i < labels.length; i++) {
     const row = el("div", "transient-conclave-row");
     const reg = el("span", "transient-conclave-reg", labels[i]);
     const sep = el("span", "transient-conclave-sep", ":");
     const val = el("span", "transient-conclave-val");
-    // 8-digit hex matches the cell width better than 4-digit.
-    val.textContent = "0x" + Math.floor(Math.random() * 0xFFFFFFFF)
-      .toString(16).toUpperCase().padStart(8, "0");
+    val.textContent = "0x" + Math.floor(Math.random() * max).toString(16).toUpperCase().padStart(pad, "0");
     row.appendChild(reg); row.appendChild(sep); row.appendChild(val);
     wrap.appendChild(row);
   }
   body.appendChild(wrap);
-  // Drive value re-rolls with one shared interval, cleared when the
-  // body is gone (transient cell removal nukes the parent).
   const ivl = setInterval(() => {
     if (!body.isConnected) { clearInterval(ivl); return; }
     for (const v of wrap.querySelectorAll(".transient-conclave-val")) {
-      v.textContent = "0x" + Math.floor(Math.random() * 0xFFFFFFFF)
-        .toString(16).toUpperCase().padStart(8, "0");
+      v.textContent = "0x" + Math.floor(Math.random() * max).toString(16).toUpperCase().padStart(pad, "0");
     }
   }, 90);
 }
 
-function _buildTransientGastown(body) {
+function _buildTransientConclaveTranscript(body) {
+  // NERV ops transcript — scrolling lines of timestamp + status code +
+  // node tag. Lines push up at ~600ms cadence. Reads as MAGI system log.
+  const wrap = el("div", "transient-conclave-transcript");
+  const codes = ["SYNC.OK", "AUTH.OK", "GATE.HOLD", "PATTERN.BLUE", "PATTERN.ORANGE",
+                 "MEL.AGREE", "BAL.DISSENT", "CSP.QUERY", "RECON.ACK", "DECISION.PENDING"];
+  const nodes = ["MELCHIOR", "BALTHASAR", "CASPAR", "MAGI"];
+  function rowText() {
+    const t = String(Math.floor(Math.random() * 24)).padStart(2, "0") + ":" +
+              String(Math.floor(Math.random() * 60)).padStart(2, "0") + ":" +
+              String(Math.floor(Math.random() * 60)).padStart(2, "0");
+    return t + "  " + codes[Math.floor(Math.random() * codes.length)] +
+           "  " + nodes[Math.floor(Math.random() * nodes.length)];
+  }
+  for (let i = 0; i < 7; i++) {
+    const row = el("div", "transient-conclave-tx-row", rowText());
+    wrap.appendChild(row);
+  }
+  body.appendChild(wrap);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    // Pop oldest, push newest at the bottom (visually scrolls up).
+    const rows = wrap.querySelectorAll(".transient-conclave-tx-row");
+    if (rows.length) rows[0].remove();
+    const row = el("div", "transient-conclave-tx-row transient-conclave-tx-new", rowText());
+    wrap.appendChild(row);
+  }, 520);
+}
+
+function _buildTransientConclave(body) {
+  // Pick variant per spawn so consecutive transients aren't identical.
+  if (Math.random() < 0.55) _buildTransientConclaveHex(body);
+  else                       _buildTransientConclaveTranscript(body);
+}
+
+function _buildTransientGastownDials(body) {
+  // Boiler dial cluster — 3 gauges side-by-side, each with rim, ticks,
+  // needle, and a numeric label. Needles twitch independently every
+  // 240-320ms. Steampunk vibe without the pipe column.
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 60");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.classList.add("transient-gastown");
+  const dials = [];
+  const labels = ["BOILER", "STEAM", "FEED"];
+  for (let i = 0; i < 3; i++) {
+    const x = 17 + i * 33;
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("transform", `translate(${x},${24})`);
+    // Rim
+    const rim = document.createElementNS(ns, "circle");
+    rim.setAttribute("r", "13"); rim.setAttribute("class", "transient-gastown-rim");
+    g.appendChild(rim);
+    // Ticks
+    for (let k = 0; k < 7; k++) {
+      const a = (-130 + k * 43) * Math.PI / 180;
+      const tick = document.createElementNS(ns, "line");
+      tick.setAttribute("x1", (Math.cos(a) * 11.5).toFixed(2));
+      tick.setAttribute("y1", (Math.sin(a) * 11.5).toFixed(2));
+      tick.setAttribute("x2", (Math.cos(a) * 9.5).toFixed(2));
+      tick.setAttribute("y2", (Math.sin(a) * 9.5).toFixed(2));
+      tick.setAttribute("class", "transient-gastown-tick");
+      g.appendChild(tick);
+    }
+    // Needle
+    const needle = document.createElementNS(ns, "line");
+    needle.setAttribute("x1", "0"); needle.setAttribute("y1", "0");
+    needle.setAttribute("x2", "0"); needle.setAttribute("y2", "-10");
+    needle.setAttribute("class", "transient-gastown-needle");
+    g.appendChild(needle);
+    // Label
+    const lbl = document.createElementNS(ns, "text");
+    lbl.setAttribute("x", "0"); lbl.setAttribute("y", "22");
+    lbl.setAttribute("text-anchor", "middle");
+    lbl.setAttribute("class", "transient-gastown-psi-label");
+    lbl.textContent = labels[i];
+    g.appendChild(lbl);
+    // Numeric value
+    const val = document.createElementNS(ns, "text");
+    val.setAttribute("x", "0"); val.setAttribute("y", "30");
+    val.setAttribute("text-anchor", "middle");
+    val.setAttribute("class", "transient-gastown-psi-val");
+    val.textContent = "—";
+    g.appendChild(val);
+    svg.appendChild(g);
+    dials.push({ needle, val, period: 220 + i * 60 });
+  }
+  body.appendChild(svg);
+  // Each dial has its own twitch period.
+  const timers = dials.map(d => setInterval(() => {
+    if (!body.isConnected) { timers.forEach(clearInterval); return; }
+    const ang = -65 + Math.random() * 130;
+    d.needle.setAttribute("transform", "rotate(" + ang.toFixed(1) + ")");
+    d.val.textContent = String(Math.round(40 + ((ang + 65) / 130) * 160));
+  }, d.period));
+}
+
+function _buildTransientGastownPipes(body) {
   // Steampunk schematic. Three brass pipes with rising bubbles, steam
   // puffs vented from the tops, a pressure gauge with twitching
   // needle, and a flickering PSI readout. SVG-native so the line
@@ -4450,12 +4553,28 @@ function _buildTransientGastown(body) {
   }, 220);
 }
 
+function _buildTransientGastown(body) {
+  // 5 variants — 3 pipe-styles (3-col / 2-col + big gauge / 4-col thin),
+  // 2 dial-clusters (3-cluster / 2-cluster). Subtle differences keep
+  // each spawn looking distinct.
+  const v = Math.floor(Math.random() * 5);
+  if (v < 3) _buildTransientGastownPipes(body);
+  else       _buildTransientGastownDials(body);
+}
+
 function _buildTransientLab(body) {
-  // Medical monitor: ECG paper grid, two scrolling traces (ECG green,
-  // SPO2 cyan with offset baseline), and a flickering BPM/SPO2
-  // readout panel. Traces share a step() loop that regenerates the
-  // path d-attr every 140ms with noise plus periodic QRS-like spikes
-  // for ECG and slower notch dips for SPO2.
+  // Medical monitor: ECG paper grid, scrolling traces, BPM/SPO2 readout.
+  // 5 subtle variants per spawn:
+  //  - showSPO2: 70% chance — sometimes just ECG fullscreen
+  //  - bpmRange: resting (62-68) / normal (70-78) / elevated (88-105) / stress (130-150)
+  //  - beatPeriod: 50-72 SVG units (faster heart = faster spike spacing)
+  //  - readoutVariant: BPM+SPO2 / BPM only / BPM+SPO2+RESP
+  // Subtle differences keep each spawn looking like a different patient.
+  const showSPO2 = Math.random() < 0.7;
+  const bpmRanges = [[62, 68], [70, 78], [88, 105], [130, 150]];
+  const bpmRange = bpmRanges[Math.floor(Math.random() * bpmRanges.length)];
+  const beatPeriod = 50 + Math.floor(Math.random() * 22);
+  const ecgY = showSPO2 ? 18 : 30;
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 200 60");
@@ -4482,14 +4601,17 @@ function _buildTransientLab(body) {
   }
   svg.appendChild(grid);
 
-  // ECG trace (top half) — green, periodic QRS spike.
+  // ECG trace — green, periodic QRS spike. Y baseline depends on
+  // whether SPO2 is also showing (split layout) or not (full-cell).
   const ecg = document.createElementNS(ns, "path");
   ecg.setAttribute("class", "transient-lab-trace transient-lab-ecg");
   svg.appendChild(ecg);
-  // SPO2 trace (bottom half) — cyan, slow plethysmographic wave.
-  const spo = document.createElementNS(ns, "path");
-  spo.setAttribute("class", "transient-lab-trace transient-lab-spo");
-  svg.appendChild(spo);
+  // SPO2 trace (only when showSPO2). Optional second trace.
+  const spo = showSPO2 ? document.createElementNS(ns, "path") : null;
+  if (spo) {
+    spo.setAttribute("class", "transient-lab-trace transient-lab-spo");
+    svg.appendChild(spo);
+  }
 
   // Readout panel in the upper-right.
   const bpmLabel = document.createElementNS(ns, "text");
@@ -4504,18 +4626,22 @@ function _buildTransientLab(body) {
   bpmVal.setAttribute("class", "transient-lab-readout-bpm");
   bpmVal.textContent = "72";
   svg.appendChild(bpmVal);
-  const spoLabel = document.createElementNS(ns, "text");
-  spoLabel.setAttribute("x", "175"); spoLabel.setAttribute("y", "57");
-  spoLabel.setAttribute("text-anchor", "end");
-  spoLabel.setAttribute("class", "transient-lab-readout-label");
-  spoLabel.textContent = "SPO2";
-  svg.appendChild(spoLabel);
-  const spoVal = document.createElementNS(ns, "text");
-  spoVal.setAttribute("x", "198"); spoVal.setAttribute("y", "57");
-  spoVal.setAttribute("text-anchor", "end");
-  spoVal.setAttribute("class", "transient-lab-readout-spo");
-  spoVal.textContent = "98";
-  svg.appendChild(spoVal);
+  // SPO2 readout only renders when the trace is shown.
+  let spoVal = null;
+  if (showSPO2) {
+    const spoLabel = document.createElementNS(ns, "text");
+    spoLabel.setAttribute("x", "175"); spoLabel.setAttribute("y", "57");
+    spoLabel.setAttribute("text-anchor", "end");
+    spoLabel.setAttribute("class", "transient-lab-readout-label");
+    spoLabel.textContent = "SPO2";
+    svg.appendChild(spoLabel);
+    spoVal = document.createElementNS(ns, "text");
+    spoVal.setAttribute("x", "198"); spoVal.setAttribute("y", "57");
+    spoVal.setAttribute("text-anchor", "end");
+    spoVal.setAttribute("class", "transient-lab-readout-spo");
+    spoVal.textContent = "98";
+    svg.appendChild(spoVal);
+  }
 
   body.appendChild(svg);
 
@@ -4526,36 +4652,38 @@ function _buildTransientLab(body) {
     if (started && !svg.isConnected) return;
     if (svg.isConnected) started = true;
     phase++;
-    // ECG: noisy baseline at y=18, spike approximating PQRST every
-    // 60 SVG units, with phase offset to simulate scrolling.
-    const ecgPts = ["M 0 18"];
+    // ECG: noisy baseline at ecgY, PQRST spike every beatPeriod SVG
+    // units. Faster heart rate (smaller beatPeriod) → tighter spike spacing.
+    const ecgPts = ["M 0 " + ecgY];
     for (let x = 4; x < 200; x += 4) {
       const noise = (Math.random() - 0.5) * 1.6;
-      const beat = (x + phase * 4) % 60;
+      const beat = (x + phase * 4) % beatPeriod;
       let spike = 0;
-      if (beat < 2) spike = 1;            // P wave
-      else if (beat < 4) spike = -1.5;     // Q
-      else if (beat < 7) spike = -10;     // R (downward, since y is inverted)
-      else if (beat < 10) spike = 4;       // S
-      else if (beat < 14) spike = 2;       // T
-      ecgPts.push("L " + x + " " + (18 + noise + spike).toFixed(1));
+      if (beat < 2) spike = 1;
+      else if (beat < 4) spike = -1.5;
+      else if (beat < 7) spike = -10;
+      else if (beat < 10) spike = 4;
+      else if (beat < 14) spike = 2;
+      ecgPts.push("L " + x + " " + (ecgY + noise + spike).toFixed(1));
     }
     ecg.setAttribute("d", ecgPts.join(" "));
 
-    // SPO2: smooth pleth-ish sine + small notch on every cycle.
-    const spoPts = ["M 0 44"];
-    for (let x = 4; x < 200; x += 4) {
-      const t = (x + phase * 2) / 18;
-      const wave = -Math.sin(t) * 5 - Math.max(0, Math.sin(t - 0.5)) * 3;
-      const noise = (Math.random() - 0.5) * 0.6;
-      spoPts.push("L " + x + " " + (44 + wave + noise).toFixed(1));
+    if (spo) {
+      // SPO2: smooth pleth-ish sine + small notch on every cycle.
+      const spoPts = ["M 0 44"];
+      for (let x = 4; x < 200; x += 4) {
+        const t = (x + phase * 2) / 18;
+        const wave = -Math.sin(t) * 5 - Math.max(0, Math.sin(t - 0.5)) * 3;
+        const noise = (Math.random() - 0.5) * 0.6;
+        spoPts.push("L " + x + " " + (44 + wave + noise).toFixed(1));
+      }
+      spo.setAttribute("d", spoPts.join(" "));
     }
-    spo.setAttribute("d", spoPts.join(" "));
 
-    // BPM/SPO2 readouts flicker mildly so the panel reads "live".
+    // BPM/SPO2 readouts flicker within their respective ranges.
     if (phase % 6 === 0) {
-      bpmVal.textContent = String(70 + Math.floor(Math.random() * 8));
-      spoVal.textContent = String(96 + Math.floor(Math.random() * 4));
+      bpmVal.textContent = String(bpmRange[0] + Math.floor(Math.random() * (bpmRange[1] - bpmRange[0])));
+      if (spoVal) spoVal.textContent = String(96 + Math.floor(Math.random() * 4));
     }
 
     setTimeout(step, 140);
@@ -4564,16 +4692,26 @@ function _buildTransientLab(body) {
 }
 
 function _buildTransientVigil(body) {
-  // Surveillance radar — concentric rings + sweeping line + flickering
-  // detection blips appearing at random bearings. Reads as a security
-  // scope picking up returns.
+  // Surveillance radar — concentric rings + sweep wedge + blips. 5
+  // subtle variants per spawn:
+  //  - ringCount: 3 / 4 / 5 (sparse / standard / dense range bands)
+  //  - sweepDuration: 1.6-3.4s (slow scan vs fast scan)
+  //  - sweepReverse: 30% chance of counter-clockwise rotation
+  //  - blipRate: 180ms / 280ms / 460ms (busy / steady / sparse)
+  //  - blipColor: green or amber tint
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 100 100");
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.classList.add("transient-vigil");
-  // Concentric range rings.
-  for (const r of [12, 24, 36, 46]) {
+  if (Math.random() < 0.3) svg.classList.add("transient-vigil-amber");
+  if (Math.random() < 0.3) svg.classList.add("transient-vigil-reverse");
+  const sweepDur = (1.6 + Math.random() * 1.8).toFixed(2);
+  svg.style.setProperty("--vigil-sweep-dur", sweepDur + "s");
+  // Concentric range rings — count varies per spawn.
+  const ringSet = [[15, 30, 45], [12, 24, 36, 46], [10, 22, 32, 42, 48]];
+  const rings = ringSet[Math.floor(Math.random() * ringSet.length)];
+  for (const r of rings) {
     const ring = document.createElementNS(ns, "circle");
     ring.setAttribute("cx", "50"); ring.setAttribute("cy", "50");
     ring.setAttribute("r", r);
@@ -4601,9 +4739,10 @@ function _buildTransientVigil(body) {
   blipsLayer.setAttribute("class", "transient-vigil-blips");
   svg.appendChild(blipsLayer);
   body.appendChild(svg);
+  const blipRates = [180, 280, 460];
+  const blipRate = blipRates[Math.floor(Math.random() * blipRates.length)];
   const ivl = setInterval(() => {
     if (!body.isConnected) { clearInterval(ivl); return; }
-    // Add 1-2 blips, prune ones older than 1.4s.
     const blip = document.createElementNS(ns, "circle");
     const ang = Math.random() * Math.PI * 2;
     const rad = 6 + Math.random() * 38;
@@ -4613,20 +4752,45 @@ function _buildTransientVigil(body) {
     blip.setAttribute("class", "transient-vigil-blip");
     blipsLayer.appendChild(blip);
     setTimeout(() => blip.remove(), 1400);
-  }, 280);
+  }, blipRate);
 }
 
+// Ops code pools — picked per spawn so consecutive LCARS panels read
+// as different system contexts.
+const _OPS_CODE_POOLS = [
+  ["AUX", "WRP", "NAV", "ENG", "TAC", "SCI", "MED", "OPS"],   // bridge
+  ["LCS", "ENG", "DEF", "RDR", "COM", "AUX", "PRP", "DOC"],   // engineering
+  ["MED", "SCI", "AST", "BIO", "NAV", "MED", "RES", "MED"],   // sickbay
+  ["TAC", "DEF", "WPN", "ALT", "CMD", "PHS", "TPB", "EVA"],   // tactical
+];
+const _OPS_PILL_HUES = [
+  ["#ff9966", "#ffcc88", "#cc99ff"],  // classic (orange/peach/lavender)
+  ["#cc99ff", "#ffcc88", "#ff6699"],  // alt (lavender/peach/pink)
+  ["#ffaa55", "#ffe9aa", "#cc99ff"],  // warm
+];
+
 function _buildTransientOps(body) {
-  // LCARS panel — six pill-shaped status rows scrolling status codes
-  // in the Star Trek register. Tabular numeric column + alpha code +
-  // tone bar. Cycles every ~110ms.
+  // LCARS panel — six pill-shaped status rows. 5 subtle variants:
+  //  - codePool: bridge / engineering / sickbay / tactical (different
+  //    code sets per spawn)
+  //  - pillHue trio: classic / alt / warm (rotating LCARS palette)
+  //  - cycle rate 110-160ms
+  //  - row count 5 or 6
   const wrap = el("div", "transient-ops");
-  const codes = ["AUX", "WRP", "NAV", "ENG", "TAC", "SCI", "MED", "OPS"];
+  const codes = _OPS_CODE_POOLS[Math.floor(Math.random() * _OPS_CODE_POOLS.length)];
+  const hues = _OPS_PILL_HUES[Math.floor(Math.random() * _OPS_PILL_HUES.length)];
   const tones = ["NOM", "STD", "ALT", "RDY", "ACT", "BRT"];
-  for (let i = 0; i < 6; i++) {
+  const rowCount = Math.random() < 0.5 ? 5 : 6;
+  const cycleMs = 110 + Math.floor(Math.random() * 50);
+  wrap.style.setProperty("--ops-pill-hue-1", hues[0]);
+  wrap.style.setProperty("--ops-pill-hue-2", hues[1]);
+  wrap.style.setProperty("--ops-pill-hue-3", hues[2]);
+  for (let i = 0; i < rowCount; i++) {
     const row = el("div", "transient-ops-row");
-    row.appendChild(el("span", "transient-ops-pill",
-      codes[Math.floor(Math.random() * codes.length)]));
+    const pill = el("span", "transient-ops-pill",
+      codes[Math.floor(Math.random() * codes.length)]);
+    pill.style.background = hues[i % hues.length];
+    row.appendChild(pill);
     const num = el("span", "transient-ops-num");
     num.textContent = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
     row.appendChild(num);
@@ -4643,14 +4807,14 @@ function _buildTransientOps(body) {
       row.querySelector(".transient-ops-num").textContent = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
       row.querySelector(".transient-ops-tone").textContent = tones[Math.floor(Math.random() * tones.length)];
     });
-  }, 130);
+  }, cycleMs);
 }
 
-function _buildTransientNoir(body) {
-  // Typewriter ribbon — partial words with redacted black-bar overlays
-  // scrolling top-to-bottom. Reads as classified-document leak.
-  const wrap = el("div", "transient-noir");
-  const fragments = [
+// Noir fragment pools — each spawn picks one. Different pools imply
+// different case contexts (operations / espionage / forensics).
+const _NOIR_FRAGMENT_POOLS = [
+  // operations / surveillance
+  [
     "subject : ████████ confirmed",
     "case file : ████ — ████████",
     "redact level : ████",
@@ -4659,8 +4823,41 @@ function _buildTransientNoir(body) {
     "asset : ████████ unverified",
     "channel : ████ ████ closed",
     "directive : ████████ standby",
-  ];
-  for (let i = 0; i < 6; i++) {
+  ],
+  // espionage / dispatch
+  [
+    "courier : ████ ███ in transit",
+    "drop site : ████████ — ██:██",
+    "key phrase : ████ ████ ████",
+    "exfil window : ██ minutes",
+    "burn notice : ██████ pending",
+    "tail : ████ vehicles",
+    "frequency : ███.███ MHz",
+    "extraction : ████████",
+  ],
+  // forensics / case board
+  [
+    "exhibit ██ : ████████ catalogued",
+    "witness ██ : ████████ ██ statement",
+    "priors : █ — ████████",
+    "lab result : ████████ pending",
+    "alibi : ████ at ██:██",
+    "motive : ████████ ██████",
+    "subpoena : ████████ filed",
+    "next of kin : ████ ████████",
+  ],
+];
+
+function _buildTransientNoir(body) {
+  // 5 subtle variants:
+  //  - fragmentPool: operations / espionage / forensics
+  //  - rowCount: 5 / 6 / 7 (sparse / standard / dense)
+  //  - cycleMs: 320-460 (fast / slow ticker)
+  const wrap = el("div", "transient-noir");
+  const fragments = _NOIR_FRAGMENT_POOLS[Math.floor(Math.random() * _NOIR_FRAGMENT_POOLS.length)];
+  const rowCount = 5 + Math.floor(Math.random() * 3);
+  const cycleMs = 320 + Math.floor(Math.random() * 140);
+  for (let i = 0; i < rowCount; i++) {
     const row = el("div", "transient-noir-row");
     row.textContent = fragments[Math.floor(Math.random() * fragments.length)];
     wrap.appendChild(row);
@@ -4669,13 +4866,12 @@ function _buildTransientNoir(body) {
   const ivl = setInterval(() => {
     if (!body.isConnected) { clearInterval(ivl); return; }
     const rows = wrap.querySelectorAll(".transient-noir-row");
-    // Cycle one row at a time so the ribbon reads as advancing.
     const r = rows[Math.floor(Math.random() * rows.length)];
     r.textContent = fragments[Math.floor(Math.random() * fragments.length)];
     r.classList.remove("transient-noir-typed");
-    void r.offsetWidth;  // restart animation
+    void r.offsetWidth;
     r.classList.add("transient-noir-typed");
-  }, 380);
+  }, cycleMs);
 }
 
 function _buildTransientGeneric(body) {
