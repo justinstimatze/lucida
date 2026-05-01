@@ -2635,6 +2635,10 @@ function renderCell(c, snippetGroups) {
     // cells without the user having to read each value). Per Task #68 MVP.
     const conf = el("span", "cell-conf");
     const cv = Math.max(0, Math.min(1, c.confidence));
+    // --conf drives both the linear bar's width AND the gastown dial's
+    // needle rotation via CSS — set once on the wrapper so the two
+    // alternate displays stay in sync without theme-aware JS.
+    conf.style.setProperty("--conf", cv.toFixed(3));
     const bar = el("span", "cell-conf-bar");
     const fill = el("span", "cell-conf-bar-fill");
     fill.style.width = (cv * 100).toFixed(1) + "%";
@@ -2643,6 +2647,44 @@ function renderCell(c, snippetGroups) {
     if (cv < 0.6) fill.classList.add("cell-conf-bar-low");
     bar.appendChild(fill);
     conf.appendChild(bar);
+    // Per-theme flair variants. All variants are inserted in every cell;
+    // CSS reveals exactly one based on the active .theme-* class on
+    // <html> and hides the others (including the default linear bar).
+    // Per memory/feedback_theme_specific_flair: each theme gets distinct
+    // flourishes; cross-theme bleed is the only failure mode.
+    //
+    //   .cell-conf-dial   — gastown brass pressure gauge (needle ∝ conf)
+    //   .cell-conf-magi   — conclave/magi MELCHIOR/BALTHASAR/CASPAR
+    //                        3-vote stack (each bar fills ∝ conf)
+    //
+    // Ops (LCARS) and lab themes restyle the default .cell-conf-bar
+    // via CSS — no SVG variant needed.
+    conf.insertAdjacentHTML("beforeend", `
+      <svg class="cell-conf-dial" viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="dial-rim" cx="12" cy="12" r="10.5"/>
+        <circle class="dial-face" cx="12" cy="12" r="9"/>
+        <g class="dial-ticks">
+          <line x1="12" y1="3" x2="12" y2="5"/>
+          <line x1="3" y1="12" x2="5" y2="12"/>
+          <line x1="21" y1="12" x2="19" y2="12"/>
+          <line x1="5.5" y1="5.5" x2="6.9" y2="6.9"/>
+          <line x1="18.5" y1="5.5" x2="17.1" y2="6.9"/>
+        </g>
+        <line class="dial-needle" x1="12" y1="12" x2="12" y2="4.5"/>
+        <circle class="dial-hub" cx="12" cy="12" r="1.4"/>
+      </svg>
+      <svg class="cell-conf-magi" viewBox="0 0 22 14" aria-hidden="true">
+        <rect class="magi-track" x="1"  y="1" width="5" height="9"/>
+        <rect class="magi-track" x="8"  y="1" width="5" height="9"/>
+        <rect class="magi-track" x="15" y="1" width="5" height="9"/>
+        <rect class="magi-fill"  x="1"  y="1" width="5" height="9"/>
+        <rect class="magi-fill"  x="8"  y="1" width="5" height="9"/>
+        <rect class="magi-fill"  x="15" y="1" width="5" height="9"/>
+        <text class="magi-label" x="3.5"  y="13.2" text-anchor="middle">M</text>
+        <text class="magi-label" x="10.5" y="13.2" text-anchor="middle">B</text>
+        <text class="magi-label" x="17.5" y="13.2" text-anchor="middle">C</text>
+      </svg>`.trim());
+    if (cv < 0.6) conf.classList.add("cell-conf-low");
     conf.appendChild(el("span", "cell-conf-num", c.confidence.toFixed(2)));
     conf.title = `classifier confidence: ${c.confidence}`;
     head.appendChild(conf);
