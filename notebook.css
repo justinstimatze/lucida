@@ -1431,32 +1431,41 @@ main {
 .theme-conclave .cell-conf-bar { display: none; }
 .theme-conclave .cell-conf-magi {
   display: inline-block;
-  width: 24px;
-  height: 14px;
+  width: 26px;
+  height: 22px;
   vertical-align: middle;
   flex: 0 0 auto;
 }
-.theme-conclave .cell-conf-magi .magi-track {
+/* Three hex MAGI trinity: MELCHIOR / BALTHASAR / CASPAR. Hex outline
+   is the track; fills swap in proportional to --conf. Filled portion
+   is at the BOTTOM of each hex via clip-path inset. The hex shape is
+   the iconic NERV cue — far more recognizably-MAGI than the 3-bar
+   stack it replaces (user 2026-05-01: "needs to be more iconically
+   magi themed"). */
+.theme-conclave .cell-conf-magi .magi-tracks polygon {
   fill: transparent;
   stroke: var(--muted);
-  stroke-width: 0.5;
+  stroke-width: 0.6;
 }
-.theme-conclave .cell-conf-magi .magi-fill {
+.theme-conclave .cell-conf-magi .magi-fills polygon {
   fill: var(--accent);
-  /* Inset crops the top (1 - conf) of the rect height. Bars sit at
-     value — no entrance animation; the user wants "at value with a
-     little wiggle noise", not 0→value swings (2026-05-01). */
+  /* Crop top (1 - conf) of the hex bounding box so fill rises with
+     confidence. Sits at value — no entrance swing per user
+     2026-05-01 ("at value with a little wiggle noise"). */
   clip-path: inset(calc((1 - var(--conf, 0)) * 100%) 0 0 0);
 }
-.theme-conclave .cell-conf-low .magi-fill {
+.theme-conclave .cell-conf-low .magi-fills polygon {
   fill: var(--muted);
 }
 .theme-conclave .cell-conf-magi .magi-label {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 3.6px;
+  font-size: 4.5px;
   font-weight: 700;
-  fill: var(--muted);
+  fill: var(--accent);
   letter-spacing: 0.05em;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 0.8;
 }
 
 /* ─── Ops/LCARS flair: chunky pill conf bar ───────────────────────
@@ -3077,6 +3086,42 @@ body {
   border-left: 3px solid var(--accent);
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 32%, transparent);
 }
+
+/* Wireframe→solid reveal (#78). Body of a fresh cell shows scanline +
+   dashed-accent overlay for 1.1s, then dissolves — chart/SVG
+   "develops" through the wireframe like a blueprint resolving into
+   a finished panel. CSS-only, free real estate on cell-body::before
+   (no theme uses it). Themes with their own cell-fresh::before/::after
+   (circuit/renegade/mainframe/vigil/noir) still get this body-level
+   reveal because it's on cell-body, not cell. */
+.cell.cell-fresh .cell-body {
+  position: relative;
+}
+.cell.cell-fresh .cell-body::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 5px,
+      color-mix(in srgb, var(--accent) 14%, transparent) 5px,
+      color-mix(in srgb, var(--accent) 14%, transparent) 6px
+    );
+  border: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 2px;
+  pointer-events: none;
+  animation: wireframe-reveal 1.1s ease-out forwards;
+  z-index: 5;
+}
+@keyframes wireframe-reveal {
+  0%   { opacity: 1; }
+  55%  { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+/* Minimal theme stays flat — no scanline or dashed register. */
+.theme-minimal .cell.cell-fresh .cell-body::before { display: none; }
 @keyframes cell-arrive {
   0% {
     opacity: 0;

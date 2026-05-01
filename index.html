@@ -2673,16 +2673,26 @@ function renderCell(c, snippetGroups) {
         <line class="dial-needle" x1="12" y1="12" x2="12" y2="4.5"/>
         <circle class="dial-hub" cx="12" cy="12" r="1.4"/>
       </svg>
-      <svg class="cell-conf-magi" viewBox="0 0 22 14" aria-hidden="true">
-        <rect class="magi-track" x="1"  y="1" width="5" height="9"/>
-        <rect class="magi-track" x="8"  y="1" width="5" height="9"/>
-        <rect class="magi-track" x="15" y="1" width="5" height="9"/>
-        <rect class="magi-fill"  x="1"  y="1" width="5" height="9"/>
-        <rect class="magi-fill"  x="8"  y="1" width="5" height="9"/>
-        <rect class="magi-fill"  x="15" y="1" width="5" height="9"/>
-        <text class="magi-label" x="3.5"  y="13.2" text-anchor="middle">M</text>
-        <text class="magi-label" x="10.5" y="13.2" text-anchor="middle">B</text>
-        <text class="magi-label" x="17.5" y="13.2" text-anchor="middle">C</text>
+      <svg class="cell-conf-magi" viewBox="0 0 26 22" aria-hidden="true">
+        <!-- Three hexagons arranged as the MAGI System trinity:
+             MELCHIOR (top-left), BALTHASAR (top-right), CASPAR (bottom).
+             Each hex is a flat-top regular hexagon, side ~3.5 user units.
+             Stroke = track; fill = magi-fill (clipped by --conf at the
+             whole-shape level via clip-path on the parent <g>). Labels
+             centered inside each hex in tiny mono. -->
+        <g class="magi-tracks">
+          <polygon points="3.5,3 6.5,1 9.5,3 9.5,7 6.5,9 3.5,7"/>
+          <polygon points="16.5,3 19.5,1 22.5,3 22.5,7 19.5,9 16.5,7"/>
+          <polygon points="10,12 13,10 16,12 16,16 13,18 10,16"/>
+        </g>
+        <g class="magi-fills">
+          <polygon points="3.5,3 6.5,1 9.5,3 9.5,7 6.5,9 3.5,7"/>
+          <polygon points="16.5,3 19.5,1 22.5,3 22.5,7 19.5,9 16.5,7"/>
+          <polygon points="10,12 13,10 16,12 16,16 13,18 10,16"/>
+        </g>
+        <text class="magi-label" x="6.5"  y="6"  text-anchor="middle" dominant-baseline="middle">M</text>
+        <text class="magi-label" x="19.5" y="6"  text-anchor="middle" dominant-baseline="middle">B</text>
+        <text class="magi-label" x="13"   y="15" text-anchor="middle" dominant-baseline="middle">C</text>
       </svg>`.trim());
     if (cv < 0.6) conf.classList.add("cell-conf-low");
     conf.appendChild(el("span", "cell-conf-num", c.confidence.toFixed(2)));
