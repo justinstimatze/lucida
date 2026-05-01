@@ -4874,9 +4874,304 @@ function _buildTransientNoir(body) {
   }, cycleMs);
 }
 
+// --- terminus (CRT phosphor terminal) -----------------------------------
+const _TERMINUS_LINE_POOLS = [
+  // boot-sequence
+  [
+    "$ initialising kernel ...... ok",
+    "$ mounting /dev/sda1 .......... ok",
+    "$ loading symbols ............ ok",
+    "$ checking memory bank 0x4000 ok",
+    "$ probing usb hub ........... ok",
+    "$ network ifconfig eth0 ..... ok",
+    "$ daemon spawn pid 0x1f .... ok",
+    "$ entering runlevel 3 ....... ok",
+  ],
+  // shell history
+  [
+    "$ grep -rni 'session' src/",
+    "$ git log --oneline -20",
+    "$ ps -ef | grep watcher",
+    "$ rg --json 'cell-' .",
+    "$ cat /tmp/out-1746115632.log",
+    "$ python -m pytest tests/ -x",
+    "$ jq '.cells | length' cells.json",
+    "$ tail -f watcher.log",
+  ],
+  // process table
+  [
+    "  pid  cpu  mem  cmd",
+    " 4421  0.7  1.4  watcher.py",
+    " 5102  2.3  4.1  python orchestrator",
+    " 6823  0.1  0.2  classifier",
+    " 7044  1.1  3.0  specialist",
+    " 8901  0.0  0.5  reflect",
+    " 9118  0.3  0.8  hud-server",
+    "12244  0.0  0.1  audit",
+  ],
+];
+
+function _buildTransientTerminus(body) {
+  // CRT phosphor terminal scroll — 5 subtle variants:
+  //  - linePool: boot-sequence / shell-history / process-table
+  //  - hue: amber / green / cyan
+  //  - cycleMs: 380-720
+  //  - rowCount: 6 or 7
+  const wrap = el("div", "transient-terminus");
+  const lines = _TERMINUS_LINE_POOLS[Math.floor(Math.random() * _TERMINUS_LINE_POOLS.length)];
+  const hues = ["#ffaa44", "#66ff88", "#88ddff"];
+  const hue = hues[Math.floor(Math.random() * hues.length)];
+  const cycleMs = 380 + Math.floor(Math.random() * 340);
+  const rowCount = 6 + Math.floor(Math.random() * 2);
+  wrap.style.setProperty("--terminus-hue", hue);
+  for (let i = 0; i < rowCount; i++) {
+    const row = el("div", "transient-terminus-row");
+    row.textContent = lines[i % lines.length];
+    wrap.appendChild(row);
+  }
+  body.appendChild(wrap);
+  // Scroll: pop oldest, push newest line at the bottom.
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    const rows = wrap.querySelectorAll(".transient-terminus-row");
+    if (rows.length) rows[0].remove();
+    const row = el("div", "transient-terminus-row transient-terminus-new",
+      lines[Math.floor(Math.random() * lines.length)]);
+    wrap.appendChild(row);
+  }, cycleMs);
+}
+
+// --- circuit (PCB traces with travelling pulses) -------------------------
+function _buildTransientCircuit(body) {
+  // Animated copper traces — random rectilinear paths with
+  // travelling pulse circles. 5 subtle variants:
+  //  - traceCount: 3 / 4 / 5
+  //  - pulseSpeed: 1.4 / 2.4 / 3.6s
+  //  - hue: copper / cyan / lime
+  //  - includeJunctions: 50% chance of junction dots
+  //  - includeViaGrid: 30% chance of background via dots
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.classList.add("transient-circuit");
+  const hues = ["#c4a772", "#5fd8c8", "#a4ff4a"];
+  const hue = hues[Math.floor(Math.random() * hues.length)];
+  const pulseDur = [1.4, 2.4, 3.6][Math.floor(Math.random() * 3)];
+  svg.style.setProperty("--circuit-hue", hue);
+  svg.style.setProperty("--circuit-pulse-dur", pulseDur + "s");
+  // Optional via grid background.
+  if (Math.random() < 0.3) {
+    for (let gx = 10; gx < 100; gx += 12) {
+      for (let gy = 10; gy < 100; gy += 12) {
+        const via = document.createElementNS(ns, "circle");
+        via.setAttribute("cx", gx); via.setAttribute("cy", gy);
+        via.setAttribute("r", "0.7");
+        via.setAttribute("class", "transient-circuit-via");
+        svg.appendChild(via);
+      }
+    }
+  }
+  // Random rectilinear traces.
+  const traceCount = 3 + Math.floor(Math.random() * 3);
+  const includeJunctions = Math.random() < 0.5;
+  for (let i = 0; i < traceCount; i++) {
+    let x = Math.floor(Math.random() * 90 + 5);
+    let y = Math.floor(Math.random() * 90 + 5);
+    const segs = ["M " + x + " " + y];
+    let segCount = 3 + Math.floor(Math.random() * 4);
+    for (let s = 0; s < segCount; s++) {
+      if (s % 2 === 0) {
+        const dx = (Math.random() - 0.5) * 60;
+        x = Math.max(5, Math.min(95, x + dx));
+        segs.push("L " + x.toFixed(0) + " " + y.toFixed(0));
+      } else {
+        const dy = (Math.random() - 0.5) * 60;
+        y = Math.max(5, Math.min(95, y + dy));
+        segs.push("L " + x.toFixed(0) + " " + y.toFixed(0));
+      }
+    }
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", segs.join(" "));
+    path.setAttribute("class", "transient-circuit-trace");
+    path.style.animationDelay = (Math.random() * pulseDur).toFixed(2) + "s";
+    svg.appendChild(path);
+    // Pulse: a small circle that follows the path. Browser-supported
+    // animateMotion stays in pure SVG, no JS rAF needed.
+    const pulse = document.createElementNS(ns, "circle");
+    pulse.setAttribute("r", "1.6");
+    pulse.setAttribute("class", "transient-circuit-pulse");
+    const motion = document.createElementNS(ns, "animateMotion");
+    motion.setAttribute("dur", pulseDur + "s");
+    motion.setAttribute("repeatCount", "indefinite");
+    motion.setAttribute("path", segs.join(" "));
+    motion.setAttribute("begin", (Math.random() * pulseDur).toFixed(2) + "s");
+    pulse.appendChild(motion);
+    svg.appendChild(pulse);
+    if (includeJunctions) {
+      const junc = document.createElementNS(ns, "circle");
+      junc.setAttribute("cx", x); junc.setAttribute("cy", y);
+      junc.setAttribute("r", "1.4");
+      junc.setAttribute("class", "transient-circuit-junction");
+      svg.appendChild(junc);
+    }
+  }
+  body.appendChild(svg);
+}
+
+// --- mainframe (punchcards / tickertape) --------------------------------
+function _buildTransientMainframe(body) {
+  // 5 subtle variants:
+  //  - layout: punchcards (4 cards stacked, hole patterns) / tickertape
+  //    (single horizontal scrolling ribbon)
+  //  - holeDensity: 30% / 50% / 70%
+  //  - tickertape: 2 different tape vocabularies
+  const layoutPunch = Math.random() < 0.55;
+  if (layoutPunch) {
+    const wrap = el("div", "transient-mainframe-cards");
+    const density = 0.3 + Math.random() * 0.4;
+    const ROWS = 5, COLS = 18;
+    for (let c = 0; c < 4; c++) {
+      const card = el("div", "transient-mainframe-card");
+      for (let r = 0; r < ROWS; r++) {
+        const row = el("div", "transient-mainframe-row");
+        for (let col = 0; col < COLS; col++) {
+          const slot = el("span", "transient-mainframe-slot",
+            Math.random() < density ? "█" : " ");
+          row.appendChild(slot);
+        }
+        card.appendChild(row);
+      }
+      wrap.appendChild(card);
+    }
+    body.appendChild(wrap);
+    const ivl = setInterval(() => {
+      if (!body.isConnected) { clearInterval(ivl); return; }
+      const slots = wrap.querySelectorAll(".transient-mainframe-slot");
+      // Re-roll a small subset (not all) so the cards "drift"
+      // rather than thrashing.
+      for (let i = 0; i < 8; i++) {
+        const s = slots[Math.floor(Math.random() * slots.length)];
+        s.textContent = Math.random() < density ? "█" : " ";
+      }
+    }, 240);
+  } else {
+    // Tickertape — single horizontal ribbon scrolling.
+    const wrap = el("div", "transient-mainframe-tape");
+    const tapes = [
+      "STOP TRANSMISSION RECEIVED 0421H STOP CARGO MANIFEST UPDATED STOP NEXT DISPATCH 0815H STOP",
+      "JOB 4421 BATCH-A COMPILE OK · JOB 4422 BATCH-B QUEUE · JOB 4423 BATCH-C HOLD · JOB 4424 LINK PEND ·",
+      "TX BLOCK 0x0421 0x0422 0x0423 0x0424 ACK · CRC OK · SEQ 117 · LATENCY 4ms · NEXT 0x0425 ·",
+    ];
+    const text = tapes[Math.floor(Math.random() * tapes.length)];
+    const inner = el("div", "transient-mainframe-tape-inner");
+    inner.textContent = text + "    " + text;
+    wrap.appendChild(inner);
+    body.appendChild(wrap);
+  }
+}
+
+// --- renegade (cyberpunk glitch) ----------------------------------------
+function _buildTransientRenegade(body) {
+  // Glitch burst — random colored bars with text fragments,
+  // periodic scan-line jumps. 5 subtle variants:
+  //  - barCount: 4 / 6 / 8
+  //  - fragmentPool: dataset / signal / packet / corrupt / system
+  //  - hue: magenta / cyan / lime / orange
+  const wrap = el("div", "transient-renegade");
+  const fragmentPools = [
+    ["DATASET", "QUERY", "FETCH", "RANGE", "SHARD"],
+    ["SIGNAL", "FREQ", "MOD", "DEMOD", "PHASE"],
+    ["PACKET", "ROUTE", "HOP", "MTU", "WINDOW"],
+    ["__??__", "ERR_403", "NULL", "CORRUPT", "0xFF"],
+    ["SYSTEM", "USER", "ROOT", "DAEMON", "GROUP"],
+  ];
+  const fragments = fragmentPools[Math.floor(Math.random() * fragmentPools.length)];
+  const hues = ["#ff3366", "#33ddee", "#aaff44", "#ff8833"];
+  const barCount = [4, 6, 8][Math.floor(Math.random() * 3)];
+  for (let i = 0; i < barCount; i++) {
+    const bar = el("div", "transient-renegade-bar");
+    bar.style.background = hues[Math.floor(Math.random() * hues.length)];
+    bar.style.width = (40 + Math.random() * 60) + "%";
+    bar.style.marginLeft = (Math.random() * 30) + "%";
+    bar.style.height = (4 + Math.random() * 8) + "px";
+    bar.style.animationDelay = (Math.random() * 0.6) + "s";
+    wrap.appendChild(bar);
+    if (Math.random() < 0.5) {
+      const txt = el("div", "transient-renegade-text",
+        fragments[Math.floor(Math.random() * fragments.length)]);
+      txt.style.color = hues[Math.floor(Math.random() * hues.length)];
+      wrap.appendChild(txt);
+    }
+  }
+  body.appendChild(wrap);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    const bars = wrap.querySelectorAll(".transient-renegade-bar");
+    bars.forEach(b => {
+      b.style.background = hues[Math.floor(Math.random() * hues.length)];
+      b.style.width = (40 + Math.random() * 60) + "%";
+      b.style.marginLeft = (Math.random() * 30) + "%";
+    });
+    const texts = wrap.querySelectorAll(".transient-renegade-text");
+    texts.forEach(t => {
+      t.textContent = fragments[Math.floor(Math.random() * fragments.length)];
+    });
+  }, 280);
+}
+
+// --- minimal (zen — single quiet element) -------------------------------
+function _buildTransientMinimal(body) {
+  // Subtle. 5 variants:
+  //  - dotGrid (3x3 / 4x4 with one cell pulsing)
+  //  - singleDot pulsing in center
+  //  - thinHorizontalLine sweeping across
+  //  - twoLines crossing
+  //  - smallCircle expanding-and-contracting
+  const variant = Math.floor(Math.random() * 5);
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.classList.add("transient-minimal");
+  if (variant === 0 || variant === 1) {
+    const grid = variant === 0 ? 3 : 4;
+    const step = 100 / (grid + 1);
+    for (let i = 1; i <= grid; i++) {
+      for (let j = 1; j <= grid; j++) {
+        const dot = document.createElementNS(ns, "circle");
+        dot.setAttribute("cx", (i * step).toFixed(1));
+        dot.setAttribute("cy", (j * step).toFixed(1));
+        dot.setAttribute("r", "1.5");
+        dot.setAttribute("class", "transient-minimal-dot");
+        svg.appendChild(dot);
+      }
+    }
+  } else if (variant === 2) {
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", "50"); dot.setAttribute("cy", "50");
+    dot.setAttribute("r", "3");
+    dot.setAttribute("class", "transient-minimal-pulse-dot");
+    svg.appendChild(dot);
+  } else if (variant === 3) {
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", "10"); line.setAttribute("x2", "90");
+    line.setAttribute("y1", "50"); line.setAttribute("y2", "50");
+    line.setAttribute("class", "transient-minimal-sweep-line");
+    svg.appendChild(line);
+  } else {
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("cx", "50"); circle.setAttribute("cy", "50");
+    circle.setAttribute("r", "20");
+    circle.setAttribute("class", "transient-minimal-breath-circle");
+    svg.appendChild(circle);
+  }
+  body.appendChild(svg);
+}
+
 function _buildTransientGeneric(body) {
-  // Fallback — five rows of randomized hex/ascii glyphs, monospaced,
-  // shuffled on a timer. Theme accent colour drives the text colour.
+  // Fallback for themes without a custom build (none currently —
+  // every theme has a body), but kept as an emergency fallback.
   const palette = _transientGlyphPalette(_transientThemeName());
   const pre = el("pre", "transient-generic-stream");
   pre.style.color = palette.color;
@@ -4891,13 +5186,18 @@ function _buildTransientGeneric(body) {
 function _buildTransientBody(body, theme) {
   body.classList.add("transient-body");
   switch (theme) {
-    case "conclave": return _buildTransientConclave(body);
-    case "gastown":  return _buildTransientGastown(body);
-    case "lab":      return _buildTransientLab(body);
-    case "vigil":    return _buildTransientVigil(body);
-    case "ops":      return _buildTransientOps(body);
-    case "noir":     return _buildTransientNoir(body);
-    default:         return _buildTransientGeneric(body);
+    case "conclave":  return _buildTransientConclave(body);
+    case "gastown":   return _buildTransientGastown(body);
+    case "lab":       return _buildTransientLab(body);
+    case "vigil":     return _buildTransientVigil(body);
+    case "ops":       return _buildTransientOps(body);
+    case "noir":      return _buildTransientNoir(body);
+    case "terminus":  return _buildTransientTerminus(body);
+    case "circuit":   return _buildTransientCircuit(body);
+    case "mainframe": return _buildTransientMainframe(body);
+    case "renegade":  return _buildTransientRenegade(body);
+    case "minimal":   return _buildTransientMinimal(body);
+    default:          return _buildTransientGeneric(body);
   }
 }
 
