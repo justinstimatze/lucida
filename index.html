@@ -1282,10 +1282,13 @@ function liveAppendNewCells(cellsData) {
   }
   // Transfer the "still warm" hero glow to the newest appended cell.
   if (firstNode) applyStillWarmToLatest();
-  // Re-apply alternate layout (treemap / organic) so freshly arrived
+  // Re-apply alternate layout (pack / organic) so freshly arrived
   // cells get their absolute position computed alongside existing ones.
-  // Default grid mode is a no-op.
+  // Pack mode also schedules 600ms / 2000ms retries because substrates
+  // (vega/scene3d/mermaid) lazy-mount async and have offsetWidth=0
+  // at the synchronous call — see scheduleLiveLayoutRetries.
   applyActiveLayout();
+  if (getLayoutMode() === "pack") scheduleLiveLayoutRetries();
   // Redraw inter-cell connections — a fresh reflection cell or a fresh
   // source cell can both invalidate existing paths.
   if (firstNode) scheduleRedrawConnections();
@@ -2080,6 +2083,21 @@ async function load() {
 // re-init (e.g. user switches treemap → pack → treemap → pack).
 // ----------------------------------------------------------------
 let _muuriGrid = null;
+
+// Livefeed re-pack: a single applyActiveLayout() at append time misses
+// substrates that lazy-mount async (vega/scene3d/mermaid), leaving
+// fresh cells with offsetWidth=0 — applyPackLayout drops them from
+// the sized filter and they stack at default coords. Mirror the
+// initial-load retry cadence (600ms / 2000ms) and debounce across
+// rapid polls so consecutive appends share one retry burst.
+let _liveLayoutRetryTimers = [];
+function scheduleLiveLayoutRetries() {
+  for (const t of _liveLayoutRetryTimers) clearTimeout(t);
+  _liveLayoutRetryTimers = [
+    setTimeout(applyActiveLayout, 600),
+    setTimeout(applyActiveLayout, 2000),
+  ];
+}
 function applyPackLayout() {
   const root = document.getElementById("notebook");
   window._lucidaPackDebug = window._lucidaPackDebug || { calls: [] };
