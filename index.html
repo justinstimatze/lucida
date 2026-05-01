@@ -181,6 +181,7 @@ const state = {
     renderedIds: new Set(),       // cells already mounted in the notebook
     overflowPending: false,       // overflow-check rAF throttle
     cellsBarKey: null,            // memo key for HUD substrate-bar repaint
+    cellsById: null,              // id → cell map for predecessor lookup (Task #79)
   },
   hud: {
     lastTyped: new Map(),         // typeInto cache (suppress re-animation)
@@ -1244,8 +1245,14 @@ function liveAppendNewCells(cellsData) {
   const oldDocHeight = document.body.offsetHeight;
   let firstNode = null;
   const multi = isMultiStream();
+  // Merge the latest poll's cells into cellsById so a freshly-arrived
+  // successor can find its (older) predecessor that was loaded earlier.
+  // Per Task #79.
+  const cellsById = state.rendering.cellsById || new Map();
+  for (const c of cellsData.cells) cellsById.set(c.id, c);
+  state.rendering.cellsById = cellsById;
   for (const c of fresh) {
-    const node = renderCell(c, snippetGroups);
+    const node = renderCell(c, snippetGroups, cellsById);
     node.classList.add("cell-fresh");
     if (multi) {
       // Route into the cell's session column; newest first within column.
@@ -1979,6 +1986,13 @@ async function load() {
     snippetGroups.get(c.trigger_snippet).push(c.id);
   }
 
+  // Lookup map for predecessor inlining (Task #79). Includes replaced
+  // cells filtered out of `visible` above — those are the predecessors
+  // we want to render compactly inside their successor.
+  const cellsById = new Map();
+  for (const c of data.cells) cellsById.set(c.id, c);
+  state.rendering.cellsById = cellsById;
+
   const root = document.getElementById("notebook");
   if (isMultiStream()) {
     // Mission-control mode. One column per selected session; cells
@@ -1992,7 +2006,7 @@ async function load() {
       const col = ensureSessionColumn(sessionKey(c));
       // Newest first within column — prepend AFTER the header.
       const headerEl = col.firstChild;
-      col.insertBefore(renderCell(c, snippetGroups), headerEl.nextSibling);
+      col.insertBefore(renderCell(c, snippetGroups, cellsById), headerEl.nextSibling);
       state.rendering.renderedIds.add(c.id);
     }
   } else {
@@ -2026,7 +2040,7 @@ async function load() {
     else if (layoutCap) tail = visible.slice(-layoutCap);
     else tail = visible;
     for (const c of tail) {
-      root.prepend(renderCell(c, snippetGroups));
+      root.prepend(renderCell(c, snippetGroups, cellsById));
       state.rendering.renderedIds.add(c.id);
     }
   }
@@ -2575,9 +2589,11 @@ function el(tag, cls, text) {
   return e;
 }
 
-function renderCell(c, snippetGroups) {
+function renderCell(c, snippetGroups, cellsById, opts) {
+  opts = opts || {};
   const card = el("article", "cell");
-  if (c.id) card.id = c.id;
+  if (c.id && !opts.compact) card.id = c.id;
+  if (opts.compact) card.classList.add("cell-compact");
   if (c.cell_type) card.dataset.cellType = c.cell_type;
   // Session id on the card for the WebGL session-thread connection lines
   // (drawSessionThreads in alt-layout modes). Reflection source-ids
@@ -3904,6 +3920,27 @@ function renderCell(c, snippetGroups) {
       src.appendChild(block);
     }
     head.appendChild(src);
+  }
+
+  // Multi-version comparison strip: when this cell supersedes a previous
+  // attempt (c.replaces is set), inline the predecessor below the main
+  // body so retry diffs are visible without leaving the cell. Single-step
+  // (does not recurse the chain — only the immediately-prior version).
+  // Compact mode used by the recursive call hides the head/source chrome
+  // so only the predecessor's substrate body shows. Per Task #79.
+  if (c.replaces && cellsById && !opts.compact) {
+    const prev = cellsById.get(c.replaces);
+    if (prev) {
+      const strip = el("div", "cell-prev-strip");
+      const label = el("div", "cell-prev-label");
+      label.appendChild(el("span", "cell-prev-label-tag", "previous"));
+      const prevLink = el("a", "cell-prev-id", prev.id);
+      prevLink.href = "#" + prev.id;
+      label.appendChild(prevLink);
+      strip.appendChild(label);
+      strip.appendChild(renderCell(prev, snippetGroups, cellsById, { compact: true }));
+      card.appendChild(strip);
+    }
   }
 
   return card;

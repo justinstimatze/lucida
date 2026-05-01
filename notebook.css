@@ -4108,3 +4108,90 @@ body {
     0 0 60px color-mix(in srgb, var(--vis-tripped) 50%, transparent),
     inset 0 0 8px color-mix(in srgb, var(--vis-tripped) 25%, transparent);
 }
+
+/* --- Multi-version comparison strip (Task #79) --------------------------- */
+/* When a cell supersedes a previous attempt (replaces field set), the prior
+   version is rendered inline below the main body via a recursive
+   renderCell(..., {compact:true}) call. The strip:
+   - is height-capped so a tall predecessor doesn't double the cell
+   - demotes the predecessor visually (lower opacity, dashed top border)
+   - hides the compact node's head/source chrome so only the substrate body
+     shows (the parent cell's head already names this version)
+   FUI "thing you only see when it matters" pattern: most cells have no
+   replaces, so this is selectively visible. */
+.cell-prev-strip {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed color-mix(in srgb, var(--fg-muted, #888) 40%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  opacity: 0.72;
+}
+.cell-prev-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--fg-muted, #888);
+}
+.cell-prev-label-tag {
+  font-family: var(--font-mono, "Courier New", monospace);
+}
+.cell-prev-id {
+  font-family: var(--font-mono, "Courier New", monospace);
+  color: var(--fg-muted, #888);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+  padding-bottom: 1px;
+}
+.cell-prev-id:hover {
+  color: var(--accent, #5e8e7e);
+}
+/* Compact-mode cell (the predecessor render): no head/sources chrome,
+   no entrance animation, capped height. Body still renders normally
+   so the substrate viz is visible. !important is unfortunate but
+   theme-scoped (`.theme-X .cell`) rules outrank our two-class selector
+   on padding/border/etc — and the compact treatment must hold across
+   every theme. */
+.cell.cell-compact {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.cell.cell-compact > .cell-head,
+.cell.cell-compact > .cell-reflection-sources,
+.cell.cell-compact > .cell-caption {
+  display: none !important;
+}
+.cell.cell-compact > .cell-body {
+  max-height: 220px;
+  overflow: hidden;
+  position: relative;
+  transform: none !important;
+  margin: 0 !important;
+}
+/* Soft fade at the bottom edge if the predecessor body overflows the cap,
+   so the truncation reads as deliberate rather than a render bug. */
+.cell.cell-compact > .cell-body::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 24px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--cell-bg, #1a1a1a) 90%
+  );
+  pointer-events: none;
+}
+/* No nested prev-strip — the recursive single-step rule already prevents
+   it in JS, but belt-and-suspenders here. */
+.cell.cell-compact .cell-prev-strip {
+  display: none;
+}
