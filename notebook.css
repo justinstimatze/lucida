@@ -4372,6 +4372,50 @@ body {
 }
 .theme-lab .cell.cell-transient .cell-transient-tag { color: #76d2c8; }
 
+/* --- Mint-time scrubber (Task #95) --------------------------------------- */
+/* Rapid theme-tuned glyph storm overlaid on the cell body during the first
+   ~700ms after mint. Pairs with the wireframe-reveal ::before pseudo on
+   cell-fresh. The storm fades out and the real substrate render is
+   revealed underneath. */
+.mint-scrubber {
+  position: absolute;
+  inset: 0;
+  z-index: 4;                    /* above wireframe pseudo, below cell-head */
+  pointer-events: none;
+  font-family: var(--font-mono, "Courier New", monospace);
+  font-size: 0.7rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  white-space: pre;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--cell-bg, #0a0a0a) 88%, transparent);
+  opacity: 0.92;
+  /* Subtle scanline overlay reads as "data flowing past" rather than
+     "stuck text". Cheap shared rule across themes. */
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    color-mix(in srgb, currentColor 6%, transparent) 2px,
+    color-mix(in srgb, currentColor 6%, transparent) 3px
+  );
+  text-shadow: 0 0 3px color-mix(in srgb, currentColor 50%, transparent);
+  /* Entrance is instant (the cell IS being born — don't double-fade). */
+  animation: mint-scrubber-enter 80ms linear both;
+}
+.cell-body { position: relative; }  /* anchor the absolute overlay */
+@keyframes mint-scrubber-enter {
+  from { opacity: 0; }
+  to   { opacity: 0.92; }
+}
+@keyframes mint-scrubber-leave {
+  from { opacity: 0.92; transform: translateY(0); }
+  to   { opacity: 0;    transform: translateY(-4px); filter: blur(1px); }
+}
+.mint-scrubber-leave {
+  animation: mint-scrubber-leave 280ms ease-out forwards !important;
+}
+
 /* Generic fallback: pre block of randomized glyphs. */
 .transient-generic-stream {
   margin: 0;

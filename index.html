@@ -1266,6 +1266,16 @@ function liveAppendNewCells(cellsData) {
     }
     state.rendering.renderedIds.add(c.id);
     firstNode = node;
+    // Mint-time scrubber (Task #95): rapid theme-tuned glyph storm
+    // overlaid on the cell body for the first ~700ms, resolving into
+    // the real substrate render. Pairs with the wireframe-reveal
+    // ::before pseudo on cell-fresh; this is the *content-layer*
+    // computer-thinking-fast effect, where wireframe-reveal is the
+    // *frame-layer*. Skipped for transient cells (their entire body
+    // IS a glyph storm already — doubling up reads as broken).
+    if (c.cell_type !== "transient" && typeof attachMintScrubber === "function") {
+      attachMintScrubber(node);
+    }
     setTimeout(() => node.classList.remove("cell-fresh"), 1400);
   }
   // Cap the visible cell count: prepending a fresh cell without eviction
@@ -4532,10 +4542,66 @@ function _transientLoopTick() {
 // First spawn delay 6-10s after page load so initial render settles.
 setTimeout(_transientLoopTick, 6000 + Math.floor(Math.random() * 4000));
 
+// =====================================================================
+// Mint-time scrubber — content-layer "thinking fast" overlay (Task #95)
+// =====================================================================
+// On each fresh cell mint, drop a rapid theme-tuned glyph storm OVER
+// the cell body for ~700ms. The storm fades out and removes itself,
+// revealing the real substrate render underneath. Pairs with the
+// frame-layer wireframe-reveal animation that already runs during
+// cell-fresh.
+//
+// Cheap: single absolute-positioned div, one setInterval that re-rolls
+// glyph content every ~70ms, a setTimeout that tears it all down.
+// Theme-tuned via the same palette helper that drives transient cells.
+
+function attachMintScrubber(cellNode) {
+  const body = cellNode && cellNode.querySelector(".cell-body");
+  if (!body) return;
+  // Don't double-attach (defensive — a cell shouldn't re-enter cell-fresh).
+  if (body.querySelector(".mint-scrubber")) return;
+  const theme = _transientThemeName();
+  const palette = _transientGlyphPalette(theme);
+  const overlay = el("div", "mint-scrubber");
+  overlay.style.color = palette.color;
+  // Generate enough glyphs to fill the body — overflow:hidden in CSS
+  // clips anything past the box. 8 rows × 32 cols is comfortably more
+  // than any cell body we render.
+  const ROWS = 8, COLS = 32;
+  function fill() {
+    const lines = [];
+    for (let r = 0; r < ROWS; r++) {
+      let s = "";
+      for (let c = 0; c < COLS; c++) {
+        s += palette.chars[(Math.random() * palette.chars.length) | 0];
+      }
+      lines.push(s);
+    }
+    overlay.textContent = lines.join("\n");
+  }
+  fill();
+  body.appendChild(overlay);
+  // Rapid re-roll for the duration of the storm. 70ms ≈ 14 fps —
+  // visibly mutating but not strobing.
+  const ivl = setInterval(() => {
+    if (!overlay.isConnected) { clearInterval(ivl); return; }
+    fill();
+  }, 70);
+  // Tear-down: fade-out class for 250ms, then remove.
+  setTimeout(() => {
+    overlay.classList.add("mint-scrubber-leave");
+    setTimeout(() => {
+      clearInterval(ivl);
+      overlay.remove();
+    }, 280);
+  }, 700);
+}
+
 // Expose for debugging / power-user manual triggers from console.
 // The module-scoped declarations aren't visible globally otherwise.
 window.spawnTransientCell = spawnTransientCell;
 window._transientState = _transientState;
+window.attachMintScrubber = attachMintScrubber;
 </script>
 </body>
 </html>
