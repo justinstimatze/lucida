@@ -779,47 +779,49 @@ main {
 .theme-conclave .cell-id {
   text-shadow: 0 0 3px rgba(255, 140, 0, 0.4);
 }
-.cell-trigger, .cell-prompt {
-  margin: 0.4rem 0;
-  font-size: 0.85rem;
+/* cell-source: combined trigger + notes + prompt expander. Replaced
+   the two separate cell-trigger / cell-prompt blocks 2026-05-01
+   (#92) — user flagged "two lines for trigger snippet and also
+   prompt is too much vertical waste". Single hairline summary
+   labeled "source" opens to show all three blocks stacked. */
+.cell-source {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.78rem;
 }
-.cell-trigger summary, .cell-prompt summary {
+.cell-source > summary {
   cursor: pointer;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
   user-select: none;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.2rem;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0;
+  list-style: none;
 }
-/* Auto-mode: collapse the trigger/prompt summary chips to thin invisible
-   strips (still clickable / discoverable on hover or keyboard focus) so
-   they stop eating ~80px of body real estate per cell. The cell still
-   contains the data — the click-target just dims to a hairline until
-   the user reaches for it. */
-#notebook[data-auto] .cell-trigger,
-#notebook[data-auto] .cell-prompt {
-  margin: 0.15rem 0;
+.cell-source > summary::-webkit-details-marker { display: none; }
+.cell-source > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  font-size: 0.6rem;
+  opacity: 0.7;
+  margin-right: 0.15rem;
+  transition: transform 0.15s ease;
 }
-#notebook[data-auto] .cell-trigger:not([open]) summary,
-#notebook[data-auto] .cell-prompt:not([open]) summary {
-  font-size: 0;
-  opacity: 0;
-  margin: 0;
-  height: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
-  transition: opacity 0.15s ease, font-size 0.15s ease, height 0.15s ease;
+.cell-source[open] > summary::before { transform: rotate(90deg); }
+.cell-source > summary:hover {
+  color: var(--muted);
 }
-#notebook[data-auto] .cell:hover .cell-trigger:not([open]) summary,
-#notebook[data-auto] .cell:hover .cell-prompt:not([open]) summary,
-#notebook[data-auto] .cell-trigger:not([open]) summary:focus-visible,
-#notebook[data-auto] .cell-prompt:not([open]) summary:focus-visible {
-  font-size: 0.75rem;
-  opacity: 1;
-  height: auto;
-  margin-bottom: 0.2rem;
+.cell-source-block {
+  margin: 0.4rem 0 0 0;
 }
-.cell-trigger pre, .cell-prompt pre {
+.cell-source-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--muted) 60%, transparent);
+  margin-bottom: 0.15rem;
+}
+.cell-source pre {
   background: var(--code-bg);
   padding: 0.5rem 0.75rem;
   border-radius: 3px;
