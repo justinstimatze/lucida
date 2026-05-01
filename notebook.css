@@ -1528,6 +1528,160 @@ main {
   50%      { opacity: 1.0;  }
 }
 
+/* ─── #81: Spread theme flair to remaining themes ─────────────────
+   Hero set (gastown / conclave / ops / lab) shipped in #71. The
+   remaining 7 themes each get one register-coherent restyle of
+   the .cell-conf-bar so the conf chip carries theme identity
+   uniformly across the dashboard. CSS-only restyling of the linear
+   bar — no SVG variants. minimal stays deliberately flat.
+   Per memory/feedback_theme_specific_flair: cross-theme bleed is
+   the only failure mode. */
+
+/* vigil — security/surveillance, dim-blue scanning bar with sweep */
+.theme-vigil .cell-conf-bar {
+  width: 32px;
+  height: 2px;
+  background: rgba(0, 191, 255, 0.12);
+  border-radius: 0;
+  position: relative;
+  overflow: visible;
+}
+.theme-vigil .cell-conf-bar-fill {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  border-radius: 0;
+}
+.theme-vigil .cell-conf-bar::after {
+  content: "";
+  position: absolute;
+  top: -1px; bottom: -1px; width: 4px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: vigil-scan-sweep 2.8s linear infinite;
+  opacity: 0.55;
+}
+@keyframes vigil-scan-sweep {
+  0%, 100% { left: 0; }
+  50%      { left: calc(100% - 4px); }
+}
+
+/* terminus — green-phosphor CRT, thin glowing bar with scanline */
+.theme-terminus .cell-conf-bar {
+  width: 32px;
+  height: 2px;
+  background: rgba(51, 255, 51, 0.12);
+  border-radius: 0;
+}
+.theme-terminus .cell-conf-bar-fill {
+  background: var(--accent);
+  box-shadow: 0 0 5px rgba(51, 255, 51, 0.7), 0 0 12px rgba(51, 255, 51, 0.3);
+  border-radius: 0;
+}
+.theme-terminus .cell-conf-num {
+  text-shadow: 0 0 4px rgba(51, 255, 51, 0.7);
+}
+
+/* noir — typewriter / hardboiled, dashed amber rule with brief flicker */
+.theme-noir .cell-conf-bar {
+  width: 32px;
+  height: 4px;
+  background: transparent;
+  border-radius: 0;
+  border-top: 1px dashed rgba(247, 139, 4, 0.35);
+  position: relative;
+}
+.theme-noir .cell-conf-bar-fill {
+  background: transparent;
+  border-top: 2px solid var(--accent);
+  height: 0;
+  margin-top: -1px;
+  border-radius: 0;
+  animation: noir-conf-flicker 4.7s ease-in-out infinite;
+}
+@keyframes noir-conf-flicker {
+  0%, 92%, 100% { opacity: 1; }
+  94% { opacity: 0.4; }
+  96% { opacity: 1; }
+  97% { opacity: 0.6; }
+  98% { opacity: 1; }
+}
+
+/* circuit — PCB copper trace; segmented dots suggest discrete pads */
+.theme-circuit .cell-conf-bar {
+  width: 36px;
+  height: 3px;
+  background: rgba(125, 253, 254, 0.1);
+  border-radius: 0;
+  position: relative;
+  overflow: visible;
+}
+.theme-circuit .cell-conf-bar-fill {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--accent) 0,
+      var(--accent) 4px,
+      transparent 4px,
+      transparent 6px
+    );
+  border-radius: 0;
+  filter: drop-shadow(0 0 2px var(--accent));
+}
+
+/* mainframe — punchcard row, chunky block segments */
+.theme-mainframe .cell-conf-bar {
+  width: 36px;
+  height: 6px;
+  background: rgba(0, 229, 204, 0.08);
+  border-radius: 0;
+  border: 1px solid rgba(0, 229, 204, 0.2);
+}
+.theme-mainframe .cell-conf-bar-fill {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--accent) 0,
+      var(--accent) 5px,
+      rgba(0, 0, 0, 0.6) 5px,
+      rgba(0, 0, 0, 0.6) 6px
+    );
+  border-radius: 0;
+}
+
+/* renegade — outlaw, diagonal-stripe pill */
+.theme-renegade .cell-conf-bar {
+  width: 32px;
+  height: 6px;
+  background: rgba(255, 119, 0, 0.12);
+  border-radius: 1px;
+  overflow: hidden;
+  transform: skewX(-12deg);
+}
+.theme-renegade .cell-conf-bar-fill {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--accent) 0,
+      var(--accent) 3px,
+      color-mix(in srgb, var(--accent) 40%, transparent) 3px,
+      color-mix(in srgb, var(--accent) 40%, transparent) 5px
+    );
+  border-radius: 1px;
+}
+
+/* minimal — deliberately flat. Tighten the bar a touch (slightly
+   thinner, neutral track) so it reads as restraint rather than
+   accidental absence. No animation, no glow, no register. */
+.theme-minimal .cell-conf-bar {
+  width: 28px;
+  height: 3px;
+  background: rgba(23, 23, 23, 0.08);
+  border-radius: 1.5px;
+}
+.theme-minimal .cell-conf-bar-fill {
+  background: var(--accent);
+  border-radius: 1.5px;
+}
+
 /* LCARS -- Star Trek TNG ops board. Saturated orange + peach + magenta on
    navy/black, condensed-bold display type. Flat color fills (no glow / no
    CRT scanlines — LCARS reads as printed UI panels, not amber CRT). */
