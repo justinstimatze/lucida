@@ -4551,6 +4551,119 @@ body {
   animation: mint-scrubber-leave 280ms ease-out forwards !important;
 }
 
+/* Vigil: surveillance radar — concentric rings, sweep wedge, blips. */
+.transient-vigil {
+  width: 100%; height: 100%;
+  background: radial-gradient(circle at center, #0a1f1a 0%, #02080a 80%);
+  display: block;
+}
+.transient-vigil-ring {
+  fill: none;
+  stroke: color-mix(in srgb, #4dffaa 35%, transparent);
+  stroke-width: 0.4;
+}
+.transient-vigil-cross {
+  stroke: color-mix(in srgb, #4dffaa 22%, transparent);
+  stroke-width: 0.3;
+  stroke-dasharray: 1 3;
+}
+.transient-vigil-sweep {
+  fill: color-mix(in srgb, #4dffaa 22%, transparent);
+  transform-origin: 50% 50%;
+  animation: transient-vigil-sweep-rot 2.4s linear infinite;
+}
+@keyframes transient-vigil-sweep-rot {
+  from { transform: rotate(0); }
+  to   { transform: rotate(360deg); }
+}
+.transient-vigil-blip {
+  fill: #4dffaa;
+  filter: drop-shadow(0 0 3px #4dffaa);
+  animation: transient-vigil-blip-fade 1.4s ease-out forwards;
+}
+@keyframes transient-vigil-blip-fade {
+  0%   { opacity: 0;    transform: scale(0.4); }
+  15%  { opacity: 1;    transform: scale(1.2); }
+  100% { opacity: 0;    transform: scale(0.6); }
+}
+.theme-vigil .cell.cell-transient .cell-transient-tag { color: #4dffaa; }
+
+/* Ops: LCARS pill rows — code, number, tone. */
+.transient-ops {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  height: 100%;
+  padding: 0.5rem 0.6rem;
+  background: #0a0a14;
+  font-family: var(--font-mono, "Courier New", monospace);
+  gap: 0.2rem;
+}
+.transient-ops-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+.transient-ops-pill {
+  background: #ff9966;
+  color: #0a0a14;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.transient-ops-num {
+  color: #ffcc88;
+  font-variant-numeric: tabular-nums;
+  flex: 1;
+  text-shadow: 0 0 3px color-mix(in srgb, #ffcc88 50%, transparent);
+}
+.transient-ops-tone {
+  color: #cc99ff;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.theme-ops .cell.cell-transient .cell-transient-tag { color: #ff9966; }
+
+/* Noir: typewriter ribbon — partial words with redacted black-bar
+   overlays (the █ glyph is the redact). One row at a time gets a
+   typed-in animation when it cycles. */
+.transient-noir {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  height: 100%;
+  padding: 0.4rem 0.6rem;
+  background: #1a140e;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 5px,
+    color-mix(in srgb, #c4a772 4%, transparent) 5px,
+    color-mix(in srgb, #c4a772 4%, transparent) 6px
+  );
+  font-family: "Courier New", "Courier Prime", monospace;
+  font-size: 0.72rem;
+  color: #d8c8a4;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+.transient-noir-row {
+  white-space: nowrap;
+  overflow: hidden;
+}
+.transient-noir-typed {
+  /* Brief left-edge mask wipe to imply the line was just typed. */
+  animation: transient-noir-type 220ms steps(20, end) both;
+}
+@keyframes transient-noir-type {
+  from { width: 0; opacity: 0.4; }
+  to   { width: 100%; opacity: 1; }
+}
+.theme-noir .cell.cell-transient .cell-transient-tag { color: #d8c8a4; }
+
 /* Generic fallback: pre block of randomized glyphs. */
 .transient-generic-stream {
   margin: 0;

@@ -4563,6 +4563,121 @@ function _buildTransientLab(body) {
   step();
 }
 
+function _buildTransientVigil(body) {
+  // Surveillance radar — concentric rings + sweeping line + flickering
+  // detection blips appearing at random bearings. Reads as a security
+  // scope picking up returns.
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.classList.add("transient-vigil");
+  // Concentric range rings.
+  for (const r of [12, 24, 36, 46]) {
+    const ring = document.createElementNS(ns, "circle");
+    ring.setAttribute("cx", "50"); ring.setAttribute("cy", "50");
+    ring.setAttribute("r", r);
+    ring.setAttribute("class", "transient-vigil-ring");
+    svg.appendChild(ring);
+  }
+  // Crosshairs.
+  const ch1 = document.createElementNS(ns, "line");
+  ch1.setAttribute("x1", "50"); ch1.setAttribute("y1", "4");
+  ch1.setAttribute("x2", "50"); ch1.setAttribute("y2", "96");
+  ch1.setAttribute("class", "transient-vigil-cross");
+  svg.appendChild(ch1);
+  const ch2 = document.createElementNS(ns, "line");
+  ch2.setAttribute("x1", "4"); ch2.setAttribute("y1", "50");
+  ch2.setAttribute("x2", "96"); ch2.setAttribute("y2", "50");
+  ch2.setAttribute("class", "transient-vigil-cross");
+  svg.appendChild(ch2);
+  // Sweep wedge — rotates around the center.
+  const sweep = document.createElementNS(ns, "path");
+  sweep.setAttribute("d", "M 50 50 L 96 50 A 46 46 0 0 0 82.5 17.5 Z");
+  sweep.setAttribute("class", "transient-vigil-sweep");
+  svg.appendChild(sweep);
+  // Detection blips spawn periodically and fade.
+  const blipsLayer = document.createElementNS(ns, "g");
+  blipsLayer.setAttribute("class", "transient-vigil-blips");
+  svg.appendChild(blipsLayer);
+  body.appendChild(svg);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    // Add 1-2 blips, prune ones older than 1.4s.
+    const blip = document.createElementNS(ns, "circle");
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 6 + Math.random() * 38;
+    blip.setAttribute("cx", (50 + Math.cos(ang) * rad).toFixed(1));
+    blip.setAttribute("cy", (50 + Math.sin(ang) * rad).toFixed(1));
+    blip.setAttribute("r", (1 + Math.random() * 1.5).toFixed(1));
+    blip.setAttribute("class", "transient-vigil-blip");
+    blipsLayer.appendChild(blip);
+    setTimeout(() => blip.remove(), 1400);
+  }, 280);
+}
+
+function _buildTransientOps(body) {
+  // LCARS panel — six pill-shaped status rows scrolling status codes
+  // in the Star Trek register. Tabular numeric column + alpha code +
+  // tone bar. Cycles every ~110ms.
+  const wrap = el("div", "transient-ops");
+  const codes = ["AUX", "WRP", "NAV", "ENG", "TAC", "SCI", "MED", "OPS"];
+  const tones = ["NOM", "STD", "ALT", "RDY", "ACT", "BRT"];
+  for (let i = 0; i < 6; i++) {
+    const row = el("div", "transient-ops-row");
+    row.appendChild(el("span", "transient-ops-pill",
+      codes[Math.floor(Math.random() * codes.length)]));
+    const num = el("span", "transient-ops-num");
+    num.textContent = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
+    row.appendChild(num);
+    row.appendChild(el("span", "transient-ops-tone",
+      tones[Math.floor(Math.random() * tones.length)]));
+    wrap.appendChild(row);
+  }
+  body.appendChild(wrap);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    const rows = wrap.querySelectorAll(".transient-ops-row");
+    rows.forEach(row => {
+      row.querySelector(".transient-ops-pill").textContent = codes[Math.floor(Math.random() * codes.length)];
+      row.querySelector(".transient-ops-num").textContent = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
+      row.querySelector(".transient-ops-tone").textContent = tones[Math.floor(Math.random() * tones.length)];
+    });
+  }, 130);
+}
+
+function _buildTransientNoir(body) {
+  // Typewriter ribbon — partial words with redacted black-bar overlays
+  // scrolling top-to-bottom. Reads as classified-document leak.
+  const wrap = el("div", "transient-noir");
+  const fragments = [
+    "subject : ████████ confirmed",
+    "case file : ████ — ████████",
+    "redact level : ████",
+    "operative : ██████ ██",
+    "rendezvous : ██:██ at ████████",
+    "asset : ████████ unverified",
+    "channel : ████ ████ closed",
+    "directive : ████████ standby",
+  ];
+  for (let i = 0; i < 6; i++) {
+    const row = el("div", "transient-noir-row");
+    row.textContent = fragments[Math.floor(Math.random() * fragments.length)];
+    wrap.appendChild(row);
+  }
+  body.appendChild(wrap);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    const rows = wrap.querySelectorAll(".transient-noir-row");
+    // Cycle one row at a time so the ribbon reads as advancing.
+    const r = rows[Math.floor(Math.random() * rows.length)];
+    r.textContent = fragments[Math.floor(Math.random() * fragments.length)];
+    r.classList.remove("transient-noir-typed");
+    void r.offsetWidth;  // restart animation
+    r.classList.add("transient-noir-typed");
+  }, 380);
+}
+
 function _buildTransientGeneric(body) {
   // Fallback — five rows of randomized hex/ascii glyphs, monospaced,
   // shuffled on a timer. Theme accent colour drives the text colour.
@@ -4583,6 +4698,9 @@ function _buildTransientBody(body, theme) {
     case "conclave": return _buildTransientConclave(body);
     case "gastown":  return _buildTransientGastown(body);
     case "lab":      return _buildTransientLab(body);
+    case "vigil":    return _buildTransientVigil(body);
+    case "ops":      return _buildTransientOps(body);
+    case "noir":     return _buildTransientNoir(body);
     default:         return _buildTransientGeneric(body);
   }
 }
