@@ -2930,10 +2930,35 @@ function renderCell(c, snippetGroups) {
     body.appendChild(target);
     const renderSVG = () => {
       target.innerHTML = expandTokens(c.spec);
-      // animated_svg authors a <svg width="N" ...>; use that as the
-      // cell's natural width (falls back to scrollWidth measure).
       const inner = target.querySelector("svg");
+      // Tighten the viewBox + size to actual content bbox. Authors
+      // sometimes write a generous canvas (width=400) for content
+      // that only fills the top-left ~140px (cell-2813 case);
+      // shrinking to bbox makes the viz fill the cell area instead
+      // of squatting in the corner. getBBox is computed once after
+      // mount; pad by 4px so strokes don't clip.
       const w = inner ? parseFloat(inner.getAttribute("width")) || 0 : 0;
+      if (inner && typeof inner.getBBox === "function") {
+        try {
+          const bb = inner.getBBox();
+          const pad = 4;
+          // Reframe viewBox to actual content extents while keeping
+          // the SVG's declared width/height. Content stretches to
+          // fill the visible canvas instead of squatting in the
+          // top-left of an oversized viewBox (cell-2813 case: 70×52
+          // content inside a 400×160 viewBox). preserveAspectRatio
+          // defaults to xMidYMid meet so aspect is preserved
+          // (letterboxing rather than distortion); cell-bg fills the
+          // rest. Only re-frame when content is >25% smaller than
+          // the canvas — dynamic SVGs that grow over the animation
+          // shouldn't be clipped by an early bbox.
+          if (bb.width > 4 && bb.height > 4 && w > 0 &&
+              bb.width < w * 0.75) {
+            inner.setAttribute("viewBox",
+              `${(bb.x - pad).toFixed(1)} ${(bb.y - pad).toFixed(1)} ${(bb.width + 2 * pad).toFixed(1)} ${(bb.height + 2 * pad).toFixed(1)}`);
+          }
+        } catch (e) { /* getBBox unavailable on detached SVG -- skip */ }
+      }
       applyNaturalCellSize(target, w);
     };
     lazyMount(target, renderSVG);
