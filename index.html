@@ -5220,10 +5220,16 @@ const _TRANSIENT_MOTION = {
   minimal:  "pack",
 };
 
-function spawnTransientCell() {
-  // Activity gate: only spawn if a real cell minted in the last 60s.
-  // Keeps the dashboard quiet when nothing's happening.
-  if (Date.now() - _transientState.lastRealMintTs > 60000) return;
+function spawnTransientCell(opts) {
+  // opts.mode: "active" (default — fires during active dashboard work)
+  //            "standby" (slower, dimmer; fires during long idle to keep
+  //                       the dashboard from reading as broken/dead)
+  opts = opts || { mode: "active" };
+  const isStandby = opts.mode === "standby";
+  // Activity gate: in active mode, only spawn if a real cell minted in
+  // the last 60s. In standby mode, the gate has been bypassed by the
+  // caller — the loop has decided we're in the long-idle regime.
+  if (!isStandby && Date.now() - _transientState.lastRealMintTs > 60000) return;
   const root = document.getElementById("notebook");
   if (!root) return;
 
@@ -5237,17 +5243,19 @@ function spawnTransientCell() {
   const card = el("article", "cell cell-transient");
   card.classList.add("cell-transient-motion-" + motion);
   card.classList.add("cell-transient-enter");
+  if (isStandby) card.classList.add("cell-transient-standby");
   const tid = "ephem-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
   card.dataset.cellType = "transient";
   card.dataset.transientId = tid;
   card.dataset.transientMotion = motion;
+  if (isStandby) card.dataset.transientMode = "standby";
   const w = 150 + Math.floor(Math.random() * 70);
   const h = 110 + Math.floor(Math.random() * 70);
   card.style.width = w + "px";
   card.style.height = h + "px";
 
   const head = el("div", "cell-head");
-  head.appendChild(el("span", "cell-transient-tag", "—"));
+  head.appendChild(el("span", "cell-transient-tag", isStandby ? "STANDBY" : "—"));
   card.appendChild(head);
   const body = el("div", "cell-body");
   card.appendChild(body);
@@ -5300,22 +5308,26 @@ function removeTransientCell(card) {
 }
 
 function _transientLoopTick() {
-  spawnTransientCell();
-  // Activity-density-aware cadence (Task #96 option C). The dashboard
-  // should feel like "computer thinking fast" *when actual computation
-  // is happening fast*, and quiet down to a slow ambient pulse when
-  // the watcher is idle. Buckets:
+  // Activity-density-aware cadence (Task #96 option C). Buckets:
   //   <10s since last real mint  → 4-8s   (burst window — system busy)
-  //   10-30s since last real mint → 12-20s (steady ambient)
-  //   30-60s since last real mint → 30-60s (drift, low rate)
-  //   >60s                        → activity gate inside spawnTransient
-  //                                 will suppress; pick a slow check.
+  //   10-30s                      → 12-20s (steady ambient)
+  //   30-60s                      → 30-60s (drift, low rate)
+  //   60-180s                     → standby spawn every 45-90s
+  //   >180s                       → standby spawn every 90-180s
+  // Standby cells fire even past the 60s active gate so the dashboard
+  // doesn't read as broken/dead during long idle — just slower, dimmer.
   const idle = Date.now() - _transientState.lastRealMintTs;
   let next;
-  if (idle < 10000)      next =  4000 + Math.floor(Math.random() * 4000);
-  else if (idle < 30000) next = 12000 + Math.floor(Math.random() * 8000);
-  else if (idle < 60000) next = 30000 + Math.floor(Math.random() * 30000);
-  else                   next = 30000;
+  if (idle < 60000) {
+    spawnTransientCell();  // active mode
+    if (idle < 10000)      next =  4000 + Math.floor(Math.random() * 4000);
+    else if (idle < 30000) next = 12000 + Math.floor(Math.random() * 8000);
+    else                   next = 30000 + Math.floor(Math.random() * 30000);
+  } else {
+    spawnTransientCell({ mode: "standby" });
+    if (idle < 180000) next = 45000 + Math.floor(Math.random() * 45000);
+    else               next = 90000 + Math.floor(Math.random() * 90000);
+  }
   setTimeout(_transientLoopTick, next);
 }
 

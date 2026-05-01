@@ -4224,6 +4224,26 @@ body {
   );
   pointer-events: none;
 }
+
+/* Standby variant — fires when dashboard idle >60s. Slower, dimmer,
+   reads as "system on standby" rather than active processing. The
+   STANDBY tag in the head distinguishes it from active transients
+   (which use an em-dash). Per the idle-state UX gap. */
+.cell.cell-transient-standby {
+  opacity: 0.55;
+  filter: saturate(0.65) brightness(0.85);
+  /* Slow breath pulse so the cell feels alive but unhurried. */
+  animation: cell-transient-standby-breath 4.4s ease-in-out infinite;
+}
+.cell.cell-transient-standby .cell-transient-tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.32em;
+  opacity: 0.6;
+}
+@keyframes cell-transient-standby-breath {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.65; }
+}
 .cell.cell-transient .cell-head { padding-bottom: 0.2rem; }
 .cell.cell-transient .cell-transient-tag {
   font-family: var(--font-mono, "Courier New", monospace);
