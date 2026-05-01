@@ -1041,16 +1041,21 @@ SCENE3D_SYSTEM = """You are the scene3d specialist for lucida. The classifier ha
 
 The lucida renderer turns spec.objects into Three.js meshes. Supported kinds and their fields:
 
-- **wireframe_cube** -- size (number, default 1)
+- **wireframe_cube** -- size (number, default 1). Cubic box, equal sides.
+- **box** -- size (number, width); height (number, default = size); depth (number, default = size). Rectangular prism for chassis / brick / panel / hardware-card shapes where the physical proportions matter (a flat 4:2:1 panel reads as a slab; a 1:3:1 column reads as a tower). Use over wireframe_cube whenever the snippet's shape is non-cubic.
 - **wireframe_sphere** -- size (number, sphere radius)
 - **torus** -- size (number, controls major radius; tube is auto-scaled at 0.3*size)
-- **icosahedron** -- size (number, radius)
+- **icosahedron** -- size (number, radius). 20-faced Platonic — round-ish, faceted.
+- **tetrahedron** -- size (number, radius). 4-faced Platonic — sharp/angular, smallest of the Platonics. Reach for "minimal angular" semantics (stable foundation, three-vertex root).
+- **octahedron** -- size (number, radius). 8-faced Platonic — symmetric bipyramid. Reach for "balanced/dual" semantics (equal-from-all-six-directions, axis-aligned anchor).
+- **dodecahedron** -- size (number, radius). 12-faced Platonic — most spherical of the Platonics, reads as "complex/composite/aggregate". Use for hub nodes that aggregate many inputs.
 - **axis_helper** -- size (number, axis length)
 - **particle_cloud** -- size (unused by renderer, set 1.0); count (int, default 100; use 100-300); spread (number, default 3; cloud half-extent)
 - **cylinder** -- size (number, radius); height (number, default 2*size). Vertical column / tower / pole; the natural shape for repo skylines, value towers, sensor poles.
 - **cone** -- size (number, base radius); height (number, default 2*size). Directional / pointer / spike shape; useful for "this points to X" semantics.
 - **plane** -- size (number, width); height (number, default = width). Flat layered surface; reach for it on stacked-strata snippets (architectural layers, geological strata, depth-stacked feature maps). Stack multiple at increasing y to read as layers.
 - **line** -- from (array of three numbers); to (array of three numbers). A straight edge between two points. Use for connections between named entities (relationship in 3D, like a graph edge but routed through 3D space).
+- **tube** -- path (array of [x,y,z] waypoints; 2-12 points); size (number, tube radius — typical 0.04-0.10). A smooth CatmullRom-curve tube extruded along the waypoints. Use for curved arrows, routed pipelines that bend through 3D space, bezier-shaped flow indicators. A 4-point tube from [0,0,0] to [2,1,2] via two intermediate waypoints reads as "the flow curves from origin to target". Pair with a small cone at the endpoint to make it an arrow.
 - **label** -- size (number, render scale; ~0.5 typical for short labels); text (string, the actual label content). A text sprite that always faces the camera. Use for axis labels on 3D charts, names on electrodes / nodes / towers, identifiers in semantic scenes.
 
 Every object additionally accepts:
@@ -1082,6 +1087,11 @@ When the snippet's structural content has a natural physical shape, use the new 
 - **Stacked architectural layers** (presentation / business / data) → translucent planes at increasing y, label sprites naming each layer, connection lines between adjacent planes if data flows between them.
 - **Directional / vector** (input → router → output) → cones pointing along the flow, lines connecting them.
 - **Process / control loop** with stages → cylinders at stage positions, lines tracing the loop, labels naming each stage.
+- **Hardware chassis / device / board** (firmware modules on a chip, sensors on a board) → box primitives with rectangular proportions (width/height/depth) for the chassis itself; cylinders for ports/jacks; small icosahedrons for chips. The non-cubic box gives the chassis its physical read.
+- **Hub-and-spoke aggregator** (one node with many inputs/outputs) → dodecahedron at the center, smaller cubes/spheres at the spokes, lines connecting them. Dodecahedron's 12-faced near-spherical read fits the "this aggregates many things" semantics.
+- **Foundational anchor** (root / origin / stable base of a hierarchy) → tetrahedron at the bottom, larger structures stacked above. The tetrahedron's three-base-vertices read as "rooted".
+- **Bidirectional / dual / mirror axis** (two equal sides meeting at a hinge) → octahedron, with halves color-coded in $stroke1 / $stroke2.
+- **Curved flow / routed signal / non-straight path** → tube via path [[start], [bend1], [bend2], [end]] with a small cone at the endpoint. Use over straight `line` whenever the snippet emphasizes that the flow CURVES (not just connects).
 
 Center the load-bearing object at [0,0,0]; arrange supporting objects with intent (semantic positioning) — only fall back to the radius-2 circle when the snippet genuinely is rotationally symmetric.
 

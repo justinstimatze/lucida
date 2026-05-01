@@ -3910,6 +3910,40 @@ function initScene3D(container, spec) {
     } else if (obj.kind === "icosahedron") {
       const geo = new T.IcosahedronGeometry(size, 0);
       mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "tetrahedron") {
+      const geo = new T.TetrahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "octahedron") {
+      const geo = new T.OctahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "dodecahedron") {
+      const geo = new T.DodecahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "box") {
+      // Rectangular prism (chassis / brick / panel). Distinct from
+      // wireframe_cube which is always cubic — box takes width/height/
+      // depth so the shape can express physical proportions.
+      const w_ = size;
+      const h_ = (typeof obj.height === "number") ? obj.height : size;
+      const d_ = (typeof obj.depth === "number") ? obj.depth : size;
+      const geo = new T.BoxGeometry(w_, h_, d_);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "tube") {
+      // Tube extruded along a CatmullRom curve through obj.path
+      // ([[x,y,z], ...]; 2-12 waypoints). Used for curved arrows,
+      // routed connections, pipelines that bend through 3D space.
+      // size = tube radius (default 0.05); segments = 1 per waypoint
+      // segment, scaled to keep curves smooth.
+      const path = Array.isArray(obj.path) ? obj.path.filter(p => Array.isArray(p) && p.length === 3) : [];
+      if (path.length >= 2) {
+        const points = path.map(p => new T.Vector3(p[0], p[1], p[2]));
+        const curve = new T.CatmullRomCurve3(points, false, "catmullrom", 0.5);
+        const tubularSegments = Math.max(20, path.length * 8);
+        const radius = size || 0.05;
+        const geo = new T.TubeGeometry(curve, tubularSegments, radius, 8, false);
+        mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+      }
     } else if (obj.kind === "axis_helper") {
       mesh = new T.AxesHelper(size);
     } else if (obj.kind === "particle_cloud") {
