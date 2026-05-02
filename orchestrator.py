@@ -880,11 +880,15 @@ def append_proposal(
     # high. Forces variety in the visible stream without driving the
     # classifier toward substrate hallucination.
     if cell_type is None and chosen_type and confidence is not None:
+        # Scope the "recent stream" to the current session_id when set.
+        # Otherwise a fresh session inherits the global tail and suppresses
+        # its first few mints against substrates from unrelated prior runs.
         recent_active = [
             c
             for c in data["cells"]
             if not c.get("replaced_by")
             and not (c.get("cell_type") == "text" and c.get("attempted_cell_type"))
+            and (session_id is None or c.get("session_id") == session_id)
         ][-4:]
         same_recent = sum(1 for c in recent_active if c.get("cell_type") == chosen_type)
         if same_recent >= 2 and confidence < 0.85:
