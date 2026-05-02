@@ -2977,14 +2977,19 @@ function renderCell(c, snippetGroups, cellsById, opts) {
             svgEl.style.width = vb.width + "px";
             svgEl.style.height = vb.height + "px";
             applyNaturalCellSize(target, vb.width);
-            // Auto-pan fallback only when the natural-size SVG is
-            // STILL wider than the dashboard viewport (genuinely huge
-            // diagram). Threshold: ≥1.4× the cell box (post-flex
-            // sizing) AND ≥120px absolute. Skip vertical pan path
-            // since content height is now content-driven (no forced
-            // viewport cap).
+            // Auto-pan fallback when the natural-size SVG ends up
+            // wider than the actual rendered cell — typically because
+            // max-width clamped natural width to 95vw on a narrow
+            // window, or because the diagram is genuinely huge. The
+            // earlier rule required ratio ≥1.4× AND ≥120px absolute;
+            // borderline cases (e.g., cell=900 vb=1100, ratio=1.22,
+            // 200px clipped) silently lost the right edge. Single
+            // absolute threshold: pan whenever ≥80px would clip,
+            // regardless of ratio. ~80px is roughly one node-width
+            // of content, the floor below which the pan motion would
+            // distract more than it reveals.
             const cw = target.getBoundingClientRect().width || 0;
-            const wOverflow = cw > 0 && vb.width > cw * 1.4 && (vb.width - cw) > 120;
+            const wOverflow = cw > 0 && (vb.width - cw) > 80;
             if (wOverflow) {
               target.style.maxHeight = "32vh";
               setupAutoPan(target, svgEl);
