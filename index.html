@@ -170,11 +170,15 @@ const state = {
         return new Set(v.split(",").map(s => s.trim()).filter(Boolean));
       } catch (e) { return new Set(); }
     })(),
+    // Default to multi-stream auto-discovery — most users want to see
+    // every active session out of the box, then narrow down via the
+    // SESSION dropdown if they want to focus. No-param, empty-string,
+    // and explicit ?session=auto all resolve to autoMode=true.
     autoMode: (function () {
       try {
         const v = new URLSearchParams(window.location.search).get("session");
-        return v != null && v.trim() === "auto";
-      } catch (e) { return false; }
+        return v == null || v.trim() === "" || v.trim() === "auto";
+      } catch (e) { return true; }
     })(),
   },
   rendering: {
