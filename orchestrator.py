@@ -597,9 +597,9 @@ def _trivial_force_graph(spec) -> str | None:
     # the layout will be incoherent.
     ids = {n.get("id") for n in nodes if isinstance(n, dict)}
     dangling = sum(
-        1 for e in edges
-        if isinstance(e, dict)
-        and (e.get("source") not in ids or e.get("target") not in ids)
+        1
+        for e in edges
+        if isinstance(e, dict) and (e.get("source") not in ids or e.get("target") not in ids)
     )
     if dangling > 0 and dangling >= len(edges) // 2:
         return f"{dangling}/{len(edges)} edges reference unknown node ids"
@@ -688,7 +688,9 @@ def _trivial_html(html: str | None) -> str | None:
     # disguise — bump threshold to 4 so a real comparison/grouping is
     # needed, not just three discrete factoids.
     if 'class="callout"' in h_lower or "<div class='callout'" in h_lower:
-        callouts = re.findall(r"<div[^>]*class=[\"'][^\"']*\bcallout\b[^\"']*[\"']", html, flags=re.IGNORECASE)
+        callouts = re.findall(
+            r"<div[^>]*class=[\"'][^\"']*\bcallout\b[^\"']*[\"']", html, flags=re.IGNORECASE
+        )
         if len(callouts) < 4:
             return f"too few callouts ({len(callouts)}) — under 4 reads as prose"
         return None
@@ -946,7 +948,19 @@ def append_proposal(
         llm_available
         and generate_image
         and chosen_type
-        in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline", "timeline_ribbon", "trajectory", "force_graph", "gauge")
+        in (
+            "mermaid",
+            "vega",
+            "html",
+            "animated_svg",
+            "scene3d",
+            "treemap",
+            "sparkline",
+            "timeline_ribbon",
+            "trajectory",
+            "force_graph",
+            "gauge",
+        )
         and os.environ.get("ANTHROPIC_API_KEY")
     ):
         try:
