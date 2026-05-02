@@ -3839,6 +3839,37 @@ body {
   font-style: italic;
   text-align: center;
 }
+
+/* Theme + layout dropdowns reuse .session-dropdown-row/-id/-count
+   markup for descriptions, not integer counts. Override the count
+   pill styling so long descriptions truncate with ellipsis on the
+   right instead of pushing the label off-screen as a rigid pill. */
+.layout-dropdown-row,
+.theme-dropdown-row {
+  display: grid;
+  grid-template-columns: minmax(64px, max-content) 1fr;
+  gap: 14px;
+}
+.layout-dropdown-row .session-dropdown-id,
+.theme-dropdown-row .session-dropdown-id {
+  flex: initial;
+}
+.layout-dropdown-row .session-dropdown-count,
+.theme-dropdown-row .session-dropdown-count {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: normal;
+  font-style: italic;
+}
 /* Magi keeps its glow flourish; other themes inherit the
    token-driven base rule above. */
 .theme-conclave .session-dropdown {
