@@ -480,6 +480,12 @@ def main() -> None:
     p.add_argument("--no-auto-retrigger", action="store_true", help="disable retrigger loop")
     p.add_argument("--max-retriggers", type=int, default=3)
     p.add_argument(
+        "--max-cells",
+        default=None,
+        help="rolling cap on cells.json (default 200; 'all' to keep everything). "
+        "Sets LUCIDA_MAX_CELLS in this process.",
+    )
+    p.add_argument(
         "--min-new-chars",
         type=int,
         default=200,
@@ -513,6 +519,9 @@ def main() -> None:
         p.error("--auto-discover and --transcript are mutually exclusive")
     if not args.auto_discover and not args.transcript:
         p.error("specify either --transcript or --auto-discover")
+
+    if args.max_cells is not None:
+        os.environ["LUCIDA_MAX_CELLS"] = str(args.max_cells)
 
     base_kwargs = dict(
         write=args.write,

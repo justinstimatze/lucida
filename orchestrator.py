@@ -298,6 +298,20 @@ def load_cells() -> dict:
     return json.loads(CELLS_PATH.read_text())  # type: ignore[no-any-return]
 
 
+def save_cells(data: dict) -> None:
+    """Write cells.json, enforcing the rolling cap.
+
+    Cells are ephemeral by default. LUCIDA_MAX_CELLS caps total cells in the
+    file (newest kept). Set to 0 or "all" to keep everything — for users who
+    want the file as a long-running work-summary archive.
+    """
+    raw = os.environ.get("LUCIDA_MAX_CELLS", "200").strip().lower()
+    cap = 0 if raw in ("0", "all", "none", "off") else max(1, int(raw))
+    if cap and len(data.get("cells", [])) > cap:
+        data["cells"] = data["cells"][-cap:]
+    CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+
+
 def closed_loop_stats(cells: list[dict]) -> dict:
     """Closed-loop metric.
 
@@ -452,7 +466,7 @@ def reflect_and_persist(
     if write:
         d = asdict(proposal)
         data["cells"].append(d)
-        CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+        save_cells(data)
         _log_mints([d])
     return proposal
 
@@ -739,7 +753,7 @@ def sweep_trivial(write: bool = False) -> list[str]:
         cell["notes"] = (cell.get("notes") or "") + " [trivial-filter applied]"
         demoted.append(f"{cell['id']}: {reason}")
     if write and demoted:
-        CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+        save_cells(data)
     return demoted
 
 
@@ -1316,7 +1330,7 @@ def append_proposal(
         new_dicts = [asdict(c) for c in cells_to_write]
         for d in new_dicts:
             data["cells"].append(d)
-        CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+        save_cells(data)
         _log_mints(new_dicts)
     return proposal
 

@@ -118,7 +118,12 @@ python watcher.py \
   --write                 # persist to cells.json
   --generate              # call specialists (costs API tokens)
   --session-id <name>     # tag cells with a session name
+  --max-cells 200         # rolling cap (default); use 'all' to keep everything
 ```
+
+**Cells are ephemeral by default.** `cells.json` keeps the last 200 (enough
+for casual scrollback). Set `--max-cells all` (or `LUCIDA_MAX_CELLS=all`) if
+you want the file to accumulate as a long-running work-summary archive.
 
 Multiple sessions:
 
