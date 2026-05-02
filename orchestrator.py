@@ -479,6 +479,30 @@ def is_trivial(cell_type: str, spec, html: str | None) -> str | None:
         return _trivial_force_graph(spec)
     if cell_type == "sparkline":
         return _trivial_sparkline(spec)
+    if cell_type == "gauge":
+        return _trivial_gauge(spec)
+    return None
+
+
+def _trivial_gauge(spec) -> str | None:
+    """Reject gauge specs that don't have a usable scalar+range shape."""
+    if not isinstance(spec, dict):
+        return None
+    value = spec.get("value")
+    lo = spec.get("min")
+    hi = spec.get("max")
+    if not isinstance(value, (int, float)):
+        return "missing or non-numeric value"
+    if not isinstance(lo, (int, float)) or not isinstance(hi, (int, float)):
+        return "missing min/max bounds — bare scalar without range is text"
+    if hi <= lo:
+        return f"degenerate bounds (min={lo} max={hi})"
+    # Value outside its declared range usually signals the LLM hallucinated
+    # bounds it then ignored. Allow a 5% slack for "off the meter" readings
+    # but reject wild misses.
+    span = hi - lo
+    if value < lo - span * 0.05 or value > hi + span * 0.05:
+        return f"value {value} far outside declared range [{lo}..{hi}]"
     return None
 
 
@@ -904,7 +928,7 @@ def append_proposal(
         llm_available
         and generate_image
         and chosen_type
-        in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline", "timeline_ribbon", "trajectory", "force_graph")
+        in ("mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline", "timeline_ribbon", "trajectory", "force_graph", "gauge")
         and os.environ.get("ANTHROPIC_API_KEY")
     ):
         try:
@@ -921,6 +945,7 @@ def append_proposal(
                 "timeline_ribbon": _specs.generate_timeline_ribbon_spec,
                 "trajectory": _specs.generate_trajectory_spec,
                 "force_graph": _specs.generate_force_graph_spec,
+                "gauge": _specs.generate_gauge_spec,
             }
             specialist_kwargs: dict = {}
             if chosen_type == "mermaid" and llm is not None:
@@ -1318,6 +1343,7 @@ def main() -> None:
             "timeline_ribbon",
             "trajectory",
             "force_graph",
+            "gauge",
         ],
         help="force a cell type; default = naive classifier",
     )

@@ -3859,6 +3859,142 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       }
     };
     lazyMount(target, renderForceGraph);
+  } else if (c.cell_type === "gauge" && c.spec) {
+    // Gauge substrate: single scalar reading against a stated range,
+    // rendered as a 270° dial with optional warn/danger thresholds.
+    // Spec: { value, min, max, unit?, label?, threshold_warn?,
+    //         threshold_danger?, direction? }. Pure SVG, no dep.
+    const target = el("div", "gauge-target");
+    body.appendChild(target);
+    const renderGauge = () => {
+      const spec = c.spec || {};
+      const value = Number(spec.value);
+      const min = Number(spec.min);
+      const max = Number(spec.max);
+      if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+        target.textContent = "gauge: invalid spec";
+        return;
+      }
+      const span = max - min;
+      const ratio = Math.max(0, Math.min(1, (value - min) / span));
+      // Sweep angle 270° centered at top; dial spans -135° → +135°.
+      const startAng = -135, sweepAng = 270;
+      const angAt = r => startAng + sweepAng * r;
+      const polar = (r, deg) => {
+        const rad = (deg - 90) * Math.PI / 180;
+        return [50 + r * Math.cos(rad), 50 + r * Math.sin(rad)];
+      };
+      const arcD = (r, fromR, toR) => {
+        const a0 = angAt(fromR), a1 = angAt(toR);
+        const [x0, y0] = polar(r, a0), [x1, y1] = polar(r, a1);
+        const large = (a1 - a0) > 180 ? 1 : 0;
+        return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+      };
+      // Threshold zones — warn/danger fill the side of the dial that
+      // the direction prefers. higher_is_worse: warn/danger on the right
+      // side. lower_is_worse: on the left.
+      const dir = spec.direction === "lower_is_worse" ? "lower_is_worse" : "higher_is_worse";
+      const warnRatio = Number.isFinite(Number(spec.threshold_warn))
+        ? Math.max(0, Math.min(1, (Number(spec.threshold_warn) - min) / span))
+        : null;
+      const dangerRatio = Number.isFinite(Number(spec.threshold_danger))
+        ? Math.max(0, Math.min(1, (Number(spec.threshold_danger) - min) / span))
+        : null;
+      // Determine which CSS state the current value falls into.
+      let state = "ok";
+      if (dir === "higher_is_worse") {
+        if (dangerRatio !== null && ratio >= dangerRatio) state = "danger";
+        else if (warnRatio !== null && ratio >= warnRatio) state = "warn";
+      } else {
+        if (dangerRatio !== null && ratio <= dangerRatio) state = "danger";
+        else if (warnRatio !== null && ratio <= warnRatio) state = "warn";
+      }
+      const RING_R = 38;
+      const ns = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", "0 0 100 100");
+      svg.setAttribute("class", "gauge-svg gauge-state-" + state);
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      // Background track (full sweep).
+      const track = document.createElementNS(ns, "path");
+      track.setAttribute("d", arcD(RING_R, 0, 1));
+      track.setAttribute("class", "gauge-track");
+      svg.appendChild(track);
+      // Warn / danger zones — drawn under the value arc.
+      if (warnRatio !== null) {
+        const warnZone = document.createElementNS(ns, "path");
+        if (dir === "higher_is_worse") {
+          warnZone.setAttribute("d", arcD(RING_R, warnRatio, dangerRatio !== null ? dangerRatio : 1));
+        } else {
+          warnZone.setAttribute("d", arcD(RING_R, dangerRatio !== null ? dangerRatio : 0, warnRatio));
+        }
+        warnZone.setAttribute("class", "gauge-zone-warn");
+        svg.appendChild(warnZone);
+      }
+      if (dangerRatio !== null) {
+        const dangerZone = document.createElementNS(ns, "path");
+        if (dir === "higher_is_worse") {
+          dangerZone.setAttribute("d", arcD(RING_R, dangerRatio, 1));
+        } else {
+          dangerZone.setAttribute("d", arcD(RING_R, 0, dangerRatio));
+        }
+        dangerZone.setAttribute("class", "gauge-zone-danger");
+        svg.appendChild(dangerZone);
+      }
+      // Value arc — the live "fill".
+      const valueArc = document.createElementNS(ns, "path");
+      valueArc.setAttribute("d", arcD(RING_R, 0, ratio));
+      valueArc.setAttribute("class", "gauge-value-arc");
+      svg.appendChild(valueArc);
+      // Tick marks at 0, 0.25, 0.5, 0.75, 1.
+      for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+        const a = angAt(t);
+        const [x0, y0] = polar(RING_R - 3, a);
+        const [x1, y1] = polar(RING_R + 1, a);
+        const tick = document.createElementNS(ns, "line");
+        tick.setAttribute("x1", x0.toFixed(2)); tick.setAttribute("y1", y0.toFixed(2));
+        tick.setAttribute("x2", x1.toFixed(2)); tick.setAttribute("y2", y1.toFixed(2));
+        tick.setAttribute("class", "gauge-tick");
+        svg.appendChild(tick);
+      }
+      // Value text in the center.
+      const valText = document.createElementNS(ns, "text");
+      valText.setAttribute("x", "50"); valText.setAttribute("y", "55");
+      valText.setAttribute("text-anchor", "middle");
+      valText.setAttribute("class", "gauge-value");
+      // Format: integer if value is integer-valued, else one decimal.
+      const valFmt = Number.isInteger(value) ? String(value) : value.toFixed(1);
+      valText.textContent = valFmt + (spec.unit || "");
+      svg.appendChild(valText);
+      // Label above center.
+      if (spec.label) {
+        const lbl = document.createElementNS(ns, "text");
+        lbl.setAttribute("x", "50"); lbl.setAttribute("y", "30");
+        lbl.setAttribute("text-anchor", "middle");
+        lbl.setAttribute("class", "gauge-label");
+        lbl.textContent = String(spec.label).slice(0, 24);
+        svg.appendChild(lbl);
+      }
+      // Range bounds at the dial endpoints (small).
+      const minTxt = document.createElementNS(ns, "text");
+      const [mxX, mxY] = polar(RING_R + 6, angAt(0));
+      minTxt.setAttribute("x", mxX.toFixed(2)); minTxt.setAttribute("y", (mxY + 2).toFixed(2));
+      minTxt.setAttribute("text-anchor", "middle");
+      minTxt.setAttribute("class", "gauge-range-tick");
+      minTxt.textContent = String(min);
+      svg.appendChild(minTxt);
+      const maxTxt = document.createElementNS(ns, "text");
+      const [mnX, mnY] = polar(RING_R + 6, angAt(1));
+      maxTxt.setAttribute("x", mnX.toFixed(2)); maxTxt.setAttribute("y", (mnY + 2).toFixed(2));
+      maxTxt.setAttribute("text-anchor", "middle");
+      maxTxt.setAttribute("class", "gauge-range-tick");
+      maxTxt.textContent = String(max);
+      svg.appendChild(maxTxt);
+      target.innerHTML = "";
+      target.appendChild(svg);
+      applyNaturalCellSize(target, 220);
+    };
+    lazyMount(target, renderGauge);
   } else if (c.cell_type === "ascii" && c.spec) {
     // ASCII substrate: monospace box-drawing block. Spec is { ascii, kind? }.
     // Pure <pre>; theme tokens (--fg, --bg, --accent) drive color so it

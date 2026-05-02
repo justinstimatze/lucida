@@ -1305,6 +1305,133 @@ def generate_sparkline_spec(
 
 
 # ============================================================
+# GAUGE — single scalar with stated/implied range, ring or dial readout
+
+GAUGE_SYSTEM = """You are the gauge specialist for lucida. The classifier has decided this snippet's load-bearing claim is *one numeric value within a stated or implied range* — a single scalar that wants to be read at a glance against its bounds, with optional thresholds marking healthy/warning/danger zones.
+
+# When gauge fits
+
+Pick gauge only when:
+- The snippet states ONE numeric value with a meaningful range (stated or strongly implied). Examples: "memory at 87% of 32GB", "score 8.2/10", "current temp 72°F (60-90 normal)", "queue depth 47 of 100", "battery 23%", "latency 340ms p95 (target <500ms)".
+- The bounds matter — reading "47" alone is meaningless without the range.
+- A scalar reading is the right shape: position-on-a-dial / fill-of-a-ring transforms the number into a spatial cue. (One value rendered as a chart isn't a viz; one value rendered as a dial WITH BOUNDS is.)
+
+# When to demote to text
+
+Set should_demote_to_text=true if:
+- The bounds aren't stated or strongly implied. A bare "47ms latency" with no range or threshold is text.
+- The value is unitless / dimensionless without context (e.g. "7" without a max).
+- The snippet has ≥2 values being compared (callouts / dl / sparkline / vega depending on shape).
+- The value is descriptive ("high", "low") not numeric.
+
+# Output
+
+- `value`: the numeric reading (the single scalar).
+- `min`, `max`: range bounds. Required. Use the snippet's actual stated or strongly-implied bounds. For percent-shaped values default min=0, max=100. For "of N" shapes default min=0, max=N.
+- `unit` (optional): short suffix shown alongside the value ("%", "ms", "°F", "GB", "/100"). Omit when the value is unitless.
+- `label` (optional): 1-3 word readout name shown above the dial ("MEMORY", "QUEUE", "LATENCY"). Omit when the cell head + caption already say it.
+- `threshold_warn` (optional): value above which the gauge enters a warning state. Use only when the snippet stipulates one ("warns past 80%").
+- `threshold_danger` (optional): value above which the gauge enters a danger state.
+- `direction` (optional, default "higher_is_worse"): one of "higher_is_worse" / "lower_is_worse". A latency gauge: higher_is_worse. A score gauge: lower_is_worse. Determines which side of the dial gets the warning/danger band.
+
+# Constraints
+
+- Use the snippet's exact numbers — don't round or normalize.
+- If the snippet states an exact bound, use it. If it implies a bound (battery → 0-100%), use the convention.
+- Don't invent thresholds the snippet didn't state.
+
+# Worked example 1 — explicit range
+
+Snippet: "Process memory currently sits at 766MB of 8GB allocated; the renderer's been running for 90 minutes and shows no sign of plateauing."
+
+spec:
+value: 766
+min: 0
+max: 8192
+unit: "MB"
+label: "MEMORY"
+threshold_warn: 4096
+threshold_danger: 6144
+direction: "higher_is_worse"
+
+caption: "Process memory at 766MB of 8GB. Past the 50% warn line, well below the 75% danger line — but trending up."
+should_demote_to_text: false
+
+# Worked example 2 — percent shape
+
+Snippet: "Battery 23% — switch to power soon."
+
+spec:
+value: 23
+min: 0
+max: 100
+unit: "%"
+label: "BATTERY"
+threshold_warn: 30
+threshold_danger: 15
+direction: "lower_is_worse"
+
+caption: "Battery 23%. Past the 30% warn line, approaching the 15% danger threshold."
+should_demote_to_text: false
+
+# Worked example 3 — score shape
+
+Snippet: "The latest aesthetic-kill audit returned a coverage score of 0.71 against the 0.85 target."
+
+spec:
+value: 0.71
+min: 0
+max: 1
+label: "AESTHETIC.KILL"
+threshold_warn: 0.85
+direction: "lower_is_worse"
+
+caption: "Aesthetic-kill coverage at 0.71 — below the 0.85 target."
+should_demote_to_text: false
+
+# Output via the build_gauge_spec tool.
+"""
+
+GAUGE_TOOL = {
+    "name": "build_gauge_spec",
+    "description": "Emit a gauge spec for a single-scalar reading against stated/implied bounds.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "spec": {
+                "type": "object",
+                "description": "Gauge spec: { value, min, max, unit?, label?, threshold_warn?, threshold_danger?, direction? }",
+                "properties": {
+                    "value": {"type": "number"},
+                    "min": {"type": "number"},
+                    "max": {"type": "number"},
+                    "unit": {"type": "string"},
+                    "label": {"type": "string"},
+                    "threshold_warn": {"type": "number"},
+                    "threshold_danger": {"type": "number"},
+                    "direction": {"type": "string", "enum": ["higher_is_worse", "lower_is_worse"]},
+                },
+                "required": ["value", "min", "max"],
+            },
+            "caption": {"type": "string"},
+            "should_demote_to_text": {"type": "boolean"},
+            "demotion_reason": {"type": "string"},
+        },
+        "required": ["spec", "caption", "should_demote_to_text", "demotion_reason"],
+    },
+}
+
+
+def generate_gauge_spec(
+    snippet: str, context: str = "", model: str = DEFAULT_MODEL
+) -> SpecialistResult:
+    raw = _call_specialist(
+        GAUGE_SYSTEM, GAUGE_TOOL, "build_gauge_spec", snippet, context, model
+    )
+    return _result(raw["input"], raw, model)
+
+
+# ============================================================
 # TIMELINE_RIBBON — horizontal stage progression for process / pipeline / lifecycle snippets
 # ============================================================
 

@@ -4900,6 +4900,96 @@ body {
   color: color-mix(in srgb, currentColor 50%, transparent);
 }
 
+/* --- Gauge substrate (Task #97) ----------------------------------------- */
+/* Single-scalar dial reading. 270° sweep, value arc fills proportionally,
+   warn/danger zones colored by direction (higher_is_worse vs
+   lower_is_worse). Theme tokens drive the active-state color. */
+.gauge-target {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  min-height: 200px;
+}
+.gauge-svg {
+  width: 100%;
+  height: auto;
+  max-width: 240px;
+  max-height: 240px;
+}
+.gauge-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--fg-muted, #888) 25%, transparent);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.gauge-zone-warn {
+  fill: none;
+  stroke: color-mix(in srgb, var(--vis-warn, #f0b500) 30%, transparent);
+  stroke-width: 5;
+  stroke-linecap: butt;
+}
+.gauge-zone-danger {
+  fill: none;
+  stroke: color-mix(in srgb, var(--vis-tripped, #d44) 32%, transparent);
+  stroke-width: 5;
+  stroke-linecap: butt;
+}
+.gauge-value-arc {
+  fill: none;
+  stroke: var(--accent, #5e8e7e);
+  stroke-width: 5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent, #5e8e7e) 50%, transparent));
+}
+.gauge-state-warn .gauge-value-arc {
+  stroke: var(--vis-warn, #f0b500);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--vis-warn, #f0b500) 60%, transparent));
+}
+.gauge-state-danger .gauge-value-arc {
+  stroke: var(--vis-tripped, #d44);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--vis-tripped, #d44) 70%, transparent));
+}
+.gauge-tick {
+  stroke: color-mix(in srgb, var(--fg-muted, #888) 50%, transparent);
+  stroke-width: 0.6;
+}
+.gauge-value {
+  fill: var(--fg, #e5e5e5);
+  font-family: var(--font-mono, "Courier New", monospace);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.gauge-state-warn .gauge-value { fill: var(--vis-warn, #f0b500); }
+.gauge-state-danger .gauge-value { fill: var(--vis-tripped, #d44); }
+.gauge-label {
+  fill: color-mix(in srgb, var(--fg-muted, #888) 80%, transparent);
+  font-family: var(--font-mono, "Courier New", monospace);
+  font-size: 4.2px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.gauge-range-tick {
+  fill: color-mix(in srgb, var(--fg-muted, #888) 60%, transparent);
+  font-family: var(--font-mono, "Courier New", monospace);
+  font-size: 3.5px;
+}
+
+/* Theme-specific gauge styling — gastown reads as a brass pressure
+   gauge, conclave/magi reads as NERV terminal, etc. Most themes can
+   piggyback on the default tokens. */
+.theme-gastown .gauge-track       { stroke: color-mix(in srgb, #c4a772 40%, transparent); }
+.theme-gastown .gauge-value-arc   { stroke: #ffd99c; filter: drop-shadow(0 0 3px color-mix(in srgb, #ffd99c 60%, transparent)); }
+.theme-gastown .gauge-value       { fill: #ffd99c; font-family: "Crimson Text", "Times New Roman", serif; font-size: 13px; }
+.theme-gastown .gauge-label       { fill: color-mix(in srgb, #c4a772 80%, transparent); font-family: "Crimson Text", "Times New Roman", serif; }
+.theme-conclave .gauge-value-arc  { stroke: #ff8c00; filter: drop-shadow(0 0 3px color-mix(in srgb, #ff8c00 60%, transparent)); }
+.theme-conclave .gauge-value      { fill: #ff8c00; }
+.theme-conclave .gauge-label      { fill: color-mix(in srgb, #ff8c00 65%, transparent); }
+.theme-conclave .gauge-track      { stroke: color-mix(in srgb, #ff8c00 20%, transparent); }
+.theme-lab .gauge-value-arc       { stroke: #76d2c8; filter: drop-shadow(0 0 3px color-mix(in srgb, #76d2c8 60%, transparent)); }
+.theme-lab .gauge-value           { fill: #76d2c8; }
+
 /* Generic fallback: pre block of randomized glyphs. */
 .transient-generic-stream {
   margin: 0;
