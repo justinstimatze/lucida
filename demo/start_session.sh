@@ -58,11 +58,21 @@ echo ""
 echo "Waiting for claude session transcript..."
 
 # ── wait for transcript ───────────────────────────────────────────────────────
+# Snapshot existing transcripts BEFORE waiting — only attach to a NEW one
+# created after we started. Otherwise we'd lock onto a leftover transcript
+# from a prior run and the live claude session's transcript would be missed.
+PREEXISTING=""
+if [[ -d "$TRANSCRIPT_DIR" ]]; then
+  PREEXISTING=$(ls "$TRANSCRIPT_DIR"/*.jsonl 2>/dev/null | sort || true)
+fi
+
 TRANSCRIPT=""
 while true; do
   if [[ -d "$TRANSCRIPT_DIR" ]]; then
-    TRANSCRIPT=$(ls -t "$TRANSCRIPT_DIR"/*.jsonl 2>/dev/null | head -1 || true)
-    if [[ -n "$TRANSCRIPT" ]]; then
+    CURRENT=$(ls "$TRANSCRIPT_DIR"/*.jsonl 2>/dev/null | sort || true)
+    NEW=$(comm -13 <(echo "$PREEXISTING") <(echo "$CURRENT") | head -1)
+    if [[ -n "$NEW" ]]; then
+      TRANSCRIPT="$NEW"
       break
     fi
   fi
