@@ -22,6 +22,7 @@ forward-compat.
 from __future__ import annotations
 
 import os
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -418,10 +419,6 @@ def generate_mermaid_spec(
 # spec + error message to repair it. One retry after fix; if still
 # invalid, the orchestrator suppresses the cell.
 
-import subprocess as _subprocess
-from pathlib import Path as _Path
-
-
 def lint_mermaid_spec(spec: str, timeout: float = 10.0) -> tuple[bool, str]:
     """Validate a mermaid spec via the local node validator.
 
@@ -432,12 +429,12 @@ def lint_mermaid_spec(spec: str, timeout: float = 10.0) -> tuple[bool, str]:
     """
     if not spec or not spec.strip():
         return False, "empty spec"
-    project_root = _Path(__file__).parent.resolve()
+    project_root = Path(__file__).parent.resolve()
     validator = project_root / "validate_mermaid.mjs"
     if not validator.exists():
         return True, ""  # no validator installed → assume ok (skip lint)
     try:
-        result = _subprocess.run(
+        result = subprocess.run(
             ["node", str(validator)],
             input=spec,
             capture_output=True,
@@ -445,7 +442,7 @@ def lint_mermaid_spec(spec: str, timeout: float = 10.0) -> tuple[bool, str]:
             timeout=timeout,
             cwd=str(project_root),
         )
-    except (_subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return True, ""  # node missing / hang → skip lint, keep spec as-is
     if result.returncode == 0:
         return True, ""

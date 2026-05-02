@@ -97,7 +97,7 @@ Each theme ships per-theme entrance animations and window-edge chrome
 authentic to its source material. Themes also declare a preferred layout
 that activates on switch.
 
-[![themes loop](assets/themes.mp4)](assets/themes.mp4)
+<video src="assets/themes.mp4" autoplay loop muted playsinline width="100%"></video>
 
 ---
 
