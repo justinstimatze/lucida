@@ -41,6 +41,6 @@ echo "│                                                         │"
 echo "└─────────────────────────────────────────────────────────┘"
 echo ""
 
-python demo/replay.py --reset
+python demo/replay.py --reset --session "$SESSION_FILTER"
 echo "Cells reset. Starting drip (interval=${INTERVAL}s)..."
 python demo/replay.py --interval "$INTERVAL"

@@ -55,19 +55,32 @@ def main() -> None:
     p.add_argument(
         "--interval", type=float, default=6.0, help="seconds between each cell mint (default: 6)"
     )
-    p.add_argument("--reset", action="store_true", help="clear cells.json to empty state and exit")
+    p.add_argument(
+        "--reset",
+        action="store_true",
+        help="clear cells (use with --session to scope; without it, wipes ALL cells)",
+    )
     p.add_argument(
         "--session",
         default=None,
-        help="session_id to write to cells.json (default: from source file)",
+        help="session_id to write to cells.json or scope --reset (default: from source file)",
     )
     args = p.parse_args()
 
     if args.reset:
         base = load_cells()
-        base["cells"] = []
-        save_cells(base)
-        print("cells.json cleared.")
+        before = len(base.get("cells", []))
+        if args.session:
+            base["cells"] = [
+                c for c in base.get("cells", []) if c.get("session_id") != args.session
+            ]
+            removed = before - len(base["cells"])
+            save_cells(base)
+            print(f"Cleared {removed} cells with session_id={args.session!r} ({before - removed} kept).")
+        else:
+            base["cells"] = []
+            save_cells(base)
+            print(f"Cleared ALL {before} cells from cells.json.")
         return
 
     if not args.source.exists():

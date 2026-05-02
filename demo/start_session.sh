@@ -19,6 +19,11 @@ TRANSCRIPT_DIR="$HOME/.claude/projects/-tmp-nif-session"
 RENDERER_URL="http://localhost:8766/?theme=conclave&layout=pack&session=nif-demo"
 SESSION_ID="nif-demo"
 
+# Wipe any cells from a previous nif-demo run so the dashboard opens blank.
+# Scoped to session_id only — corpus from other sessions is preserved.
+echo "Clearing prior ${SESSION_ID} cells..."
+python demo/replay.py --reset --session "$SESSION_ID"
+
 # ── renderer ──────────────────────────────────────────────────────────────────
 if lsof -i :8766 &>/dev/null; then
   echo "renderer already running on :8766"
