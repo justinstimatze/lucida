@@ -82,7 +82,9 @@ def main() -> None:
             ]
             removed = before - len(base["cells"])
             save_cells(base)
-            print(f"Cleared {removed} cells with session_id={args.session!r} ({before - removed} kept).")
+            print(
+                f"Cleared {removed} cells with session_id={args.session!r} ({before - removed} kept)."
+            )
         else:
             base["cells"] = []
             save_cells(base)

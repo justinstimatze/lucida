@@ -419,6 +419,7 @@ def generate_mermaid_spec(
 # spec + error message to repair it. One retry after fix; if still
 # invalid, the orchestrator suppresses the cell.
 
+
 def lint_mermaid_spec(spec: str, timeout: float = 10.0) -> tuple[bool, str]:
     """Validate a mermaid spec via the local node validator.
 
@@ -1422,9 +1423,7 @@ GAUGE_TOOL = {
 def generate_gauge_spec(
     snippet: str, context: str = "", model: str = DEFAULT_MODEL
 ) -> SpecialistResult:
-    raw = _call_specialist(
-        GAUGE_SYSTEM, GAUGE_TOOL, "build_gauge_spec", snippet, context, model
-    )
+    raw = _call_specialist(GAUGE_SYSTEM, GAUGE_TOOL, "build_gauge_spec", snippet, context, model)
     return _result(raw["input"], raw, model)
 
 
@@ -1873,7 +1872,18 @@ def main() -> None:
     p.add_argument(
         "--type",
         required=True,
-        choices=["mermaid", "vega", "html", "animated_svg", "scene3d", "treemap", "sparkline", "timeline_ribbon", "trajectory", "force_graph"],
+        choices=[
+            "mermaid",
+            "vega",
+            "html",
+            "animated_svg",
+            "scene3d",
+            "treemap",
+            "sparkline",
+            "timeline_ribbon",
+            "trajectory",
+            "force_graph",
+        ],
     )
     p.add_argument("--snippet", required=True)
     p.add_argument("--context", default="")

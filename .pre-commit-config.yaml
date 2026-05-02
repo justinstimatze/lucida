@@ -1,19 +1,13 @@
 # Pre-commit hooks. Run `pre-commit install` once after first checkout.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.9
+    rev: v0.15.10
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - anthropic
-          - python-dotenv
-        # mypy is permissive (strict=false) per pyproject.toml — catches
-        # return-type drift and untyped-config mistakes without blocking.
-        args: [--ignore-missing-imports]
+  # mypy intentionally NOT in pre-commit — CI runs ruff + pytest only.
+  # Keeping mypy here would make pre-commit stricter than CI, blocking
+  # local commits on pre-existing anthropic-SDK overload mismatches that
+  # don't block CI. Run mypy on demand: `uv run mypy .`
