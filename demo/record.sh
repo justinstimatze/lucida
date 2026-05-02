@@ -14,13 +14,16 @@ cd "$(dirname "$0")/.."
 
 INTERVAL=6
 THEME=conclave
+LAYOUT=pack
 SESSION_FILTER="nif-demo"
-RENDERER_URL="http://localhost:8766/?theme=${THEME}&session=${SESSION_FILTER}"
+build_url() { RENDERER_URL="http://localhost:8766/?theme=${THEME}&layout=${LAYOUT}&session=${SESSION_FILTER}"; }
+build_url
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --interval) INTERVAL="$2"; shift 2 ;;
-    --theme)    THEME="$2"; RENDERER_URL="http://localhost:8766/?theme=${THEME}&session=${SESSION_FILTER}"; shift 2 ;;
+    --theme)    THEME="$2"; build_url; shift 2 ;;
+    --layout)   LAYOUT="$2"; build_url; shift 2 ;;
     *) echo "unknown arg: $1"; exit 1 ;;
   esac
 done

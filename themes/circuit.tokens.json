@@ -42,5 +42,5 @@
     "bg":      "#030504",
     "panel":   "#070a06"
   },
-  "layout": "grid"
+  "layout": "pack"
 }

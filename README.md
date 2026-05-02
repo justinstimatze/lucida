@@ -57,9 +57,16 @@ for it automatically:
 - **Graphs and diagrams** — architecture, flows, entity relationships, state machines
 - **Charts** — comparisons, cost breakdowns, quantitative series
 - **Tables** — structured decisions, callouts, tradeoff matrices
+- **Treemaps** — proportional categorical breakdowns
 - **3D wireframes** — topology, spatial structure (Three.js, FUI-style)
 - **Animated SVGs** — cycles, decay, state transitions
 - **Sparklines** — single-variable trajectories
+- **Timeline ribbons** — chronological events with horizontal flow
+- **Gauges** — single scalars within a stated range (memory, latency, score)
+
+Ambient FUI flair — transient cells, mint-time scrubbers, per-theme ambient
+motion — appears automatically. No prompts required, no payload, no static
+chrome. Implies "computer thinking fast."
 
 Visuals arrive pre-themed to the active theme. No configuration needed — the
 classifier chooses the substrate, the specialist generates the spec, and the
@@ -137,7 +144,7 @@ Full URL param reference:
 
 ```
 ?theme=<name>               theme
-?layout=<name>              layout (grid / treemap / scatter / tactical / terminal / organic)
+?layout=<name>              layout (pack / organic / scatter / tactical / terminal)
 ?session=<id>               scope to one session
 ?session=<a>,<b>,<c>        N-column mission-control view
 ```

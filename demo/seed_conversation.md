@@ -22,7 +22,7 @@ cd ~/Documents/lucida && bash demo/start_session.sh
 mkdir -p /tmp/nif-session && cd /tmp/nif-session && claude
 ```
 
-# The renderer opens at http://localhost:8766/?theme=conclave&session=nif-demo
+# The renderer opens at http://localhost:8766/?theme=conclave&layout=pack&session=nif-demo
 # (blank on load; fills only with NIF session cells — existing data untouched)
 
 Wait ~30 seconds between prompts for the watcher poll interval.
