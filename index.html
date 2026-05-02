@@ -703,6 +703,44 @@ function evictWebGLIfOverCap() {
   }
 }
 
+// Tear down per-cell mounted state when a cell is being removed from the
+// DOM (cap-based eviction). Handles:
+//   - WebGL scene3d / force_graph contexts → teardown + drop registry entry
+//   - vega-embed views → finalize() to free the runtime
+//   - mounted IntersectionObservers (lazyMount) → disconnect
+// The observers and timers self-clean once their target is GC'd, but
+// explicit disposal here makes the eviction predictable + immediate
+// rather than waiting for the next GC pass.
+function disposeCellState(cellEl) {
+  if (!cellEl) return;
+  // WebGL scene3d / force_graph: registry entries hold a reference to
+  // the .cell-body container. Match by descendant.
+  for (let i = state.webgl.registry.length - 1; i >= 0; i--) {
+    const entry = state.webgl.registry[i];
+    if (entry.target && cellEl.contains(entry.target)) {
+      try { entry.teardown(); } catch (e) { /* swallow */ }
+      state.webgl.registry.splice(i, 1);
+    }
+  }
+  // Vega-embed: each .vega-target gets a `_vegaView` reference set by
+  // the substrate render. finalize() releases the runtime.
+  for (const v of cellEl.querySelectorAll(".vega-target")) {
+    if (v._vegaView && typeof v._vegaView.finalize === "function") {
+      try { v._vegaView.finalize(); } catch (e) { /* swallow */ }
+      v._vegaView = null;
+    }
+  }
+  // Lazy-mount IntersectionObservers: target nodes hold an _lazyObserver
+  // ref. Disconnect proactively so the observer doesn't keep a strong
+  // ref to the (about-to-be-detached) target.
+  for (const t of cellEl.querySelectorAll("[data-lazy-target], .mermaid-target, .vega-target, .animated-svg-target, .timeline-ribbon-target, .trajectory-target, .force-graph-target, .scene3d-target")) {
+    if (t._lazyObserver && typeof t._lazyObserver.disconnect === "function") {
+      try { t._lazyObserver.disconnect(); } catch (e) { /* swallow */ }
+      t._lazyObserver = null;
+    }
+  }
+}
+
 // Lazy mount/unmount for SVG-heavy substrates (mermaid, vega, animated_svg).
 // Starts unmounted; the IntersectionObserver renders on first viewport
 // approach and tears down when the cell drifts beyond ~1500px of viewport.
@@ -1283,16 +1321,35 @@ function liveAppendNewCells(cellsData) {
   // (?max=N or layout cap); ?recent=N caps the trailing transcript in any
   // mode. IDs stay in renderedIds so they don't re-mount on the next
   // poll — refresh re-seeds the tail.
+  //
+  // Multi-stream mode previously bypassed this loop entirely, so a session
+  // running for hours accumulated cells across every column without bound
+  // (user 2026-05-01: "766MB of ram"). Now: each column gets its own cap
+  // and the eviction also cleans up registry state (WebGL contexts,
+  // running timers via cell teardown hooks) so freed cells don't leak.
   const recentCap = getRecentCap();
   const tickLayoutEntry = LAYOUT_REGISTRY[getLayoutMode()];
   const tickLayoutCap = tickLayoutEntry && tickLayoutEntry.cap;
-  if ((state.sessions.autoMode || recentCap || tickLayoutCap) && !multi) {
-    const cap = state.sessions.autoMode
-      ? getVisibleCap()
-      : (recentCap || tickLayoutCap);
-    const cells = root.querySelectorAll(":scope > .cell");
-    for (let i = cells.length - 1; i >= cap; i--) {
-      cells[i].remove();
+  const cap = state.sessions.autoMode
+    ? getVisibleCap()
+    : (recentCap || tickLayoutCap || 80);
+  if (cap) {
+    if (multi) {
+      // Per-column cap. Each session gets its own trailing cap-N cells.
+      const columns = root.querySelectorAll(":scope > .cell-column");
+      for (const col of columns) {
+        const cells = col.querySelectorAll(":scope > .cell");
+        for (let i = cells.length - 1; i >= cap; i--) {
+          disposeCellState(cells[i]);
+          cells[i].remove();
+        }
+      }
+    } else {
+      const cells = root.querySelectorAll(":scope > .cell");
+      for (let i = cells.length - 1; i >= cap; i--) {
+        disposeCellState(cells[i]);
+        cells[i].remove();
+      }
     }
   }
   if (!wasAtTop && firstNode) {
@@ -2846,6 +2903,9 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       const themedSpec = stripVegaLiteralColors(c.spec);
       currentEmbed = vegaEmbed(target, themedSpec, { actions: false, ...TC.vega }).then(result => {
         currentView = result && result.view;
+        // Stash the view on the DOM element so disposeCellState() can
+        // finalize() it when this cell is evicted by the cap loop.
+        target._vegaView = currentView;
         // If the spec declares a numeric width, use it as the cell's
         // natural width. Otherwise (`"width": "container"` style)
         // measure post-render scrollWidth.
@@ -3837,6 +3897,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
     body.appendChild(target);
     let ctrl = null;
     const entry = {
+      target: target,                  // for cell-removal disposal lookup
       visible: false,
       lastVisible: 0,
       teardown: () => {
