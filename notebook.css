@@ -3691,26 +3691,27 @@ body {
 .session-dropdown {
   position: fixed;
   z-index: 900;
-  min-width: 240px;
-  max-width: 360px;
+  min-width: 260px;
+  max-width: 380px;
   max-height: 60vh;
   overflow-y: auto;
+  /* Setting overflow-y to a scrolling value implicitly promotes
+     overflow-x to auto, so long session_ids (UUID-style 8c9db515-…)
+     produce a phantom horizontal scrollbar at the bottom of the
+     panel. Force-hide horizontal overflow + truncate long ids
+     below. */
+  overflow-x: hidden;
   /* Driven by theme tokens: --cell-bg is set in every .theme-<name> block,
-     so dropdowns auto-track the active theme. The pre-2026-04-30 rule
-     used var(--panel, #131318) but --panel was never assigned, so the
-     hardcoded lab fallback locked dropdowns to dark even in
-     minimal/gastown/lcars. */
+     so dropdowns auto-track the active theme. */
   background: var(--cell-bg);
   color: var(--fg);
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 0.5rem 0;
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 12%, rgba(0, 0, 0, 0.35));
-  /* var(--type-body) is set per-theme by applyTokensToCSSVars; the
-     dropdown is a DOM child of .hud which uses explicit monospace,
-     so font-family: inherit picked up the wrong font in non-default
-     themes. Reading the token directly fixes lcars (Antonio condensed),
-     gastown (Crimson serif), magi (monospace), minimal (Inter). */
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 6px;
+  padding: 6px 0;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+  /* var(--type-body) is set per-theme by applyTokensToCSSVars. */
   font-family: var(--type-body, inherit);
   font-size: 0.85rem;
 }
@@ -3719,11 +3720,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.25rem 0.75rem 0.4rem;
-  margin-bottom: 0.25rem;
-  border-bottom: 1px solid var(--line);
+  padding: 6px 12px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   letter-spacing: 0.15em;
-  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-size: 0.65rem;
   color: var(--muted);
 }
 .session-dropdown-clear {
@@ -3732,35 +3734,43 @@ body {
   color: var(--accent);
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   letter-spacing: 0.1em;
-  padding: 0;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background 120ms ease-out;
 }
-.session-dropdown-clear:hover { text-decoration: underline; }
+.session-dropdown-clear:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
 .session-dropdown-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.3rem 0.75rem;
+  gap: 10px;
+  padding: 7px 12px;
   cursor: pointer;
   color: var(--fg);
-  /* Button reset: theme/layout dropdown rows are <button> elements
-     and inherit user-agent button chrome (gray background, beveled
-     border, system font, text-align center) that fights theme intent.
-     User flagged 2026-04-29 ("dropdown menus still aren't fully
-     themed"). Same reset pattern as .session-dropdown-clear. */
+  /* Button reset for theme/layout rows. */
   background: transparent;
   border: none;
   font-family: inherit;
   font-size: inherit;
   text-align: left;
   width: 100%;
+  transition: background 120ms ease-out;
+  /* Prevent row content from forcing horizontal scroll on long ids. */
+  min-width: 0;
 }
+.session-dropdown-row + .session-dropdown-row { margin-top: 1px; }
 .session-dropdown-row:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .session-dropdown-row[aria-current="true"] {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  /* Subtle left rail flags the active selection without competing
+     with hover state. */
+  box-shadow: inset 2px 0 0 0 var(--accent);
 }
 /* Themed checkboxes — accent-color alone only tints the check-mark and
    leaves the OS-native box shape, which fights theme intent on
@@ -3806,18 +3816,28 @@ body {
 }
 .session-dropdown-id {
   flex: 1;
+  min-width: 0;
   font-family: var(--type-mono, "Courier New", monospace);
   color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .session-dropdown-count {
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-style: italic;
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: color-mix(in srgb, var(--fg) 70%, transparent);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 .session-dropdown-empty {
-  padding: 0.5rem 0.75rem;
+  padding: 12px 14px;
   color: var(--muted);
   font-style: italic;
+  text-align: center;
 }
 /* Magi keeps its glow flourish; other themes inherit the
    token-driven base rule above. */
