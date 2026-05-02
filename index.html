@@ -395,6 +395,16 @@ function buildThemeDropdown() {
       document.cookie = `lucida_theme=${v}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
       const url = new URL(window.location.href);
       url.searchParams.set("theme", v);
+      // Strip ?layout= so the new theme's preferred layout token
+      // (themes/<name>.tokens.json → layout) applies via
+      // applyTokenLayout at boot. Without this, an explicit ?layout=
+      // pinned by start_session.sh or a previous LAYOUT-dropdown pick
+      // would survive the theme switch and the new theme's canonical
+      // layout (e.g., terminus → terminal, mainframe → organic) never
+      // takes effect. Per task #102. If a user truly wants a layout
+      // locked across theme changes, they can re-pick it via the
+      // LAYOUT dropdown after switching theme.
+      url.searchParams.delete("layout");
       window.location.replace(url.toString());
     });
   });
