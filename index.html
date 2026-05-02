@@ -2247,11 +2247,53 @@ function applyPackLayout() {
     window._lucidaPackDebug.calls.push(dbg);
     return; // retry timer (600ms / 2000ms) catches up after hydration
   }
-  // Tear down any previous instance — re-construct from scratch each
-  // call so Muuri's item-size cache is always fresh. The cost is small
-  // at cap=60.
-  if (_muuriGrid) { try { _muuriGrid.destroy(); } catch (e) {} _muuriGrid = null; }
+  // Incremental path — when Muuri already exists for this root, just
+  // sync new and removed items to the existing grid. This preserves
+  // existing items' positions instead of clearing all transforms +
+  // re-snapping (which read as "everything flies around" on cell
+  // append). Only the destroy-recreate path runs on initial mount or
+  // after teardownPackLayout (layout-mode switch).
+  if (_muuriGrid) {
+    try {
+      const muuriItems = _muuriGrid.getItems();
+      const muuriEls = new Set(muuriItems.map(i => i.getElement()));
+      const sizedSet = new Set(sized);
+      // Drop items whose DOM nodes are no longer in the container
+      // (cap eviction / session clear / remove-from-cellsjson). Keeps
+      // Muuri's getItems() honest so future fillGaps work doesn't
+      // try to position phantom items.
+      const stale = muuriItems.filter(i => !sizedSet.has(i.getElement()));
+      if (stale.length) _muuriGrid.remove(stale, { layout: false });
+      const fresh = sized.filter(el => !muuriEls.has(el));
+      if (fresh.length) {
+        fresh.forEach(el => { el.style.visibility = "hidden"; });
+        _muuriGrid.add(fresh, { layout: false });
+      }
+      if (stale.length || fresh.length) {
+        _muuriGrid.layout(false, () => {
+          fresh.forEach(el => { el.style.visibility = ""; });
+        });
+        dbg.path = "incremental";
+        dbg.added = fresh.length;
+        dbg.removed = stale.length;
+        window._lucidaPackDebug.calls.push(dbg);
+        return;
+      }
+      dbg.path = "noop";
+      window._lucidaPackDebug.calls.push(dbg);
+      return;
+    } catch (e) {
+      // Fall through to destroy-recreate as the safe path.
+      dbg.incrementalError = String(e);
+      try { _muuriGrid.destroy(); } catch (e2) {}
+      _muuriGrid = null;
+    }
+  }
   dbg.path = "create";
+  // Hide all items during the destroy-recreate so the brief moment
+  // before Muuri sets transforms doesn't render them stacked at the
+  // container's top-left. Restored after the instant initial layout.
+  sized.forEach(el => { el.style.visibility = "hidden"; });
   _muuriGrid = new window.Muuri(root, {
     items: sized,
     // fillGaps:true is the load-bearing setting — small items fill
@@ -2260,13 +2302,21 @@ function applyPackLayout() {
     // off on "rearrange (a little)" 2026-05-01.
     layout: { fillGaps: true, rounding: true },
     dragEnabled: false,
-    // No animations — the user wants a static settled grid, not a
-    // tweened arrival. Animations on 60+ cells also tax the renderer
-    // and produce the "particles still drifting" feel we don't want.
-    layoutDuration: 0,
+    // 250ms ease-out for incremental moves (e.g., _muuriGrid.add for a
+    // transient cell, or fillGaps reflowing on insert). Initial
+    // construction uses layoutOnInit:false + a manual instant layout
+    // below so all 60+ cells don't fly in from (0,0). Show/hide
+    // durations stay 0 — entrance animation lives in cell-fresh CSS,
+    // not in Muuri's show pipeline.
+    layoutDuration: 250,
+    layoutEasing: "cubic-bezier(0.2, 0.85, 0.4, 1)",
     showDuration: 0,
     hideDuration: 0,
-    layoutEasing: "linear",
+    layoutOnInit: false,
+  });
+  // Instant initial layout — no animation interpolation. Then unhide.
+  _muuriGrid.layout(true, () => {
+    sized.forEach(el => { el.style.visibility = ""; });
   });
   window._muuriGrid = _muuriGrid;
   window._lucidaPackDebug.calls.push(dbg);
@@ -5482,8 +5532,22 @@ function spawnTransientCell(opts) {
   _buildTransientBody(body, theme);
 
   if (motion === "pack") {
+    // Hide before append so the cell never paints at the container's
+    // top-left corner (Muuri sets transforms in its layout pass; the
+    // gap between paint and pass is one frame of (0,0) flash). Restore
+    // visibility from Muuri's add-completion callback so we know the
+    // packed transform is in place.
+    card.style.visibility = "hidden";
     root.appendChild(card);
-    try { _muuriGrid.add([card], { layout: true }); } catch (e) {}
+    try {
+      _muuriGrid.add([card], { layout: true });
+      // layout: true on add returns sync but the layout pass is async
+      // when layoutDuration > 0. Use Muuri's layout method with a
+      // callback to know when transforms are committed.
+      _muuriGrid.layout(false, () => { card.style.visibility = ""; });
+    } catch (e) {
+      card.style.visibility = "";
+    }
   } else {
     // Edge-slide: position fixed-overlay anchored to a screen edge.
     // Pick a random edge per spawn so the screen doesn't feel like a
