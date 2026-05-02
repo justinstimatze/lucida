@@ -10,7 +10,7 @@ diagrams, 3D scenes, animated SVGs. The display builds up as you work.
 
 It probably doesn't make you more productive. Das Blinkenlights for AI sessions.
 
-[![lucida demo](assets/demo-poster.png)](assets/demo.mp4)
+https://github.com/user-attachments/assets/d08aa14f-2a12-4f6d-a107-d71d98529dac
 
 ---
 
@@ -97,7 +97,7 @@ Each theme ships per-theme entrance animations and window-edge chrome
 authentic to its source material. Themes also declare a preferred layout
 that activates on switch.
 
-<video src="assets/themes.mp4" autoplay loop muted playsinline width="100%"></video>
+https://github.com/user-attachments/assets/6da05581-f458-48f4-9044-4ad3795d152f
 
 ---
 
