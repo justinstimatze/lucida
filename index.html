@@ -1258,6 +1258,24 @@ function liveAppendNewCells(cellsData) {
     if (!matchesActiveSession(c)) return false;  // ?session=<id> filter (step 2)
     return true;
   });
+  // Removal detection — fixes demo-replay flow where replay.py wipes
+  // session cells then drips them back with same IDs. Without this,
+  // wiped cells stay in the DOM (no delete handler) and re-dripped
+  // cells get skipped because their IDs are still in renderedIds.
+  // Same disposal sequence as the cap eviction path uses. Cell DOM
+  // id == cell.id (set in renderCell at card.id = c.id).
+  const currentIds = new Set(cellsData.cells.map(c => c.id));
+  for (const id of [...state.rendering.renderedIds]) {
+    if (!currentIds.has(id)) {
+      const node = document.getElementById(id);
+      if (node) {
+        if (typeof disposeCellState === "function") disposeCellState(node);
+        node.remove();
+      }
+      state.rendering.renderedIds.delete(id);
+      if (state.rendering.cellsById) state.rendering.cellsById.delete(id);
+    }
+  }
   // First poll establishes the baseline; subsequent polls detect deltas.
   // load() seeds state.rendering.renderedIds before the first poll fires.
   const fresh = visible.filter(c => !state.rendering.renderedIds.has(c.id));
