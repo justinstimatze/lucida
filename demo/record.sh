@@ -34,17 +34,35 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo ""
-echo "┌─────────────────────────────────────────────────────────┐"
-echo "│  lucida demo prep                                       │"
-echo "│                                                         │"
-echo "│  1. Cells will reset and start dripping every ${INTERVAL}s    │"
-echo "│  2. Open: ${RENDERER_URL}  │"
-echo "│  3. Hit Ctrl+Alt+Shift+R to start recording             │"
-echo "│  4. Hit Ctrl+Alt+Shift+R again to stop                  │"
-echo "│  5. Run: bash demo/convert.sh ~/Videos/Screencast*.webm │"
-echo "│                                                         │"
-echo "└─────────────────────────────────────────────────────────┘"
+cat <<EOF
+
+┌────────────────────────────────────────────────────────────────────────┐
+│  lucida demo recording — sequence                                      │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  STOP — read this before pressing any key.                             │
+│                                                                        │
+│  When you press enter to continue, this script will:                   │
+│    a. Snapshot the cells to replay.                                    │
+│    b. WIPE them from cells.json — your dashboard goes BLANK            │
+│       within ~2s (renderer poll). This is the demo's opening beat.     │
+│    c. Drip them back at ${INTERVAL}s intervals.                              │
+│                                                                        │
+│  So: BEFORE pressing enter —                                           │
+│    1. Make sure the chrome window is positioned + framed how you want. │
+│       URL: ${RENDERER_URL}
+│    2. Start your screen recording (Ctrl+Alt+Shift+R on GNOME).         │
+│                                                                        │
+│  AFTER all cells land + the pack settles —                             │
+│    3. Stop recording (Ctrl+Alt+Shift+R again).                         │
+│    4. Convert: bash demo/convert.sh ~/Videos/Screencast*.webm --trim 6 │
+│                                                                        │
+│  Cancel with Ctrl-C if you're not ready.                               │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
+
+EOF
+read -p "Press enter when screen-recording is rolling and you're ready to drip... " _
 echo ""
 
 if [[ -n "$FROM_SESSION" ]]; then
