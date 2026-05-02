@@ -65,6 +65,12 @@ def main() -> None:
         default=None,
         help="session_id to write to cells.json or scope --reset (default: from source file)",
     )
+    p.add_argument(
+        "--from-session",
+        default=None,
+        help="snapshot all cells with this session_id from cells.json and replay them "
+        "(skips the curate step; use right after a live mint session)",
+    )
     args = p.parse_args()
 
     if args.reset:
@@ -83,13 +89,21 @@ def main() -> None:
             print(f"Cleared ALL {before} cells from cells.json.")
         return
 
-    if not args.source.exists():
-        print(f"error: {args.source} not found. Run `python demo/make_demo_cells.py` first.")
-        raise SystemExit(1)
-
-    source = json.loads(args.source.read_text())
-    demo_cells = source.get("cells", [])
-    session_id = args.session or source.get("session_id", "lucida-demo")
+    if args.from_session:
+        live = load_cells()
+        demo_cells = [c for c in live.get("cells", []) if c.get("session_id") == args.from_session]
+        if not demo_cells:
+            print(f"error: no cells found with session_id={args.from_session!r} in cells.json")
+            raise SystemExit(1)
+        session_id = args.session or args.from_session
+        print(f"Snapshotted {len(demo_cells)} cells from session_id={args.from_session!r}.")
+    else:
+        if not args.source.exists():
+            print(f"error: {args.source} not found. Run `python demo/make_demo_cells.py` first.")
+            raise SystemExit(1)
+        source = json.loads(args.source.read_text())
+        demo_cells = source.get("cells", [])
+        session_id = args.session or source.get("session_id", "lucida-demo")
 
     if not demo_cells:
         print("error: no cells in source file.")
