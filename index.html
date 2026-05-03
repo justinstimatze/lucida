@@ -2661,49 +2661,33 @@ function applyMixed3DLayout(opts) {
   // as the tower base"), widens upward to ~2× tower-width at the
   // top, and uses a vertical-gradient texture so the cone reads
   // as a SOFT glow rather than a hard mesh shape.
-  // Cone texture: vertical linear gradient — solid bright at the
-  // bottom (sharp transition into pad), fading softly upward to
-  // transparent. No horizontal fade so the base reads as a fully-lit
-  // square that matches the pad/tower footprint exactly. The
-  // softness/fuzziness lives in the upward fade.
+  // Cone glow: radial-gradient sprite billboard, replaces the prior
+  // 4-sided CylinderGeometry which had visible hard silhouette edges
+  // (cells crossing the cone's geometric edge popped from obscured
+  // to sharp instantly). A sprite always faces camera, so its alpha
+  // falloff is uniformly soft from any angle. Also fewer triangles
+  // (2 per cone vs 8) and one fewer per-cone material to allocate.
   const _coneCanvas = document.createElement("canvas");
-  _coneCanvas.width = 8;
+  _coneCanvas.width = 256;
   _coneCanvas.height = 256;
   const _coneCtx = _coneCanvas.getContext("2d");
-  // Canvas y=0 is top → UV.y=1 → top of cylinder (wide upper end).
-  // Canvas y=256 is bottom → UV.y=0 → narrow base (full opacity).
-  const _coneGrad = _coneCtx.createLinearGradient(0, 0, 0, 256);
-  // Whisper-soft fade — peak alpha 0.08 (was 0.15). Reads as
-  // ambient haze near each tower base, no defined "column" shape.
-  _coneGrad.addColorStop(0.0, "rgba(255, 255, 255, 0.0)");
-  _coneGrad.addColorStop(0.55, "rgba(255, 255, 255, 0.005)");
-  _coneGrad.addColorStop(0.82, "rgba(255, 255, 255, 0.025)");
-  _coneGrad.addColorStop(0.95, "rgba(255, 255, 255, 0.055)");
-  _coneGrad.addColorStop(1.0, "rgba(255, 255, 255, 0.08)");
+  // 2D radial: bright at vertical-axis center column, full alpha
+  // falloff at sprite edges. Vertical axis kept brighter at the
+  // bottom (slightly elliptical falloff) so the glow reads as
+  // rising from the tower base, matching the prior cone's intent.
+  const _coneGrad = _coneCtx.createRadialGradient(128, 192, 0, 128, 192, 160);
+  _coneGrad.addColorStop(0.0, "rgba(255, 255, 255, 0.18)");
+  _coneGrad.addColorStop(0.35, "rgba(255, 255, 255, 0.08)");
+  _coneGrad.addColorStop(0.7, "rgba(255, 255, 255, 0.02)");
+  _coneGrad.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
   _coneCtx.fillStyle = _coneGrad;
-  _coneCtx.fillRect(0, 0, 8, 256);
+  _coneCtx.fillRect(0, 0, 256, 256);
   const sharedConeTex = new T.CanvasTexture(_coneCanvas);
-  sharedConeTex.wrapS = T.RepeatWrapping;
-  sharedConeTex.wrapT = T.ClampToEdgeWrapping;
-  // Cone geometry: radiusBottom = towerW/√2 so after 45° Y rotation
-  // the four bottom vertices land EXACTLY at the four corners of
-  // the tower base — cone base square = tower base square. radiusTop
-  // = towerW*√2 → top square is 2× tower-width across.
-  const sharedConeGeo = new T.CylinderGeometry(
-    towerW * Math.SQRT2,        // radiusTop = towerW × √2 (wide)
-    towerW / Math.SQRT2,        // radiusBottom = towerW / √2 (matches tower)
-    towerH * 1.0,
-    4,
-    1,
-    true,
-  );
-  const sharedConeMat = new T.MeshBasicMaterial({
+  const sharedConeMat = new T.SpriteMaterial({
     map: sharedConeTex,
     color: tint,
     transparent: true,
-    opacity: 1.0, // gradient texture provides the alpha falloff
     blending: T.AdditiveBlending,
-    side: T.DoubleSide,
     depthWrite: false,
     depthTest: false,
   });
@@ -2804,13 +2788,16 @@ function applyMixed3DLayout(opts) {
       // so the base sits at floor (y=0). Rotate 45° around Y so the
       // four flat faces of the squared cross-section align with the
       // tower faces.
-      const cone = new T.Mesh(sharedConeGeo, sharedConeMat);
+      const cone = new T.Sprite(sharedConeMat);
+      // Sprite scale = world-space size of the billboard quad. Width
+      // ~2× tower (matches old cone's top), height ~tower-height so
+      // the halo extends roughly from base to top.
+      cone.scale.set(towerW * 2.4, towerH * 1.2, 1);
       cone.position.set(
         mesh.position.x,
-        towerH * 0.5,
+        towerH * 0.45, // slightly below tower-mid so falloff favours the base
         mesh.position.z,
       );
-      cone.rotation.y = Math.PI / 4;
       scene.add(cone);
       const seed = (ix * 31 + iz * 17) % 4;
       const faces = [];
