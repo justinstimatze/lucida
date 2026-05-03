@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<!-- Force browsers to always re-fetch index.html. Without this, the
+     dev cycle hits cache surprises: hard refresh / Shift+Reload
+     bypasses cache for one navigation, but back-button or "regular"
+     reload can serve a stale document. Lucida is dev-server-served
+     and tiny, so disabling cache is fine here. -->
+<meta http-equiv="Cache-Control" content="no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>lucida notebook</title>
 <link rel="stylesheet" href="notebook.css" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
@@ -9,6 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
 <!-- Three.js loaded eagerly for scene3d cells. -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+<script src="vendor/CSS3DRenderer.js"></script>
 <!-- d3-hierarchy: canonical squarified treemap (Bruls 2000). Replaces
      ~80 lines of custom squarify code; we just feed it weights and read
      leaf rectangles back. -->
@@ -34,7 +43,7 @@
   // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
   // Adapted from gemotvis/frontend/src/stores/theme.ts.
   (function () {
-    var valid = ["lab", "conclave", "minimal", "gastown", "ops", "vigil", "circuit", "noir", "renegade", "mainframe", "terminus"];
+    var valid = ["lab", "conclave", "minimal", "gastown", "ops", "vigil", "circuit", "noir", "renegade", "mainframe", "terminus", "hackers"];
     var theme = "lab";
     try {
       var url = new URLSearchParams(window.location.search).get("theme");
@@ -45,10 +54,49 @@
     document.documentElement.classList.add("theme-" + theme);
     document.cookie = "lucida_theme=" + theme + "; path=/; max-age=" + (365 * 24 * 60 * 60) + "; SameSite=Lax";
     window.__LUCIDA_THEME = theme;
+    // Pre-set body.layout-mixed3d when URL declares it, so the
+    // CSS rule that hides scene3d cells (which would otherwise
+    // race to allocate WebGL contexts during initial cell render)
+    // applies before load() runs. Body element doesn't exist yet
+    // here; run on DOMContentLoaded.
+    try {
+      var layout = new URLSearchParams(window.location.search).get("layout");
+      if (layout === "mixed3d") {
+        document.addEventListener("DOMContentLoaded", function () {
+          document.body.classList.add("layout-mixed3d");
+        });
+      }
+      // Boot overlay fade-out: mixed3d signals 'booted' from its own
+      // first-frame callback (slow path — wait for WebGL warm). All
+      // other layouts hide the overlay on window-load + one rAF, since
+      // they don't have a comparable warmup cost.
+      window.addEventListener("load", function () {
+        if (layout !== "mixed3d") {
+          requestAnimationFrame(function () {
+            document.body.classList.add("booted");
+          });
+        }
+        // Safety fallback: force-hide after 6 seconds no matter what,
+        // so a buggy layout init never strands users behind the splash.
+        setTimeout(function () { document.body.classList.add("booted"); }, 6000);
+      });
+    } catch (e) { /* swallow */ }
   })();
 </script>
 </head>
 <body>
+<!-- Boot overlay: visible by default via CSS, hidden by JS once
+     applyMixed3DLayout has done its first WebGL render (or any other
+     layout has finished mounting). Without this the first ~3 seconds
+     of page load look "rough" — fonts loading, WebGL context warming,
+     scene construction visibly happening, cells popping in. User
+     2026-05-02. -->
+<div id="boot-overlay">
+  <div class="boot-content">
+    <div class="boot-title">INITIALIZING</div>
+    <div class="boot-bar"><div class="boot-bar-fill"></div></div>
+  </div>
+</div>
 <header>
   <!-- "lucida notebook" title removed: static chrome that doesn't earn
        its keep on a glanceable page. Per memory/feedback_glanceable_no_clicks
@@ -363,6 +411,7 @@ const THEME_REGISTRY = {
   renegade:  { id: "renegade",  label: "RENEGADE",  description: "omnitool orange + nav cyan on warm-black" },
   mainframe: { id: "mainframe", label: "MAINFRAME", description: "neon aqua city grid, Game Cube purple accent" },
   terminus:  { id: "terminus",  label: "TERMINUS",  description: "phosphor on black — end of the line" },
+  hackers:   { id: "hackers",   label: "HACKERS",   description: "Gibson canyon — cyan glass towers, void beneath" },
 };
 
 function buildThemeDropdown() {
@@ -509,14 +558,20 @@ function initSessionDropdownTrigger() {
 // See design-references.md "Theme strategy" + memory/visual_consistency_
 // theming_pass.md for the why.
 async function loadTokens(themeName) {
+  // cache:"no-store" + a per-load timestamp query bust both the
+  // browser cache and any intermediate proxy. We were seeing stale
+  // tokens.json served via "hard reload" (which only bypasses cache
+  // for the main document, not for fetches inside JS) — the tokens
+  // are tiny (~1KB), so refetching every load is fine.
+  const bust = `?_t=${Date.now()}`;
   try {
-    const r = await fetch(`themes/${themeName}.tokens.json`, { cache: "no-cache" });
+    const r = await fetch(`themes/${themeName}.tokens.json${bust}`, { cache: "no-store" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return await r.json();
   } catch (e) {
     console.warn(`[lucida] failed to load themes/${themeName}.tokens.json: ${e}; falling back to lab`);
     if (themeName === "lab") throw e;  // can't fall back further
-    const r = await fetch(`themes/lab.tokens.json`, { cache: "no-cache" });
+    const r = await fetch(`themes/lab.tokens.json${bust}`, { cache: "no-store" });
     return await r.json();
   }
 }
@@ -2022,6 +2077,26 @@ const LAYOUT_REGISTRY = {
     // it can absorb more.
     cap: 60,
   },
+  // mixed3d: 2D/3D hybrid family — cells mounted as CSS3DObjects on
+  // arrangement-defined surfaces (towers / planes-on-wall / floating-grid)
+  // inside a Three.js WebGL world (floor circuits, particles, lights, fog).
+  // World layer is native Three.js so VR (WebXR) can occupy the same
+  // scene later by swapping CSS3D cells for canvas-textured planes.
+  // Per memory/gibson_layout_arc.md.
+  // Theme tokens drive arrangement/camera/material via TOKENS.mixed3d.
+  // hackers theme is the seed (canyon-of-towers + dolly-canyon + glass).
+  mixed3d: {
+    id: "mixed3d",
+    label: "mixed3d",
+    description: "3D world + cells on glass faces (gibson-style)",
+    apply: () => applyMixed3DLayout(TOKENS.mixed3d || {}),
+    // Cap: 100 towers × 145 slots = 14500 physical capacity. 15000
+    // covers it with a bit of slack for live mints arriving on top
+    // of a fully populated historical baseline. Texture mem worst
+    // case ~1.15GB (15000 × 80×240×4); modern GPUs handle this but
+    // if it bites, drop _mixed3dCellTexture canvas dims to 64×192.
+    cap: 15000,
+  },
   // Reference list: memory/window_layout_libs.md.
 };
 // Apply token-declared layout preference as default when no ?layout= override.
@@ -2356,6 +2431,1948 @@ function teardownPackLayout() {
 }
 
 // ----------------------------------------------------------------
+// mixed3d: WebGL world + CSS3DRenderer cells on tower faces.
+// Seed of the 2D/3D-mixed FUI family. World layer is Three.js native
+// so a future WebXR phase can swap CSS3D for canvas-textured planes
+// without touching world geometry. Theme tokens drive opts:
+//   TOKENS.mixed3d = {
+//     camera:      "dolly-canyon" | "drift" | "fixed-parallax",
+//     arrangement: "towers" | "planes-on-wall" | "floating-grid",
+//     material:    "glass" | "holographic" | "opaque" | "neon",
+//     world: { floor, particles, sky, tower_tint, floor_grid, floor_accent },
+//     danger: { tower_tint, beam, particles_color }
+//   }
+// Per memory/gibson_layout_arc.md.
+// ----------------------------------------------------------------
+let _mixed3dState = null;
+
+function _mixed3dResolveOpts(opts) {
+  const O = opts || {};
+  return {
+    // Default camera = swoopy-tour: bezier-arc passes that match
+    // the Hackers Gibson scene's pacing. dolly-canyon and weave-grid
+    // remain opt-in via tokens for themes that prefer corridor or
+    // ping-pong motion. Was "dolly-canyon" — too tame as a default.
+    camera: O.camera || "swoopy-tour",
+    arrangement: O.arrangement || "towers",
+    material: O.material || "glass",
+    world: Object.assign(
+      {
+        floor: "circuit",
+        particles: true,
+        sky: "void",
+        tower_tint: "#00ddff",
+        floor_grid: "#003344",
+        floor_accent: "#ff3a8c",
+      },
+      O.world || {},
+    ),
+    danger: Object.assign(
+      { tower_tint: "#ff3030", beam: "#c040ff", particles_color: "#ffaa55" },
+      O.danger || {},
+    ),
+  };
+}
+
+function applyMixed3DLayout(opts) {
+  if (!window.THREE) return;
+  const T = window.THREE;
+  if (!T.CSS3DRenderer || !T.CSS3DObject) {
+    console.warn("[mixed3d] CSS3DRenderer not loaded; bailing.");
+    return;
+  }
+  const root = document.getElementById("notebook");
+  if (!root) return;
+  const O = _mixed3dResolveOpts(opts);
+
+  // Incremental: scene already exists for the same arrangement → just
+  // sync cell placements (add fresh / drop stale). Mirrors Muuri's
+  // incremental path — avoids "everything flies around" on poll.
+  if (_mixed3dState && _mixed3dState.opts.arrangement === O.arrangement) {
+    console.info(`[mixed3d] applyLayout: sync-cells path @ ${performance.now().toFixed(0)}ms`);
+    _mixed3dSyncCells();
+    return;
+  }
+  if (_mixed3dState) {
+    console.warn(`[mixed3d] applyLayout: FULL REBUILD path (prev arr=${_mixed3dState.opts.arrangement} → ${O.arrangement}) @ ${performance.now().toFixed(0)}ms`);
+    teardownMixed3DLayout();
+  } else {
+    console.info(`[mixed3d] applyLayout: first-time build @ ${performance.now().toFixed(0)}ms`);
+  }
+
+  // Wrap holds both renderers. position:fixed at z below HUD; pointer
+  // events flow through to css renderer so cells stay interactive.
+  const wrap = el("div");
+  wrap.id = "mixed3d-wrap";
+  document.body.appendChild(wrap);
+  const webglMount = el("div");
+  webglMount.id = "mixed3d-webgl";
+  const cssMount = el("div");
+  cssMount.id = "mixed3d-css";
+  wrap.appendChild(webglMount);
+  wrap.appendChild(cssMount);
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h);
+  renderer.setClearColor(0x000000, 0);
+  webglMount.appendChild(renderer.domElement);
+  // Always-on context loss/restore logging. Default browser behavior
+  // is to NOT restore after a loss — preventDefault makes restore
+  // possible. We log timestamps so visible "all flashes at once" can
+  // be cross-referenced against context events.
+  renderer.domElement.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+    console.warn(`[mixed3d] WebGL context LOST @ ${performance.now().toFixed(0)}ms`, e);
+  }, false);
+  renderer.domElement.addEventListener("webglcontextrestored", (e) => {
+    console.info(`[mixed3d] WebGL context RESTORED @ ${performance.now().toFixed(0)}ms`);
+  }, false);
+
+  const css3dRenderer = new T.CSS3DRenderer();
+  css3dRenderer.setSize(w, h);
+  cssMount.appendChild(css3dRenderer.domElement);
+
+  // FOV 75°: wider than the typical 50–60° default to read as
+  // "looming canyon" — Gibson scenes feel close to wide-angle.
+  // Tunable via the FOV vocab in chat (cf. user's "fov is also odd").
+  const camera = new T.PerspectiveCamera(75, w / h, 0.1, 240);
+  // Initial position: low altitude inside the grid. Driver
+  // (_mixed3dDriveCamera) takes over each tick. Initial lookAt
+  // along +X to give a sensible starting frame before the weave
+  // path initializes its own state. Hardcoded look-target
+  // (12, 4, 0) since `spacing` is declared lower in the function.
+  camera.position.set(0, 4, 0);
+  camera.lookAt(12, 4, 0);
+
+  const scene = new T.Scene();
+  // Two CSS3D scenes for LOD throttling. cssScene = T1 (close cells,
+  // rendered every 3rd frame ~ 20Hz). cssSceneFar = T2 (mid-range
+  // cells, rendered every 12th frame ~ 5Hz). Cells migrate between
+  // them based on distance via _mixed3dReassignTiers, with 4u
+  // hysteresis (T1 below 23u, T2 above 27u). Cells beyond 55u get
+  // visible=false in whichever scene they're in (cull). Single shared
+  // cameraElement in the renderer means elements coexist in one DOM
+  // subtree regardless of source scene.
+  const cssScene = new T.Scene();
+  const cssSceneFar = new T.Scene();
+  // Heavier fog (0.04 vs prior 0.025) so the 20×20 grid fades into
+  // void at its far edge — sells the "semi-infinite" read user
+  // flagged 2026-05-02. Towers ~50 units away ≈ 13% visible; ~80
+  // units away ≈ 4%. Up close (within 10 units) towers read clearly.
+  scene.fog = new T.FogExp2(0x000308, 0.04);
+
+  // Lighting — bright key from above-canyon, low ambient, side fill.
+  scene.add(new T.AmbientLight(0xffffff, 0.35));
+  const tint = new T.Color(O.world.tower_tint);
+  const key = new T.PointLight(tint, 1.4, 60);
+  key.position.set(0, 14, 8);
+  scene.add(key);
+  // Field-wide floor uplight: a hemisphere with cyan ground color
+  // and dark sky. Casts cyan onto the underside of every object —
+  // every tower base picks up identical light, so distant and
+  // near towers read with the SAME base color (was tinted unevenly
+  // by a central PointLight whose falloff brightened middle towers
+  // and dimmed edges; user 2026-05-02 "the floor of each tower
+  // needs to be the same color").
+  const hemi = new T.HemisphereLight(0x000308, tint, 1.0);
+  hemi.position.set(0, 0, 0);
+  scene.add(hemi);
+
+  // Towers — 20×20 grid (was 8×2 canyon walls). User 2026-05-02:
+  // "the grid of towers is much bigger. seemingly like 20 by 20
+  // towers. the camera stays low and flies between the towers so
+  // you rarely get a wide angle view so the field feels semi
+  // infinite."
+  // Square footprint per Gibson reference. 6:1 height ratio.
+  // gap = towerW = 3.0 in both directions ("one tower's worth of
+  // space between pairs of towers in both directions").
+  // Per tower: 4 sides × 7 verts + 1 top = 29 slots → 11600 total,
+  // far past the cell cap, but most towers stay empty/glass — that's
+  // the architecture, the cells are the content.
+  // 10×10 grid = 100 towers. Tower proportions tuned via Fisher
+  // Stevens at video 5:54 (5'7"). Iterations: 4×4×12 → 4×4×16 →
+  // 5×5×15 → 5×5×19 → 5×5×17 (user 2026-05-02: "a little too tall
+  // now, bring them back down"). 3.4:1 aspect, gap = 7 (1.4× towerW).
+  const towerCount = 10;
+  const towerW = 5.0;
+  const towerH = 17.0;
+  const towerD = 5.0;
+  const spacing = 12.0;
+  const towerMeshes = [];
+  const sharedBox = new T.BoxGeometry(towerW, towerH, towerD);
+  const sharedEdges = new T.EdgesGeometry(sharedBox);
+  // Tower base glow — a billboarded sprite (always faces camera)
+  // with a radial-gradient cyan texture, additive blend. Sprites
+  // stay visible from any camera angle, where a flat disk goes
+  // edge-on and disappears at low altitude. User 2026-05-02:
+  // "the towers were lit from below, their bases glow and kind of
+  // wash out where the tower meets the floor."
+  const _glowCanvas = document.createElement("canvas");
+  _glowCanvas.width = 256;
+  _glowCanvas.height = 256;
+  const _gctx = _glowCanvas.getContext("2d");
+  const _grad = _gctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  _grad.addColorStop(0.0, "rgba(255, 255, 255, 1.0)");
+  _grad.addColorStop(0.18, O.world.tower_tint);
+  _grad.addColorStop(0.55, "rgba(0, 110, 140, 0.35)");
+  _grad.addColorStop(1.0, "rgba(0, 0, 0, 0)");
+  _gctx.fillStyle = _grad;
+  _gctx.fillRect(0, 0, 256, 256);
+  const sharedGlowTex = new T.CanvasTexture(_glowCanvas);
+  const sharedGlowMat = new T.SpriteMaterial({
+    map: sharedGlowTex,
+    color: tint,
+    transparent: true,
+    opacity: 0.85,
+    blending: T.AdditiveBlending,
+    depthWrite: false,
+    // Sprite sits inside the tower's bounding box (y=1.2). Without
+    // depthTest:false, the tower's front face writes depth and the
+    // sprite gets culled from most camera angles — only visible
+    // briefly mid-pan when the camera crosses a face-grazing angle
+    // (user 2026-05-02 "the glow doesn't appear until the first
+    // sideways pan is about halfway done and then it disappears").
+    // Flipping depthTest off makes the halo always render; price
+    // is the halo may bleed through towers in front of it, which
+    // reads as ambient atmosphere rather than a bug.
+    depthTest: false,
+  });
+  // Pad: solid cyan square sized to the tower footprint. Was an
+  // additive translucent layer reliant on rendering THROUGH tower
+  // glass — that approach showed an unexplained "blink" where the
+  // bright bases disappeared for several seconds (2026-05-03).
+  // Switching to a fully opaque MeshBasicMaterial with depth tests
+  // off and a high renderOrder makes it always paint last, so it
+  // can't be obscured or blended away.
+  const sharedPadGeo = new T.PlaneGeometry(towerW, towerD);
+  const sharedPadMat = new T.MeshBasicMaterial({
+    color: tint,
+    transparent: false,
+    side: T.DoubleSide,
+    depthWrite: false,
+    depthTest: false,
+  });
+  // Uplight cone: base matches the tower footprint exactly
+  // (user 2026-05-02 "the glow cone base needs to be the same size
+  // as the tower base"), widens upward to ~2× tower-width at the
+  // top, and uses a vertical-gradient texture so the cone reads
+  // as a SOFT glow rather than a hard mesh shape.
+  // Cone texture: vertical linear gradient — solid bright at the
+  // bottom (sharp transition into pad), fading softly upward to
+  // transparent. No horizontal fade so the base reads as a fully-lit
+  // square that matches the pad/tower footprint exactly. The
+  // softness/fuzziness lives in the upward fade.
+  const _coneCanvas = document.createElement("canvas");
+  _coneCanvas.width = 8;
+  _coneCanvas.height = 256;
+  const _coneCtx = _coneCanvas.getContext("2d");
+  // Canvas y=0 is top → UV.y=1 → top of cylinder (wide upper end).
+  // Canvas y=256 is bottom → UV.y=0 → narrow base (full opacity).
+  const _coneGrad = _coneCtx.createLinearGradient(0, 0, 0, 256);
+  // Whisper-soft fade — peak alpha 0.08 (was 0.15). Reads as
+  // ambient haze near each tower base, no defined "column" shape.
+  _coneGrad.addColorStop(0.0, "rgba(255, 255, 255, 0.0)");
+  _coneGrad.addColorStop(0.55, "rgba(255, 255, 255, 0.005)");
+  _coneGrad.addColorStop(0.82, "rgba(255, 255, 255, 0.025)");
+  _coneGrad.addColorStop(0.95, "rgba(255, 255, 255, 0.055)");
+  _coneGrad.addColorStop(1.0, "rgba(255, 255, 255, 0.08)");
+  _coneCtx.fillStyle = _coneGrad;
+  _coneCtx.fillRect(0, 0, 8, 256);
+  const sharedConeTex = new T.CanvasTexture(_coneCanvas);
+  sharedConeTex.wrapS = T.RepeatWrapping;
+  sharedConeTex.wrapT = T.ClampToEdgeWrapping;
+  // Cone geometry: radiusBottom = towerW/√2 so after 45° Y rotation
+  // the four bottom vertices land EXACTLY at the four corners of
+  // the tower base — cone base square = tower base square. radiusTop
+  // = towerW*√2 → top square is 2× tower-width across.
+  const sharedConeGeo = new T.CylinderGeometry(
+    towerW * Math.SQRT2,        // radiusTop = towerW × √2 (wide)
+    towerW / Math.SQRT2,        // radiusBottom = towerW / √2 (matches tower)
+    towerH * 1.0,
+    4,
+    1,
+    true,
+  );
+  const sharedConeMat = new T.MeshBasicMaterial({
+    map: sharedConeTex,
+    color: tint,
+    transparent: true,
+    opacity: 1.0, // gradient texture provides the alpha falloff
+    blending: T.AdditiveBlending,
+    side: T.DoubleSide,
+    depthWrite: false,
+    depthTest: false,
+  });
+  // ONE shared MeshPhongMaterial across all towers — saves per-tower
+  // material allocation and lets danger-mode lerp affect the whole
+  // wall in one operation. Trade-off: no per-tower color animation
+  // (e.g. a single tower flashing); we don't need that today.
+  const sharedTowerMat = new T.MeshPhongMaterial({
+    color: tint,
+    transparent: true,
+    // 0.025 (was 0.04) — even more translucent, so back towers
+    // visibly read THROUGH front towers. User 2026-05-02 ref
+    // tower_glass_closeup.png shows multiple tower silhouettes
+    // overlapping through translucency.
+    opacity: 0.025,
+    emissive: tint,
+    emissiveIntensity: 0.03,
+    side: T.DoubleSide,
+    shininess: 90,
+  });
+  const sharedEdgeMat = new T.LineBasicMaterial({
+    color: tint,
+    transparent: true,
+    opacity: 0.55,
+  });
+  // Top-rim highlight: 4 line segments at the very top of each
+  // tower, brighter than the regular edge wireframe. Per refs
+  // tower_glass_closeup.png — the tops of the cyan towers in the
+  // reference have a distinct bright cyan rim.
+  const sharedTopRimGeo = new T.BufferGeometry();
+  {
+    const hW = towerW / 2;
+    const hD = towerD / 2;
+    const yTop = towerH / 2; // geometry-relative top (mesh y = towerH/2)
+    sharedTopRimGeo.setAttribute(
+      "position",
+      new T.BufferAttribute(
+        new Float32Array([
+          -hW, yTop, -hD,  +hW, yTop, -hD,
+          +hW, yTop, -hD,  +hW, yTop, +hD,
+          +hW, yTop, +hD,  -hW, yTop, +hD,
+          -hW, yTop, +hD,  -hW, yTop, -hD,
+        ]),
+        3,
+      ),
+    );
+  }
+  const sharedTopRimMat = new T.LineBasicMaterial({
+    color: tint,
+    transparent: true,
+    opacity: 0.95,
+  });
+  // Each face spec carries dx/dz (face center offset from tower
+  // center), rotY (cell yaw), and hx/hz (in-plane horizontal axis
+  // direction, used for column-offset positioning).
+  const NESW = [
+    { dx: 0, dz: +towerD / 2 + 0.02, rotY: 0, hx: 1, hz: 0 },     // +Z (north)
+    { dx: +towerW / 2 + 0.02, dz: 0, rotY: -Math.PI / 2, hx: 0, hz: 1 }, // +X (east)
+    { dx: 0, dz: -towerD / 2 - 0.02, rotY: Math.PI, hx: -1, hz: 0 }, // -Z (south)
+    { dx: -towerW / 2 - 0.02, dz: 0, rotY: +Math.PI / 2, hx: 0, hz: -1 }, // -X (west)
+  ];
+  const gridHalf = (towerCount - 1) / 2;
+  for (let iz = 0; iz < towerCount; iz++) {
+    for (let ix = 0; ix < towerCount; ix++) {
+      const mesh = new T.Mesh(sharedBox, sharedTowerMat);
+      mesh.position.x = (ix - gridHalf) * spacing;
+      mesh.position.y = towerH / 2;
+      mesh.position.z = (iz - gridHalf) * spacing;
+      scene.add(mesh);
+      const edges = new T.LineSegments(sharedEdges, sharedEdgeMat);
+      edges.position.copy(mesh.position);
+      scene.add(edges);
+      // Bright top-rim highlight. Geometry has y=towerH/2 already,
+      // so position the mesh at the tower's MIDDLE (mesh.position)
+      // and the rim renders at world y=towerH.
+      const topRim = new T.LineSegments(sharedTopRimGeo, sharedTopRimMat);
+      topRim.position.copy(mesh.position);
+      scene.add(topRim);
+      // (Sprite halo dropped 2026-05-02: billboarded radial gradient
+      // always reads as a "ball at the base," not as light shining
+      // up. The square pyramid cone below carries the uplight.)
+      // Bright pad: the "hole in floor" footprint. Slight Y nudge
+      // per-tower (0.04 + ix*0.0001 + iz*0.0001) so 100 pads don't
+      // sort-conflict with each other and with traces passing under
+      // tower bases. Without this they were part of the floor flicker
+      // (user 2026-05-02).
+      const pad = new T.Mesh(sharedPadGeo, sharedPadMat);
+      pad.position.set(mesh.position.x, 0.04 + ix * 0.0001 + iz * 0.0001, mesh.position.z);
+      pad.rotation.x = -Math.PI / 2;
+      pad.frustumCulled = false;
+      pad.renderOrder = 999; // render LAST so the bright base always
+                              // shows regardless of any sort/transparency
+                              // weirdness around tower glass (the "blink"
+                              // workaround, 2026-05-03).
+      scene.add(pad);
+      // Uplight cone — base matches tower footprint, widens upward,
+      // gradient texture for soft glow. Position center at y=height/2
+      // so the base sits at floor (y=0). Rotate 45° around Y so the
+      // four flat faces of the squared cross-section align with the
+      // tower faces.
+      const cone = new T.Mesh(sharedConeGeo, sharedConeMat);
+      cone.position.set(
+        mesh.position.x,
+        towerH * 0.5,
+        mesh.position.z,
+      );
+      cone.rotation.y = Math.PI / 4;
+      scene.add(cone);
+      const seed = (ix * 31 + iz * 17) % 4;
+      const faces = [];
+      for (let k = 0; k < 4; k++) faces.push(NESW[(k + seed) % 4]);
+      towerMeshes.push({ mesh, edges, ix, iz, index: iz * towerCount + ix, faces });
+    }
+  }
+
+  // Floor: large enough to fully underlie the grid even at the
+  // furthest weave point. Field is towerCount × spacing on each side,
+  // floor 1.5× that to give breathing room.
+  const fieldSize = towerCount * spacing;
+  const floorSize = fieldSize * 1.5;
+  // Floor: baked PCB texture (assets/floor_baked.png, regenerated via
+  // tools/gen_floor.py). Replaces ~480 lines of runtime A* + role
+  // graph + lane bus + per-mesh stub codegen — one 4096² texture vs.
+  // hundreds of transparent meshes, plus iterable offline (tweak
+  // python args, view PNG, no browser needed).
+  const floorTex = new T.TextureLoader().load("assets/floor_baked.png");
+  floorTex.colorSpace = T.SRGBColorSpace;
+  floorTex.anisotropy = 8;
+  floorTex.minFilter = T.LinearMipmapLinearFilter;
+  floorTex.magFilter = T.LinearFilter;
+  // Opaque floor — was transparent: true / opacity 0.95 which forced
+  // it through Three.js's transparent render pass. With many other
+  // transparent meshes (tower glass, cones, beams, cells, additive
+  // pads), the per-frame sort would intermittently hide the floor for
+  // several seconds at a time (the "blink" of 2026-05-03). Opaque
+  // draws in the opaque pass first, depth-tested, no sort needed.
+  const floorMat = new T.MeshBasicMaterial({
+    map: floorTex,
+  });
+  const floor = new T.Mesh(new T.PlaneGeometry(floorSize, floorSize), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.08;
+  floor.frustumCulled = false;
+  scene.add(floor);
+  // (Floor PCB codegen — A* router, role graph, lane buses,
+  // chip-pad stubs — REMOVED 2026-05-03 in favor of static-baked
+  // texture loaded above. Source: tools/gen_floor.py. Iterate by
+  // re-running that script and refreshing the page.)
+
+  // Particle dust drifting through the field volume.
+  let particleSystem = null;
+  if (O.world.particles) {
+    const N = 400;
+    const positions = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * fieldSize;
+      positions[i * 3 + 1] = Math.random() * 20;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * fieldSize;
+    }
+    const pgeo = new T.BufferGeometry();
+    pgeo.setAttribute("position", new T.BufferAttribute(positions, 3));
+    const pmat = new T.PointsMaterial({
+      color: new T.Color(O.world.tower_tint),
+      size: 0.05,
+      transparent: true,
+      opacity: 0.55,
+      sizeAttenuation: true,
+      depthWrite: false,
+    });
+    particleSystem = new T.Points(pgeo, pmat);
+    scene.add(particleSystem);
+  }
+
+  document.body.classList.add("layout-mixed3d");
+
+  _mixed3dState = {
+    opts: O,
+    wrap,
+    webglMount,
+    cssMount,
+    renderer,
+    css3dRenderer,
+    camera,
+    scene,
+    cssScene,
+    cssSceneFar,
+    towerMeshes,
+    particleSystem,
+    cellObjects: new Map(), // cell-id → CSS3DObject
+    cellTier: new Map(), // cell-id → 1 (close) or 2 (far)
+    cellSlotKeys: new Map(), // cell-id → "tower:face:vert" key
+    usedSlots: new Set(), // "tower:face:vert" already occupied
+    // Per-tower count so we can spread cells across the field
+    // before stacking — without this, the camera-aware picker fills
+    // one tower's 29 slots completely before reaching the next
+    // (~76 cells = ~3 fully-filled towers, user 2026-05-02
+    // "only like 4 towers have cells").
+    towerCellCount: new Array(towerCount * towerCount).fill(0),
+    beams: [], // active danger-mode LineSegments awaiting expiry
+    nextBeamAt: 0,
+    sharedTowerMat,
+    sharedEdgeMat,
+    geometry: {
+      towerCount,
+      towerW,
+      towerH,
+      towerD,
+      spacing,
+      // 6 columns × 6 rows per side face. 6-column count is a rule
+      // (user 2026-05-02 "there are always 6 vertical columns per
+      // face"). The taller 5×5×19 tower has empty glass above the
+      // cell stack (top at y=13.75, tower top at y=19), which reads
+      // as silhouette / header — towers feel tall above the cells.
+      slotsPerFaceX: 6,
+      slotsPerFaceY: 3,
+      slotW: 0.65,
+      slotH: 2.0,
+      slotMarginX: 0.15,
+      slotMargin: 0.25,
+      slotBaseY: 1.5,
+      pixelsPerUnit: 400,
+    },
+    animation: { t0: performance.now(), running: true, danger: false },
+  };
+  _mixed3dSyncCells();
+
+  const onResize = () => {
+    const w2 = window.innerWidth;
+    const h2 = window.innerHeight;
+    camera.aspect = w2 / h2;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w2, h2);
+    css3dRenderer.setSize(w2, h2);
+  };
+  window.addEventListener("resize", onResize);
+  _mixed3dState.onResize = onResize;
+
+  // D toggles danger mode. Skip when typing into anything (input/textarea
+  // /contenteditable) so it doesn't fight cell editors. Also expose a
+  // window hook so future HUD chips or auto-triggers can reach it.
+  const onKey = (ev) => {
+    if (ev.key !== "d" && ev.key !== "D") return;
+    const tgt = ev.target;
+    const tagName = tgt && tgt.tagName ? tgt.tagName.toUpperCase() : "";
+    if (tagName === "INPUT" || tagName === "TEXTAREA" || (tgt && tgt.isContentEditable)) return;
+    _mixed3dToggleDanger();
+  };
+  window.addEventListener("keydown", onKey);
+  _mixed3dState.onKey = onKey;
+  window.lucidaToggleDanger = _mixed3dToggleDanger;
+  // Debug hook — useful for poking the world from devtools/MCP.
+  window._mixed3dState = _mixed3dState;
+
+  // Frame-time gate: only screams when something's actually wrong.
+  // 50ms is "missed 2+ frames at 60Hz" — visible as a flash/stutter.
+  let _lastFrameTs = 0;
+  // Visibility/opacity change detector — captures the binary "towers
+  // vanish then reappear" symptom without requiring manual F8 pause.
+  // Samples every ~10 frames; logs only on change.
+  let _diagLast = null;
+  let _diagFrameI = 0;
+  const _diagSnapshot = () => {
+    const t0 = _mixed3dState.towerMeshes[0];
+    if (!t0) return null;
+    const c = _mixed3dState.camera;
+    return {
+      childN: scene.children.length,
+      towerVis: t0.mesh.visible,
+      towerOp: t0.mesh.material.opacity.toFixed(3),
+      towerCol: t0.mesh.material.color.getHexString(),
+      floorVis: floor.visible,
+      floorOp: floor.material.opacity.toFixed(3),
+      // Round camera position to whole units; we only want to see big
+      // jumps, not the per-frame motion.
+      camY: c.position.y.toFixed(0),
+      // Up vector: should normally be ~(0, 1, 0). Round to one decimal
+      // — banking makes this drift slightly each frame, but only large
+      // tilts (>~6°) will register at this precision.
+      upX: c.up.x.toFixed(1),
+      upY: c.up.y.toFixed(1),
+      upZ: c.up.z.toFixed(1),
+    };
+  };
+  const tick = () => {
+    if (!_mixed3dState || !_mixed3dState.animation.running) return;
+    requestAnimationFrame(tick);
+    const now = performance.now();
+    if (_lastFrameTs > 0) {
+      const dt = now - _lastFrameTs;
+      if (dt > 50) {
+        // log (not warn) so devtools doesn't append a stack trace per stall.
+        console.log(`[mixed3d] frame stall: ${dt.toFixed(0)}ms gap @ ${now.toFixed(0)}ms`);
+      }
+    }
+    _lastFrameTs = now;
+    // Sample state every 10 frames; log on change. Catches the binary
+    // tower-vanish symptom in real time.
+    if ((++_diagFrameI) % 10 === 0) {
+      const snap = _diagSnapshot();
+      if (snap && _diagLast) {
+        for (const k of Object.keys(snap)) {
+          if (snap[k] !== _diagLast[k]) {
+            console.log(`[mixed3d] state-change @ ${now.toFixed(0)}ms: ${k} ${_diagLast[k]} → ${snap[k]}`);
+          }
+        }
+      }
+      _diagLast = snap;
+    }
+    const t = (now - _mixed3dState.animation.t0) / 1000;
+    _mixed3dDriveCamera(t);
+    if (_mixed3dState.particleSystem) {
+      _mixed3dState.particleSystem.rotation.y = t * 0.015;
+    }
+    // Frustum + distance cull: cells outside camera view OR farther
+    // than 55 units get obj.visible=false → CSS3DRenderer sets their
+    // element display:none, skipping the (expensive) DOM matrix3d
+    // write. Heavy CSS3DObjects + thousands of cells = 1fps without
+    // this; user 2026-05-02 "the framerate is absolutely dead now."
+    {
+      const T2 = window.THREE;
+      const projMat = new T2.Matrix4().multiplyMatrices(
+        _mixed3dState.camera.projectionMatrix,
+        _mixed3dState.camera.matrixWorldInverse,
+      );
+      if (!_mixed3dState._frustum) _mixed3dState._frustum = new T2.Frustum();
+      _mixed3dState._frustum.setFromProjectionMatrix(projMat);
+      const camPos = _mixed3dState.camera.position;
+      // Distance cull only (75u). The previous per-cell frustum check
+      // via `containsPoint(obj.position)` caused edge-of-viewport
+      // flicker as camera rotation crossed the cell center across the
+      // frustum boundary frame-to-frame (user 2026-05-02 "some of
+      // them are flickering near the edges of the viewport"). Plane
+      // meshes are cheap; the GPU clips offscreen geometry for free.
+      const maxD2 = 75 * 75;
+      for (const obj of _mixed3dState.cellObjects.values()) {
+        const dx = obj.position.x - camPos.x;
+        const dy = obj.position.y - camPos.y;
+        const dz = obj.position.z - camPos.z;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        obj.visible = d2 <= maxD2;
+      }
+    }
+    // (LOD tier reassignment removed 2026-05-02 — cells are now WebGL
+    // Plane meshes added directly to the main scene. Three.js auto-
+    // updates their transforms each frame at much lower cost than DOM
+    // matrix3d writes, so the close/far throttling is no longer needed.)
+    // CSS3D-fog + occlusion dim. WebGL fog only fades native meshes,
+    // and CSS3D doesn't read the WebGL depth buffer, so cells viewed
+    // THROUGH a tower in front render too crisp (user 2026-05-02
+    // "the tiles on the back side of the translucent towers need to
+    // be dimmed like you're looking through at least two layers of
+    // glass"). For each cell, check how many tower bounding boxes
+    // the camera-cell line segment intersects (in xz), excluding
+    // the cell's own tower. Multiply opacity by 0.55^N.
+    //
+    // Perf gates:
+    //   1. Throttled to every 6th frame (10Hz). Camera moves at
+    //      ~1.5u/s so opacity changes are gradual; dimming-step at
+    //      100ms is below perceptual threshold.
+    //   2. Skips visible=false cells (cull pass set them) — saves
+    //      the inner 100-tower slab loop on culled cells, which is
+    //      the dominant per-frame cost.
+    if ((_mixed3dState._opacityTick = (_mixed3dState._opacityTick || 0) + 1) % 6 === 0) {
+      // CSS3D fog density 0.02 (was 0.04): keeps cells legible at the
+      // field's outer ring. WebGL fog stays at 0.04 so tower meshes
+      // still fade into void as the user wants. The two densities
+      // diverged 2026-05-02 because the unified 0.04 made cell text
+      // invisible past ~30u (opacity ~0.13) while the user expected
+      // outer-tower cells to read.
+      const fogDen = 0.02;
+      const camPos = _mixed3dState.camera.position;
+      const towers = _mixed3dState.towerMeshes;
+      const G = _mixed3dState.geometry;
+      const boxR = G.towerW * 0.5;
+      for (const [cellId, obj] of _mixed3dState.cellObjects) {
+        if (!obj.visible) continue;
+        const dx = obj.position.x - camPos.x;
+        const dy = obj.position.y - camPos.y;
+        const dz = obj.position.z - camPos.z;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        const fogFactor = Math.exp(-fogDen * fogDen * d2);
+        // Cell's own tower idx (parsed from slot key like "12:0:3:2")
+        const slotKey = _mixed3dState.cellSlotKeys.get(cellId);
+        const ownTower = slotKey ? parseInt(slotKey.split(":")[0], 10) : -1;
+        let blockCount = 0;
+        const lineDx = obj.position.x - camPos.x;
+        const lineDz = obj.position.z - camPos.z;
+        for (let i = 0; i < towers.length; i++) {
+          if (i === ownTower) continue;
+          const tw = towers[i];
+          // Slab method (xz only): does segment p0→p1 enter the
+          // axis-aligned box [tx±r, tz±r]?
+          const tx = tw.mesh.position.x;
+          const tz = tw.mesh.position.z;
+          let tmin = 0, tmax = 1;
+          if (Math.abs(lineDx) < 1e-9) {
+            if (camPos.x < tx - boxR || camPos.x > tx + boxR) continue;
+          } else {
+            const t1 = (tx - boxR - camPos.x) / lineDx;
+            const t2 = (tx + boxR - camPos.x) / lineDx;
+            const lo = Math.min(t1, t2), hi = Math.max(t1, t2);
+            tmin = Math.max(tmin, lo);
+            tmax = Math.min(tmax, hi);
+            if (tmin > tmax) continue;
+          }
+          if (Math.abs(lineDz) < 1e-9) {
+            if (camPos.z < tz - boxR || camPos.z > tz + boxR) continue;
+          } else {
+            const t1 = (tz - boxR - camPos.z) / lineDz;
+            const t2 = (tz + boxR - camPos.z) / lineDz;
+            const lo = Math.min(t1, t2), hi = Math.max(t1, t2);
+            tmin = Math.max(tmin, lo);
+            tmax = Math.min(tmax, hi);
+            if (tmin > tmax) continue;
+          }
+          blockCount++;
+        }
+        const occFactor = Math.pow(0.55, blockCount);
+        obj.material.opacity = fogFactor * occFactor;
+      }
+    }
+    _mixed3dStepDanger(t);
+    _mixed3dState.renderer.render(_mixed3dState.scene, _mixed3dState.camera);
+    // (CSS3DRenderer no longer used — cells are WebGL Plane meshes
+    // rendered by S.renderer above. CSS3D infrastructure left in
+    // _mixed3dState for now; harmless but pending cleanup.)
+    // First-frame boot signal: hide the loading overlay once the
+    // first WebGL + CSS3D render has actually painted. Wait one extra
+    // frame so the page repaints with the full scene before fading.
+    if (!_mixed3dState._booted) {
+      _mixed3dState._booted = true;
+      requestAnimationFrame(() => document.body.classList.add("booted"));
+    }
+  };
+  tick();
+}
+
+// Toggle the danger phase. Idempotent if `on` matches current state.
+// Bound to keyboard D when layout=mixed3d. Also exposed on window
+// (window.lucidaToggleDanger) so future HUD chip / auto-trigger flows
+// (retrigger storms, suppressed-mint bursts) can reach it.
+function _mixed3dToggleDanger(on) {
+  if (!_mixed3dState) return;
+  const next = on === undefined ? !_mixed3dState.animation.danger : !!on;
+  _mixed3dState.animation.danger = next;
+}
+
+// Spawn a purple beam-burst from a random tower roof, shooting outward
+// into the canyon space at a random skyward angle. Lives ~1.6s with
+// linear opacity fade. Aged out in _mixed3dStepDanger.
+function _mixed3dSpawnBeam(state, t) {
+  const T = window.THREE;
+  const tw = state.towerMeshes[Math.floor(Math.random() * state.towerMeshes.length)];
+  const origin = new T.Vector3(
+    tw.mesh.position.x + (Math.random() - 0.5) * 1.2,
+    tw.mesh.position.y + state.geometry.towerH / 2 - Math.random() * 1.5,
+    tw.mesh.position.z,
+  );
+  const dir = new T.Vector3(
+    (Math.random() - 0.5) * 1.2,
+    Math.random() * 0.6 + 0.2,
+    tw.row === 0 ? 0.7 + Math.random() * 0.3 : -(0.7 + Math.random() * 0.3),
+  ).normalize();
+  const length = 7 + Math.random() * 7;
+  const end = origin.clone().add(dir.multiplyScalar(length));
+  const beamGeo = new T.BufferGeometry().setFromPoints([origin, end]);
+  const beamMat = new T.LineBasicMaterial({
+    color: new T.Color(state.opts.danger.beam),
+    transparent: true,
+    opacity: 0.95,
+  });
+  const beam = new T.Line(beamGeo, beamMat);
+  beam.userData = { spawn: t, life: 1.4 + Math.random() * 0.5 };
+  state.scene.add(beam);
+  state.beams.push(beam);
+}
+
+// Per-tick danger evolution: lerp tower / particle palette toward the
+// active phase's tint, spawn fresh beams while danger is on, age out
+// expired beams regardless of state so toggling off doesn't strand
+// them in the scene.
+function _mixed3dStepDanger(t) {
+  if (!_mixed3dState) return;
+  const T = window.THREE;
+  const S = _mixed3dState;
+  const danger = S.animation.danger;
+  const calmTint = new T.Color(S.opts.world.tower_tint);
+  const dangerTint = new T.Color(S.opts.danger.tower_tint);
+  const target = danger ? dangerTint : calmTint;
+  // Lerp factor 0.04 → ~0.5s to converge; reads as a noticeable but
+  // not jarring palette swap when toggling. Towers share materials
+  // so we lerp the shared instances once, not per-tower.
+  if (S.sharedTowerMat) {
+    S.sharedTowerMat.color.lerp(target, 0.04);
+    if (S.sharedTowerMat.emissive) S.sharedTowerMat.emissive.lerp(target, 0.04);
+  }
+  if (S.sharedEdgeMat) S.sharedEdgeMat.color.lerp(target, 0.04);
+  if (S.particleSystem) {
+    const pTarget = danger ? new T.Color(S.opts.danger.particles_color) : calmTint;
+    S.particleSystem.material.color.lerp(pTarget, 0.025);
+  }
+  // Spawn beams while active.
+  if (danger && t > S.nextBeamAt) {
+    _mixed3dSpawnBeam(S, t);
+    S.nextBeamAt = t + 0.35 + Math.random() * 0.5;
+  }
+  // Age beams (always — survives toggling off).
+  for (let i = S.beams.length - 1; i >= 0; i--) {
+    const beam = S.beams[i];
+    const age = t - beam.userData.spawn;
+    if (age >= beam.userData.life) {
+      S.scene.remove(beam);
+      beam.geometry.dispose();
+      beam.material.dispose();
+      S.beams.splice(i, 1);
+    } else {
+      beam.material.opacity = 0.95 * (1 - age / beam.userData.life);
+    }
+  }
+}
+
+// Camera path. opts.camera selects the policy:
+//   "weave-grid"   — low altitude, walks grid lanes, 90° turns
+//   "dolly-canyon" — ping-pong sweep along canyon (legacy)
+function _mixed3dDriveCamera(t) {
+  if (!_mixed3dState) return;
+  const policy = _mixed3dState.opts.camera;
+  // First-call announce so the active camera mode is visible in
+  // DevTools — quick way to confirm new tokens loaded vs. stale
+  // browser-cached JS using an old policy.
+  if (!_mixed3dState._cameraAnnounced) {
+    console.log("[mixed3d] camera mode:", policy);
+    _mixed3dState._cameraAnnounced = true;
+  }
+  if (policy === "swoopy-tour") {
+    _mixed3dDriveSwoopyTour(t);
+  } else if (policy === "weave-grid") {
+    _mixed3dDriveWeaveGrid(t);
+  } else if (policy === "dolly-canyon") {
+    _mixed3dDriveDollyCanyon(t);
+  } else {
+    _mixed3dState.camera.lookAt(0, 8, 0);
+  }
+}
+
+// Swoopy-tour camera: chained quadratic-bezier segments, each ~3.5–5.5s.
+// Each segment picks a "focus tower" (preferring towers ahead of motion
+// and within a few tower-spacings) and arcs the camera past one of its
+// faces, with lookAt smoothly tracking the focus through the pass.
+// Y rises mid-segment, dips on flyby — the looming-up-from-below
+// shot from the Hackers Gibson scenes.
+function _smoothstep01(x) {
+  const t = Math.max(0, Math.min(1, x));
+  return t * t * (3 - 2 * t);
+}
+function _mixed3dBezier3(p0, p1, p2, t) {
+  const u = 1 - t;
+  const T = window.THREE;
+  return new T.Vector3(
+    u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+    u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
+    u * u * p0.z + 2 * u * t * p1.z + t * t * p2.z,
+  );
+}
+// Quadratic bezier derivative: B'(t) = 2(1-t)(P1-P0) + 2t(P2-P1).
+// Used to derive camera motion direction at any t along the curve —
+// the camera looks AHEAD along this tangent rather than at a fixed
+// focus tower, so passes don't trigger bearing-whip when the camera
+// flies past a target.
+function _mixed3dBezier3Tangent(p0, p1, p2, t) {
+  const u = 1 - t;
+  const T = window.THREE;
+  return new T.Vector3(
+    2 * u * (p1.x - p0.x) + 2 * t * (p2.x - p1.x),
+    2 * u * (p1.y - p0.y) + 2 * t * (p2.y - p1.y),
+    2 * u * (p1.z - p0.z) + 2 * t * (p2.z - p1.z),
+  );
+}
+function _mixed3dPickSwoopFocus(fromPos, fromLookAt, motionDir) {
+  const S = _mixed3dState;
+  const G = S.geometry;
+  // Use camera MOTION direction, not lookAt direction. Previously
+  // the picker indexed off (lookAt - pos) which can drift far from
+  // where the camera is actually heading — that's how we ended up
+  // picking targets behind the motion vector and then doing a 180°
+  // swing to reach them (user 2026-05-02 "we still did a fast 180
+  // spin at some point").
+  let fwdNX, fwdNZ;
+  if (motionDir) {
+    fwdNX = motionDir.x;
+    fwdNZ = motionDir.z;
+  } else {
+    const fwdX = fromLookAt.x - fromPos.x;
+    const fwdZ = fromLookAt.z - fromPos.z;
+    const fwdLen = Math.hypot(fwdX, fwdZ) || 1;
+    fwdNX = fwdX / fwdLen;
+    fwdNZ = fwdZ / fwdLen;
+  }
+  const candidates = [];
+  for (let i = 0; i < S.towerMeshes.length; i++) {
+    const tw = S.towerMeshes[i];
+    const dx = tw.mesh.position.x - fromPos.x;
+    const dz = tw.mesh.position.z - fromPos.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < G.spacing * 2.0) continue;
+    if (dist > G.spacing * 6.0) continue;
+    const align = (dx * fwdNX + dz * fwdNZ) / Math.max(0.1, dist);
+    if (align < 0.5) continue;
+    // Inner-field bias: prefer towers nearer the field center so
+    // the camera path circles the middle and most of the field
+    // stretches back into the distance (user 2026-05-02 "camera
+    // shouldn't get too close to the edges").
+    const fieldHalf = ((S.geometry.towerCount - 1) / 2) * S.geometry.spacing;
+    const innerRadius = fieldHalf * 0.55;
+    const towerR = Math.hypot(tw.mesh.position.x, tw.mesh.position.z);
+    if (towerR > innerRadius) continue;
+    candidates.push({ tw, score: align * 2 - dist / (G.spacing * 8) });
+  }
+  if (candidates.length === 0) {
+    // Fallback: any tower in range
+    return S.towerMeshes[Math.floor(Math.random() * S.towerMeshes.length)];
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  const top = candidates.slice(0, Math.min(4, candidates.length));
+  return top[Math.floor(Math.random() * top.length)].tw;
+}
+function _mixed3dBuildSwoopSegment(t, fromPos, fromLookAt, motionDir) {
+  const T = window.THREE;
+  const G = _mixed3dState.geometry;
+  const focus = _mixed3dPickSwoopFocus(fromPos, fromLookAt, motionDir);
+  // Focus look-target Y at low cell-stack height (~4) — camera
+  // stays low (user 2026-05-02: "camera level should stay low,
+  // never above halfway up the columns. they should always feel
+  // like they're towering above us a bit").
+  const focusCenter = new T.Vector3(
+    focus.mesh.position.x,
+    4.0,
+    focus.mesh.position.z,
+  );
+  const dx = focusCenter.x - fromPos.x;
+  const dz = focusCenter.z - fromPos.z;
+  const dist = Math.hypot(dx, dz) || 1;
+  const fwdNX = dx / dist;
+  const fwdNZ = dz / dist;
+  const perpX = -fwdNZ;
+  const perpZ = fwdNX;
+  const sideSign = Math.random() < 0.5 ? -1 : 1;
+  // Pass-point: outside the half-column-width safety pad. Tower face
+  // is at 0.5*towerW = 2 from center; user wants camera >= half a
+  // tower-width OUTSIDE the face = 4 from center. Use 1.1× towerW
+  // = 4.4 units off so we have a touch of buffer over the safe pad.
+  const passOffset = G.towerW * (1.1 + Math.random() * 0.4);
+  // Y always low — camera stays in lower half of tower height
+  // so towers feel like they're looming overhead.
+  const passY = 3 + Math.random() * 2; // 3-5
+  const passPoint = new T.Vector3(
+    focusCenter.x + perpX * passOffset * sideSign,
+    passY,
+    focusCenter.z + perpZ * passOffset * sideSign,
+  );
+  // Compute desired endPos, then SNAP to nearest lane-intersection
+  // (point centered between four neighboring towers). Lane positions
+  // are at (i + 0.5 - gridHalf) * spacing for i in 0..towerCount-2.
+  // A bezier between two lane intersections threads safe corridors
+  // far more reliably than free-form endpoints — push iterations
+  // had been failing on long diagonals that crossed multiple towers.
+  let endX = focusCenter.x + fwdNX * G.spacing * 1.2 + perpX * G.towerW * sideSign * 1.4;
+  let endZ = focusCenter.z + fwdNZ * G.spacing * 1.2 + perpZ * G.towerW * sideSign * 1.4;
+  const gridHalf = (G.towerCount - 1) / 2;
+  const snapLane = (v) => {
+    const idx = Math.round(v / G.spacing - 0.5 + gridHalf);
+    const clamped = Math.max(0, Math.min(G.towerCount - 2, idx));
+    return (clamped + 0.5 - gridHalf) * G.spacing;
+  };
+  endX = snapLane(endX);
+  endZ = snapLane(endZ);
+  const endPos = new T.Vector3(endX, 3 + Math.random() * 2, endZ);
+  // Control = 2*passPoint − 0.5*(from + end) — quadratic bezier passes
+  // exactly through passPoint at t=0.5 (algebra: B(0.5) = 0.25*P0 +
+  // 0.5*P1 + 0.25*P2). So the camera actually flies BY the tower face.
+  const control = new T.Vector3(
+    2 * passPoint.x - 0.5 * (fromPos.x + endPos.x),
+    2 * passPoint.y - 0.5 * (fromPos.y + endPos.y),
+    2 * passPoint.z - 0.5 * (fromPos.z + endPos.z),
+  );
+  const seg = {
+    from: fromPos.clone(),
+    to: endPos,
+    control,
+    lookAtFrom: fromLookAt.clone(),
+    lookAtTo: focusCenter.clone(),
+    t0: t,
+    // ~3× longer per segment than before — user 2026-05-02 "general
+    // camera flying speed is still too high. it needs to be like 1/3
+    // that." 30–45s per segment, smoothstep easing slows the
+    // pass-through-tower-face moment to barely-moving.
+    duration: 30.0 + Math.random() * 15.0,
+    // Side sign cached for banking — camera leans INTO the turn.
+    sideSign,
+  };
+  // Towers are solid — push the bezier control point out of any tower
+  // it currently clips through, iterating until clear (or we hit max).
+  // User 2026-05-02: "columns should be treated as solid, camera
+  // can't fly through them."
+  _mixed3dPushSegmentOutOfTowers(seg);
+  return seg;
+}
+
+// Sample the curve and push the control point out of any tower it
+// would intersect. Quadratic bezier midpoint moves by Δ/2 when
+// control moves by Δ, so the push factor has to be ~2× the depth
+// or it never escapes (was undersized at 2+depth, hence user 2026-
+// 05-02 "I just saw the camera fly through a column"). Lifts y on
+// each pass so chronic clipping converges on a higher arc as a
+// final fallback.
+// Push a single point outside any tower's xz safety zone.
+// Used to repair seg.to (and seg.from on first segment) before
+// running the full curve-push pass — endpoints inside a tower are
+// unfixable by control-push alone (the curve is anchored there).
+function _mixed3dPushPointOutOfTowers(point) {
+  const G = _mixed3dState.geometry;
+  const safe = G.towerW * 0.8;
+  for (let iter = 0; iter < 5; iter++) {
+    let worst = null;
+    for (const tw of _mixed3dState.towerMeshes) {
+      const dx = point.x - tw.mesh.position.x;
+      const dz = point.z - tw.mesh.position.z;
+      if (Math.abs(dx) >= safe || Math.abs(dz) >= safe) continue;
+      const dist = Math.hypot(dx, dz) || 0.001;
+      const depth = safe - dist;
+      if (!worst || depth > worst.depth) {
+        worst = { outX: dx / dist, outZ: dz / dist, depth };
+      }
+    }
+    if (!worst) return;
+    point.x += worst.outX * (worst.depth + 0.6);
+    point.z += worst.outZ * (worst.depth + 0.6);
+  }
+}
+
+function _mixed3dPushSegmentOutOfTowers(seg) {
+  const G = _mixed3dState.geometry;
+  // safe = 0.8×towerW gives ~1.5 units of pad past each face (was
+  // 1× = 2.5 pad, but with spacing 12 the corridors between
+  // safe-zones were only 2 units wide and bezier curves couldn't
+  // thread them — iterations oscillated between adjacent towers
+  // forever and the user kept seeing camera clipping). Trade-off:
+  // closer passes than the "half a column past face" target, but
+  // no clipping.
+  const safe = G.towerW * 0.8;
+  const SAMPLES = 50;
+  // First: ensure the endpoints themselves aren't inside towers.
+  // Quadratic bezier is anchored at from/to, so a from/to inside
+  // a tower means the curve can't be cleared by control-push alone.
+  _mixed3dPushPointOutOfTowers(seg.to);
+  _mixed3dPushPointOutOfTowers(seg.from);
+  let lastWorst = null;
+  let oscillationCount = 0;
+  for (let iter = 0; iter < 40; iter++) {
+    let worst = null;
+    for (let i = 1; i < SAMPLES; i++) {
+      const t = i / SAMPLES;
+      const p = _mixed3dBezier3(seg.from, seg.control, seg.to, t);
+      // No y filter: camera y is hard-clamped low at render time,
+      // so the actual camera path stays within tower y-range
+      // regardless of where the bezier's y goes. Treat the curve
+      // as 2D in xz — must thread between towers, can't fly over.
+      for (const tw of _mixed3dState.towerMeshes) {
+        const dx = p.x - tw.mesh.position.x;
+        const dz = p.z - tw.mesh.position.z;
+        if (Math.abs(dx) >= safe || Math.abs(dz) >= safe) continue;
+        const dist = Math.hypot(dx, dz) || 0.001;
+        const depth = safe - dist;
+        if (!worst || depth > worst.depth) {
+          worst = { outX: dx / dist, outZ: dz / dist, depth };
+        }
+      }
+    }
+    if (!worst) return;
+    // Detect oscillation: if the worst-direction nearly inverts
+    // between iterations, we're being shoved back and forth between
+    // two towers. Snap control to the midpoint between fromand to
+    // (best fallback for "two equally-bad sides") and break.
+    if (lastWorst) {
+      const dot = lastWorst.outX * worst.outX + lastWorst.outZ * worst.outZ;
+      if (dot < -0.5) oscillationCount++;
+      else oscillationCount = 0;
+      if (oscillationCount >= 3) {
+        seg.control.x = (seg.from.x + seg.to.x) * 0.5;
+        seg.control.z = (seg.from.z + seg.to.z) * 0.5;
+        // One last try with fresh state
+        oscillationCount = 0;
+        lastWorst = null;
+        continue;
+      }
+    }
+    lastWorst = worst;
+    const push = 7.0 + worst.depth * 3.0;
+    seg.control.x += worst.outX * push;
+    seg.control.z += worst.outZ * push;
+  }
+}
+// Swoopy tour, version 2 (lane-graph routing, 2026-05-02).
+//
+// Architecture: the field's lane intersections form a (towerCount-1)²
+// grid graph. Each intersection is a point centered between four
+// neighboring towers — guaranteed >=8.5 units from any tower center,
+// well past the safe pad. Adjacent intersections (one-edge apart)
+// are connected; an edge length is `spacing` (12).
+//
+// The camera traverses a sequence of intersections via Catmull-Rom
+// spline. Catmull-Rom curves between adjacent grid points stay
+// within ~spacing/8 (~1.5 units) of the polyline, which keeps them
+// inside lane corridors that are ~spacing - towerW = 7 units wide
+// (3.5 to either side). So the camera path CANNOT clip a tower —
+// no iterative collision push needed.
+//
+// At each intersection arrival the queue advances and a new
+// "next-next" intersection is generated. Direction choice biases
+// toward inner field, avoids immediate U-turns, slight preference
+// for continuing straight over turning.
+const _LANE_DIRS = [
+  { di: 0, dj: -1 }, // N (-Z)
+  { di: 1, dj: 0 },  // E (+X)
+  { di: 0, dj: 1 },  // S (+Z)
+  { di: -1, dj: 0 }, // W (-X)
+];
+function _mixed3dLaneToWorld(i, j) {
+  const T = window.THREE;
+  const G = _mixed3dState.geometry;
+  const gridHalf = (G.towerCount - 1) / 2;
+  return new T.Vector3(
+    (i + 0.5 - gridHalf) * G.spacing,
+    0,
+    (j + 0.5 - gridHalf) * G.spacing,
+  );
+}
+function _mixed3dPickNextLane(currIdx, prevIdx) {
+  const G = _mixed3dState.geometry;
+  const halfField = ((G.towerCount - 1) / 2) * G.spacing;
+  const innerR = halfField * 0.55;
+  // Determine continuing direction (if we have a prev, the dir from
+  // prev to curr is the "straight" direction — bias toward it for
+  // visual smoothness).
+  let straightDir = null;
+  if (prevIdx) {
+    const di = currIdx.i - prevIdx.i;
+    const dj = currIdx.j - prevIdx.j;
+    straightDir = { di, dj };
+  }
+  const candidates = [];
+  for (const dir of _LANE_DIRS) {
+    const ni = currIdx.i + dir.di;
+    const nj = currIdx.j + dir.dj;
+    if (ni < 0 || ni > G.towerCount - 2) continue;
+    if (nj < 0 || nj > G.towerCount - 2) continue;
+    const pos = _mixed3dLaneToWorld(ni, nj);
+    if (Math.hypot(pos.x, pos.z) > innerR) continue;
+    if (prevIdx && prevIdx.i === ni && prevIdx.j === nj) continue; // no U-turn
+    // Weight: 3 if continuing straight, 1 otherwise — biases toward
+    // forward motion, occasional turn.
+    const isStraight = straightDir && straightDir.di === dir.di && straightDir.dj === dir.dj;
+    const weight = isStraight ? 3 : 1;
+    for (let k = 0; k < weight; k++) candidates.push({ i: ni, j: nj });
+  }
+  if (candidates.length === 0) {
+    // Boxed in — allow any in-bounds neighbor (even U-turn).
+    for (const dir of _LANE_DIRS) {
+      const ni = currIdx.i + dir.di;
+      const nj = currIdx.j + dir.dj;
+      if (ni < 0 || ni > G.towerCount - 2) continue;
+      if (nj < 0 || nj > G.towerCount - 2) continue;
+      candidates.push({ i: ni, j: nj });
+    }
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+function _catmullRom3(p0, p1, p2, p3, t) {
+  const T = window.THREE;
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return new T.Vector3(
+    0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+    0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+    0.5 * ((2 * p1.z) + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3),
+  );
+}
+function _catmullRom3Tangent(p0, p1, p2, p3, t) {
+  const T = window.THREE;
+  const t2 = t * t;
+  return new T.Vector3(
+    0.5 * ((-p0.x + p2.x) + 2 * (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t + 3 * (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t2),
+    0,
+    0.5 * ((-p0.z + p2.z) + 2 * (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t + 3 * (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t2),
+  );
+}
+// Decide whether the segment p1→p2 is "straight" (colinear control
+// points). Straight segments are safe for grazing-pan offsets: the
+// curve doesn't bend, so a lateral perturbation toward one face
+// stays inside the corridor (corridor halfwidth = 3.5; max graze
+// = 2.5 → 1.0u clearance from face).
+function _mixed3dSegmentIsStraight(p0, p1, p2, p3) {
+  const eq = (a, b) => Math.abs(a - b) < 1e-3;
+  const d01x = p1.x - p0.x, d01z = p1.z - p0.z;
+  const d12x = p2.x - p1.x, d12z = p2.z - p1.z;
+  const d23x = p3.x - p2.x, d23z = p3.z - p2.z;
+  return eq(d01x, d12x) && eq(d01z, d12z) && eq(d12x, d23x) && eq(d12z, d23z);
+}
+// Closed-loop tour: ONE Catmull-Rom curve through a fixed set of
+// waypoints, traversed at constant arc-length speed. No segment
+// advances, no random direction picks, no queue shift. The curve is
+// the entire camera path; the only discontinuities are C² jumps at
+// the control points (Catmull-Rom is C¹ but not C²) — those are
+// smeared by the heading-history bank smoothing below.
+//
+// Replaces the previous queue-based "swoopy-tour" which had many
+// problems at segment boundaries (smoothstep velocity halt, grazing
+// flip whips, curvature jumps every 8s).
+function _mixed3dDriveSwoopyTour(t) {
+  const T = window.THREE;
+  const S = _mixed3dState;
+  const cam = S.camera;
+  if (!S.swoopCam) {
+    const G = S.geometry;
+    const gridHalf = (G.towerCount - 1) / 2;
+    const ringIdx = G.towerCount - 2; // outermost lane
+    const lane = (i) => (i + 0.5 - gridHalf) * G.spacing;
+    // One lane in from the outermost so the curve's rounded corners
+    // don't graze perimeter towers.
+    const lo = lane(1);
+    const hi = lane(ringIdx - 1);
+    const mid = lane(Math.floor(ringIdx / 2));
+    // 8 waypoints around the field perimeter (4 corners + 4 mids).
+    // Centripetal Catmull-Rom + closed loop → seamless at every pass.
+    const pts = [
+      new T.Vector3(lo, 4.5, lo),
+      new T.Vector3(mid, 4.5, lo),
+      new T.Vector3(hi, 4.5, lo),
+      new T.Vector3(hi, 4.5, mid),
+      new T.Vector3(hi, 4.5, hi),
+      new T.Vector3(mid, 4.5, hi),
+      new T.Vector3(lo, 4.5, hi),
+      new T.Vector3(lo, 4.5, mid),
+    ];
+    const curve = new T.CatmullRomCurve3(pts, true, "centripetal", 0.5);
+    S.swoopCam = {
+      curve,
+      totalLen: curve.getLength(),
+      speed: 4.0, // world units per second
+      headingHistory: [],
+    };
+  }
+  const sw = S.swoopCam;
+  // Arc-length parameterization: u sweeps [0..1) at constant linear
+  // speed regardless of curve curvature. No smoothstep — no zero-
+  // velocity points on the path.
+  const u = ((t * sw.speed) % sw.totalLen) / sw.totalLen;
+  const desiredPos = sw.curve.getPointAt(u);
+  desiredPos.y = 4.5 + Math.sin(t * 0.22) * 0.6;
+  const tan = sw.curve.getTangentAt(u);
+  tan.y = 0;
+  if (tan.lengthSq() < 1e-6) tan.set(1, 0, 0);
+  else tan.normalize();
+  if (!sw.posActual) sw.posActual = desiredPos.clone();
+  const dt = 1 / 60;
+  sw.posActual.lerp(desiredPos, Math.min(1, dt * 6.0));
+  cam.position.copy(sw.posActual);
+  const lookAhead = 12.0;
+  const lookAtTarget = new T.Vector3(
+    cam.position.x + tan.x * lookAhead,
+    cam.position.y,
+    cam.position.z + tan.z * lookAhead,
+  );
+  if (!sw.lookAtActual) sw.lookAtActual = lookAtTarget.clone();
+  sw.lookAtActual.lerp(lookAtTarget, Math.min(1, dt * 5.0));
+  // Banking: sliding heading-rate window. Smooths C² discontinuities
+  // at curve control points.
+  sw.headingHistory.push({ time: t, heading: Math.atan2(tan.z, tan.x) });
+  const HEADING_WIN = 1.5;
+  while (sw.headingHistory.length > 0 && t - sw.headingHistory[0].time > HEADING_WIN) {
+    sw.headingHistory.shift();
+  }
+  let avgRate = 0;
+  if (sw.headingHistory.length >= 2) {
+    const first = sw.headingHistory[0];
+    const last = sw.headingHistory[sw.headingHistory.length - 1];
+    let dH = last.heading - first.heading;
+    while (dH > Math.PI) dH -= 2 * Math.PI;
+    while (dH < -Math.PI) dH += 2 * Math.PI;
+    const dT = last.time - first.time;
+    if (dT > 0.05) avgRate = dH / dT;
+  }
+  const BANK_K = 2.0; // happy medium
+  const bankTarget = avgRate * BANK_K;
+  if (sw.bankActual == null) sw.bankActual = 0;
+  sw.bankActual += (bankTarget - sw.bankActual) * 0.04;
+  const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
+  cam.up.copy(bankedUp);
+  cam.lookAt(sw.lookAtActual);
+}
+
+// (Old segment-queue swoopy-tour archived below — DEAD CODE, kept
+// briefly for reference; safe to delete in a follow-up cleanup.)
+function _mixed3dDriveSwoopyTour_OLD_UNUSED(t) {
+  const T = window.THREE;
+  const S = _mixed3dState;
+  const cam = S.camera;
+  if (!S.swoopCam) {
+    const center = { i: Math.floor((S.geometry.towerCount - 2) / 2), j: Math.floor((S.geometry.towerCount - 2) / 2) };
+    // Pick a random initial direction
+    const startDir = _LANE_DIRS[Math.floor(Math.random() * _LANE_DIRS.length)];
+    const second = { i: center.i + startDir.di, j: center.j + startDir.dj };
+    const third = _mixed3dPickNextLane(second, center);
+    const fourth = _mixed3dPickNextLane(third, second);
+    S.swoopCam = {
+      laneIdxQueue: [center, second, third, fourth],
+      worldQueue: [
+        _mixed3dLaneToWorld(center.i, center.j),
+        _mixed3dLaneToWorld(second.i, second.j),
+        _mixed3dLaneToWorld(third.i, third.j),
+        _mixed3dLaneToWorld(fourth.i, fourth.j),
+      ],
+      segStart: t,
+      // 8s per lane segment (length 12) → 1.5 units/sec. Slow,
+      // ponderous; combined with smoothstep ease the actual pace
+      // through the corner is even slower.
+      segDuration: 8.0,
+      lookAtActual: null,
+      posActual: null,
+      // Grazing pan: when set, segment perturbs camera laterally
+      // toward one tower face for a closer look at cells. Computed
+      // on segment advance (and at first-init below).
+      grazeSide: 0,
+      grazeAmount: 0,
+    };
+    if (_mixed3dSegmentIsStraight(...S.swoopCam.worldQueue) && Math.random() < 0.34) {
+      S.swoopCam.grazeSide = Math.random() < 0.5 ? -1 : 1;
+      S.swoopCam.grazeAmount = 2.4;
+    }
+  }
+  const sw = S.swoopCam;
+  let raw = (t - sw.segStart) / sw.segDuration;
+  if (raw >= 1) {
+    // Capture pre-shift state to measure desiredPos/tangent jump
+    // across the segment boundary. If pos delta or tangent delta is
+    // large, the lookAt snaps and the user sees a "blink".
+    const _pre_p = _catmullRom3(...sw.worldQueue, 1);
+    const _pre_t = _catmullRom3Tangent(...sw.worldQueue, 1); _pre_t.y = 0;
+    if (_pre_t.lengthSq() > 1e-6) _pre_t.normalize();
+    // Advance queue: drop oldest, generate one more ahead.
+    sw.laneIdxQueue.shift();
+    sw.worldQueue.shift();
+    const last = sw.laneIdxQueue[sw.laneIdxQueue.length - 1];
+    const prev = sw.laneIdxQueue[sw.laneIdxQueue.length - 2];
+    const nextIdx = _mixed3dPickNextLane(last, prev);
+    sw.laneIdxQueue.push(nextIdx);
+    sw.worldQueue.push(_mixed3dLaneToWorld(nextIdx.i, nextIdx.j));
+    sw.segStart = t;
+    raw = 0;
+    const _post_p = _catmullRom3(...sw.worldQueue, 0);
+    const _post_t = _catmullRom3Tangent(...sw.worldQueue, 0); _post_t.y = 0;
+    if (_post_t.lengthSq() > 1e-6) _post_t.normalize();
+    const dPos = Math.hypot(_post_p.x - _pre_p.x, _post_p.z - _pre_p.z);
+    const dot = Math.max(-1, Math.min(1, _pre_t.x * _post_t.x + _pre_t.z * _post_t.z));
+    const dTanDeg = Math.acos(dot) * 180 / Math.PI;
+    console.log(`[mixed3d] seg-boundary @ ${(t*1000).toFixed(0)}ms: dPos=${dPos.toFixed(3)}u, dTangent=${dTanDeg.toFixed(1)}°`);
+    // Re-decide grazing for the new segment. ~1 in 3 straight
+    // segments graze; turning segments never graze (would push
+    // camera toward inner-corner tower).
+    if (_mixed3dSegmentIsStraight(...sw.worldQueue) && Math.random() < 0.34) {
+      sw.grazeSide = Math.random() < 0.5 ? -1 : 1;
+      sw.grazeAmount = 2.4;
+    } else {
+      sw.grazeSide = 0;
+      sw.grazeAmount = 0;
+    }
+  }
+  const eased = _smoothstep01(raw);
+  const [p0, p1, p2, p3] = sw.worldQueue;
+  const desiredPos = _catmullRom3(p0, p1, p2, p3, eased);
+  // Constant low altitude + gentle bob.
+  desiredPos.y = 4.5 + Math.sin(t * 0.22) * 0.6;
+  // Tangent for look-ahead direction (also drives perpendicular for
+  // graze offset). Compute before applying lateral offset so the
+  // perpendicular comes from the unperturbed curve direction.
+  const tan = _catmullRom3Tangent(p0, p1, p2, p3, eased);
+  tan.y = 0;
+  if (tan.lengthSq() < 1e-6) tan.set(1, 0, 0);
+  else tan.normalize();
+  // Grazing-pan lateral offset: bell curve over the segment so the
+  // camera eases out toward a face mid-segment, then back. perp is
+  // 90° CCW (around +Y) of the tangent.
+  // Grazing offset — smoothed in two ways so segment boundaries are
+  // seamless: (1) grazeActual lerps toward grazeAmount*grazeSide so a
+  // flip between segments transitions over ~0.4s instead of instantly,
+  // and (2) sin²(πE) envelope has zero derivative at E=0 and E=1
+  // (sin(πE) was zero in value but had ±π slope — a lateral-velocity
+  // whip at every boundary).
+  const grazeTarget = sw.grazeAmount * sw.grazeSide;
+  if (sw.grazeActual == null) sw.grazeActual = 0;
+  sw.grazeActual += (grazeTarget - sw.grazeActual) * 0.04;
+  if (Math.abs(sw.grazeActual) > 1e-4) {
+    const env = Math.sin(Math.PI * eased);
+    const lateral = sw.grazeActual * env * env; // sin²(πE)
+    const perpX = tan.z;
+    const perpZ = -tan.x;
+    desiredPos.x += perpX * lateral;
+    desiredPos.z += perpZ * lateral;
+  }
+  if (!sw.posActual) sw.posActual = desiredPos.clone();
+  const dt = 1 / 60;
+  sw.posActual.lerp(desiredPos, Math.min(1, dt * 2.0));
+  cam.position.copy(sw.posActual);
+  const lookAhead = 12.0;
+  const lookAtTarget = new T.Vector3(
+    cam.position.x + tan.x * lookAhead,
+    cam.position.y, // level horizon
+    cam.position.z + tan.z * lookAhead,
+  );
+  if (!sw.lookAtActual) sw.lookAtActual = lookAtTarget.clone();
+  // dt*5 gives ~0.2s time constant; previously dt*1 (~1s) caused
+  // a multi-second look-direction lag through corners.
+  sw.lookAtActual.lerp(lookAtTarget, Math.min(1, dt * 5.0));
+  // Banking: average heading-rate over a sliding window. Catmull-Rom
+  // is C¹ but not C² so an instantaneous turn-rate has curvature jumps
+  // at every segment boundary; averaging over a window WIDER than the
+  // boundary makes bankTarget continuous at the boundary by construction
+  // (exit_bank ≈ entry_bank). headingHistory holds {time, heading}
+  // samples for the last HEADING_WIN seconds.
+  sw.headingHistory = sw.headingHistory || [];
+  const headingNow = Math.atan2(tan.z, tan.x);
+  sw.headingHistory.push({ time: t, heading: headingNow });
+  const HEADING_WIN = 1.5;
+  while (sw.headingHistory.length > 0 && t - sw.headingHistory[0].time > HEADING_WIN) {
+    sw.headingHistory.shift();
+  }
+  let avgRate = 0;
+  if (sw.headingHistory.length >= 2) {
+    const first = sw.headingHistory[0];
+    const last = sw.headingHistory[sw.headingHistory.length - 1];
+    let dH = last.heading - first.heading;
+    // Unwrap across the ±π atan2 boundary so bank doesn't flip when
+    // the camera crosses heading=π.
+    while (dH > Math.PI) dH -= 2 * Math.PI;
+    while (dH < -Math.PI) dH += 2 * Math.PI;
+    const dT = last.time - first.time;
+    if (dT > 0.05) avgRate = dH / dT;
+  }
+  const BANK_K = 4.0; // rad/s → bank radians (peak ~45° on 90° turns)
+  const bankTarget = avgRate * BANK_K;
+  if (sw.bankActual == null) sw.bankActual = 0;
+  sw.bankActual += (bankTarget - sw.bankActual) * 0.04; // ~0.4s τ
+  const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
+  cam.up.copy(bankedUp);
+  cam.lookAt(sw.lookAtActual);
+}
+
+// Weave-grid: camera walks one of four cardinal headings at a
+// constant speed along the lanes BETWEEN towers. Lanes are at
+// x = (i + 0.5 - gridHalf) * spacing for i in 0..towerCount-2;
+// lane intersections are 3-wide clear gaps between four surrounding
+// towers. Camera snaps both axes to the nearest lane on every turn
+// so a 90° change always produces a corridor-aligned trajectory
+// (was clipping through columns when turns happened mid-lane —
+// user 2026-05-02).
+const _WEAVE_DIR_X = [0, 1, 0, -1]; // heading 0=N(-Z), 1=E(+X), 2=S(+Z), 3=W(-X)
+const _WEAVE_DIR_Z = [-1, 0, 1, 0];
+function _mixed3dLaneSnap(v) {
+  const G = _mixed3dState.geometry;
+  const gridHalf = (G.towerCount - 1) / 2;
+  let i = Math.round(v / G.spacing - 0.5 + gridHalf);
+  i = Math.max(0, Math.min(G.towerCount - 2, i));
+  return (i + 0.5 - gridHalf) * G.spacing;
+}
+function _mixed3dDriveWeaveGrid(t) {
+  const S = _mixed3dState;
+  const G = S.geometry;
+  const cam = S.camera;
+  if (!S.weaveCam) {
+    S.weaveCam = {
+      x: _mixed3dLaneSnap(0),
+      z: _mixed3dLaneSnap(0),
+      heading: Math.floor(Math.random() * 4),
+      lastT: t,
+      nextTurnAt: t + 1.5 + Math.random() * 1.5,
+      // Smooth heading interpolation so a 90° turn doesn't snap
+      // the camera direction in one frame.
+      headingTarget: 0,
+      headingActual: 0,
+    };
+    S.weaveCam.headingTarget = S.weaveCam.heading * Math.PI / 2;
+    S.weaveCam.headingActual = S.weaveCam.headingTarget;
+  }
+  const w = S.weaveCam;
+  const dt = Math.max(0.0, Math.min(0.1, t - w.lastT));
+  w.lastT = t;
+  // Smooth turn: interpolate actual heading toward target over ~0.6s.
+  // Take the shortest angular path so a +π/2 target from -π/2 actual
+  // doesn't sweep all the way around.
+  let dh = w.headingTarget - w.headingActual;
+  while (dh > Math.PI) dh -= Math.PI * 2;
+  while (dh < -Math.PI) dh += Math.PI * 2;
+  w.headingActual += dh * Math.min(1, dt * 4);
+  // Forward motion follows the discrete heading (not the smoothed one)
+  // so we always travel along grid lanes; the smoothing is only for
+  // visual yaw.
+  const speed = G.spacing * 0.9;
+  const dirX = _WEAVE_DIR_X[w.heading];
+  const dirZ = _WEAVE_DIR_Z[w.heading];
+  w.x += dirX * speed * dt;
+  w.z += dirZ * speed * dt;
+  // Edge handling: if we'd leave the grid, turn around toward center.
+  // On any turn (incl. edge bounce), snap both axes to the lane grid
+  // so the new heading is along an unblocked corridor.
+  const halfField = ((G.towerCount - 1) / 2) * G.spacing;
+  if (Math.abs(w.x) > halfField || Math.abs(w.z) > halfField) {
+    w.heading = (w.heading + 2) % 4;
+    w.headingTarget = w.heading * Math.PI / 2;
+    w.nextTurnAt = t + 1.0;
+    w.x = _mixed3dLaneSnap(w.x);
+    w.z = _mixed3dLaneSnap(w.z);
+  } else if (t > w.nextTurnAt) {
+    const turn = Math.random() < 0.5 ? 1 : -1;
+    w.heading = ((w.heading + turn) % 4 + 4) % 4;
+    w.headingTarget = w.heading * Math.PI / 2;
+    w.nextTurnAt = t + 1.5 + Math.random() * 2.5;
+    w.x = _mixed3dLaneSnap(w.x);
+    w.z = _mixed3dLaneSnap(w.z);
+  }
+  cam.position.set(w.x, 4 + Math.sin(t * 0.25) * 0.25, w.z);
+  // Use the smoothed heading for lookAt so visual yaw blends, but
+  // pin lookAt point ahead in the smoothed direction.
+  const lookX = w.x + Math.cos(-w.headingActual + Math.PI / 2) * 8;
+  const lookZ = w.z - Math.sin(-w.headingActual + Math.PI / 2) * 8;
+  cam.lookAt(lookX, 4 + Math.sin(t * 0.4) * 0.2, lookZ);
+}
+
+function _mixed3dDriveDollyCanyon(t) {
+  const cam = _mixed3dState.camera;
+  const sweepHalf = ((_mixed3dState.geometry.towerCount - 1) / 2) * _mixed3dState.geometry.spacing;
+  const period = 24;
+  const phase = (t % period) / period;
+  const tri = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+  const x = (tri * 2 - 1) * sweepHalf * 0.85;
+  cam.position.x = x;
+  cam.position.z = 9 + Math.sin(t * 0.25) * 1.6;
+  cam.position.y = 8 + Math.sin(t * 0.18) * 0.5;
+  const dir = phase < 0.5 ? 1 : -1;
+  cam.lookAt(x + dir * 1.2, 8 + Math.sin(t * 0.31) * 0.6, 0);
+}
+
+// Sync DOM cells onto/off CSS3DObjects mounted on tower faces.
+// Runs on initial mount and on every applyActiveLayout (livefeed
+// append, eviction, session reset).
+//
+// Two subtleties:
+//   1. Multi-stream / ?session=auto wraps cells inside .session-column
+//      divs under #notebook, so the selector descends — direct-child
+//      selector misses them.
+//   2. CSS3DRenderer.render() moves a CSS3DObject's element from
+//      #notebook into its own internal cameraElement on first render.
+//      "Cell still exists" therefore can't be tested by checking
+//      #notebook membership; once mounted, the element lives elsewhere.
+//      Eviction is detected via Node.isConnected (false only when
+//      removed from the document entirely, e.g. RAM-cap eviction or
+//      scoped reset — exactly when we want to dispose).
+// Paint a cell's title + type chip onto a small canvas, return as
+// CanvasTexture. Side faces use 80×240 (matches slot 0.65×2.0 aspect);
+// top face uses 192×192. Per-cell texture memory ≈ 80*240*4 = 77KB ×
+// ~2K cells = ~150MB worst case (most cells get evicted before
+// allocating). Replaces CSS3DObject for cells 2026-05-02 — DOM
+// matrix3d writes were the perf + jitter bottleneck.
+// Substrate-specific preview patterns. Cells aren't legible at
+// corridor distance anyway, so we don't need html2canvas — a stylized
+// sketch per substrate type makes cells READ as varied content
+// rather than identical placeholders. Hash the cell id for
+// deterministic randomness so the same cell always paints the same.
+function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
+  if (h < 12 || w < 12) return;
+  let seed = 0;
+  const id = cell.id || "x";
+  for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) | 0;
+  const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const ctype = cell.dataset.cellType || "";
+  ctx.save();
+  if (ctype === "mermaid" || ctype === "force_graph") {
+    const N = 4 + Math.floor(rng() * 3);
+    const pts = [];
+    for (let i = 0; i < N; i++) pts.push({ x: x0 + rng() * w, y: y0 + rng() * h });
+    ctx.strokeStyle = cyan;
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < N - 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(pts[i].x, pts[i].y);
+      ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = pink;
+    for (const p of pts) ctx.fillRect(p.x - 3, p.y - 2.5, 6, 5);
+  } else if (ctype === "vega" || ctype === "treemap") {
+    const N = 5 + Math.floor(rng() * 4);
+    const bw = w / N - 1;
+    ctx.fillStyle = cyan;
+    ctx.globalAlpha = 0.55;
+    for (let i = 0; i < N; i++) {
+      const bh = (0.25 + rng() * 0.7) * h;
+      ctx.fillRect(x0 + i * (bw + 1), y0 + h - bh, bw, bh);
+    }
+  } else if (ctype === "html") {
+    const lineH = 5;
+    const rows = Math.floor(h / lineH);
+    ctx.strokeStyle = cyan;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < rows; i++) {
+      const len = (0.35 + rng() * 0.6) * w;
+      const y = y0 + i * lineH + 1;
+      ctx.beginPath();
+      ctx.moveTo(x0, y);
+      ctx.lineTo(x0 + len, y);
+      ctx.stroke();
+    }
+  } else if (ctype === "timeline_ribbon" || ctype === "sparkline") {
+    ctx.strokeStyle = cyan;
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    const segs = 8 + Math.floor(rng() * 6);
+    for (let i = 0; i <= segs; i++) {
+      const x = x0 + (i / segs) * w;
+      const y = y0 + (0.3 + rng() * 0.5) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  } else if (ctype === "gauge") {
+    const cx = x0 + w / 2;
+    const cy = y0 + h * 0.75;
+    const r = Math.min(w, h) * 0.42;
+    ctx.strokeStyle = cyan;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI, 0, false);
+    ctx.stroke();
+    ctx.strokeStyle = pink;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const angle = Math.PI + (0.25 + rng() * 0.65) * Math.PI;
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    ctx.stroke();
+  } else if (ctype === "animated_svg" || ctype === "image") {
+    const N = 3 + Math.floor(rng() * 4);
+    ctx.strokeStyle = cyan;
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < N; i++) {
+      const cx = x0 + (0.2 + rng() * 0.6) * w;
+      const cy = y0 + (0.2 + rng() * 0.6) * h;
+      const r = 4 + rng() * 8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else {
+    // Default (text and unknown): stippled-paragraph rows
+    const lineH = 5;
+    const rows = Math.floor(h / lineH);
+    ctx.fillStyle = cyan;
+    ctx.globalAlpha = 0.4;
+    for (let i = 0; i < rows; i++) {
+      let x = x0;
+      const maxX = x0 + w * (0.5 + rng() * 0.45);
+      while (x < maxX) {
+        const wordW = 3 + rng() * 6;
+        ctx.fillRect(x, y0 + i * lineH + 1, wordW, 1.5);
+        x += wordW + 2;
+      }
+    }
+  }
+  ctx.restore();
+}
+function _mixed3dCellTexture(cell, isTop) {
+  const T = window.THREE;
+  const W = isTop ? 192 : 80;
+  const H = isTop ? 192 : 240;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const styles = getComputedStyle(document.body);
+  const cyan = (styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
+  const pink = (styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
+  ctx.fillStyle = "rgba(8, 18, 30, 0.78)";
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = cyan;
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(0.6, 0.6, W - 1.2, H - 1.2);
+  const titleEl = cell.querySelector(".cell-title");
+  const title = (titleEl?.textContent || cell.id || "").trim().toUpperCase();
+  ctx.fillStyle = pink;
+  ctx.font = isTop ? "bold 16px 'Share Tech Mono', monospace" : "bold 11px 'Share Tech Mono', monospace";
+  ctx.textBaseline = "top";
+  const padX = 4;
+  const lineH = isTop ? 18 : 13;
+  let y = padX;
+  let line = "";
+  const maxW = W - padX * 2;
+  for (const word of title.split(/\s+/)) {
+    const test = line ? line + " " + word : word;
+    if (ctx.measureText(test).width > maxW) {
+      ctx.fillText(line, padX, y);
+      y += lineH;
+      line = word;
+      if (y > H * 0.35) break;
+    } else line = test;
+  }
+  if (line) { ctx.fillText(line, padX, y); y += lineH; }
+  // Title rule
+  ctx.strokeStyle = pink;
+  ctx.globalAlpha = 0.55;
+  ctx.beginPath();
+  ctx.moveTo(padX, y + 2);
+  ctx.lineTo(W - padX, y + 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Substrate-specific preview filling the middle area between title
+  // rule and bottom type chip.
+  const previewY0 = y + 7;
+  const previewY1 = H - (isTop ? 18 : 14);
+  if (previewY1 - previewY0 > 8) {
+    _mixed3dDrawCellPreview(ctx, cell, padX, previewY0, W - padX * 2, previewY1 - previewY0, cyan, pink);
+  }
+  const ctype = (cell.dataset.cellType || "").toUpperCase();
+  if (ctype) {
+    ctx.fillStyle = cyan;
+    ctx.font = isTop ? "bold 11px 'Share Tech Mono', monospace" : "bold 8px 'Share Tech Mono', monospace";
+    ctx.fillText(ctype, padX, H - (isTop ? 16 : 12));
+  }
+  const tex = new T.CanvasTexture(canvas);
+  tex.minFilter = T.LinearFilter;
+  tex.magFilter = T.LinearFilter;
+  return tex;
+}
+function _mixed3dSyncCells() {
+  if (!_mixed3dState) return;
+  const T = window.THREE;
+  const root = document.getElementById("notebook");
+  const _syncStart = performance.now();
+  // Descend past .session-column wrappers; only count cells still
+  // parented inside #notebook (un-mounted). Already-mounted cells
+  // are tracked in the cellObjects map.
+  // Skip WebGL-heavy substrates inside the mixed3d world — each
+  // scene3d cell allocates its own WebGLRenderer / context, and
+  // browsers cap at ~16 active contexts. With 50+ cells and many
+  // scene3d in the corpus, the world's renderer kept losing its
+  // context (user 2026-05-02: "WARNING: Too many active WebGL
+  // contexts. Oldest context will be lost." in console). Substrate
+  // types listed here render with side-effects we don't want
+  // contesting the mixed3d world's GL slot.
+  const _MIXED3D_SKIP_SUBSTRATES = new Set(["scene3d"]);
+  const fresh = [...root.querySelectorAll(".cell")].filter(
+    c => c.id
+      && !_mixed3dState.cellObjects.has(c.id)
+      && !_MIXED3D_SKIP_SUBSTRATES.has(c.dataset.cellType || ""),
+  );
+  const G = _mixed3dState.geometry;
+  const map = _mixed3dState.cellObjects;
+
+  // Camera-aware slot picker: each new cell goes to the nearest tower
+  // at (cameraX + direction × lookahead), so freshly minted cells
+  // appear in the user's forward FOV instead of stacking up off-screen
+  // on towers near tower-index 0. Existing cells keep their slots
+  // (stable in-place) — only new placements are camera-driven.
+  for (const cell of fresh) {
+    const placement = _mixed3dPickSlotForNewCell();
+    if (!placement) break; // every slot is taken
+    const { towerIdx, facePri, row, col, key } = placement;
+    const tower = _mixed3dState.towerMeshes[towerIdx];
+    // Face index 4 = tower roof — flat horizontal cell facing +Y.
+    // Sized to the tower top (towerW × towerW). Side faces use
+    // (col, row) grid: col offset along the face's in-plane horizontal
+    // axis, row offset up the tower height.
+    const isTop = facePri === 4;
+    let tx, ty, tz, rotX = 0, rotY = 0;
+    let slotPxW = G.slotW * G.pixelsPerUnit;
+    let slotPxH = G.slotH * G.pixelsPerUnit;
+    if (isTop) {
+      tx = tower.mesh.position.x;
+      ty = G.towerH + 0.02;
+      tz = tower.mesh.position.z;
+      rotX = -Math.PI / 2;
+      // Top cell sized to whole tower face — towerW × towerW.
+      slotPxW = G.towerW * 0.95 * G.pixelsPerUnit;
+      slotPxH = G.towerW * 0.95 * G.pixelsPerUnit;
+    } else {
+      const faceSpec = tower.faces[facePri];
+      const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * (G.slotW + G.slotMarginX);
+      tx = tower.mesh.position.x + faceSpec.dx + faceSpec.hx * colOffset;
+      ty = G.slotBaseY + row * (G.slotH + G.slotMargin);
+      tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset;
+      rotY = faceSpec.rotY;
+    }
+
+    // Cell DOM stays in #notebook (display:none via body.layout-mixed3d).
+    // We just READ its content to paint a CanvasTexture on a Plane mesh.
+    // No more cell.style writes, no more visibility flickers, no more
+    // CSS3DRenderer DOM matrix3d updates. Three.js auto-updates the
+    // mesh's transform from the camera each frame at much lower cost.
+    const planeW = isTop ? G.towerW * 0.95 : G.slotW;
+    const planeH = isTop ? G.towerW * 0.95 : G.slotH;
+    const planeGeo = new T.PlaneGeometry(planeW, planeH);
+    const tex = _mixed3dCellTexture(cell, isTop);
+    const mat = new T.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 1.0,
+      // FrontSide so cells only render from their intended viewing
+      // direction. With DoubleSide the back of the plane shows the
+      // texture mirrored, so cells viewed THROUGH a translucent tower
+      // appeared as backwards text (user 2026-05-02).
+      side: T.FrontSide,
+      depthWrite: false,
+    });
+    const obj = new T.Mesh(planeGeo, mat);
+    obj.position.set(tx, ty, tz);
+    obj.rotation.set(rotX, rotY, 0);
+    obj.frustumCulled = false;
+    obj.userData.cellEl = cell;
+    _mixed3dState.scene.add(obj);
+    map.set(cell.id, obj);
+    _mixed3dState.cellSlotKeys.set(cell.id, key);
+    _mixed3dState.usedSlots.add(key);
+    _mixed3dState.towerCellCount[towerIdx]++;
+  }
+
+  // Eviction: drop CSS3DObjects whose element has been removed from
+  // the document entirely (RAM cap, scoped reset, session clear).
+  // isConnected is false only when the node is detached from the doc
+  // — being parented inside the CSS3DRenderer's tree still counts as
+  // connected, so mounted cells stay mounted across calls.
+  for (const [id, obj] of [...map.entries()]) {
+    const el = obj.userData?.cellEl;
+    if (el && el.isConnected) continue;
+    if (obj.parent) obj.parent.remove(obj);
+    if (obj.material?.map) obj.material.map.dispose();
+    if (obj.material) obj.material.dispose();
+    if (obj.geometry) obj.geometry.dispose();
+    map.delete(id);
+    if (_mixed3dState.cellTier) _mixed3dState.cellTier.delete(id);
+    const key = _mixed3dState.cellSlotKeys.get(id);
+    if (key) {
+      _mixed3dState.usedSlots.delete(key);
+      _mixed3dState.cellSlotKeys.delete(id);
+      const towerIdxStr = key.split(":")[0];
+      const ti = parseInt(towerIdxStr, 10);
+      if (Number.isFinite(ti) && _mixed3dState.towerCellCount[ti] > 0) {
+        _mixed3dState.towerCellCount[ti]--;
+      }
+    }
+  }
+  const _syncMs = performance.now() - _syncStart;
+  if (fresh.length > 0 || _syncMs > 5) {
+    console.log(`[mixed3d] syncCells: +${fresh.length} cells in ${_syncMs.toFixed(0)}ms @ ${performance.now().toFixed(0)}ms`);
+  }
+}
+
+// Find a slot for a freshly minted cell, biased toward where the user
+// is currently looking. Computes a 2D target ahead of camera in the
+// X/Z plane, sorts towers by distance to that target, then walks
+// (face, vert) in priority order on the chosen tower until a free
+// slot is found. Returns null if every slot is occupied.
+function _mixed3dPickSlotForNewCell() {
+  const S = _mixed3dState;
+  if (!S) return null;
+  const G = S.geometry;
+  const cam = S.camera;
+  let targetX = cam.position.x;
+  let targetZ = cam.position.z;
+  if (S.opts.camera === "weave-grid" && S.weaveCam) {
+    const dirX = _WEAVE_DIR_X[S.weaveCam.heading];
+    const dirZ = _WEAVE_DIR_Z[S.weaveCam.heading];
+    targetX += dirX * G.spacing * 1.5;
+    targetZ += dirZ * G.spacing * 1.5;
+  } else if (S.opts.camera === "dolly-canyon") {
+    const t = (performance.now() - S.animation.t0) / 1000;
+    const phase = (t % 24) / 24;
+    const dir = phase < 0.5 ? 1 : -1;
+    targetX += dir * G.spacing * 1.2;
+  } else {
+    // Fallback: bias toward where camera is currently looking.
+    const fwd = new window.THREE.Vector3();
+    cam.getWorldDirection(fwd);
+    targetX += fwd.x * G.spacing * 1.5;
+    targetZ += fwd.z * G.spacing * 1.5;
+  }
+  // Rank ALL towers by (lowest count, nearest to target). The earlier
+  // inner-field filter concentrated cells in ~30 inner towers, but
+  // user 2026-05-02 flagged "no tiles more than like 2 towers away"
+  // — outer towers visible from the corridor were left empty. With
+  // 2000 placeholders distributed evenly across 100 towers, every
+  // tower gets ~20 cells (≈ one face mostly populated).
+  const ranked = S.towerMeshes
+    .map((tw, idx) => ({
+      idx,
+      count: S.towerCellCount[idx] || 0,
+      dist: Math.hypot(tw.mesh.position.x - targetX, tw.mesh.position.z - targetZ),
+    }))
+    .sort((a, b) => a.count - b.count || a.dist - b.dist);
+  for (const { idx } of ranked) {
+    // Walk order row → col → face round-robins faces per cell, so all
+    // 4 sides of a tower fill evenly. Earlier face → row → col made
+    // face 0 fill its 36 slots before face 1 got any (user 2026-05-02
+    // "there's still only about one side of each tower with cells").
+    // Row outer keeps cells near eye-level longer.
+    for (let row = 0; row < G.slotsPerFaceY; row++) {
+      for (let col = 0; col < G.slotsPerFaceX; col++) {
+        for (let face = 0; face < 4; face++) {
+          const key = `${idx}:${face}:${row}:${col}`;
+          if (S.usedSlots.has(key)) continue;
+          return { towerIdx: idx, facePri: face, row, col, key };
+        }
+      }
+    }
+    const topKey = `${idx}:4:0:0`;
+    if (!S.usedSlots.has(topKey)) {
+      return { towerIdx: idx, facePri: 4, row: 0, col: 0, key: topKey };
+    }
+  }
+  return null;
+}
+
+function teardownMixed3DLayout() {
+  if (!_mixed3dState) return;
+  const S = _mixed3dState;
+  S.animation.running = false;
+  // Cells are now WebGL Plane meshes — their DOM elements never
+  // moved (stayed in #notebook hidden via CSS), so no DOM reset is
+  // needed. Just dispose the meshes; the scene.traverse below picks
+  // up textures + materials + geometries via the same disposal path.
+  S.cellObjects.clear();
+  if (S.cellTier) S.cellTier.clear();
+  // Dispose Three.js resources. Material.dispose() does NOT dispose
+  // attached textures — the code-rain CanvasTextures must be released
+  // explicitly or they leak GPU memory across layout switches.
+  S.scene.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (m.map) m.map.dispose();
+        m.dispose();
+      }
+    }
+  });
+  try { S.renderer.dispose(); } catch (e) { /* swallow */ }
+  if (S.wrap && S.wrap.parentElement) S.wrap.parentElement.removeChild(S.wrap);
+  if (S.onResize) window.removeEventListener("resize", S.onResize);
+  if (S.onKey) window.removeEventListener("keydown", S.onKey);
+  if (window.lucidaToggleDanger) delete window.lucidaToggleDanger;
+  document.body.classList.remove("layout-mixed3d");
+  _mixed3dState = null;
+}
+
+// ----------------------------------------------------------------
 // Organic v1: hero at center + 3 concentric rings of 6 satellites
 // each (cap 19). Outer rings extend past one viewport vertically, so
 // the notebook scrolls. Satellite size shrinks gently outward; ring
@@ -2578,6 +4595,10 @@ function applyActiveLayout() {
   // Tear down Muuri before applying any non-pack layout, so its
   // absolute-positioned items don't fight the next mode's CSS / JS.
   if (mode !== "pack" && _muuriGrid) teardownPackLayout();
+  // Tear down mixed3d when leaving — it lives in body-level overlays
+  // (#mixed3d-wrap) and re-parents cells off #notebook, so other
+  // layouts need them returned to the flat tree first.
+  if (mode !== "mixed3d" && _mixed3dState) teardownMixed3DLayout();
   const entry = LAYOUT_REGISTRY[mode];
   if (entry && typeof entry.apply === "function") entry.apply();
   // Inter-cell connection lines anchor to getBoundingClientRect, which
