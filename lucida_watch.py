@@ -13,6 +13,7 @@ stdout. Ctrl-C signals all children to terminate.
 from __future__ import annotations
 
 import argparse
+import os
 import signal
 import subprocess
 import sys
@@ -82,9 +83,22 @@ def main() -> None:
     )
     p.add_argument("--log-interval", type=float, default=30.0, help="journal poll interval (s)")
     p.add_argument("--snapshot-interval", type=float, default=60.0, help="snapshot interval (s)")
+    p.add_argument(
+        "--max-cells",
+        type=int,
+        default=None,
+        help="cap total cells in cells.json (sets LUCIDA_MAX_CELLS for all children)",
+    )
     args = p.parse_args()
 
     py = sys.executable
+
+    # Cap total cells if requested. Applies to all children via env —
+    # any of them may call into the orchestrator on a mint, so we set
+    # it once at the supervisor and let it inherit, instead of threading
+    # a flag through every child's CLI.
+    if args.max_cells is not None:
+        os.environ["LUCIDA_MAX_CELLS"] = str(args.max_cells)
 
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)
