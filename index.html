@@ -1128,18 +1128,26 @@ async function fetchJSON(path) {
 // in the window — kill #3 then displays "n/a".
 async function loadLatestSubstrateAudit() {
   if (state.hud.cachedAudit !== undefined) return state.hud.cachedAudit;
-  const today = new Date();
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(today.getTime() - i * 86400000);
-    const dateStr = d.toISOString().slice(0, 10);
-    const a = await fetchJSON(`audits/substrate_eval_${dateStr}.json`);
-    if (a) {
-      state.hud.cachedAudit = a;
-      return a;
+  // Many pollAll ticks fire concurrently at boot. Without dedup, each
+  // hits cachedAudit === undefined and starts its own 14-day walk —
+  // 5+ parallel walks × 14 fetches = audit 404 spam. Cache the
+  // in-flight promise too so subsequent callers await the same walk.
+  if (state.hud.cachedAuditPromise) return state.hud.cachedAuditPromise;
+  state.hud.cachedAuditPromise = (async () => {
+    const today = new Date();
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const dateStr = d.toISOString().slice(0, 10);
+      const a = await fetchJSON(`audits/substrate_eval_${dateStr}.json`);
+      if (a) {
+        state.hud.cachedAudit = a;
+        return a;
+      }
     }
-  }
-  state.hud.cachedAudit = null;
-  return null;
+    state.hud.cachedAudit = null;
+    return null;
+  })();
+  return state.hud.cachedAuditPromise;
 }
 async function fetchText(path) {
   try {
@@ -4131,7 +4139,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   }
   ctx.restore();
 }
-function _mixed3dCellTexture(cell, isTop) {
+function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const T = window.THREE;
   const W = isTop ? 192 : 80;
   const H = isTop ? 192 : 240;
@@ -4139,9 +4147,14 @@ function _mixed3dCellTexture(cell, isTop) {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
-  const styles = getComputedStyle(document.body);
-  const cyan = (styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
-  const pink = (styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
+  // Caller hoists getComputedStyle out of the mount loop (saves ~5-10%
+  // per-cell paint cost at saturation). Fall back to the lookup if a
+  // legacy caller doesn't pass colors.
+  if (!cyan || !pink) {
+    const styles = getComputedStyle(document.body);
+    cyan = (styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
+    pink = (styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
+  }
   ctx.fillStyle = "rgba(8, 18, 30, 0.78)";
   ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = cyan;
@@ -4195,101 +4208,44 @@ function _mixed3dCellTexture(cell, isTop) {
 }
 function _mixed3dSyncCells() {
   if (!_mixed3dState) return;
-  const T = window.THREE;
   const root = document.getElementById("notebook");
   const _syncStart = performance.now();
   // Descend past .session-column wrappers; only count cells still
   // parented inside #notebook (un-mounted). Already-mounted cells
-  // are tracked in the cellObjects map.
+  // are tracked in the cellObjects map; pending cells (queued for
+  // mount but not yet drained) live in mountPending.
   // Skip WebGL-heavy substrates inside the mixed3d world — each
   // scene3d cell allocates its own WebGLRenderer / context, and
   // browsers cap at ~16 active contexts. With 50+ cells and many
   // scene3d in the corpus, the world's renderer kept losing its
-  // context (user 2026-05-02: "WARNING: Too many active WebGL
-  // contexts. Oldest context will be lost." in console). Substrate
-  // types listed here render with side-effects we don't want
-  // contesting the mixed3d world's GL slot.
+  // context. Substrate types listed here render with side-effects
+  // we don't want contesting the mixed3d world's GL slot.
   const _MIXED3D_SKIP_SUBSTRATES = new Set(["scene3d"]);
-  const fresh = [...root.querySelectorAll(".cell")].filter(
-    c => c.id
-      && !_mixed3dState.cellObjects.has(c.id)
-      && !_MIXED3D_SKIP_SUBSTRATES.has(c.dataset.cellType || ""),
-  );
-  const G = _mixed3dState.geometry;
-  const map = _mixed3dState.cellObjects;
 
-  // Camera-aware slot picker: each new cell goes to the nearest tower
-  // at (cameraX + direction × lookahead), so freshly minted cells
-  // appear in the user's forward FOV instead of stacking up off-screen
-  // on towers near tower-index 0. Existing cells keep their slots
-  // (stable in-place) — only new placements are camera-driven.
-  for (const cell of fresh) {
-    const placement = _mixed3dPickSlotForNewCell();
-    if (!placement) break; // every slot is taken
-    const { towerIdx, facePri, row, col, key } = placement;
-    const tower = _mixed3dState.towerMeshes[towerIdx];
-    // Face index 4 = tower roof — flat horizontal cell facing +Y.
-    // Sized to the tower top (towerW × towerW). Side faces use
-    // (col, row) grid: col offset along the face's in-plane horizontal
-    // axis, row offset up the tower height.
-    const isTop = facePri === 4;
-    let tx, ty, tz, rotX = 0, rotY = 0;
-    let slotPxW = G.slotW * G.pixelsPerUnit;
-    let slotPxH = G.slotH * G.pixelsPerUnit;
-    if (isTop) {
-      tx = tower.mesh.position.x;
-      ty = G.towerH + 0.02;
-      tz = tower.mesh.position.z;
-      rotX = -Math.PI / 2;
-      // Top cell sized to whole tower face — towerW × towerW.
-      slotPxW = G.towerW * 0.95 * G.pixelsPerUnit;
-      slotPxH = G.towerW * 0.95 * G.pixelsPerUnit;
-    } else {
-      const faceSpec = tower.faces[facePri];
-      const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * (G.slotW + G.slotMarginX);
-      tx = tower.mesh.position.x + faceSpec.dx + faceSpec.hx * colOffset;
-      ty = G.slotBaseY + row * (G.slotH + G.slotMargin);
-      tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset;
-      rotY = faceSpec.rotY;
-    }
-
-    // Cell DOM stays in #notebook (display:none via body.layout-mixed3d).
-    // We just READ its content to paint a CanvasTexture on a Plane mesh.
-    // No more cell.style writes, no more visibility flickers, no more
-    // CSS3DRenderer DOM matrix3d updates. Three.js auto-updates the
-    // mesh's transform from the camera each frame at much lower cost.
-    const planeW = isTop ? G.towerW * 0.95 : G.slotW;
-    const planeH = isTop ? G.towerW * 0.95 : G.slotH;
-    const planeGeo = new T.PlaneGeometry(planeW, planeH);
-    const tex = _mixed3dCellTexture(cell, isTop);
-    const mat = new T.MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      opacity: 1.0,
-      // FrontSide so cells only render from their intended viewing
-      // direction. With DoubleSide the back of the plane shows the
-      // texture mirrored, so cells viewed THROUGH a translucent tower
-      // appeared as backwards text (user 2026-05-02).
-      side: T.FrontSide,
-      depthWrite: false,
-    });
-    const obj = new T.Mesh(planeGeo, mat);
-    obj.position.set(tx, ty, tz);
-    obj.rotation.set(rotX, rotY, 0);
-    obj.frustumCulled = false;
-    obj.userData.cellEl = cell;
-    _mixed3dState.scene.add(obj);
-    map.set(cell.id, obj);
-    _mixed3dState.cellSlotKeys.set(cell.id, key);
-    _mixed3dState.usedSlots.add(key);
-    _mixed3dState.towerCellCount[towerIdx]++;
+  // Lazy-init mount queue state. Lives on _mixed3dState so teardown
+  // drops it cleanly along with the rest of the layout.
+  if (!_mixed3dState.mountQueue) {
+    _mixed3dState.mountQueue = [];
+    _mixed3dState.mountPending = new Set();
+    _mixed3dState.mountDraining = false;
   }
 
-  // Eviction: drop CSS3DObjects whose element has been removed from
-  // the document entirely (RAM cap, scoped reset, session clear).
-  // isConnected is false only when the node is detached from the doc
-  // — being parented inside the CSS3DRenderer's tree still counts as
-  // connected, so mounted cells stay mounted across calls.
+  const map = _mixed3dState.cellObjects;
+  const pending = _mixed3dState.mountPending;
+  const fresh = [...root.querySelectorAll(".cell")].filter(
+    c => c.id
+      && !map.has(c.id)
+      && !pending.has(c.id)
+      && !_MIXED3D_SKIP_SUBSTRATES.has(c.dataset.cellType || ""),
+  );
+  for (const c of fresh) {
+    _mixed3dState.mountQueue.push(c);
+    pending.add(c.id);
+  }
+
+  // Eviction: drop meshes whose element has been removed from the
+  // document entirely (RAM cap, scoped reset, session clear).
+  // isConnected is false only when the node is detached from the doc.
   for (const [id, obj] of [...map.entries()]) {
     const el = obj.userData?.cellEl;
     if (el && el.isConnected) continue;
@@ -4310,9 +4266,116 @@ function _mixed3dSyncCells() {
       }
     }
   }
+
   const _syncMs = performance.now() - _syncStart;
   if (fresh.length > 0 || _syncMs > 5) {
-    console.log(`[mixed3d] syncCells: +${fresh.length} cells in ${_syncMs.toFixed(0)}ms @ ${performance.now().toFixed(0)}ms`);
+    console.log(`[mixed3d] syncCells: +${fresh.length} queued in ${_syncMs.toFixed(0)}ms (queue: ${_mixed3dState.mountQueue.length}) @ ${performance.now().toFixed(0)}ms`);
+  }
+  if (!_mixed3dState.mountDraining && _mixed3dState.mountQueue.length > 0) {
+    _mixed3dState.mountDraining = true;
+    _mixed3dState.mountDrainStart = performance.now();
+    _mixed3dState.mountDrainTotal = 0;
+    requestAnimationFrame(_mixed3dDrainMountQueue);
+  }
+}
+
+// Time-sliced cell-mount worker. Drains _mixed3dState.mountQueue at
+// up to BUDGET_MS per frame. Replaces the old syncCells "mount all
+// fresh cells synchronously" path which froze the main thread for
+// ~12s when 6755 cells landed at once. Each cell still costs the same
+// (canvas paint + CanvasTexture upload + scene.add); we just spread
+// it across rAF frames so the page stays interactive while it fills.
+function _mixed3dDrainMountQueue() {
+  const S = _mixed3dState;
+  if (!S || !S.mountQueue) return;
+  const T = window.THREE;
+  if (!T) { S.mountDraining = false; return; }
+  const G = S.geometry;
+  const map = S.cellObjects;
+  const pending = S.mountPending;
+  const start = performance.now();
+  const BUDGET_MS = 8;
+
+  // Hoist style lookups out of the per-cell paint loop. Theme changes
+  // teardown the layout (rebuild path), so this is stable across one
+  // drain cycle.
+  const styles = getComputedStyle(document.body);
+  const cyan = (styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
+  const pink = (styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
+
+  let mounted = 0;
+  while (S.mountQueue.length > 0) {
+    if (mounted > 0 && performance.now() - start > BUDGET_MS) break;
+    const cell = S.mountQueue.pop();
+    if (!cell) continue;
+    pending.delete(cell.id);
+    if (!cell.isConnected) continue;
+    if (map.has(cell.id)) continue;
+
+    const placement = _mixed3dPickSlotForNewCell();
+    if (!placement) {
+      // Field is full — drop the rest of the queue. Future syncCells
+      // calls will re-enqueue fresh cells if eviction frees slots.
+      S.mountQueue.length = 0;
+      pending.clear();
+      break;
+    }
+    const { towerIdx, facePri, row, col, key } = placement;
+    const tower = S.towerMeshes[towerIdx];
+    const isTop = facePri === 4;
+    let tx, ty, tz, rotX = 0, rotY = 0;
+    if (isTop) {
+      tx = tower.mesh.position.x;
+      ty = G.towerH + 0.02;
+      tz = tower.mesh.position.z;
+      rotX = -Math.PI / 2;
+    } else {
+      const faceSpec = tower.faces[facePri];
+      const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * (G.slotW + G.slotMarginX);
+      tx = tower.mesh.position.x + faceSpec.dx + faceSpec.hx * colOffset;
+      ty = G.slotBaseY + row * (G.slotH + G.slotMargin);
+      tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset;
+      rotY = faceSpec.rotY;
+    }
+
+    const planeW = isTop ? G.towerW * 0.95 : G.slotW;
+    const planeH = isTop ? G.towerW * 0.95 : G.slotH;
+    const planeGeo = new T.PlaneGeometry(planeW, planeH);
+    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
+    const mat = new T.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 1.0,
+      // FrontSide so cells only render from their intended viewing
+      // direction (otherwise back-of-plane shows mirrored text through
+      // translucent towers).
+      side: T.FrontSide,
+      depthWrite: false,
+    });
+    const obj = new T.Mesh(planeGeo, mat);
+    obj.position.set(tx, ty, tz);
+    obj.rotation.set(rotX, rotY, 0);
+    // frustumCulled enabled so off-screen cells skip the GPU
+    // submission. With 7000+ cells on swoopy-tour, the camera sees
+    // maybe 200-400 at any given moment — culling drops 95% of the
+    // per-frame mesh submission work.
+    obj.frustumCulled = true;
+    obj.userData.cellEl = cell;
+    S.scene.add(obj);
+    map.set(cell.id, obj);
+    S.cellSlotKeys.set(cell.id, key);
+    S.usedSlots.add(key);
+    S.towerCellCount[towerIdx]++;
+    mounted++;
+  }
+
+  S.mountDrainTotal = (S.mountDrainTotal || 0) + mounted;
+  if (S.mountQueue.length > 0) {
+    requestAnimationFrame(_mixed3dDrainMountQueue);
+  } else {
+    S.mountDraining = false;
+    const wall = performance.now() - (S.mountDrainStart || start);
+    console.log(`[mixed3d] mount drain done: ${S.mountDrainTotal} cells in ${wall.toFixed(0)}ms wall @ ${performance.now().toFixed(0)}ms`);
   }
 }
 
