@@ -2713,6 +2713,60 @@ function applyMixed3DLayout(opts) {
     transparent: true,
     opacity: 0.55,
   });
+  // Internal scanlines: a SECOND box, slightly smaller, drawn with
+  // additive blending and a horizontal-stripe texture. The outer
+  // glass is too translucent (opacity 0.025) for emissiveMap to
+  // pop through alpha blending, so we hang stripes off a dedicated
+  // inner mesh whose additive blend brightens whatever is behind it
+  // regardless of the glass alpha. Result: looking at a tower, you
+  // see the cyan glass shell + bright cyan data rows just inside
+  // the front face — matches tower_glass_closeup.png "stripes of
+  // data visible through the glass" read.
+  const _scanCanvas = document.createElement("canvas");
+  _scanCanvas.width = 32;
+  _scanCanvas.height = 512;
+  const _scanCtx = _scanCanvas.getContext("2d");
+  _scanCtx.fillStyle = "#000";
+  _scanCtx.fillRect(0, 0, 32, 512);
+  // Reproducible LCG so all towers share the same pattern (cheap,
+  // 1 draw call worth of variety; per-tower variety is a future
+  // pass once we judge whether shared looks too uniform).
+  let _scanSeed = 12345;
+  const _scanRand = () => {
+    _scanSeed = (_scanSeed * 9301 + 49297) % 233280;
+    return _scanSeed / 233280;
+  };
+  for (let i = 0; i < 70; i++) {
+    const y = Math.floor(_scanRand() * 512);
+    const h = Math.max(1, Math.floor(_scanRand() * 3));
+    const a = 0.4 + _scanRand() * 0.6;
+    _scanCtx.globalAlpha = a;
+    _scanCtx.fillStyle = "#ffffff";
+    _scanCtx.fillRect(0, y, 32, h);
+  }
+  _scanCtx.globalAlpha = 1;
+  const sharedScanTex = new T.CanvasTexture(_scanCanvas);
+  sharedScanTex.minFilter = T.LinearFilter;
+  sharedScanTex.magFilter = T.LinearFilter;
+  // 0.99 inset so the inner mesh sits just inside the glass shell —
+  // close enough to read as "internal", not so close as to z-fight
+  // with the outer faces.
+  const sharedScanGeo = new T.BoxGeometry(towerW * 0.99, towerH * 0.99, towerD * 0.99);
+  const sharedScanMat = new T.MeshBasicMaterial({
+    map: sharedScanTex,
+    color: tint,
+    transparent: true,
+    opacity: 0.55,
+    blending: T.AdditiveBlending,
+    depthWrite: false,
+    // depthTest off so the inner-scan fragment shows through the
+    // outer glass face regardless of who wrote depth first. Without
+    // this, the translucent glass writes depth at the front face
+    // and the inner-scan fragments get culled before adding their
+    // glow.
+    depthTest: false,
+    side: T.DoubleSide,
+  });
   // Top-rim highlight: 4 line segments at the very top of each
   // tower, brighter than the regular edge wireframe. Per refs
   // tower_glass_closeup.png — the tops of the cyan towers in the
@@ -2760,6 +2814,16 @@ function applyMixed3DLayout(opts) {
       const edges = new T.LineSegments(sharedEdges, sharedEdgeMat);
       edges.position.copy(mesh.position);
       scene.add(edges);
+      // Internal scanlines mesh — slightly smaller box with
+      // additive blend + horizontal-stripe texture, shows as
+      // bright cyan data rows visible through the glass.
+      const innerScan = new T.Mesh(sharedScanGeo, sharedScanMat);
+      innerScan.position.copy(mesh.position);
+      innerScan.frustumCulled = false;
+      // After glass (renderOrder 0), before lane beams (998) and
+      // pad (999). Stripes paint over glass, beams/pad still on top.
+      innerScan.renderOrder = 50;
+      scene.add(innerScan);
       // Bright top-rim highlight. Geometry has y=towerH/2 already,
       // so position the mesh at the tower's MIDDLE (mesh.position)
       // and the rim renders at world y=towerH.
@@ -2855,6 +2919,14 @@ function applyMixed3DLayout(opts) {
     opacity: 0.55,
     blending: T.AdditiveBlending,
     depthWrite: false,
+    // depthTest off so the beam stays bright when seen THROUGH the
+    // translucent tower glass. Without this, glass writes depth at
+    // its front face (transparent: true does NOT disable depthWrite
+    // by default in three.js), beam is sorted later and depth-tested
+    // against that, fragments at occluded pixels are discarded —
+    // visible as "dim then tower edge then bright then tower edge
+    // then dim" stripes along a corridor (user 2026-05-03).
+    depthTest: false,
     side: T.DoubleSide,
   });
   const beamWidth = 0.32;
