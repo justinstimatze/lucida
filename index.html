@@ -2979,17 +2979,17 @@ function applyMixed3DLayout(opts) {
   };
 
   // LOD scaffolding: cache theme colors once (theme change rebuilds
-  // layout, so they're stable for the lifetime of this state) and
-  // build the shared tier-2 substrate materials. With shared mats,
-  // 95% of cells skip per-cell texture upload entirely.
+  // layout, so they're stable for the lifetime of this state). Both
+  // tiers hold unique CanvasTextures — tier-1 full size with title +
+  // preview, tier-2 small with just the substrate-aware preview, no
+  // title. Per-cell unique means each far cell shows its OWN content
+  // instead of a shared substrate stamp; from a few towers' distance
+  // it reads as "wall of small data tiles" rather than billboards.
   {
     const _styles = getComputedStyle(document.body);
     const _cyan = (_styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
     const _pink = (_styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
     _mixed3dState.colorCache = { cyan: _cyan, pink: _pink };
-    const _shared = _mixed3dBuildSharedTier2(_cyan, _pink);
-    _mixed3dState.sharedSubstrateTextures = _shared.textures;
-    _mixed3dState.sharedSubstrateMaterials = _shared.materials;
   }
   _mixed3dState.tier1Count = 0;
   _mixed3dState._retierKeys = null;
@@ -4170,74 +4170,17 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   ctx.restore();
 }
 // LOD: distance-tier rendering. Tier 1 (close, < ~30u) cells get a
-// unique CanvasTexture with title + preview; tier 2 (far) cells point
-// at a shared per-substrate texture (one per substrate type, ~13
-// total). At 7000+ cells, ~95% are tier 2 and skip per-cell paint +
-// per-cell GPU upload entirely. Memory drops from ~75KB/cell to
-// ~75KB/substrate, an O(N) → O(1) win on the dominant cost.
+// unique 80×240 CanvasTexture with title + full substrate preview;
+// tier 2 (far) cells get a unique 32×96 mini-texture — same substrate
+// preview drawing but at small resolution, no title strip. Per-cell
+// unique at both tiers means each far cell shows ITS content rather
+// than a shared substrate stamp. Memory at 15000 cells: ~110MB GPU
+// (vs ~1.1GB for 80×240-everywhere); the 5× cut comes from the
+// resolution drop on far cells, not from sharing.
 const _MIXED3D_TIER1_DIST_SQ = 30 * 30;
 const _MIXED3D_TIER2_DIST_SQ = 35 * 35;
 const _MIXED3D_TIER1_CAP = 400;
 const _MIXED3D_RETIER_BUDGET_MS = 4;
-const _MIXED3D_SUBSTRATE_GLYPHS = {
-  mermaid: "ME",
-  html: "HT",
-  timeline_ribbon: "TR",
-  animated_svg: "AS",
-  force_graph: "FG",
-  vega: "VG",
-  treemap: "TM",
-  gauge: "GA",
-  sparkline: "SP",
-  trajectory: "TJ",
-  text: "TX",
-  code: "CD",
-  image: "IM",
-};
-
-// Build the shared tier-2 textures + materials. One per substrate
-// type. Each cell of substrate X in tier 2 points at the same material
-// (so Three.js can batch them and we save N×75KB GPU memory).
-function _mixed3dBuildSharedTier2(cyan, pink) {
-  const T = window.THREE;
-  const textures = new Map();
-  const materials = new Map();
-  for (const [substrate, glyph] of Object.entries(_MIXED3D_SUBSTRATE_GLYPHS)) {
-    const c = document.createElement("canvas");
-    c.width = 64;
-    c.height = 192;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "rgba(8, 18, 30, 0.78)";
-    ctx.fillRect(0, 0, 64, 192);
-    ctx.strokeStyle = cyan;
-    ctx.lineWidth = 1.0;
-    ctx.strokeRect(0.5, 0.5, 63, 191);
-    // Centered substrate glyph — large, pink, the dominant visual.
-    ctx.fillStyle = pink;
-    ctx.font = "bold 28px 'Share Tech Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(glyph, 32, 96);
-    // Substrate name strip at bottom (short, cyan).
-    ctx.fillStyle = cyan;
-    ctx.font = "bold 7px 'Share Tech Mono', monospace";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(substrate.toUpperCase().slice(0, 9), 32, 188);
-    const tex = new T.CanvasTexture(c);
-    tex.minFilter = T.LinearFilter;
-    tex.magFilter = T.LinearFilter;
-    const mat = new T.MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      opacity: 1.0,
-      side: T.FrontSide,
-      depthWrite: false,
-    });
-    textures.set(substrate, tex);
-    materials.set(substrate, mat);
-  }
-  return { textures, materials };
-}
 
 // Hysteresis: cells must move out past TIER2_DIST to demote, in past
 // TIER1_DIST to promote. Prevents thrash for cells parked near the
@@ -4269,29 +4212,25 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
   const substrate = cell.dataset.cellType || "html";
   const isTop = Math.abs(obj.rotation.x + Math.PI / 2) < 0.01;
 
-  if (newTier === 2) {
-    // Demote 1 → 2. The old material + texture are unique to this
-    // mesh; safe to dispose.
-    if (obj.userData.tier === 1 && obj.material) {
-      if (obj.material.map) obj.material.map.dispose();
-      obj.material.dispose();
-    }
-    const sharedMat = S.sharedSubstrateMaterials.get(substrate)
-      || S.sharedSubstrateMaterials.get("html");
-    obj.material = sharedMat;
-    S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
-  } else {
-    // Promote 2 → 1. Old material is shared; do NOT dispose it.
-    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
-    obj.material = new T.MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      opacity: 1.0,
-      side: T.FrontSide,
-      depthWrite: false,
-    });
-    S.tier1Count = (S.tier1Count || 0) + 1;
+  // Both tiers hold unique materials. Demote replaces full-size with
+  // mini; promote replaces mini with full-size. Always dispose the
+  // outgoing material + texture — they're owned by this mesh.
+  if (obj.material) {
+    if (obj.material.map) obj.material.map.dispose();
+    obj.material.dispose();
   }
+  const tex = newTier === 1
+    ? _mixed3dCellTexture(cell, isTop, cyan, pink)
+    : _mixed3dCellTextureMini(cell, isTop, cyan, pink);
+  obj.material = new T.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    opacity: 1.0,
+    side: T.FrontSide,
+    depthWrite: false,
+  });
+  if (newTier === 1) S.tier1Count = (S.tier1Count || 0) + 1;
+  else S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
   obj.userData.tier = newTier;
   S.cellTier.set(id, newTier);
 }
@@ -4303,7 +4242,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
 // _retierKeys; refreshes the snapshot when one cycle completes.
 function _mixed3dRetierSweep() {
   const S = _mixed3dState;
-  if (!S || !S.sharedSubstrateMaterials || !S.cellObjects) return;
+  if (!S || !S.cellObjects) return;
   if (!S._retierKeys || S._retierIdx >= S._retierKeys.length) {
     S._retierKeys = [...S.cellObjects.keys()];
     S._retierIdx = 0;
@@ -4326,6 +4265,36 @@ function _mixed3dRetierSweep() {
     _mixed3dSwapCellTier(obj, id, desired, cyan, pink);
   }
   S._retierIdx = i;
+}
+
+// Tier-2 mini-texture. No title, no glyph — just the substrate's
+// own preview drawing at small resolution. Far cells then read as
+// "tiny dim cells" instead of billboards. Per-cell unique (so each
+// cell shows ITS content, not a substrate-class stamp).
+function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
+  const T = window.THREE;
+  const W = isTop ? 64 : 32;
+  const H = isTop ? 64 : 96;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(8, 18, 30, 0.78)";
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = cyan;
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(0.4, 0.4, W - 0.8, H - 0.8);
+  // Substrate-aware preview fills almost the whole tile. The preview
+  // function bails early if w/h < 12 — at 32×96 with 2px pad we have
+  // 28×92, well above the floor.
+  const pad = 2;
+  if (W - pad * 2 >= 12 && H - pad * 2 >= 12) {
+    _mixed3dDrawCellPreview(ctx, cell, pad, pad, W - pad * 2, H - pad * 2, cyan, pink);
+  }
+  const tex = new T.CanvasTexture(canvas);
+  tex.minFilter = T.LinearFilter;
+  tex.magFilter = T.LinearFilter;
+  return tex;
 }
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
@@ -4435,17 +4404,14 @@ function _mixed3dSyncCells() {
   // Eviction: drop meshes whose element has been removed from the
   // document entirely (RAM cap, scoped reset, session clear).
   // isConnected is false only when the node is detached from the doc.
-  // Tier 2 cells share their material with all cells of the same
-  // substrate — disposing it would break the others, so only dispose
-  // when this mesh's material is unique (tier 1).
+  // Both tiers hold unique materials now — always dispose.
   for (const [id, obj] of [...map.entries()]) {
     const el = obj.userData?.cellEl;
     if (el && el.isConnected) continue;
     if (obj.parent) obj.parent.remove(obj);
-    const wasTier1 = obj.userData?.tier === 1;
-    if (wasTier1) {
-      if (obj.material?.map) obj.material.map.dispose();
-      if (obj.material) obj.material.dispose();
+    if (obj.material?.map) obj.material.map.dispose();
+    if (obj.material) obj.material.dispose();
+    if (obj.userData?.tier === 1) {
       _mixed3dState.tier1Count = Math.max(0, (_mixed3dState.tier1Count || 0) - 1);
     }
     if (obj.geometry) obj.geometry.dispose();
@@ -4550,25 +4516,24 @@ function _mixed3dDrainMountQueue() {
     const wantTier1 = md2 < _MIXED3D_TIER1_DIST_SQ
       && (S.tier1Count || 0) < _MIXED3D_TIER1_CAP;
     const tier = wantTier1 ? 1 : 2;
-    let mat;
-    if (tier === 1) {
-      const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
-      mat = new T.MeshBasicMaterial({
-        map: tex,
-        transparent: true,
-        opacity: 1.0,
-        // FrontSide so cells only render from their intended viewing
-        // direction (otherwise back-of-plane shows mirrored text
-        // through translucent towers).
-        side: T.FrontSide,
-        depthWrite: false,
-      });
-      S.tier1Count = (S.tier1Count || 0) + 1;
-    } else {
-      const substrate = cell.dataset.cellType || "html";
-      mat = S.sharedSubstrateMaterials.get(substrate)
-        || S.sharedSubstrateMaterials.get("html");
-    }
+    // Both tiers paint a unique CanvasTexture so each cell shows its
+    // OWN content. Tier difference is resolution + whether the title
+    // strip is included. Tier 2 is small enough that 14600 of them
+    // still fit comfortably in GPU memory (~110MB total).
+    const tex = tier === 1
+      ? _mixed3dCellTexture(cell, isTop, cyan, pink)
+      : _mixed3dCellTextureMini(cell, isTop, cyan, pink);
+    const mat = new T.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 1.0,
+      // FrontSide so cells only render from their intended viewing
+      // direction (otherwise back-of-plane shows mirrored text
+      // through translucent towers).
+      side: T.FrontSide,
+      depthWrite: false,
+    });
+    if (tier === 1) S.tier1Count = (S.tier1Count || 0) + 1;
 
     const obj = new T.Mesh(planeGeo, mat);
     obj.position.set(tx, ty, tz);
