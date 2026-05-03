@@ -1,0 +1,63 @@
+{
+  "_comment": "Hackers (1995) Gibson supercomputer — cyan-on-void glass canyons. Seed of the 2D/3D-mixed FUI family. Pairs with layout=mixed3d. Danger phase swaps cyan for red/orange + purple beam-bursts; flag is mixed3d.danger.",
+  "accent": {
+    "primary":   "#00ddff",
+    "secondary": "#ff3a8c",
+    "warning":   "#ff9933",
+    "danger":    "#ff2030",
+    "ok":        "#00ddff"
+  },
+  "surface": {
+    "bg":     "#000308",
+    "cell":   "rgba(8, 18, 30, 0.55)",
+    "header": "rgba(0, 30, 50, 0.7)",
+    "code":   "rgba(0, 12, 22, 0.7)",
+    "muted":  "#3a6080",
+    "line":   "rgba(0, 221, 255, 0.18)"
+  },
+  "text": {
+    "fg":    "#cceeff",
+    "muted": "#5a8aaa"
+  },
+  "data": {
+    "cat": ["#00ddff", "#ff3a8c", "#9966ff", "#33ff99", "#ffaa44", "#ff5566"]
+  },
+  "type": {
+    "body": "\"Share Tech Mono\", \"Courier New\", monospace",
+    "head": "\"Share Tech Mono\", \"Courier New\", monospace",
+    "mono": "\"Share Tech Mono\", \"Courier New\", monospace"
+  },
+  "fx": {
+    "glow":      "rgba(0, 221, 255, 0.55)",
+    "glow-line": "rgba(255, 58, 140, 0.45)"
+  },
+  "palette": {
+    "stroke1": "#00ddff",
+    "stroke2": "#ff3a8c",
+    "stroke3": "#9966ff",
+    "accent":  "#00ddff",
+    "fg":      "#cceeff",
+    "muted":   "#5a8aaa",
+    "bg":      "#000308",
+    "panel":   "rgba(8, 18, 30, 0.55)"
+  },
+  "layout": "mixed3d",
+  "mixed3d": {
+    "camera": "swoopy-tour",
+    "arrangement": "towers",
+    "material": "glass",
+    "world": {
+      "floor": "circuit",
+      "particles": true,
+      "sky": "void",
+      "tower_tint": "#00ddff",
+      "floor_grid": "#003344",
+      "floor_accent": "#ff3a8c"
+    },
+    "danger": {
+      "tower_tint": "#ff3030",
+      "beam": "#c040ff",
+      "particles_color": "#ffaa55"
+    }
+  }
+}
