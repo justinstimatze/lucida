@@ -89,6 +89,62 @@
   --vis-warn: #fbbf24;
   --vis-tripped: #f87171;
 }
+
+/* Boot overlay: covers the page during the rough first seconds of
+   layout init. Removed via .booted class on body once init finishes
+   (set by applyMixed3DLayout / other layout entry points). Theme
+   accent color drives the title + progress bar. */
+#boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg, #000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: opacity 0.5s ease 0.1s, visibility 0s linear 0.6s;
+  opacity: 1;
+  visibility: visible;
+}
+body.booted #boot-overlay {
+  opacity: 0;
+  visibility: hidden;
+}
+.boot-content {
+  text-align: center;
+  font-family: var(--font-mono, "Share Tech Mono", "Courier New", monospace);
+  color: var(--accent, #00ddff);
+  letter-spacing: 0.2em;
+}
+.boot-title {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 8px var(--accent, #00ddff);
+  animation: boot-title-pulse 1.4s ease-in-out infinite;
+}
+.boot-bar {
+  width: 220px;
+  height: 2px;
+  background: color-mix(in srgb, var(--accent, #00ddff) 18%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+.boot-bar-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--accent, #00ddff);
+  width: 30%;
+  animation: boot-bar-slide 1.6s ease-in-out infinite;
+}
+@keyframes boot-title-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes boot-bar-slide {
+  0%   { left: -30%; }
+  100% { left: 100%; }
+}
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -5092,4 +5148,105 @@ body {
   box-sizing: border-box;
   letter-spacing: 0.05em;
   opacity: 0.85;
+}
+
+/* ============================================================
+   mixed3d layout — WebGL world + CSS3DRenderer cells.
+   When body.layout-mixed3d is set, applyMixed3DLayout has built
+   #mixed3d-wrap as a fixed full-viewport overlay holding both
+   renderer canvases. The flat #notebook tree is hidden; cells
+   live as CSS3DObjects under #mixed3d-css whose root element
+   uses a 3D transform set by CSS3DRenderer each frame.
+   ============================================================ */
+body.layout-mixed3d #notebook {
+  display: none;
+}
+body.layout-mixed3d {
+  background: #000308;
+  overflow: hidden;
+}
+/* scene3d substrates allocate their own WebGLRenderer per cell;
+   even with #notebook display:none they can race to initialize
+   before the layout class lands, eating context slots. Belt-and-
+   braces: hide them outright in mixed3d so their lazyMount never
+   triggers. */
+body.layout-mixed3d .cell[data-cell-type="scene3d"] {
+  display: none !important;
+}
+#mixed3d-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+#mixed3d-webgl {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+#mixed3d-webgl > canvas {
+  display: block;
+}
+#mixed3d-css {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+#mixed3d-css > div {
+  pointer-events: auto;
+}
+
+/* Cells render as markings etched into the tower glass — no chunky
+   panel border or floating shadow. mix-blend-mode:screen was tried
+   2026-05-02 but blanked dark substrate content (dark + dark stays
+   dark under screen) since the CSS3D layer doesn't actually share a
+   stacking context with the WebGL layer below.
+   What remains: a very subtle cyan inset border + faint dark glass
+   tint so the cell has SOMETHING readable, but no heavy panel
+   chrome separating it from the tower face. */
+body.layout-mixed3d .cell {
+  border: 1px solid color-mix(in srgb, var(--accent, #00ddff) 20%, transparent);
+  box-shadow: none;
+  background: color-mix(in srgb, var(--cell-bg, #08121e) 35%, transparent);
+  backdrop-filter: none;
+  border-radius: 0;
+  overflow: hidden !important;
+  box-sizing: border-box;
+}
+body.layout-mixed3d .cell svg,
+body.layout-mixed3d .cell canvas,
+body.layout-mixed3d .cell img,
+body.layout-mixed3d .cell .cell-body,
+body.layout-mixed3d .cell .cell-content {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Pink/red CAPS title with thin rule, matching the Gibson on-tower
+   directory labels (refs/gibson/tower_face_labels.png and
+   monitor_directory_listing.png). Per cell, the title becomes the
+   "directory header" — pink, monospace, all caps, with a thin
+   underline rule. The cell-id chip dims to a smaller cyan accent
+   so the pink label dominates the head. */
+body.layout-mixed3d .cell-title {
+  color: #ff3a8c !important;
+  text-transform: uppercase !important;
+  font-family: "Share Tech Mono", "Courier New", monospace !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  font-size: 0.78rem !important;
+  padding-bottom: 2px;
+  border-bottom: 1px solid color-mix(in srgb, #ff3a8c 60%, transparent);
+  text-shadow: 0 0 4px color-mix(in srgb, #ff3a8c 40%, transparent);
+}
+body.layout-mixed3d .cell-id {
+  color: color-mix(in srgb, #00ddff 70%, transparent) !important;
+  font-size: 0.6rem !important;
+  opacity: 0.7 !important;
+}
+body.layout-mixed3d .cell-head {
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid color-mix(in srgb, #ff3a8c 25%, transparent);
+  padding-bottom: 1px;
 }
