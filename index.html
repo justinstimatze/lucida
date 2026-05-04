@@ -4353,6 +4353,9 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     opacity: 1.0,
     side: T.FrontSide,
     depthWrite: newTier === 2,
+    polygonOffset: newTier === 2,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
   });
   if (newTier === 1) S.tier1Count = (S.tier1Count || 0) + 1;
   else S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
@@ -4685,6 +4688,17 @@ function _mixed3dDrainMountQueue() {
       // through translucent towers).
       side: T.FrontSide,
       depthWrite: tier === 2,
+      // Tier 2 cells are coplanar with the translucent tower glass.
+      // Without this offset, the tower's transparent pass renders
+      // AFTER the opaque cell at the same depth, passes LessEqual,
+      // and blends its cyan glass over the cell — washing the cell
+      // texture out completely. Negative polygonOffset nudges the
+      // cell's depth values toward the camera so tower fragments at
+      // the same world position fail the depth test and are
+      // discarded. Cell renders as a clean "panel set into the glass".
+      polygonOffset: tier === 2,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
     if (tier === 1) S.tier1Count = (S.tier1Count || 0) + 1;
 
