@@ -4508,10 +4508,14 @@ function _mixed3dBuildSharedSubstrateMats(cyan, pink) {
       canvas.width = 48;
       canvas.height = 144;
       const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#020610";
-      ctx.fillRect(0, 0, 48, 144);
-      // Synthetic "cell" object so _mixed3dDrawCellPreview's
-      // seed-from-cell.id picks a different pattern per variant.
+      // No bg fill — canvas stays fully transparent. Only the
+      // substrate-preview marks paint pixels with alpha > 0. With
+      // material.transparent: true, transparent pixels alpha-blend
+      // through to whatever's behind, so the cell content reads as
+      // "etched" onto the tower glass rather than painted on a
+      // panel (user 2026-05-03 "the cell backgrounds are basically
+      // transparent. it looks like the terminal text is etched on
+      // the glass of the wall of the tower").
       const fakeCell = {
         id: `__shared:${substrate}:${v}`,
         dataset: { cellType: substrate },
@@ -4523,22 +4527,16 @@ function _mixed3dBuildSharedSubstrateMats(cyan, pink) {
       tex.magFilter = T.LinearFilter;
       const mat = new T.MeshBasicMaterial({
         map: tex,
-        transparent: false,
+        // Transparent pass: alpha-blend over the tower glass behind
+        // (etched-glass look). This costs the back-to-front sort
+        // every frame for ~1000 visible cells — ~0.1ms/frame, OK.
+        transparent: true,
         opacity: 1.0,
-        // DoubleSide so cells on the FAR side of any tower are
-        // visible THROUGH the translucent tower glass when the
-        // camera is on the opposite side. With FrontSide, far-face
-        // cells' normals point away from camera and they don't
-        // render — user reads that as "only 2 of 4 sides have
-        // cells". Texture appears mirrored on the back, but the
-        // shared substrate-preview content is abstract enough that
-        // mirroring is invisible at distance. Tier-1 cells stay
-        // FrontSide (preserve title text orientation).
+        depthWrite: false,
+        // DoubleSide so cells on the FAR side of any tower render
+        // through the translucent glass; substrate-preview content
+        // is abstract enough that the mirrored back face reads fine.
         side: T.DoubleSide,
-        depthWrite: true,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1,
       });
       variants.push(mat);
     }
@@ -4584,26 +4582,14 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
-  // Near-black bg gives strong contrast against the cyan tower glass
-  // so cells read as DISTINCT panels embedded in the glass, not as
-  // tinted regions blending with it. Was #0a1820 — too close in hue
-  // to the glass, cells looked invisible at distance (user 2026-05-03
-  // "completely invisible at saturation, only tier-1 cells visible").
-  ctx.fillStyle = "#020610";
-  ctx.fillRect(0, 0, W, H);
-  // Solid 1.5px cyan border (was 0.8px). Single hard outline gives
-  // cells a clear "frame" silhouette from any distance.
-  ctx.strokeStyle = cyan;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(0.75, 0.75, W - 1.5, H - 1.5);
-  // Pink accent strip near the bottom — even when the substrate
-  // preview is sub-pixel-thin lines, this strip is solid and instantly
-  // tags the cell as a cell rather than a void.
-  ctx.fillStyle = pink;
-  ctx.fillRect(W * 0.1, H - 6, W * 0.8, 2);
-  // Substrate-aware preview fills the upper area. The preview
-  // function bails early if w/h < 12 — at 48×144 with 3px pad we
-  // have 42×132, well above the floor.
+  // No bg fill, no border, no accent strip — etched-glass look.
+  // Substrate-preview marks render with alpha > 0 over a fully
+  // transparent canvas, so empty pixels stay transparent and let
+  // the tower glass behind blend through. Material's transparent
+  // pass alpha-blends correctly. Earlier opaque-pass + dim-cyan
+  // bg + cyan border read as "panel embedded in glass"; dropping
+  // those for the etched look (user 2026-05-03 "the cell
+  // backgrounds are basically transparent").
   const pad = 3;
   if (W - pad * 2 >= 12 && H - pad * 2 >= 12) {
     _mixed3dDrawCellPreview(ctx, cell, pad, pad, W - pad * 2, H - pad * 2 - 8, cyan, pink);
@@ -4632,11 +4618,10 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
     cyan = (styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
     pink = (styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
   }
-  ctx.fillStyle = "rgba(8, 18, 30, 0.78)";
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = cyan;
-  ctx.lineWidth = 1.2;
-  ctx.strokeRect(0.6, 0.6, W - 1.2, H - 1.2);
+  // No bg fill, no border — etched-glass look. Title text + title
+  // rule + substrate preview + type chip all paint over a fully
+  // transparent canvas. Material's transparent pass alpha-blends
+  // through to whatever's behind (tower glass).
   const titleEl = cell.querySelector(".cell-title");
   const title = (titleEl?.textContent || cell.id || "").trim().toUpperCase();
   ctx.fillStyle = pink;
@@ -4897,9 +4882,8 @@ function _mixed3dDrainMountQueue() {
         // built correctly at boot.
         const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink);
         mat = new T.MeshBasicMaterial({
-          map: tex, transparent: false, opacity: 1.0,
-          side: T.FrontSide, depthWrite: true,
-          polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+          map: tex, transparent: true, opacity: 1.0,
+          side: T.DoubleSide, depthWrite: false,
         });
       }
     }
