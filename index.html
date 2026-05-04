@@ -1488,6 +1488,21 @@ async function pollAll() {
   ]);
   if (!cellsData) return;
 
+  // Fingerprint short-circuit: at saturation (~7000 cells, ~5MB
+  // cells.json) the per-poll cost of liveAppendNewCells +
+  // computeHud is 100-200ms — visible jank every 1.5s. Most polls
+  // see unchanged data (organic mints land every ~50s, not every
+  // 1.5s), so we cheaply detect "nothing changed" via cell count +
+  // last cell id + mint-log byte length. When the fingerprint is
+  // stable, skip both heavy walks. Parse cost (~50ms) still hits
+  // every poll, but that's the floor of the JSON.parse work.
+  const cells = cellsData.cells || [];
+  const lastId = cells.length ? cells[cells.length - 1].id : null;
+  const fingerprint = `${cells.length}:${lastId}:${(mintLogText || "").length}`;
+  if (state.poll && state.poll.lastFingerprint === fingerprint) return;
+  if (!state.poll) state.poll = {};
+  state.poll.lastFingerprint = fingerprint;
+
   // (a) Cell append first — this is the "what just landed" signal,
   // load-bearing for the live-stream feel. HUD updates derive from
   // the same cellsData so cell counts + flashes reflect post-append.
