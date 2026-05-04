@@ -2667,21 +2667,14 @@ function applyMixed3DLayout(opts) {
     // reads as ambient atmosphere rather than a bug.
     depthTest: false,
   });
-  // Pad: solid cyan square sized to the tower footprint. Was an
-  // additive translucent layer reliant on rendering THROUGH tower
-  // glass — that approach showed an unexplained "blink" where the
-  // bright bases disappeared for several seconds (2026-05-03).
-  // Switching to a fully opaque MeshBasicMaterial with depth tests
-  // off and a high renderOrder makes it always paint last, so it
-  // can't be obscured or blended away.
-  const sharedPadGeo = new T.PlaneGeometry(towerW, towerD);
-  const sharedPadMat = new T.MeshBasicMaterial({
-    color: tint,
-    transparent: false,
-    side: T.DoubleSide,
-    depthWrite: false,
-    depthTest: false,
-  });
+  // (Pad mesh removed 2026-05-03: gen_floor.py section 6 already
+  // bakes a bright cyan tower-footprint into the floor texture, so
+  // a runtime pad mesh on top was redundant. Its depthTest:false +
+  // renderOrder=999 also caused it to paint OVER cells in towers
+  // behind it when the camera looked through one tower's wall to
+  // another's interior. With the runtime pad gone, the floor's
+  // baked cyan square supplies the bright base and depth-tests
+  // correctly against everything in the scene.)
   // Uplight cone: base matches the tower footprint exactly
   // (user 2026-05-02 "the glow cone base needs to be the same size
   // as the tower base"), widens upward to ~2× tower-width at the
@@ -2795,20 +2788,10 @@ function applyMixed3DLayout(opts) {
       // (Sprite halo dropped 2026-05-02: billboarded radial gradient
       // always reads as a "ball at the base," not as light shining
       // up. The square pyramid cone below carries the uplight.)
-      // Bright pad: the "hole in floor" footprint. Slight Y nudge
-      // per-tower (0.04 + ix*0.0001 + iz*0.0001) so 100 pads don't
-      // sort-conflict with each other and with traces passing under
-      // tower bases. Without this they were part of the floor flicker
-      // (user 2026-05-02).
-      const pad = new T.Mesh(sharedPadGeo, sharedPadMat);
-      pad.position.set(mesh.position.x, 0.04 + ix * 0.0001 + iz * 0.0001, mesh.position.z);
-      pad.rotation.x = -Math.PI / 2;
-      pad.frustumCulled = false;
-      pad.renderOrder = 999; // render LAST so the bright base always
-                              // shows regardless of any sort/transparency
-                              // weirdness around tower glass (the "blink"
-                              // workaround, 2026-05-03).
-      scene.add(pad);
+      // (Bright pad mesh removed 2026-05-03: gen_floor.py already
+      // bakes the bright cyan tower footprint into the floor; the
+      // runtime overlay drew over cells behind. Floor texture +
+      // depth-correct cells = no over-draw.)
       // Uplight cone — base matches tower footprint, widens upward,
       // gradient texture for soft glow. Position center at y=height/2
       // so the base sits at floor (y=0). Rotate 45° around Y so the
