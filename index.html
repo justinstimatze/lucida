@@ -2984,22 +2984,22 @@ function applyMixed3DLayout(opts) {
       towerD,
       spacing,
       // 6 columns × 6 rows per side face. 6-column count is a rule
-      // 3 cols × 12 rows = 36 slots per side face × 4 sides + 1 top
-      // = 145 slots/tower × 100 towers = 14500 capacity. Cells fill
-      // edge-to-edge per Gibson canyon refs (canyon_flythrough.png,
-      // tower_bases_low_angle.png) — slightly-wider-than-tall cells
-      // tiled densely with hairline margins, not a square grid with
-      // visible gutters. Aspect: slotW=1.65, slotH=1.30, ratio
-      // ~1.27:1, matches reference and matches mermaid/vega/html
-      // content shape. Was 6×6 (cells were 0.65×2.0, ratio 1:3.1
-      // tall narrow — wrong shape for content AND for the ref).
-      slotsPerFaceX: 3,
-      slotsPerFaceY: 12,
-      slotW: 1.65,
-      slotH: 1.30,
-      slotMarginX: 0.025,
+      // 6 cols × 6 rows = 36 slots per side face × 4 sides + 1 top
+      // = 145/tower × 100 = 14500 capacity. Cell dimensions stretched
+      // to fill the FULL tower face: slotW = 5/6 = 0.83 across the
+      // 5u tower width, slotH = 17/6 = 2.78 across the 17u height,
+      // hairline margins. Cells span y=0 to y=17, no empty top/bottom
+      // strip — user 2026-05-03 "we need six columns across and
+      // whatever it takes to fill to the top on all 4 sides".
+      // 14000 perf_fill cells ÷ 100 towers ÷ 4 sides = 35 per side,
+      // exactly fits the 36-slot grid.
+      slotsPerFaceX: 6,
+      slotsPerFaceY: 6,
+      slotW: 0.81,
+      slotH: 2.78,
+      slotMarginX: 0.02,
       slotMargin: 0.04,
-      slotBaseY: 0.6,
+      slotBaseY: 0,
       pixelsPerUnit: 400,
     },
     animation: { t0: performance.now(), running: true, danger: false },
@@ -4427,13 +4427,10 @@ function _mixed3dRetierSweep() {
 // because the tinted bg already approximates that.
 function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
   const T = window.THREE;
-  // Side cells: 96×72 to match the new 3×12 face layout (cell plane
-  // is 1.65×1.30, ratio 1.27:1, slightly wider than tall — matches
-  // Gibson canyon refs and the mermaid/vega/html content shape).
-  // Was 48×144 for the old tall-narrow 6×6 grid; that aspect would
-  // squash horizontally on the new plane.
-  const W = isTop ? 96 : 96;
-  const H = isTop ? 96 : 72;
+  // Side cells: 48×144 to match 6×6 face layout (cell plane is
+  // 0.81×2.78, ratio 1:3.4, tall narrow).
+  const W = isTop ? 96 : 48;
+  const H = isTop ? 96 : 144;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -4470,12 +4467,10 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const T = window.THREE;
-  // Side cells: 160×128 to match the new 3×12 face layout (cell
-  // plane is 1.65×1.30, ratio 1.27:1). Was 80×240 for the old
-  // tall-narrow 6×6 grid; that aspect would squash horizontally
-  // on the new plane.
-  const W = isTop ? 192 : 160;
-  const H = isTop ? 192 : 128;
+  // Side cells: 80×240 to match 6×6 face layout (cell plane is
+  // 0.81×2.78, ratio 1:3.4, tall narrow).
+  const W = isTop ? 192 : 80;
+  const H = isTop ? 192 : 240;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
