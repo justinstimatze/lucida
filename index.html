@@ -3833,10 +3833,23 @@ function _mixed3dDriveSwoopyTour(t) {
   }
   const sw = S.swoopCam;
   if (!sw || !isFinite(sw.totalLen) || sw.totalLen <= 0) return;
-  // Arc-length parameterization: u sweeps [0..1) at constant linear
-  // speed regardless of curve curvature. No smoothstep — no zero-
-  // velocity points on the path.
-  const u = ((t * sw.speed) % sw.totalLen) / sw.totalLen;
+  // Arc-length parameterization plus a 10-second boot ease-in. The
+  // speed multiplier ramps linearly from 0.3 to 1.0 over τ ∈ [0, 10],
+  // then stays at 1.0. Closed-form integral of speed × multiplier
+  // gives the cumulative arc-length traveled at time t — used as the
+  // u parameter so the curve is sampled smoothly through the speed
+  // ramp without an accumulator (which would need per-frame dt).
+  // User 2026-05-03: "start the camera moving slow and steady for
+  // maybe 10 seconds first".
+  let arc;
+  if (t < 10) {
+    // ∫(0..t) speed * (0.3 + 0.07τ) dτ = speed * (0.3t + 0.035t²)
+    arc = sw.speed * (0.3 * t + 0.035 * t * t);
+  } else {
+    // arc(10) = speed * 6.5; afterwards full-speed linear
+    arc = sw.speed * (6.5 + (t - 10));
+  }
+  const u = (arc % sw.totalLen) / sw.totalLen;
   if (!isFinite(u)) return;
   let desiredPos;
   try {
@@ -3887,7 +3900,17 @@ function _mixed3dDriveSwoopyTour(t) {
     if (dT > 0.05) avgRate = dH / dT;
   }
   const BANK_K = 2.0; // happy medium
-  const bankTarget = avgRate * BANK_K;
+  // Boot ease-in: bank multiplier ramps from 0 → 1 over the first
+  // 10 seconds after camera-timer reset (loader-fade or
+  // bfcache/visibility restore). Without this, the camera enters
+  // the very first curve corner with full bank applied
+  // immediately, reading as a sudden tilt to the right at t=0
+  // (user 2026-05-03 "on first load there's an immediate bank to
+  // the right, we don't want that. just start the camera moving
+  // slow and steady for maybe 10 seconds first"). The position
+  // path itself stays linear so motion is steady.
+  const easeIn = Math.min(1, t / 10);
+  const bankTarget = avgRate * BANK_K * easeIn;
   if (sw.bankActual == null) sw.bankActual = 0;
   sw.bankActual += (bankTarget - sw.bankActual) * 0.04;
   const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
