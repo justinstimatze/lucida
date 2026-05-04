@@ -1485,26 +1485,46 @@ function liveAppendNewCells(cellsData) {
 // pollCells() and pollHud() from separate intervals with different
 // cache keys for cellsData / mintLogText. Per audit 2026-04-28.
 async function pollAll() {
+  // HEAD probe before GET. At saturation cells.json is multi-MB and
+  // JSON.parse is ~50-100ms per poll. The fingerprint short-circuit
+  // (below) skips the heavy walks but only AFTER parse. A HEAD
+  // request returns just headers (~1-5ms localhost); when
+  // Content-Length + Last-Modified match the previous poll, the file
+  // genuinely hasn't changed and we skip the GET + parse entirely.
+  // Organic mints land every ~30s; polls run every 3s, so ~9/10
+  // polls hit this fast path. Falls through to full path on any
+  // HEAD error so a flaky probe doesn't strand the HUD.
+  let modTag = null;
+  try {
+    const head = await fetch("cells.json", { method: "HEAD", cache: "no-store" });
+    if (head.ok) {
+      modTag = (head.headers.get("content-length") || "?")
+        + ":" + (head.headers.get("last-modified") || "?");
+      if (state.poll && state.poll.lastModTag === modTag) return;
+    }
+  } catch (e) { /* fall through to full GET */ }
+
   const [cellsData, mintLogText] = await Promise.all([
     fetchJSON("cells.json"),
     fetchText("mint_log.jsonl"),
   ]);
   if (!cellsData) return;
 
-  // Fingerprint short-circuit: at saturation (~7000 cells, ~5MB
-  // cells.json) the per-poll cost of liveAppendNewCells +
-  // computeHud is 100-200ms — visible jank every 1.5s. Most polls
-  // see unchanged data (organic mints land every ~50s, not every
-  // 1.5s), so we cheaply detect "nothing changed" via cell count +
-  // last cell id + mint-log byte length. When the fingerprint is
-  // stable, skip both heavy walks. Parse cost (~50ms) still hits
-  // every poll, but that's the floor of the JSON.parse work.
+  // Fingerprint short-circuit (parsed-shape dedup): a HEAD-mismatch
+  // can fire on byte-identical content (e.g. atomic write touches
+  // Last-Modified). Cell count + last cell id + mint-log byte length
+  // covers every "actually changed" signal we care about, and runs
+  // after parse so the HEAD path is the cheap one — see above.
   const cells = cellsData.cells || [];
   const lastId = cells.length ? cells[cells.length - 1].id : null;
   const fingerprint = `${cells.length}:${lastId}:${(mintLogText || "").length}`;
-  if (state.poll && state.poll.lastFingerprint === fingerprint) return;
+  if (state.poll && state.poll.lastFingerprint === fingerprint) {
+    if (modTag) state.poll.lastModTag = modTag;
+    return;
+  }
   if (!state.poll) state.poll = {};
   state.poll.lastFingerprint = fingerprint;
+  if (modTag) state.poll.lastModTag = modTag;
 
   // (a) Cell append first — this is the "what just landed" signal,
   // load-bearing for the live-stream feel. HUD updates derive from
