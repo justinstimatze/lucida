@@ -76,9 +76,12 @@
             document.body.classList.add("booted");
           });
         }
-        // Safety fallback: force-hide after 6 seconds no matter what,
+        // Safety fallback: force-hide after 20 seconds no matter what,
         // so a buggy layout init never strands users behind the splash.
-        setTimeout(function () { document.body.classList.add("booted"); }, 6000);
+        // Bumped from 6s — mixed3d at saturation (~7000 cells) takes
+        // ~12s to drain the mount queue, and we want the loader to
+        // stay up through that whole spawn phase.
+        setTimeout(function () { document.body.classList.add("booted"); }, 20000);
       });
     } catch (e) { /* swallow */ }
   })();
@@ -3079,6 +3082,16 @@ function applyMixed3DLayout(opts) {
         // log (not warn) so devtools doesn't append a stack trace per stall.
         console.log(`[mixed3d] frame stall: ${dt.toFixed(0)}ms gap @ ${now.toFixed(0)}ms`);
       }
+      // Stable-frame counter for the boot-overlay fade. dt < 33ms =
+      // ~30fps or better → frame is "good"; dt > 50ms resets to 0.
+      // Used below to decide when to lift the loading overlay so the
+      // user doesn't see ~5s of world-spawn-in jank with the booted
+      // class already applied.
+      if (dt < 33) {
+        _mixed3dState._stableFrames = (_mixed3dState._stableFrames || 0) + 1;
+      } else if (dt > 50) {
+        _mixed3dState._stableFrames = 0;
+      }
     }
     _lastFrameTs = now;
     // Sample state every 10 frames; log on change. Catches the binary
@@ -3227,7 +3240,18 @@ function applyMixed3DLayout(opts) {
     // First-frame boot signal: hide the loading overlay once the
     // first WebGL + CSS3D render has actually painted. Wait one extra
     // frame so the page repaints with the full scene before fading.
-    if (!_mixed3dState._booted) {
+    // Hold the loading overlay until the world is actually live:
+    //   1. Mount drain finished (no more cells streaming in)
+    //   2. ~30 consecutive smooth frames (dt < 33ms) — proves render
+    //      is stable, not just a single fluke frame
+    // Without this, the user sees the overlay vanish then watches
+    // ~5s of jank as cells spawn in and the camera moves at low fps.
+    // The legacy 6s timeout in the boot script (index.html:81) still
+    // serves as a hard fallback if something keeps frames unstable
+    // forever, so we never strand the user behind a stuck loader.
+    if (!_mixed3dState._booted
+        && !_mixed3dState.mountDraining
+        && (_mixed3dState._stableFrames || 0) >= 30) {
       _mixed3dState._booted = true;
       requestAnimationFrame(() => document.body.classList.add("booted"));
     }
@@ -4239,10 +4263,10 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     : _mixed3dCellTextureMini(cell, isTop, cyan, pink);
   obj.material = new T.MeshBasicMaterial({
     map: tex,
-    transparent: true,
+    transparent: newTier === 1,
     opacity: 1.0,
     side: T.FrontSide,
-    depthWrite: false,
+    depthWrite: newTier === 2,
   });
   if (newTier === 1) S.tier1Count = (S.tier1Count || 0) + 1;
   else S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
@@ -4298,6 +4322,14 @@ function _mixed3dRetierSweep() {
 // own preview drawing at small resolution. Far cells then read as
 // "tiny dim cells" instead of billboards. Per-cell unique (so each
 // cell shows ITS content, not a substrate-class stamp).
+//
+// Background is fully OPAQUE here (not rgba 0.78). Rationale: tier-2
+// is the bulk path — at saturation ~6500 cells visible. Transparent
+// materials go through Three.js's transparent pass (sorted by depth,
+// no early-Z cull). Pre-baking the dim-cyan-tint into the canvas bg
+// lets us run tier-2 in the opaque pass — depth-tested, no sort,
+// huge per-frame savings. The glass-tower-behind look is preserved
+// because the tinted bg already approximates that.
 function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
   const T = window.THREE;
   const W = isTop ? 64 : 32;
@@ -4306,7 +4338,9 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "rgba(8, 18, 30, 0.78)";
+  // Pre-tinted dim cyan-black — same end color as rgba(8, 18, 30,
+  // 0.78) blended over the cyan tower glass.
+  ctx.fillStyle = "#0a1820";
   ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = cyan;
   ctx.lineWidth = 0.8;
@@ -4547,18 +4581,24 @@ function _mixed3dDrainMountQueue() {
     // OWN content. Tier difference is resolution + whether the title
     // strip is included. Tier 2 is small enough that 14600 of them
     // still fit comfortably in GPU memory (~110MB total).
+    //
+    // Tier 2 runs in the OPAQUE render pass: the dim-cyan tint is
+    // pre-baked into the canvas bg so the material doesn't need
+    // alpha blending. Saves ~6500 cells from Three.js's transparent
+    // pass per frame (sort + back-to-front draw, no early-Z), which
+    // was the dominant per-frame cost at saturation.
     const tex = tier === 1
       ? _mixed3dCellTexture(cell, isTop, cyan, pink)
       : _mixed3dCellTextureMini(cell, isTop, cyan, pink);
     const mat = new T.MeshBasicMaterial({
       map: tex,
-      transparent: true,
+      transparent: tier === 1,
       opacity: 1.0,
       // FrontSide so cells only render from their intended viewing
       // direction (otherwise back-of-plane shows mirrored text
       // through translucent towers).
       side: T.FrontSide,
-      depthWrite: false,
+      depthWrite: tier === 2,
     });
     if (tier === 1) S.tier1Count = (S.tier1Count || 0) + 1;
 
