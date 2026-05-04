@@ -4657,9 +4657,18 @@ function _mixed3dDrainMountQueue() {
     } else {
       const faceSpec = tower.faces[facePri];
       const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * (G.slotW + G.slotMarginX);
-      tx = tower.mesh.position.x + faceSpec.dx + faceSpec.hx * colOffset;
+      // Tier-2 cells nudged 0.12u further outward than tier-1 so they
+      // sit physically in front of the tower glass plane. The +0.02
+      // baked into faceSpec.dx/dz wasn't enough to win the depth test
+      // against the transparent tower at saturation — at distance the
+      // depth resolution collapses and tier-2 cells got overdrawn by
+      // tower glass even with polygonOffset enabled.
+      const outwardBoost = 0.12;
+      const dxNorm = faceSpec.dx === 0 ? 0 : (faceSpec.dx > 0 ? 1 : -1);
+      const dzNorm = faceSpec.dz === 0 ? 0 : (faceSpec.dz > 0 ? 1 : -1);
+      tx = tower.mesh.position.x + faceSpec.dx + faceSpec.hx * colOffset + dxNorm * outwardBoost;
       ty = G.slotBaseY + row * (G.slotH + G.slotMargin);
-      tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset;
+      tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset + dzNorm * outwardBoost;
       rotY = faceSpec.rotY;
     }
 
