@@ -3977,8 +3977,16 @@ function _mixed3dDriveSwoopyTour(t) {
     }
     const dtReal = Math.max(0, Math.min(0.1, t - sw.lastT));
     sw.lastT = t;
-    const speedMult = 1 - sf; // 1.0 → 0 at full scan (parked on the wall)
-    sw.arcAccum += sw.speed * speedMult * dtReal;
+    const scanMult = 1 - sf; // 1.0 → 0 at full scan (parked on the wall)
+    // Curvature-aware speed: at sharp curve corners the heading-rate
+    // (avgRate, computed downstream from the heading-window) spikes,
+    // and at full speed=4 these read as fast yaws. Use the previous
+    // frame's avgRate (cached on sw) to slow the arc here.
+    // |avgRate| 0 → 1.0, 0.5 → 0.7, 1.0 → 0.4 floor.
+    // User feedback 2026-05-04: "still a few fast turns too, yawing".
+    const lastAvgRate = sw.lastAvgRate || 0;
+    const cornerMult = Math.max(0.4, 1 - Math.abs(lastAvgRate) * 0.6);
+    sw.arcAccum += sw.speed * scanMult * cornerMult * dtReal;
     arc = sw.arcAccum;
   }
   const u = (arc % sw.totalLen) / sw.totalLen;
@@ -4072,6 +4080,9 @@ function _mixed3dDriveSwoopyTour(t) {
     const dT = last.time - first.time;
     if (dT > 0.05) avgRate = dH / dT;
   }
+  // Cache avgRate so the next frame's arc accumulator can use it for
+  // curvature-aware speed reduction (corner slowdown).
+  sw.lastAvgRate = avgRate;
   const BANK_K = 2.0; // happy medium
   // Boot ease-in: bank multiplier ramps from 0 → 1 over the first
   // 10 seconds after camera-timer reset (loader-fade or
