@@ -3229,13 +3229,28 @@ function applyMixed3DLayout(opts) {
     //      is stable, not just a single fluke frame
     // Without this, the user sees the overlay vanish then watches
     // ~5s of jank as cells spawn in and the camera moves at low fps.
-    // The legacy 6s timeout in the boot script (index.html:81) still
+    // The legacy 20s timeout in the boot script (index.html:81) still
     // serves as a hard fallback if something keeps frames unstable
     // forever, so we never strand the user behind a stuck loader.
     if (!_mixed3dState._booted
         && !_mixed3dState.mountDraining
         && (_mixed3dState._stableFrames || 0) >= 30) {
       _mixed3dState._booted = true;
+      // Reset camera animation timer at boot reveal: t was advancing
+      // during the held-loader phase (15-20s), but the swoopy-tour
+      // lerp uses a hardcoded dt=1/60 regardless of real frame time.
+      // Multi-second frame stalls during boot left posActual far
+      // behind desiredPos; when frames stabilize the lerp catches up
+      // rapidly, reading as "flying backwards quickly". Resetting t0
+      // and clearing the swoopy cache restarts the path at u=0 just
+      // as the user sees the world.
+      _mixed3dState.animation.t0 = performance.now();
+      if (_mixed3dState.swoopCam) {
+        _mixed3dState.swoopCam.posActual = null;
+        _mixed3dState.swoopCam.lookAtActual = null;
+        _mixed3dState.swoopCam.headingHistory = [];
+        _mixed3dState.swoopCam.bankActual = 0;
+      }
       requestAnimationFrame(() => document.body.classList.add("booted"));
     }
   };
