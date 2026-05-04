@@ -2555,6 +2555,17 @@ function applyMixed3DLayout(opts) {
   const root = document.getElementById("notebook");
   if (!root) return;
   const O = _mixed3dResolveOpts(opts);
+  // Boot-time perf checkpoints. Each phase logs its wall-clock
+  // duration in ms so we can spot which part of init dominates the
+  // loading-screen-to-interactive gap (user 2026-05-04: "took like
+  // 15 seconds after the loading screen disappeared to actually load").
+  const _bootT0 = performance.now();
+  const _bootMark = (label) => {
+    const t = performance.now();
+    const dt = (t - _bootT0).toFixed(0);
+    console.log(`[mixed3d.boot] +${dt}ms ${label}`);
+  };
+  _bootMark("applyMixed3DLayout start");
 
   // Incremental: scene already exists for the same arrangement → just
   // sync cell placements (add fresh / drop stale). Mirrors Muuri's
@@ -2674,6 +2685,7 @@ function applyMixed3DLayout(opts) {
   const towerD = 5.0;
   const spacing = 12.0;
   const towerMeshes = [];
+  _bootMark("renderer/scene/camera ready");
   const sharedBox = new T.BoxGeometry(towerW, towerH, towerD);
   // Edge-tube architecture: LineBasicMaterial.linewidth is clamped to
   // 1px in WebGL on most browsers, which made the previous wireframe
@@ -2924,6 +2936,7 @@ function applyMixed3DLayout(opts) {
   floor.position.y = -0.08;
   floor.frustumCulled = false;
   scene.add(floor);
+  _bootMark("towers/edges/cones/floor built");
   // (Floor PCB codegen — A* router, role graph, lane buses,
   // chip-pad stubs — REMOVED 2026-05-03 in favor of static-baked
   // texture loaded above. Source: tools/gen_floor.py. Iterate by
@@ -3068,7 +3081,9 @@ function applyMixed3DLayout(opts) {
   _mixed3dState._retierKeys = null;
   _mixed3dState._retierIdx = 0;
 
+  _bootMark("state ready, before first syncCells");
   _mixed3dSyncCells();
+  _bootMark("syncCells returned (cells queued)");
 
   const onResize = () => {
     const w2 = window.innerWidth;
@@ -3336,6 +3351,7 @@ function applyMixed3DLayout(opts) {
     }
   };
   tick();
+  _bootMark("applyMixed3DLayout complete (rAF loop running)");
 }
 
 // Toggle the danger phase. Idempotent if `on` matches current state.
