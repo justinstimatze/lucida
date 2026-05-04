@@ -10,7 +10,7 @@
 <meta http-equiv="Cache-Control" content="no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>lucida notebook</title>
+<title>Lucida</title>
 <link rel="stylesheet" href="notebook.css" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
@@ -101,11 +101,12 @@
   </div>
 </div>
 <header>
-  <!-- "lucida notebook" title removed: static chrome that doesn't earn
-       its keep on a glanceable page. Per memory/feedback_glanceable_no_clicks
-       and the user's "only consistently useful content should remain on the
-       viz page". The browser tab's <title> still says "lucida notebook" so
-       window-switching identification is preserved. -->
+  <!-- Page title removed from on-page chrome: static chrome that
+       doesn't earn its keep on a glanceable page. Per
+       memory/feedback_glanceable_no_clicks and the user's "only
+       consistently useful content should remain on the viz page".
+       The browser tab's <title> says "Lucida" so window-switching
+       identification is preserved. -->
   <div id="hud" class="hud" aria-live="polite">
     <div class="hud-row hud-row-top">
       <span class="hud-cell hud-status">
@@ -2984,11 +2985,15 @@ function applyMixed3DLayout(opts) {
       spacing,
       // 6 columns × 6 rows per side face. 6-column count is a rule
       // (user 2026-05-02 "there are always 6 vertical columns per
-      // face"). The taller 5×5×19 tower has empty glass above the
-      // cell stack (top at y=13.75, tower top at y=19), which reads
-      // as silhouette / header — towers feel tall above the cells.
+      // face"). 6 rows: cells fill y=1.5 to ~14.75 (tower top y=17),
+      // so the stack reads as a properly-saturated data wall instead
+      // of the prior 3-row config that left the upper half empty
+      // glass — at saturation users read that as "missing cells"
+      // (2026-05-03). Capacity per tower: 6×6×4 + 1 top = 145, ×100
+      // towers = 14500 — matches the 14000 perf_fill target and the
+      // earlier comment at TOKENS.mixed3d.
       slotsPerFaceX: 6,
-      slotsPerFaceY: 3,
+      slotsPerFaceY: 6,
       slotW: 0.65,
       slotH: 2.0,
       slotMarginX: 0.15,
