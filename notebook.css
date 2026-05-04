@@ -5247,30 +5247,115 @@ body.layout-mixed3d .cell .cell-content {
   max-height: 100% !important;
 }
 
-/* Pink/red CAPS title with thin rule, matching the Gibson on-tower
-   directory labels (refs/gibson/tower_face_labels.png and
-   monitor_directory_listing.png). Per cell, the title becomes the
-   "directory header" — pink, monospace, all caps, with a thin
-   underline rule. The cell-id chip dims to a smaller cyan accent
-   so the pink label dominates the head. */
+/* CAPS cyan title with thin rule. Per the Gibson refs, the dominant
+   cell color is cyan — pink/magenta is reserved for the rare,
+   highlighted column (refs/gibson/tower_face_labels.png shows one
+   pink column among many cyan ones; tower_glass_closeup.png shows
+   all-cyan rows). Default cell goes full cyan; rarity highlight is
+   layered separately. */
 body.layout-mixed3d .cell-title {
-  color: #ff3a8c !important;
+  color: #00ddff !important;
   text-transform: uppercase !important;
-  font-family: "Share Tech Mono", "Courier New", monospace !important;
+  font-family: "Eurostile", "Share Tech Mono", "Courier New", monospace !important;
   font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
+  letter-spacing: 0.08em !important;
   font-size: 0.78rem !important;
   padding-bottom: 2px;
-  border-bottom: 1px solid color-mix(in srgb, #ff3a8c 60%, transparent);
-  text-shadow: 0 0 4px color-mix(in srgb, #ff3a8c 40%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, #00ddff 45%, transparent);
+  text-shadow: 0 0 4px color-mix(in srgb, #00ddff 35%, transparent);
 }
 body.layout-mixed3d .cell-id {
-  color: color-mix(in srgb, #00ddff 70%, transparent) !important;
+  color: color-mix(in srgb, #00ddff 65%, transparent) !important;
   font-size: 0.6rem !important;
   opacity: 0.7 !important;
 }
 body.layout-mixed3d .cell-head {
   margin-bottom: 0.35rem;
-  border-bottom: 1px solid color-mix(in srgb, #ff3a8c 25%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, #00ddff 20%, transparent);
   padding-bottom: 1px;
+}
+
+/* ---------------------------------------------------------------------
+   theme-hackers cell chrome (Task #109)
+
+   Default cell = pure cyan, matching tower_glass_closeup.png where
+   every cell on a face shares the same cyan glass aesthetic. Magenta
+   is reserved as a RARE highlight (refs/gibson/tower_face_labels.png
+   shows one pink column among many cyan) — driven by .cell-conf-high
+   (cv >= 0.92, ~5% of cells). See bottom of this block.
+
+   Layered on top of body.layout-mixed3d.* baseline:
+     - thin cyan left rail (subtle column-edge accent)
+     - cyan top edge highlight — feels "lit from above"
+     - subtle horizontal scanlines (CRT feel from
+       refs/gibson/monitor_directory_listing.png)
+   --------------------------------------------------------------------- */
+.theme-hackers .cell {
+  position: relative;
+  border-left: 1px solid color-mix(in srgb, #00ddff 35%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #00ddff 55%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #00ddff 18%, transparent);
+}
+/* Scanline overlay — flat horizontal striping at low alpha. Pointer
+   events disabled so it never intercepts cell interactions. Sits at
+   z-index 0 above bg, below content. */
+.theme-hackers .cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 221, 255, 0.045) 2px,
+    rgba(0, 221, 255, 0.045) 3px
+  );
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.theme-hackers .cell > * { position: relative; z-index: 1; }
+
+.theme-hackers .cell-title {
+  font-family: "Eurostile", "Share Tech Mono", "Courier New", monospace !important;
+  letter-spacing: 0.08em !important;
+}
+.theme-hackers .cell-id,
+.theme-hackers .cell-conf-num,
+.theme-hackers .cell-conf,
+.theme-hackers .hud-value {
+  font-family: "Eurostile", "Share Tech Mono", "Courier New", monospace !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Fresh-cell treatment: cyan rail brightens and cyan top edge gets a
+   soft outer glow. No magenta — pink stays reserved for rare-highlight
+   state, not transient mint flashes. */
+.theme-hackers .cell.cell-fresh {
+  border-left-color: #00ddff;
+  box-shadow:
+    inset 0 1px 0 #00ddff,
+    inset 0 -1px 0 color-mix(in srgb, #00ddff 35%, transparent),
+    0 0 10px color-mix(in srgb, #00ddff 40%, transparent);
+}
+
+/* Rare-pink highlight: cells with confidence >= 0.88 (set in
+   index.html where cell-conf-low is added). Matches the single
+   magenta column in refs/gibson/tower_face_labels.png that stands out
+   among many cyan ones. ~4% of cells in current corpus — sparse
+   enough that during the slow-scan camera pass an occasional pink
+   rail/title scrolls by as a "this one matters" surprise. */
+.theme-hackers .cell.cell-conf-high {
+  border-left: 2px solid #ff3a8c;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #00ddff 60%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #00ddff 18%, transparent),
+    0 0 6px color-mix(in srgb, #ff3a8c 30%, transparent);
+}
+.theme-hackers .cell.cell-conf-high .cell-title {
+  color: #ff3a8c !important;
+  border-bottom-color: color-mix(in srgb, #ff3a8c 60%, transparent);
+  text-shadow: 0 0 4px color-mix(in srgb, #ff3a8c 40%, transparent);
 }
