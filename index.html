@@ -4267,6 +4267,14 @@ function _mixed3dRetierSweep() {
   const cyan = S.colorCache?.cyan || "#00ddff";
   const pink = S.colorCache?.pink || "#ff3a8c";
   const start = performance.now();
+  // Split budgets: demotions (1→2) just swap material refs and dispose
+  // — cheap, ~0.1ms each. Promotions (2→1) paint a unique 80×240
+  // CanvasTexture, ~2ms each, and a burst stalls the frame. Walk many
+  // cells per frame to catch all demotions, but cap promotions to 2
+  // per frame so a camera approach doesn't unleash a 36-cell paint
+  // storm in one tick.
+  const PROMOTE_BUDGET = 2;
+  let promotesDone = 0;
   let i = S._retierIdx;
   while (i < S._retierKeys.length) {
     if (i > S._retierIdx && performance.now() - start > _MIXED3D_RETIER_BUDGET_MS) break;
@@ -4276,7 +4284,11 @@ function _mixed3dRetierSweep() {
     const cur = obj.userData.tier || S.cellTier.get(id) || 2;
     const desired = _mixed3dPickTierForPos(obj.position, camPos, cur);
     if (desired === cur) continue;
-    if (desired === 1 && (S.tier1Count || 0) >= _MIXED3D_TIER1_CAP) continue;
+    if (desired === 1) {
+      if ((S.tier1Count || 0) >= _MIXED3D_TIER1_CAP) continue;
+      if (promotesDone >= PROMOTE_BUDGET) continue;
+      promotesDone++;
+    }
     _mixed3dSwapCellTier(obj, id, desired, cyan, pink);
   }
   S._retierIdx = i;
@@ -6832,7 +6844,12 @@ hudEl?.addEventListener("keydown", (e) => {
 // poll cadence doesn't cause header flicker. The since-last-mint
 // counter ticks every second so the HUD feels alive even between polls.
 loadHud().catch(() => {});
-setInterval(() => loadHud().catch(() => {}), 1500);
+// 3000ms (was 1500ms): at saturation (~7000 cells, ~5MB cells.json)
+// the JSON.parse floor is ~50-100ms per poll even when fingerprint
+// short-circuits. Halving poll frequency halves the parse cost. UX
+// is fine — organic mints land every ~30-50s on average, so 3s
+// freshness is well under the inter-mint interval.
+setInterval(() => loadHud().catch(() => {}), 3000);
 setInterval(tickSinceLast, 1000);
 
 // =====================================================================
