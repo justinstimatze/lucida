@@ -2965,8 +2965,15 @@ function applyMixed3DLayout(opts) {
     particleSystem,
     cellObjects: new Map(), // cell-id → CSS3DObject
     cellTier: new Map(), // cell-id → 1 (close) or 2 (far)
-    cellSlotKeys: new Map(), // cell-id → "tower:face:vert" key
-    usedSlots: new Set(), // "tower:face:vert" already occupied
+    cellSlotKeys: new Map(), // cell-id → "tower:face:col:i" key
+    usedSlots: new Set(), // "tower:4:0:0" reserved for tower-top
+    // Column-packing plan per face-column. Each entry is a list of
+    // { y, h } pre-computed positions for that column with cells
+    // packed tightly with hairline padding, end-flush with top and
+    // bottom of the tower. Cells per column vary (5-7) and per-cell
+    // heights vary so columns read like terminal scrollback rather
+    // than a uniform grid.
+    columnPlans: new Map(), // "tower:face:col" → { positions, nextIdx }
     // Per-tower count so we can spread cells across the field
     // before stacking — without this, the camera-aware picker fills
     // one tower's 29 slots completely before reaching the next
@@ -2984,21 +2991,24 @@ function applyMixed3DLayout(opts) {
       towerD,
       spacing,
       // 6 columns × 6 rows per side face. 6-column count is a rule
-      // 6 cols × 6 rows = 36 slots per side face × 4 sides + 1 top
-      // = 145/tower × 100 = 14500 capacity. Cell dimensions stretched
-      // to fill the FULL tower face: slotW = 5/6 = 0.83 across the
-      // 5u tower width, slotH = 17/6 = 2.78 across the 17u height,
-      // hairline margins. Cells span y=0 to y=17, no empty top/bottom
-      // strip — user 2026-05-03 "we need six columns across and
-      // whatever it takes to fill to the top on all 4 sides".
-      // 14000 perf_fill cells ÷ 100 towers ÷ 4 sides = 35 per side,
-      // exactly fits the 36-slot grid.
+      // 6 narrow columns per face × 4 faces = 24 columns/tower.
+      // Each column is a TERMINAL SCROLLBACK STREAM that packs cells
+      // of varying heights until it fills the full tower height
+      // (user 2026-05-03 "wall-height scrollback buffer ... variation
+      // in the heights of the cells ... each column of cells
+      // completely fills the height of the tower"). Not a grid.
+      // slotsPerFaceY is the *target* number of cells per column at
+      // average height; actual count varies because cells get random
+      // heights between baseH × 0.55 and baseH × 1.6.
+      // slotW = 5/6 ≈ 0.833, columns touch (slotMarginX = 0).
+      // slotH = 17/6 ≈ 2.833 is the BASE per-cell height; the picker
+      // randomly varies each cell.
       slotsPerFaceX: 6,
       slotsPerFaceY: 6,
-      slotW: 0.81,
-      slotH: 2.78,
-      slotMarginX: 0.02,
-      slotMargin: 0.04,
+      slotW: 0.833,
+      slotH: 2.833,
+      slotMarginX: 0,
+      slotMargin: 0,
       slotBaseY: 0,
       pixelsPerUnit: 400,
     },
@@ -4660,10 +4670,11 @@ function _mixed3dDrainMountQueue() {
       pending.clear();
       break;
     }
-    const { towerIdx, facePri, row, col, key } = placement;
+    const { towerIdx, facePri, col, key, y: cellY, h: cellH } = placement;
     const tower = S.towerMeshes[towerIdx];
     const isTop = facePri === 4;
     let tx, ty, tz, rotX = 0, rotY = 0;
+    let mountedH = G.towerW * 0.95;
     if (isTop) {
       tx = tower.mesh.position.x;
       ty = G.towerH + 0.02;
@@ -4671,7 +4682,7 @@ function _mixed3dDrainMountQueue() {
       rotX = -Math.PI / 2;
     } else {
       const faceSpec = tower.faces[facePri];
-      const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * (G.slotW + G.slotMarginX);
+      const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * G.slotW;
       // Tier-2 cells nudged 0.12u further outward than tier-1 so they
       // sit physically in front of the tower glass plane. The +0.02
       // baked into faceSpec.dx/dz wasn't enough to win the depth test
@@ -4682,13 +4693,17 @@ function _mixed3dDrainMountQueue() {
       const dxNorm = faceSpec.dx === 0 ? 0 : (faceSpec.dx > 0 ? 1 : -1);
       const dzNorm = faceSpec.dz === 0 ? 0 : (faceSpec.dz > 0 ? 1 : -1);
       tx = tower.mesh.position.x + faceSpec.dx + faceSpec.hx * colOffset + dxNorm * outwardBoost;
-      ty = G.slotBaseY + row * (G.slotH + G.slotMargin);
+      // cellY is the cell's BOTTOM in tower-local coords; ty is the
+      // cell CENTER in world coords. Cells sit on the column floor
+      // (tower base) so towerLocalY=0 maps to worldY=0.
+      ty = cellY + cellH / 2;
       tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset + dzNorm * outwardBoost;
       rotY = faceSpec.rotY;
+      mountedH = cellH;
     }
 
     const planeW = isTop ? G.towerW * 0.95 : G.slotW;
-    const planeH = isTop ? G.towerW * 0.95 : G.slotH;
+    const planeH = mountedH;
     const planeGeo = new T.PlaneGeometry(planeW, planeH);
 
     // Pick tier at mount based on camera distance. Tier-2 cells reuse
@@ -4753,7 +4768,10 @@ function _mixed3dDrainMountQueue() {
     map.set(cell.id, obj);
     S.cellTier.set(cell.id, tier);
     S.cellSlotKeys.set(cell.id, key);
-    S.usedSlots.add(key);
+    // usedSlots is only used to mark the single tower-top slot; side
+    // columns track fullness via columnPlans.nextIdx (advanced in
+    // the picker).
+    if (isTop) S.usedSlots.add(key);
     S.towerCellCount[towerIdx]++;
     mounted++;
   }
@@ -4768,11 +4786,43 @@ function _mixed3dDrainMountQueue() {
   }
 }
 
+// Plan one column's cell stack. Picks a random cell count near
+// slotsPerFaceY, generates per-cell heights with ±50% variance, then
+// distributes any leftover space as inter-cell padding so the first
+// cell sits flush at y=0 and the last cell ends flush at y=towerH —
+// no whitespace at top or bottom (user 2026-05-03 "first/last cell
+// crisply flush ... pretty dense ... variation in heights").
+function _mixed3dPlanColumn(towerH, targetCount) {
+  // ±1 around target; e.g. 6 → {5,6,7}
+  const N = Math.max(2, targetCount + Math.floor((Math.random() * 3) - 1));
+  // Random fractional weights, then normalize so heights sum to towerH.
+  // Add a small base padding (0.06u) between cells; the rest is the
+  // cell heights. Reserved padding = (N-1) × 0.06.
+  const minPad = 0.06;
+  const reservedPad = (N - 1) * minPad;
+  const cellTotal = towerH - reservedPad;
+  const fractions = [];
+  for (let i = 0; i < N; i++) fractions.push(0.55 + Math.random() * 1.05);
+  const sumF = fractions.reduce((a, b) => a + b, 0);
+  const heights = fractions.map(f => f * cellTotal / sumF);
+  const positions = [];
+  let y = 0;
+  for (let i = 0; i < N; i++) {
+    positions.push({ y, h: heights[i] });
+    y += heights[i] + minPad;
+  }
+  // Floating-point drift can leave the last cell a few µu short of
+  // tower top; nudge the final cell to land exactly at y=towerH.
+  const last = positions[positions.length - 1];
+  last.h = towerH - last.y;
+  return { positions, nextIdx: 0 };
+}
+
 // Find a slot for a freshly minted cell, biased toward where the user
-// is currently looking. Computes a 2D target ahead of camera in the
-// X/Z plane, sorts towers by distance to that target, then walks
-// (face, vert) in priority order on the chosen tower until a free
-// slot is found. Returns null if every slot is occupied.
+// is currently looking. Sorts towers by lowest cell count + nearest
+// to camera target. Within the picked tower, walks col→face and uses
+// the column-pack plan to return the next { y, h } slot in that
+// column. Returns null if every column on every tower is fully packed.
 function _mixed3dPickSlotForNewCell() {
   const S = _mixed3dState;
   if (!S) return null;
@@ -4791,18 +4841,11 @@ function _mixed3dPickSlotForNewCell() {
     const dir = phase < 0.5 ? 1 : -1;
     targetX += dir * G.spacing * 1.2;
   } else {
-    // Fallback: bias toward where camera is currently looking.
     const fwd = new window.THREE.Vector3();
     cam.getWorldDirection(fwd);
     targetX += fwd.x * G.spacing * 1.5;
     targetZ += fwd.z * G.spacing * 1.5;
   }
-  // Rank ALL towers by (lowest count, nearest to target). The earlier
-  // inner-field filter concentrated cells in ~30 inner towers, but
-  // user 2026-05-02 flagged "no tiles more than like 2 towers away"
-  // — outer towers visible from the corridor were left empty. With
-  // 2000 placeholders distributed evenly across 100 towers, every
-  // tower gets ~20 cells (≈ one face mostly populated).
   const ranked = S.towerMeshes
     .map((tw, idx) => ({
       idx,
@@ -4811,23 +4854,30 @@ function _mixed3dPickSlotForNewCell() {
     }))
     .sort((a, b) => a.count - b.count || a.dist - b.dist);
   for (const { idx } of ranked) {
-    // Walk order row → col → face round-robins faces per cell, so all
-    // 4 sides of a tower fill evenly. Earlier face → row → col made
-    // face 0 fill its 36 slots before face 1 got any (user 2026-05-02
-    // "there's still only about one side of each tower with cells").
-    // Row outer keeps cells near eye-level longer.
-    for (let row = 0; row < G.slotsPerFaceY; row++) {
-      for (let col = 0; col < G.slotsPerFaceX; col++) {
-        for (let face = 0; face < 4; face++) {
-          const key = `${idx}:${face}:${row}:${col}`;
-          if (S.usedSlots.has(key)) continue;
-          return { towerIdx: idx, facePri: face, row, col, key };
+    // Walk col → face. With this order, the first cell on a tower
+    // goes to col 0 face 0; second to col 0 face 1; etc. — all 4
+    // faces' col 0 fill before col 1 of any face does, distributing
+    // cells evenly across faces and columns.
+    for (let col = 0; col < G.slotsPerFaceX; col++) {
+      for (let face = 0; face < 4; face++) {
+        const key = `${idx}:${face}:${col}`;
+        let plan = S.columnPlans.get(key);
+        if (!plan) {
+          plan = _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY);
+          S.columnPlans.set(key, plan);
         }
+        if (plan.nextIdx >= plan.positions.length) continue;
+        const slot = plan.positions[plan.nextIdx];
+        plan.nextIdx++;
+        return {
+          towerIdx: idx, facePri: face, col, key,
+          y: slot.y, h: slot.h,
+        };
       }
     }
     const topKey = `${idx}:4:0:0`;
     if (!S.usedSlots.has(topKey)) {
-      return { towerIdx: idx, facePri: 4, row: 0, col: 0, key: topKey };
+      return { towerIdx: idx, facePri: 4, col: 0, key: topKey, y: 0, h: 0 };
     }
   }
   return null;
