@@ -4552,12 +4552,22 @@ function _mixed3dBuildSharedSubstrateMats(cyan, pink) {
       tex.magFilter = T.LinearFilter;
       const mat = new T.MeshBasicMaterial({
         map: tex,
-        // Transparent pass: alpha-blend over the tower glass behind
-        // (etched-glass look). This costs the back-to-front sort
-        // every frame for ~1000 visible cells — ~0.1ms/frame, OK.
-        transparent: true,
-        opacity: 1.0,
-        depthWrite: false,
+        // alphaTest cutout (NOT transparent: true). Pixels with
+        // alpha < 0.5 are discarded (no fragment write, no depth
+        // write); opaque pixels write depth normally. This keeps
+        // the etched-glass look (text/glyphs render, blank canvas
+        // areas show the tower glass behind via depth-test) while
+        // routing the cell through the OPAQUE render pass — no
+        // back-to-front sort. At saturation that's ~6500 tier-2
+        // cells lifted out of the per-frame sort that previously
+        // produced 12-28s frame stalls during drain.
+        // Trade: text edges get binary alpha cutoff instead of
+        // smooth alpha blending. At swoopy-tour distance (the bulk
+        // of tier-2 viewing) the aliasing is imperceptible; close
+        // cells use tier-1 unique materials which keep transparent
+        // alpha for sharper edges.
+        transparent: false,
+        alphaTest: 0.5,
         // DoubleSide so cells on the FAR side of any tower render
         // through the translucent glass; substrate-preview content
         // is abstract enough that the mirrored back face reads fine.
