@@ -387,6 +387,80 @@ def bake(
             return True
         return False
 
+    # 1b. BFS-routed pin-to-pin nets: the structural piece nano-banana
+    #     (user 2026-05-04) keeps emphasizing — buses connect SPECIFIC
+    #     chip pin terminals, not random points in space. Each net is
+    #     a 3-line ribbon between consecutive pins on two random towers,
+    #     routed cell-by-cell with strict 90-degree-only motion. The
+    #     three lines run BFS-individually, but adjacent pin starts +
+    #     straight-first BFS keep them roughly parallel through the
+    #     corridor system.
+    router = FloorRouter(spec, cell_u=0.30)
+    # Block all tower bboxes (chips become obstacles)
+    for ix in range(spec.tower_count):
+        for iz in range(spec.tower_count):
+            cx, cz = spec.tower_world_pos(ix, iz)
+            ht = spec.tower_w / 2
+            router.block_rect(cx - ht, cz - ht, cx + ht, cz + ht, pad_cells=1)
+    # Cache pin tips per tower
+    all_tips: dict[tuple[int, int], list[tuple[float, float, str]]] = {}
+    for ix in range(spec.tower_count):
+        for iz in range(spec.tower_count):
+            all_tips[(ix, iz)] = tower_perimeter_pin_tips(spec, ix, iz, pin_per_side=5)
+    # Generate K nets between random pairs of towers. Each net = one
+    # ribbon of 3 parallel lines between adjacent pin tips on two chips.
+    n_nets = spec.tower_count * spec.tower_count * 2  # ~200 for 10x10 grid
+    for _ in range(n_nets):
+        ix_a = rng.randint(0, spec.tower_count - 1)
+        iz_a = rng.randint(0, spec.tower_count - 1)
+        ix_b = rng.randint(0, spec.tower_count - 1)
+        iz_b = rng.randint(0, spec.tower_count - 1)
+        if (ix_a, iz_a) == (ix_b, iz_b):
+            continue
+        # Manhattan distance > 1 cell
+        if abs(ix_a - ix_b) + abs(iz_a - iz_b) > 5:
+            continue
+        # Pick a side per chip facing roughly toward the other chip
+        side_a = "S" if iz_b > iz_a else ("N" if iz_b < iz_a else ("E" if ix_b > ix_a else "W"))
+        side_b = "N" if iz_b > iz_a else ("S" if iz_b < iz_a else ("W" if ix_b > ix_a else "E"))
+        tips_a = [t for t in all_tips[(ix_a, iz_a)] if t[2] == side_a]
+        tips_b = [t for t in all_tips[(ix_b, iz_b)] if t[2] == side_b]
+        if len(tips_a) < 3 or len(tips_b) < 3:
+            continue
+        # Random consecutive pin window of 3
+        start_pin_a = rng.randint(0, len(tips_a) - 3)
+        start_pin_b = rng.randint(0, len(tips_b) - 3)
+        net_paths: list[list[tuple[int, int]]] = []
+        for k in range(3):
+            pin_a = tips_a[start_pin_a + k]
+            pin_b = tips_b[start_pin_b + k]
+            grid_a = router.world_to_grid(pin_a[0], pin_a[1])
+            grid_b = router.world_to_grid(pin_b[0], pin_b[1])
+            path = router.find_path(grid_a, grid_b)
+            if path is None:
+                break
+            net_paths.append(path)
+            router.block_path(path, thickness=2)
+        if len(net_paths) < 3:
+            continue
+        # Render each path as a stroke + endpoint pads
+        bw = rng.choice([0.08, 0.10, 0.12])
+        bcolor = primary if rng.random() > 0.15 else primary_mid
+        for path in net_paths:
+            world_pts = [router.grid_to_world(c, r) for c, r in path]
+            for i in range(len(world_pts) - 1):
+                _line(
+                    world_pts[i][0],
+                    world_pts[i][1],
+                    world_pts[i + 1][0],
+                    world_pts[i + 1][1],
+                    bw,
+                    bcolor,
+                )
+            # Endpoint pads
+            for px, pz in (world_pts[0], world_pts[-1]):
+                draw_rect_units(draw, spec, px, pz, pad_size * 0.6, pad_size * 0.6, primary)
+
     # 2a. Horizontal lane bus traces (no spurs yet — see 2c for spurs).
     #     Inset must clear the chip-pin-pad zone of adjacent towers
     #     (pin stub 0.5 + pad half 0.075 + small margin = ~0.85).
