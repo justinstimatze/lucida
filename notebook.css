@@ -127,7 +127,13 @@ body.booted #boot-overlay {
 }
 .boot-content {
   text-align: center;
-  font-family: var(--font-mono, "Share Tech Mono", "Courier New", monospace);
+  /* Reference the actual @font-face directly so the boot overlay
+     paints in Eurostile Extended even before theme tokens apply
+     (theme JS may run after the overlay first renders). The CSS
+     var --type-mono pre-existed but the boot CSS was reading the
+     wrong name (--font-mono), so the chain always fell back to
+     Share Tech Mono. */
+  font-family: "Eurostile Extended", var(--type-mono, "Share Tech Mono"), "Courier New", monospace;
   color: var(--accent, #00ddff);
   letter-spacing: 0.2em;
 }
