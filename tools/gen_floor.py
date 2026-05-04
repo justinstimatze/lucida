@@ -294,7 +294,7 @@ def bake(
             bx1 = half - rng.uniform(3, spec.field_size * 0.45)
             if bx1 <= bx0 + 4:
                 continue
-            bw = rng.choice([0.04, 0.05, 0.05, 0.07])
+            bw = rng.choice([0.08, 0.10, 0.10, 0.14])
             bcolor = primary if rng.random() > 0.15 else primary_mid
             for k in range(bsize):
                 zt = bz_center - bwidth / 2 + k * bspacing
@@ -344,7 +344,7 @@ def bake(
             bz1 = half - rng.uniform(3, spec.field_size * 0.45)
             if bz1 <= bz0 + 4:
                 continue
-            bw = rng.choice([0.04, 0.05, 0.05, 0.07])
+            bw = rng.choice([0.08, 0.10, 0.10, 0.14])
             bcolor = primary if rng.random() > 0.15 else primary_mid
             for k in range(bsize):
                 xt = bx_center - bwidth / 2 + k * bspacing
@@ -469,63 +469,12 @@ def bake(
             continue
         draw_rect_units(draw, spec, x, z, bw, bd, primary)
 
-    # 5a. Wandering individual L-traces: NOT bundles. Each is a single
-    #     trace going point → bend → point in a random location, with
-    #     1-2 bends. Per user 2026-05-04 "when I ask you to add more
-    #     circuits you mostly make more bus lines" — variety comes from
-    #     standalone point-to-point routing, not from bigger bundles.
-    #     Refs show many isolated traces of varying length, weight, and
-    #     orientation between (and outside) the bus corridors.
-    n_wanders = int(spec.field_size * 1.5)  # ~180 for 120u field
-    placed_wander_pads: list[tuple[float, float]] = []
-    for _ in range(n_wanders):
-        for _retry in range(15):
-            ax = rng.uniform(-half + 1.5, half - 1.5)
-            az = rng.uniform(-half + 1.5, half - 1.5)
-            if is_in_tower(spec, ax, az, margin=0.4):
-                continue
-            # First leg
-            leg1_len = rng.uniform(0.6, 2.6)
-            leg1_dir = rng.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
-            bx = ax + leg1_dir[0] * leg1_len
-            bz = az + leg1_dir[1] * leg1_len
-            if is_in_tower(spec, bx, bz, margin=0.3):
-                continue
-            # Second leg, perpendicular
-            leg2_len = rng.uniform(0.4, 2.0)
-            if leg1_dir[0] != 0:
-                leg2_dir = rng.choice([(0, 1), (0, -1)])
-            else:
-                leg2_dir = rng.choice([(1, 0), (-1, 0)])
-            cx_, cz_ = bx + leg2_dir[0] * leg2_len, bz + leg2_dir[1] * leg2_len
-            if is_in_tower(spec, cx_, cz_, margin=0.3):
-                continue
-            # Endpoints must clear other pads
-            if not _pad_clear(ax, az, pad_size, pad_size, clearance=0.10):
-                continue
-            if not _pad_clear(cx_, cz_, pad_size, pad_size, clearance=0.10):
-                continue
-            bw = rng.choice([0.04, 0.05, 0.06, 0.08])
-            wcolor = primary if rng.random() > 0.20 else primary_mid
-            _line(ax, az, bx, bz, bw, wcolor)
-            _line(bx, bz, cx_, cz_, bw, wcolor)
-            # Optional 3rd leg back along leg1's axis
-            if rng.random() < 0.35:
-                leg3_len = rng.uniform(0.4, 1.4)
-                leg3_dir = rng.choice([leg1_dir, (-leg1_dir[0], -leg1_dir[1])])
-                dx_, dz_ = cx_ + leg3_dir[0] * leg3_len, cz_ + leg3_dir[1] * leg3_len
-                if not is_in_tower(spec, dx_, dz_, margin=0.3) and _pad_clear(
-                    dx_, dz_, pad_size, pad_size, clearance=0.10
-                ):
-                    _line(cx_, cz_, dx_, dz_, bw, wcolor)
-                    cx_, cz_ = dx_, dz_
-            # Terminator pads at endpoints
-            ps = pad_size * rng.uniform(0.6, 1.0)
-            draw_rect_units(draw, spec, ax, az, ps, ps, primary)
-            draw_rect_units(draw, spec, cx_, cz_, ps, ps, primary)
-            placed_wander_pads.append((ax, az))
-            placed_wander_pads.append((cx_, cz_))
-            break
+    # (Wandering L-traces removed 2026-05-04: read as "scattered bits
+    # of lines and pads overlapping each other or clustered together"
+    # — fragments without a destination, not the routed pin-to-pin
+    # nets the refs show. Replaced by the connector-block grids below
+    # which look like ICs in interstitial space; full pin-routed buses
+    # are a bigger follow-up.)
 
     # 5b. Diagonal corner traces at corridor intersections — refs
     #     (tower_glass_closeup.png, tower_bases_low_angle.png) show
@@ -560,36 +509,79 @@ def bake(
                     draw, spec, cx + xo, cz + zo, pad_size * 0.6, pad_size * 0.6, primary
                 )
 
-    # 5c. Sprinkled "via" markers — small purple squares scattered
-    #     across the floor (avoiding tower bboxes AND existing trace
-    #     network so they don't sit visibly on top of an unrelated
-    #     bus line). Per refs the floor reads as a busy circuit board
-    #     with many small connection points.
-    via_count = int(spec.field_size * 1.2)
-    placed_vias: list[tuple[float, float, float]] = []
+    # 5c. Connector blocks: small interstitial "IC packages" placed in
+    #     corridor intersections. Each is a 2x2 or 3x3 grid of pads
+    #     with U-jumper traces between them — modelled on the nano-
+    #     banana ref breakdown ("ConnectorBlocks ... 2x2 or 3x3 grid
+    #     of square terminal pads with tiny, internal, U-shaped
+    #     traces"). Drawn AFTER the bus mesh so collision rejection
+    #     against existing traces works.
+    placed_blocks: list[tuple[float, float, float]] = []
+    n_blocks = max(8, (spec.tower_count - 1) ** 2 // 2)
     tries = 0
-    target = 0
-    while target < via_count and tries < via_count * 6:
+    placed = 0
+    while placed < n_blocks and tries < n_blocks * 8:
         tries += 1
-        vx = rng.uniform(-half + 1, half - 1)
-        vz = rng.uniform(-half + 1, half - 1)
-        if is_in_tower(spec, vx, vz, margin=0.3):
-            continue
-        size = rng.choice([0.10, 0.12, 0.14, 0.18])
-        # Reject if this via would land on an existing trace
-        if not _pad_clear(vx, vz, size, size, clearance=0.05):
-            continue
-        # Reject if too close to another via
+        # Pick a corridor intersection at random
+        ix = rng.randint(0, spec.tower_count - 2)
+        iz = rng.randint(0, spec.tower_count - 2)
+        xa, _ = spec.tower_world_pos(ix, 0)
+        xb, _ = spec.tower_world_pos(ix + 1, 0)
+        _, za = spec.tower_world_pos(0, iz)
+        _, zb = spec.tower_world_pos(0, iz + 1)
+        cx, cz = (xa + xb) / 2, (za + zb) / 2
+        # Jitter within the intersection clear zone
+        jitter = (corridor / 2) - 1.2
+        cx += rng.uniform(-jitter, jitter)
+        cz += rng.uniform(-jitter, jitter)
+        # Block dimensions: 2x2 or 3x3 pads
+        n_pads = rng.choice([2, 2, 3])
+        pad_pitch = 0.32
+        block_w = (n_pads - 1) * pad_pitch + 0.40
+        # Reject if too close to another block
         too_close = False
-        for px, pz, ps in placed_vias:
-            if abs(px - vx) < (ps + size) / 2 + 0.18 and abs(pz - vz) < (ps + size) / 2 + 0.18:
+        for px, pz, pw in placed_blocks:
+            if (
+                abs(px - cx) < (pw + block_w) / 2 + 0.50
+                and abs(pz - cz) < (pw + block_w) / 2 + 0.50
+            ):
                 too_close = True
                 break
         if too_close:
             continue
-        placed_vias.append((vx, vz, size))
-        draw_rect_units(draw, spec, vx, vz, size, size, primary)
-        target += 1
+        # Reject if any pad would land on an existing trace
+        clear = True
+        for i in range(n_pads):
+            for j in range(n_pads):
+                px = cx - (n_pads - 1) * pad_pitch / 2 + i * pad_pitch
+                pz = cz - (n_pads - 1) * pad_pitch / 2 + j * pad_pitch
+                if not _pad_clear(px, pz, 0.18, 0.18, clearance=0.04):
+                    clear = False
+                    break
+            if not clear:
+                break
+        if not clear:
+            continue
+        # Draw the block: small pads + U-jumper between adjacent pads
+        # in one row (per nano-banana "U-shaped jumper connectors").
+        for i in range(n_pads):
+            for j in range(n_pads):
+                px = cx - (n_pads - 1) * pad_pitch / 2 + i * pad_pitch
+                pz = cz - (n_pads - 1) * pad_pitch / 2 + j * pad_pitch
+                draw_rect_units(draw, spec, px, pz, 0.18, 0.18, primary)
+        # U-jumpers connecting one pair of adjacent pads in a random row
+        if n_pads >= 2 and rng.random() < 0.7:
+            row = rng.randint(0, n_pads - 1)
+            i0 = rng.randint(0, n_pads - 2)
+            x0 = cx - (n_pads - 1) * pad_pitch / 2 + i0 * pad_pitch
+            x1 = x0 + pad_pitch
+            zr = cz - (n_pads - 1) * pad_pitch / 2 + row * pad_pitch
+            jump_z = zr + (pad_pitch * 0.55) * rng.choice([-1, 1])
+            _line(x0, zr, x0, jump_z, 0.05, primary_mid)
+            _line(x0, jump_z, x1, jump_z, 0.05, primary_mid)
+            _line(x1, jump_z, x1, zr, 0.05, primary_mid)
+        placed_blocks.append((cx, cz, block_w))
+        placed += 1
 
     # 6. Tower footprints = bright "hole into a bright light" visible
     #    through translucent tower glass. Uses tower_color (cyan, matches
