@@ -285,7 +285,7 @@ def bake(
         n_bundles = rng.randint(1, 2)
         for _ in range(n_bundles):
             bsize = rng.randint(3, 6)
-            bspacing = rng.uniform(0.18, 0.28)
+            bspacing = rng.uniform(0.13, 0.18)
             bwidth = (bsize - 1) * bspacing
             if z_hi - z_lo < bwidth + 0.6:
                 continue
@@ -335,7 +335,7 @@ def bake(
         n_bundles = rng.randint(1, 2)
         for _ in range(n_bundles):
             bsize = rng.randint(3, 6)
-            bspacing = rng.uniform(0.18, 0.28)
+            bspacing = rng.uniform(0.13, 0.18)
             bwidth = (bsize - 1) * bspacing
             if x_hi - x_lo < bwidth + 0.6:
                 continue
@@ -373,13 +373,17 @@ def bake(
                     xs = rng.uniform(bx0 + 1.0, bx1 - 1.0)
                     if not all(abs(xs - p) > 0.65 for p in spur_pads_x):
                         continue
+                    # Pure 90-degree stepped L: bus → vertical leg →
+                    # horizontal step → vertical leg → pad. No chamfer
+                    # / diagonal middle segment (nano-banana 2026-05-04
+                    # "Sharp, Stepped Turns ... no curves; it is a
+                    # rigid, stepped maze").
                     run_perp = edge_perp - 0.6
-                    chamfer = min(0.5, run_perp * 0.25)
-                    pre = max(0.3, (run_perp - chamfer) * rng.uniform(0.3, 0.55))
-                    lat = chamfer * rng.choice([-1, 1])
+                    pre = max(0.4, run_perp * rng.uniform(0.35, 0.65))
+                    lat = rng.uniform(0.25, 0.55) * rng.choice([-1, 1])
                     ax, az_ = xs, outer_zt
                     bx, bz = xs, outer_zt + direction_sign * pre
-                    cx_, cz_ = xs + lat, outer_zt + direction_sign * (pre + chamfer)
+                    cx_, cz_ = xs + lat, bz
                     dx_, dz_ = cx_, outer_zt + direction_sign * run_perp
                     if _pad_clear(dx_, dz_, pad_size, pad_size):
                         chosen = (xs, ax, az_, bx, bz, cx_, cz_, dx_, dz_)
@@ -407,13 +411,13 @@ def bake(
                     zs = rng.uniform(bz0 + 1.0, bz1 - 1.0)
                     if not all(abs(zs - p) > 0.65 for p in spur_pads_z):
                         continue
+                    # Pure 90-degree stepped L (see h-bundle spurs above).
                     run_perp = edge_perp - 0.6
-                    chamfer = min(0.5, run_perp * 0.25)
-                    pre = max(0.3, (run_perp - chamfer) * rng.uniform(0.3, 0.55))
-                    lat = chamfer * rng.choice([-1, 1])
+                    pre = max(0.4, run_perp * rng.uniform(0.35, 0.65))
+                    lat = rng.uniform(0.25, 0.55) * rng.choice([-1, 1])
                     ax, az_ = outer_xt, zs
                     bx, bz = outer_xt + direction_sign * pre, zs
-                    cx_, cz_ = outer_xt + direction_sign * (pre + chamfer), zs + lat
+                    cx_, cz_ = bx, zs + lat
                     dx_, dz_ = outer_xt + direction_sign * run_perp, cz_
                     if _pad_clear(dx_, dz_, pad_size, pad_size):
                         chosen = (zs, ax, az_, bx, bz, cx_, cz_, dx_, dz_)
@@ -476,38 +480,10 @@ def bake(
     # which look like ICs in interstitial space; full pin-routed buses
     # are a bigger follow-up.)
 
-    # 5b. Diagonal corner traces at corridor intersections — refs
-    #     (tower_glass_closeup.png, tower_bases_low_angle.png) show
-    #     diagonal/curved cuts where bus bundles meet. Fakes that look
-    #     by drawing 2-segment diagonals across each cross-corridor
-    #     intersection, in primary purple.
-    for ix in range(spec.tower_count - 1):
-        for iz in range(spec.tower_count - 1):
-            xa, _ = spec.tower_world_pos(ix, 0)
-            xb, _ = spec.tower_world_pos(ix + 1, 0)
-            _, za = spec.tower_world_pos(0, iz)
-            _, zb = spec.tower_world_pos(0, iz + 1)
-            cx = (xa + xb) / 2
-            cz = (za + zb) / 2
-            half_int = corridor / 2 - 1.0
-            for _ in range(rng.randint(2, 4)):
-                # Random diagonal across one of 4 corner quadrants
-                quad = rng.choice([(-1, -1), (-1, 1), (1, -1), (1, 1)])
-                xo = quad[0] * rng.uniform(0.3, half_int)
-                zo = quad[1] * rng.uniform(0.3, half_int)
-                # Endpoint on the perpendicular axis
-                end_along = rng.choice(["x", "z"])
-                if end_along == "x":
-                    ex = xo + quad[0] * rng.uniform(0.5, 1.2)
-                    ez = zo
-                else:
-                    ex = xo
-                    ez = zo + quad[1] * rng.uniform(0.5, 1.2)
-                bw = rng.choice([0.05, 0.06, 0.08])
-                _line(cx + xo, cz + zo, cx + ex, cz + ez, bw, primary)
-                draw_rect_units(
-                    draw, spec, cx + xo, cz + zo, pad_size * 0.6, pad_size * 0.6, primary
-                )
+    # (Section 5b "diagonal corner traces" REMOVED 2026-05-04 — those
+    # were diagonals at corridor intersections, which violates the
+    # nano-banana "no curves; rigid, stepped maze" rule. The buses +
+    # spurs + connector blocks below already populate intersections.)
 
     # 5c. Connector blocks: small interstitial "IC packages" placed in
     #     corridor intersections. Each is a 2x2 or 3x3 grid of pads
