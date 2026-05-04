@@ -133,62 +133,39 @@ def add_tower_base_detail(
     rng: random.Random,
     tower_color: str,
 ) -> None:
-    """Lay down a fine grid + scattered chip detail inside each tower
-    footprint (after overpaint_tower_bboxes). Replaces the flat-cyan
-    tower base with a circuit-board / mesh look per Hackers refs
-    (user 2026-05-03 "tower glass closeup is a good example").
+    """Sparse asymmetric chip-pad accents inside each tower footprint.
+    Earlier cross-hatch grid version read as a Go-board (user 2026-05-04
+    "looks like a go board"); replaced with random-scattered darker
+    rectangles of varying sizes — closer to PCB silkscreen markings,
+    no repeating axis-aligned uniformity.
     """
-    grid_color = shade(tower_color, 0.55)
-    accent_color = shade(tower_color, 0.40)
+    accent_color = shade(tower_color, 0.45)
     half_t = spec.tower_w / 2
-    # Inset so grid doesn't touch the very edge of the bright fill
-    inset = 0.18
-    grid_step = 0.30
+    inset = 0.25
     for ix in range(spec.tower_count):
         for iz in range(spec.tower_count):
             cx, cz = spec.tower_world_pos(ix, iz)
-            # Fine cross-hatch grid
-            n = int((spec.tower_w - 2 * inset) / grid_step)
-            for k in range(n + 1):
-                t = -half_t + inset + k * grid_step
-                # Horizontal grid line
-                draw_line_units(
-                    draw,
-                    spec,
-                    cx - half_t + inset,
-                    cz + t,
-                    cx + half_t - inset,
-                    cz + t,
-                    0.022,
-                    grid_color,
-                )
-                # Vertical grid line
-                draw_line_units(
-                    draw,
-                    spec,
-                    cx + t,
-                    cz - half_t + inset,
-                    cx + t,
-                    cz + half_t - inset,
-                    0.022,
-                    grid_color,
-                )
-            # Sparse chip-pad accents: 4-7 small squares scattered
-            # at random grid intersections inside the bbox.
-            for _ in range(rng.randint(4, 7)):
-                gi = rng.randint(1, n - 1)
-                gj = rng.randint(1, n - 1)
-                ax = -half_t + inset + gi * grid_step
-                az = -half_t + inset + gj * grid_step
-                draw_rect_units(
-                    draw,
-                    spec,
-                    cx + ax,
-                    cz + az,
-                    grid_step * 0.55,
-                    grid_step * 0.55,
-                    accent_color,
-                )
+            placed: list[tuple[float, float, float, float]] = []
+            n_marks = rng.randint(3, 6)
+            tries = 0
+            while len(placed) < n_marks and tries < 40:
+                tries += 1
+                w = rng.choice([0.22, 0.32, 0.32, 0.55, 0.85])
+                h = rng.choice([0.22, 0.32, 0.85])
+                if rng.random() < 0.5:
+                    w, h = h, w
+                ax = rng.uniform(-half_t + inset + w / 2, half_t - inset - w / 2)
+                az = rng.uniform(-half_t + inset + h / 2, half_t - inset - h / 2)
+                # Reject if overlapping any prior mark
+                clear = True
+                for px, pz, pw, ph in placed:
+                    if abs(px - ax) < (pw + w) / 2 + 0.08 and abs(pz - az) < (ph + h) / 2 + 0.08:
+                        clear = False
+                        break
+                if not clear:
+                    continue
+                placed.append((ax, az, w, h))
+                draw_rect_units(draw, spec, cx + ax, cz + az, w, h, accent_color)
 
 
 def is_in_tower(spec: FloorSpec, x: float, z: float, margin: float = 0.0) -> bool:
@@ -332,6 +309,19 @@ def bake(
                 # always reject; they look fine inside their bundle.
                 draw_rect_units(draw, spec, x0, zt, pad_size * 0.7, pad_size * 0.7, primary)
                 draw_rect_units(draw, spec, x1, zt, pad_size * 0.7, pad_size * 0.7, primary)
+            # Intra-bundle rungs: short perpendicular segments connecting
+            # adjacent traces in the bundle, creating a ladder-like
+            # organic structure (refs show bundles with rung crossbars,
+            # not just parallel buses). 3-6 rungs per bundle at random
+            # x positions inside the bundle's run.
+            n_rungs = rng.randint(3, 6)
+            for _r in range(n_rungs):
+                rx = rng.uniform(bx0 + 0.5, bx1 - 0.5)
+                # Pick 2 adjacent rows in the bundle
+                k0 = rng.randint(0, max(0, bsize - 2))
+                z_top = bz_center - bwidth / 2 + k0 * bspacing
+                z_bot = bz_center - bwidth / 2 + (k0 + 1) * bspacing
+                _line(rx, z_top, rx, z_bot, bw * 0.8, bcolor)
             h_bundle_meta.append((bz_center, bwidth, bx0, bx1, bw, bcolor, z_lo, z_hi))
 
     # 2b. Vertical lane bus traces (no spurs yet).
@@ -513,17 +503,35 @@ def bake(
                 )
 
     # 5c. Sprinkled "via" markers — small purple squares scattered
-    #     across the floor (avoiding tower bboxes). Per refs the floor
-    #     reads as a busy circuit board with many small connection
-    #     points, not just the structured bus + spurs.
+    #     across the floor (avoiding tower bboxes AND existing trace
+    #     network so they don't sit visibly on top of an unrelated
+    #     bus line). Per refs the floor reads as a busy circuit board
+    #     with many small connection points.
     via_count = int(spec.field_size * 1.2)
-    for _ in range(via_count):
+    placed_vias: list[tuple[float, float, float]] = []
+    tries = 0
+    target = 0
+    while target < via_count and tries < via_count * 6:
+        tries += 1
         vx = rng.uniform(-half + 1, half - 1)
         vz = rng.uniform(-half + 1, half - 1)
-        if is_in_tower(spec, vx, vz, margin=0.2):
+        if is_in_tower(spec, vx, vz, margin=0.3):
             continue
         size = rng.choice([0.10, 0.12, 0.14, 0.18])
+        # Reject if this via would land on an existing trace
+        if not _pad_clear(vx, vz, size, size, clearance=0.05):
+            continue
+        # Reject if too close to another via
+        too_close = False
+        for px, pz, ps in placed_vias:
+            if abs(px - vx) < (ps + size) / 2 + 0.18 and abs(pz - vz) < (ps + size) / 2 + 0.18:
+                too_close = True
+                break
+        if too_close:
+            continue
+        placed_vias.append((vx, vz, size))
         draw_rect_units(draw, spec, vx, vz, size, size, primary)
+        target += 1
 
     # 6. Tower footprints = bright "hole into a bright light" visible
     #    through translucent tower glass. Uses tower_color (cyan, matches
