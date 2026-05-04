@@ -3085,6 +3085,14 @@ function applyMixed3DLayout(opts) {
         // log (not warn) so devtools doesn't append a stack trace per stall.
         console.log(`[mixed3d] frame stall: ${dt.toFixed(0)}ms gap @ ${now.toFixed(0)}ms`);
       }
+      // Long-pause safety net: if a single frame gap exceeds 1s the
+      // page was almost certainly throttled (tab background, GC
+      // pause, OS sleep/wake) — reset the camera path so the lerp
+      // doesn't race through accumulated wall-time. Catches any case
+      // that visibilitychange and pageshow handlers don't.
+      if (dt > 1000) {
+        _mixed3dResetCameraTimer();
+      }
       // Stable-frame counter for the boot-overlay fade. dt < 33ms =
       // ~30fps or better → frame is "good"; dt > 50ms resets to 0.
       // Used below to decide when to lift the loading overlay so the
@@ -4246,6 +4254,20 @@ function _mixed3dResetCameraTimer() {
 // world is active.
 window.addEventListener("pageshow", (e) => {
   if (e.persisted && _mixed3dState) {
+    _mixed3dResetCameraTimer();
+  }
+});
+
+// Tab visibility: when the tab is hidden, browsers throttle or stop
+// requestAnimationFrame entirely, but performance.now() keeps
+// ticking. On return-to-visible, t = (now - t0) is much larger than
+// the last actual frame so desiredPos jumps far ahead on the curve
+// and the lerp catches up in a visible "speed gets weird" snap.
+// Same fix as bfcache restore — reset to u=0 when the tab becomes
+// visible again. We only reset on the visible→ track to avoid
+// resetting when entering background.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && _mixed3dState) {
     _mixed3dResetCameraTimer();
   }
 });
