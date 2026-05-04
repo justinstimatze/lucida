@@ -4552,8 +4552,13 @@ const _MIXED3D_SUBSTRATES = [
 function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v) {
   const T = window.THREE;
   const canvas = document.createElement("canvas");
-  canvas.width = 48;
-  canvas.height = 144;
+  // 96x288 (was 48x144) — 4x pixel area = denser substrate preview at
+  // distance. The texture is sampled mipmap-linearly when far cells
+  // shrink in viewport, so a higher source resolution means each
+  // visible pixel averages over MORE substrate detail, reading as
+  // richer rather than washed-out at the canyon's far end (#121).
+  canvas.width = 96;
+  canvas.height = 288;
   const ctx = canvas.getContext("2d");
   // No bg fill — canvas stays fully transparent. Only the
   // substrate-preview marks paint pixels with alpha > 0. The
@@ -4564,7 +4569,7 @@ function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v) {
     dataset: { cellType: substrate },
     querySelector: () => null,
   };
-  _mixed3dDrawCellPreview(ctx, fakeCell, 2, 2, 44, 140, cyan, pink);
+  _mixed3dDrawCellPreview(ctx, fakeCell, 4, 4, 88, 280, cyan, pink);
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
   tex.magFilter = T.LinearFilter;
