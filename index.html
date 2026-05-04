@@ -3936,11 +3936,17 @@ function _mixed3dDriveSwoopyTour(t) {
     if (sw.scanNextStart == null) sw.scanNextStart = t + 25 + Math.random() * 15;
     if (t >= sw.scanNextStart) {
       const dts = t - sw.scanNextStart;
-      // 1.5s ramp in, 4s hold, 1.5s ramp out → 7s total scan window
+      // 2.5s ramp in, 8s hold, 2.5s ramp out → 13s total scan window.
+      // Was 1.5/4/1.5=7s; user 2026-05-04 "the scan could rotate the
+      // camera a little more slowly, move a little more slowly, scan
+      // a little bit longer. let me really get a chance to glance over
+      // at the cells. right now the whole thing feels rushed both
+      // rotationally and durationally". Longer ramp slows rotation;
+      // longer hold gives reading time.
       let f;
-      if (dts < 1.5) f = dts / 1.5;
-      else if (dts < 5.5) f = 1;
-      else if (dts < 7.0) f = (7.0 - dts) / 1.5;
+      if (dts < 2.5) f = dts / 2.5;
+      else if (dts < 10.5) f = 1;
+      else if (dts < 13.0) f = (13.0 - dts) / 2.5;
       else {
         f = 0;
         sw.scanNextStart = t + 30 + Math.random() * 20;
@@ -4018,7 +4024,9 @@ function _mixed3dDriveSwoopyTour(t) {
     const dts = t - (sw.scanNextStart || t);
     const SCAN_Y_TOP = 14;
     const SCAN_Y_BOT = 2;
-    const panU = Math.max(0, Math.min(1, dts / 7.0));
+    // panU stretched to match the 13s scan window (2.5 + 8 + 2.5).
+    // Was /7. Slower vertical pan = more dwell time per cell row.
+    const panU = Math.max(0, Math.min(1, dts / 13.0));
     const scanY = SCAN_Y_TOP - (SCAN_Y_TOP - SCAN_Y_BOT) * panU;
     desiredPos.y = desiredPos.y * (1 - sf) + scanY * sf;
   }
@@ -4612,6 +4620,48 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
   S.cellTier.set(id, newTier);
 }
 
+// Promote a tier-2 instance handle into a tier-1 Mesh in place.
+// Pops the cell out of the InstancedMesh (swap-and-pop, existing
+// helper) and rebuilds it as a unique-material Mesh using the mount
+// metadata stashed when the instance was first added. Replaces the
+// handle in cellObjects so subsequent re-tier sweeps treat it as a
+// regular Mesh — meaning later demotion 1→2 goes through the standard
+// _mixed3dSwapCellTier path (back to a shared mat on a Mesh, not back
+// into an InstancedMesh slot — keeping the demote side simple).
+function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
+  const S = _mixed3dState;
+  if (!S) return null;
+  const T = window.THREE;
+  const cell = handle.userData?.cellEl;
+  if (!cell) return null;
+  // Stashed mount metadata is required. Older instance handles created
+  // before this field was stashed have undefined mountTx — skip those
+  // (they'll just stay tier-2 forever, same as the prior behavior).
+  if (handle.mountTx == null) return null;
+  _mixed3dRemoveTier2Instance(S, handle);
+  const isTop = !!handle.mountIsTop;
+  const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
+  const mat = new T.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    opacity: 1.0,
+    side: T.FrontSide,
+    depthWrite: false,
+  });
+  const planeGeo = _mixed3dGetSharedPlaneGeo(handle.mountPlaneW, handle.mountPlaneH);
+  const obj = new T.Mesh(planeGeo, mat);
+  obj.position.set(handle.mountTx, handle.mountTy, handle.mountTz);
+  obj.rotation.set(handle.mountRotX, handle.mountRotY, 0);
+  obj.frustumCulled = true;
+  obj.userData.cellEl = cell;
+  obj.userData.tier = 1;
+  S.scene.add(obj);
+  S.cellObjects.set(id, obj);
+  S.cellTier.set(id, 1);
+  S.tier1Count = (S.tier1Count || 0) + 1;
+  return obj;
+}
+
 // Per-frame re-tier sweep. Walks a slice of cells, checks if their
 // camera-distance bucket has changed, swaps material if so. Bounded
 // by _MIXED3D_RETIER_BUDGET_MS so promotions (which run a full canvas
@@ -4643,10 +4693,25 @@ function _mixed3dRetierSweep() {
     const id = S._retierKeys[i++];
     const obj = S.cellObjects.get(id);
     if (!obj) continue;
-    // Tier-2 instanced handles can't be retiered in place — promoting
-    // to tier-1 would need rebuilding the cell as a Mesh with a unique
-    // texture. Skip; cells stay at their initial tier.
-    if (obj.isInstanceHandle) continue;
+    // Tier-2 instanced handle: promote to tier-1 Mesh when the camera
+    // is close enough. Once promoted the entry becomes a regular Mesh
+    // and the next sweeps go through the standard 1↔2 swap path. Read
+    // world position from the InstancedMesh matrix since handles
+    // don't carry a `position` field.
+    if (obj.isInstanceHandle) {
+      const inst = S.tier2InstancedMeshes.get(obj.meshKey);
+      if (!inst) continue;
+      const m4 = new T.Matrix4();
+      inst.mesh.getMatrixAt(obj.idx, m4);
+      const pos = new T.Vector3().setFromMatrixPosition(m4);
+      const desired = _mixed3dPickTierForPos(pos, camPos, 2);
+      if (desired !== 1) continue;
+      if ((S.tier1Count || 0) >= _MIXED3D_TIER1_CAP) continue;
+      if (promotesDone >= PROMOTE_BUDGET) continue;
+      const promoted = _mixed3dPromoteInstanceToTier1(obj, id, cyan, pink);
+      if (promoted) promotesDone++;
+      continue;
+    }
     const cur = obj.userData.tier || S.cellTier.get(id) || 2;
     const desired = _mixed3dPickTierForPos(obj.position, camPos, cur);
     if (desired === cur) continue;
@@ -5194,6 +5259,17 @@ function _mixed3dDrainMountQueue() {
             userData: { tier: 2, cellEl: cell },
             meshKey: inst.key,
             idx,
+            // Mount metadata stashed so the re-tier sweep can rebuild
+            // this instance as a tier-1 Mesh (unique CanvasTexture)
+            // when the camera approaches. Without these the sweep had
+            // to skip instance handles, leaving 90% of cells locked at
+            // the shared 96×288 texture even when 3.5u from camera —
+            // user feedback 2026-05-04: "when the camera slow scans a
+            // wall there usually isn't anything readable there".
+            mountTx: tx, mountTy: ty, mountTz: tz,
+            mountRotX: rotX, mountRotY: rotY,
+            mountPlaneW: planeW, mountPlaneH: planeH,
+            mountIsTop: isTop,
           };
           map.set(cell.id, handle);
           S.cellTier.set(cell.id, 2);
