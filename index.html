@@ -4925,10 +4925,12 @@ function _mixed3dPickSlotForNewCell() {
     }))
     .sort((a, b) => a.count - b.count || a.dist - b.dist);
   for (const { idx } of ranked) {
-    // Walk col → face. With this order, the first cell on a tower
-    // goes to col 0 face 0; second to col 0 face 1; etc. — all 4
-    // faces' col 0 fill before col 1 of any face does, distributing
-    // cells evenly across faces and columns.
+    // Pick the LEAST-FULL column on this tower (lowest nextIdx).
+    // Earlier "first non-full column wins" logic returned col=0
+    // face=0 for every cell on a tower until that column was packed,
+    // producing "one full column on one side of each tower" instead
+    // of even distribution.
+    let bestKey = null, bestFace = -1, bestCol = -1, bestNext = Infinity;
     for (let col = 0; col < G.slotsPerFaceX; col++) {
       for (let face = 0; face < 4; face++) {
         const key = `${idx}:${face}:${col}`;
@@ -4938,13 +4940,22 @@ function _mixed3dPickSlotForNewCell() {
           S.columnPlans.set(key, plan);
         }
         if (plan.nextIdx >= plan.positions.length) continue;
-        const slot = plan.positions[plan.nextIdx];
-        plan.nextIdx++;
-        return {
-          towerIdx: idx, facePri: face, col, key,
-          y: slot.y, h: slot.h,
-        };
+        if (plan.nextIdx < bestNext) {
+          bestNext = plan.nextIdx;
+          bestKey = key;
+          bestFace = face;
+          bestCol = col;
+        }
       }
+    }
+    if (bestKey !== null) {
+      const plan = S.columnPlans.get(bestKey);
+      const slot = plan.positions[plan.nextIdx];
+      plan.nextIdx++;
+      return {
+        towerIdx: idx, facePri: bestFace, col: bestCol, key: bestKey,
+        y: slot.y, h: slot.h,
+      };
     }
     const topKey = `${idx}:4:0:0`;
     if (!S.usedSlots.has(topKey)) {
