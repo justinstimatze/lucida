@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import random
+from collections import deque
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -177,6 +178,120 @@ def is_in_tower(spec: FloorSpec, x: float, z: float, margin: float = 0.0) -> boo
     cx, cz = spec.tower_world_pos(ix, iz)
     h = spec.tower_w / 2 + margin
     return abs(x - cx) < h and abs(z - cz) < h
+
+
+class FloorRouter:
+    """Manhattan BFS path router for pin-to-pin floor traces. Adapted
+    from the nano-banana 'Gibson Circuit Explorer' algorithm shared by
+    the user 2026-05-04 — chips become grid obstacles, pin-to-pin nets
+    are routed cell-by-cell with strict 90-degree-only motion, and
+    each routed path becomes an obstacle for subsequent routes so
+    later traces don't overlap earlier ones.
+    """
+
+    def __init__(self, spec: FloorSpec, cell_u: float = 0.3):
+        self.spec = spec
+        self.cell_u = cell_u
+        self.cols = int(spec.floor_size / cell_u) + 2
+        self.rows = self.cols
+        self.obstacles: set[tuple[int, int]] = set()
+
+    def world_to_grid(self, x: float, z: float) -> tuple[int, int]:
+        half = self.spec.floor_size / 2.0
+        c = int((x + half) / self.cell_u)
+        r = int((z + half) / self.cell_u)
+        return c, r
+
+    def grid_to_world(self, c: int, r: int) -> tuple[float, float]:
+        half = self.spec.floor_size / 2.0
+        return c * self.cell_u - half, r * self.cell_u - half
+
+    def block_rect(self, x0: float, z0: float, x1: float, z1: float, pad_cells: int = 0) -> None:
+        c0, r0 = self.world_to_grid(x0, z0)
+        c1, r1 = self.world_to_grid(x1, z1)
+        cmin, cmax = min(c0, c1) - pad_cells, max(c0, c1) + pad_cells
+        rmin, rmax = min(r0, r1) - pad_cells, max(r0, r1) + pad_cells
+        for c in range(cmin, cmax + 1):
+            for r in range(rmin, rmax + 1):
+                if 0 <= c < self.cols and 0 <= r < self.rows:
+                    self.obstacles.add((c, r))
+
+    def find_path(
+        self, start: tuple[int, int], end: tuple[int, int]
+    ) -> list[tuple[int, int]] | None:
+        """BFS that PREFERS straight motion to encourage long ribbon
+        runs (per nano-banana 'rigid stepped maze'). Implemented by
+        exploring same-direction neighbour first; deque order makes
+        BFS shortest-path-by-step, ties broken by exploration order.
+        """
+        if start == end:
+            return [start]
+        if end in self.obstacles:
+            return None
+        parents: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+        queue: deque[tuple[tuple[int, int], tuple[int, int]]] = deque([(start, (0, 0))])
+        while queue:
+            cur, last_dir = queue.popleft()
+            if cur == end:
+                path: list[tuple[int, int]] = []
+                node: tuple[int, int] | None = cur
+                while node is not None:
+                    path.append(node)
+                    node = parents[node]
+                return list(reversed(path))
+            # Straight-first ordering: same dir, then perpendiculars.
+            same = [(last_dir,)] if last_dir != (0, 0) else []
+            others = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+            ordered = []
+            if last_dir != (0, 0):
+                ordered.append(last_dir)
+            for d in others:
+                if d != last_dir:
+                    ordered.append(d)
+            for dx, dz in ordered:
+                nxt = (cur[0] + dx, cur[1] + dz)
+                if nxt in parents:
+                    continue
+                if not (0 <= nxt[0] < self.cols and 0 <= nxt[1] < self.rows):
+                    continue
+                if nxt in self.obstacles and nxt != end:
+                    continue
+                parents[nxt] = cur
+                queue.append((nxt, (dx, dz)))
+            _ = same  # suppress unused-warning style
+        return None
+
+    def block_path(self, path: list[tuple[int, int]], thickness: int = 1) -> None:
+        """Block a routed path from subsequent searches. Thickness>1
+        widens the obstacle perpendicular to motion so the next ribbon
+        line won't run AT the same grid cell — keeps adjacent ribbon
+        lines from collapsing onto each other.
+        """
+        for cell in path:
+            for dc in range(-thickness // 2, thickness // 2 + 1):
+                for dr in range(-thickness // 2, thickness // 2 + 1):
+                    self.obstacles.add((cell[0] + dc, cell[1] + dr))
+
+
+def tower_perimeter_pin_tips(spec: FloorSpec, ix: int, iz: int, pin_per_side: int = 5):
+    """Return list of (x, z, side) tuples for the OUTWARD pin tips of
+    tower (ix, iz). Side ∈ {'N', 'E', 'S', 'W'}. Pin tip = where the
+    chip-pad terminator stub ends — that's where buses attach.
+    Deterministic given (ix, iz, pin_per_side); must match the
+    perimeter-pin loop in bake() for visual continuity.
+    """
+    cx, cz = spec.tower_world_pos(ix, iz)
+    half_t = spec.tower_w / 2
+    stub_len = 0.5
+    step = (spec.tower_w - 0.6) / (pin_per_side + 1)
+    tips: list[tuple[float, float, str]] = []
+    for k in range(pin_per_side):
+        off = -((pin_per_side - 1) * step) / 2 + k * step
+        tips.append((cx + off, cz - half_t - stub_len, "N"))
+        tips.append((cx + half_t + stub_len, cz + off, "E"))
+        tips.append((cx + off, cz + half_t + stub_len, "S"))
+        tips.append((cx - half_t - stub_len, cz + off, "W"))
+    return tips
 
 
 def bake(
