@@ -4800,15 +4800,13 @@ function _mixed3dDrainMountQueue() {
   const map = S.cellObjects;
   const pending = S.mountPending;
   const start = performance.now();
-  // 12ms budget (was 8ms): each cell mount is ~2ms (canvas paint +
-  // CanvasTexture wrap + scene.add). 8ms = ~4 cells/frame = ~240/sec
-  // → 14000 cells takes ~60s wall to fully drain. 12ms = ~6/frame =
-  // ~360/sec → ~40s wall. Frame budget is 16.67ms at 60fps so 12ms
-  // for mount + 4ms for render still hits 60fps. The drain is a
-  // boot-time-only cost (subsequent polls drain only fresh mints in
-  // small batches), so the trade is: 33% faster boot for slightly
-  // tighter steady-state frame headroom during the spawn phase.
-  const BUDGET_MS = 12;
+  // 6ms budget (was 12ms): perf profile 2026-05-03 found mid-drain
+  // ticks overshooting >100ms when paired with an above-average
+  // render frame. Halving the budget halves the worst-case overshoot
+  // at the cost of ~50% slower wall-time drain (~60s for 14000 cells
+  // vs ~40s prior). Smoother frames during spawn phase win — the
+  // user feels jitter, not the wall-clock difference.
+  const BUDGET_MS = 6;
 
   // Hoist style lookups out of the per-cell paint loop. Theme changes
   // teardown the layout (rebuild path), so this is stable across one
