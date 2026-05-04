@@ -3977,7 +3977,7 @@ function _mixed3dDriveSwoopyTour(t) {
     }
     const dtReal = Math.max(0, Math.min(0.1, t - sw.lastT));
     sw.lastT = t;
-    const speedMult = 1 - 0.85 * sf; // 1.0 → 0.15 at full scan
+    const speedMult = 1 - sf; // 1.0 → 0 at full scan (parked on the wall)
     sw.arcAccum += sw.speed * speedMult * dtReal;
     arc = sw.arcAccum;
   }
@@ -3998,6 +3998,22 @@ function _mixed3dDriveSwoopyTour(t) {
   }
   if (!desiredPos) return;
   desiredPos.y = 4.5 + Math.sin(t * 0.22) * 0.6;
+  // Slow-scan vertical pan: during the hold, sweep camera Y from near
+  // the top of the tower down to near the floor over the scan window.
+  // Combined with the perpendicular lookAt and parked X/Z, this scans
+  // the tower face top-to-bottom like reading a directory listing —
+  // cells scroll by vertically, which is the literal Hackers FUI move
+  // (see refs/gibson/monitor_directory_listing.png). towerH is 17u so
+  // [14, 2] covers most of the face's vertical extent. lookAt.y is
+  // computed downstream from desiredPos.y so it tracks automatically.
+  if (scanFactor > 0) {
+    const dts = t - (sw.scanNextStart || t);
+    const SCAN_Y_TOP = 14;
+    const SCAN_Y_BOT = 2;
+    const panU = Math.max(0, Math.min(1, dts / 7.0));
+    const scanY = SCAN_Y_TOP - (SCAN_Y_TOP - SCAN_Y_BOT) * panU;
+    desiredPos.y = desiredPos.y * (1 - sf) + scanY * sf;
+  }
   const tan = sw.curve.getTangentAt(u);
   tan.y = 0;
   if (tan.lengthSq() < 1e-6) tan.set(1, 0, 0);
@@ -4006,12 +4022,16 @@ function _mixed3dDriveSwoopyTour(t) {
   // Used for both the slow-scan lateral drift AND the lookAt swing.
   const perpX = -tan.z;
   const perpZ = tan.x;
-  // Slow-scan lateral drift: shift camera ~1u toward the scanSide
-  // tower face during the hold. Stays well clear of the tower (path
-  // sits one full lane in from perimeter towers, so 1u shift leaves
-  // the camera ~spacing/2 - 1u from the tower wall — close enough to
-  // graze, not so close the cells clip the near plane).
-  const SCAN_LATERAL = 1.1;
+  // Slow-scan lateral drift: zero. Path sits in the corridor center,
+  // (spacing - towerW)/2 = 3.5u from the chosen face — about right for
+  // a 60° FOV on a towerW=5 face, with cells reading at ~1u wide. Any
+  // shift TOWARD the wall (the previous +1.1u behavior) overcrops the
+  // face; shift AWAY would move toward the OPPOSITE tower instead.
+  // User feedback 2026-05-04: "the pan and look is currently a little
+  // too close to the tower wall, can't read anything that's actually
+  // there which is the point. to temporarily make it basically a 2d
+  // dashboard again".
+  const SCAN_LATERAL = 0;
   desiredPos.x += perpX * scanSide * sf * SCAN_LATERAL;
   desiredPos.z += perpZ * scanSide * sf * SCAN_LATERAL;
   if (!sw.posActual) sw.posActual = desiredPos.clone();
@@ -4019,10 +4039,13 @@ function _mixed3dDriveSwoopyTour(t) {
   sw.posActual.lerp(desiredPos, Math.min(1, dt * 6.0));
   cam.position.copy(sw.posActual);
   // LookAt: blend forward-tan gaze with perp-tan gaze based on scan
-  // factor. At full scan, the camera looks 90° to the side at
-  // ~6u distance — short focal so the tower face fills the frame.
+  // factor. At full scan, the camera looks 90° to the side at the
+  // wall surface (~3.5u, which is path-to-face distance), so the
+  // focal point sits ON the cell wall rather than past it. Was 6.0
+  // before — that put the focal point 2.5u INSIDE the tower, which
+  // read as "looking past the cells" and fought the eye's depth cues.
   const fwdLookAhead = 12.0;
-  const perpLookAhead = 6.0;
+  const perpLookAhead = 3.5;
   const fwdMix = 1 - sf;
   const perpMix = sf;
   const lookAtTarget = new T.Vector3(
