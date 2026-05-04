@@ -2212,8 +2212,21 @@ function ensureSessionColumn(sid) {
 }
 
 async function load() {
+  // Boot perf probe (gated on URL ?perf=1 to keep prod silent).
+  // Investigating 9–11s frame-stall freezes at boot reported
+  // 2026-05-04. Suspect: synchronous DOM render of 14k cells in the
+  // loop near line 2296. Probe marks fetch/parse/render-loop batches
+  // and total. Read with: ?theme=hackers&layout=mixed3d&perf=1
+  const _PERF = new URLSearchParams(window.location.search).get("perf") === "1";
+  const _pT0 = performance.now();
+  const _pLog = (label) => {
+    if (_PERF) console.log(`[load.perf] +${(performance.now() - _pT0).toFixed(0)}ms ${label}`);
+  };
+  _pLog("load() start");
   const res = await fetch("cells.json", { cache: "no-store" });
+  _pLog(`fetch returned (status=${res.status})`);
   const data = await res.json();
+  _pLog(`json parsed (cells=${(data.cells || []).length})`);
   // ?session=auto: discover every distinct session_id in the corpus and
   // mount one column per session. Cells without a session_id collapse
   // into the "untagged" pseudo-column.
@@ -2293,25 +2306,39 @@ async function load() {
     else if (recentCap) tail = visible.slice(-recentCap);
     else if (layoutCap) tail = visible.slice(-layoutCap);
     else tail = visible;
+    _pLog(`render loop start (tail.len=${tail.length}, cap=auto:${state.sessions.autoMode}/recent:${recentCap}/layout:${layoutCap})`);
+    let _renderedSinceMark = 0;
+    let _lastMarkT = performance.now();
     for (const c of tail) {
       root.prepend(renderCell(c, snippetGroups, cellsById));
       state.rendering.renderedIds.add(c.id);
+      _renderedSinceMark++;
+      if (_PERF && _renderedSinceMark >= 1000) {
+        const _now = performance.now();
+        console.log(`[load.perf] +${(_now - _pT0).toFixed(0)}ms rendered ${_renderedSinceMark} cells in ${(_now - _lastMarkT).toFixed(0)}ms (avg ${((_now - _lastMarkT) / _renderedSinceMark).toFixed(2)}ms/cell)`);
+        _renderedSinceMark = 0;
+        _lastMarkT = _now;
+      }
     }
+    _pLog(`render loop done`);
   }
 
   // Hero "still warm" treatment: the most-recent visible cell gets a
   // subtle glow that fades over ~60s. Survives across renders by
   // looking at timestamp on each load.
   applyStillWarmToLatest();
+  _pLog("applyStillWarmToLatest done");
   // Click-to-zoom: clicking a cell's body (not its interactive children)
   // promotes it to a centered overlay at near-viewport size. Escape or
   // click-on-backdrop dismisses. Opt-in inspection without disturbing
   // the live grid. Idempotent — safe to call after each load().
   setupCellZoom();
+  _pLog("setupCellZoom done");
   // Apply alternate layouts (treemap / organic) if URL opted in.
   // Default grid stays as-is. Run after the substrate-async settles
   // so cell heights are stable when squarify reads them.
   applyActiveLayout();
+  _pLog("applyActiveLayout #1 done");
   setTimeout(applyActiveLayout, 600);
   setTimeout(applyActiveLayout, 2000);
   // Initial draw of inter-cell connections; subsequent redraws fire
@@ -2320,6 +2347,7 @@ async function load() {
   // Tag cells whose content exceeds the height cap so the fade
   // gradient renders only where needed.
   scheduleCheckOverflow();
+  _pLog("load() complete");
   // Catch async-loaded content (vega/mermaid/scene3d) that resolves
   // after first layout — re-check at intervals during the first
   // few seconds of page life.
