@@ -2651,31 +2651,6 @@ function applyMixed3DLayout(opts) {
   const spacing = 12.0;
   const towerMeshes = [];
   const sharedBox = new T.BoxGeometry(towerW, towerH, towerD);
-  // Vertex colors on the tower glass — bottom 35% picks up a purple
-  // wash that fakes reflections of the purple PCB floor traces on
-  // the glass walls (user 2026-05-04 "subtle reflections in the
-  // glass of the tower walls of the traces"). With material.opacity
-  // 0.025 the tint reads as very subtle ambient shift, not painted
-  // color. Top stays full cyan; gradient interpolates linearly between.
-  {
-    const _posAttr = sharedBox.attributes.position;
-    const _colors = new Float32Array(_posAttr.count * 3);
-    const _cyan = new T.Color(O.world.tower_tint || 0x00ddff);
-    const _purple = new T.Color(0xb078ff);
-    const _wash = _cyan.clone().lerp(_purple, 0.65);
-    for (let _i = 0; _i < _posAttr.count; _i++) {
-      const _y = _posAttr.getY(_i);
-      // _y range: -towerH/2 to +towerH/2 → t: 0 (bottom) to 1 (top).
-      const _t = (_y + towerH / 2) / towerH;
-      // Bottom 35% blends from full wash → cyan; above 35% stays cyan.
-      const _blend = Math.max(0, 1 - _t / 0.35);
-      const _c = _cyan.clone().lerp(_wash, _blend);
-      _colors[_i * 3]     = _c.r;
-      _colors[_i * 3 + 1] = _c.g;
-      _colors[_i * 3 + 2] = _c.b;
-    }
-    sharedBox.setAttribute("color", new T.BufferAttribute(_colors, 3));
-  }
   // Edge-tube architecture: LineBasicMaterial.linewidth is clamped to
   // 1px in WebGL on most browsers, which made the previous wireframe
   // edges appear hairline-thin. Per refs the Gibson towers have
@@ -2775,11 +2750,7 @@ function applyMixed3DLayout(opts) {
   // wall in one operation. Trade-off: no per-tower color animation
   // (e.g. a single tower flashing); we don't need that today.
   const sharedTowerMat = new T.MeshPhongMaterial({
-    // Material color = white so the per-vertex color attribute on
-    // sharedBox fully drives the diffuse tint (cyan top → purple wash
-    // at the bottom 35%, faking floor-trace reflections in the glass).
-    color: 0xffffff,
-    vertexColors: true,
+    color: tint,
     transparent: true,
     // 0.025 (was 0.04) — even more translucent, so back towers
     // visibly read THROUGH front towers. User 2026-05-02 ref
