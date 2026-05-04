@@ -143,6 +143,7 @@ def bake(
     bg_color: str,
     primary: str,
     accent: str,
+    tower_color: str,
     seed: int,
 ) -> Image.Image:
     rng = random.Random(seed)
@@ -414,11 +415,13 @@ def bake(
             continue
         draw_rect_units(draw, spec, x, z, bw, bd, primary)
 
-    # 6. Tower footprints = bright cyan "hole into a bright light"
-    #    visible through translucent tower glass. Overpaint clears any
-    #    trace clutter inside the bbox and lays down a clean bright fill;
-    #    perimeter chip pads + stubs draw next on top.
-    overpaint_tower_bboxes(draw, spec, fill=primary, margin=0.0)
+    # 6. Tower footprints = bright "hole into a bright light" visible
+    #    through translucent tower glass. Uses tower_color (cyan, matches
+    #    the tower-edge tubes) — distinct from primary which colours the
+    #    purple PCB traces per refs (user 2026-05-03 "the floor lines/
+    #    traces are pretty consistently purple ... reflections of the
+    #    purple circuit lines in the glass of the tower faces").
+    overpaint_tower_bboxes(draw, spec, fill=tower_color, margin=0.0)
 
     # 7. Per-tower perimeter chip pads + stubs (drawn AFTER overpaint
     #    so they sit on the dark tower border).
@@ -451,9 +454,9 @@ def bake(
                         ex, ez = px, pz + stub_len
                     else:
                         ex, ez = px - stub_len, pz
-                    draw_line_units(draw, spec, px, pz, ex, ez, 0.08, primary)
+                    draw_line_units(draw, spec, px, pz, ex, ez, 0.08, tower_color)
                     pw, pd = (pad_w, pad_d) if side in (0, 2) else (pad_d, pad_w)
-                    draw_rect_units(draw, spec, ex, ez, pw, pd, primary)
+                    draw_rect_units(draw, spec, ex, ez, pw, pd, tower_color)
 
     return img
 
@@ -473,7 +476,11 @@ def main() -> None:
         "--resolution", type=int, default=4096, help="output PNG square resolution in px"
     )
     p.add_argument("--bg", default="#02080f")
-    p.add_argument("--primary", default="#00ddff")
+    # Trace lines (PCB bus work, dogleg connectors, accent badges) —
+    # purple per Hackers movie refs. Tower footprints + chip pads still
+    # use --tower-color (cyan, matches the tower-edge tubes).
+    p.add_argument("--primary", default="#9966ff")
+    p.add_argument("--tower-color", default="#00ddff")
     p.add_argument("--accent", default="#ff3a8c")
     p.add_argument("--seed", type=int, default=12345)
     p.add_argument("--out", type=Path, default=Path("assets/floor_baked.png"))
@@ -490,7 +497,7 @@ def main() -> None:
         f"baking floor: field={spec.field_size}u, floor={spec.floor_size}u, "
         f"px/unit={spec.px_per_unit:.2f}, out={args.out}"
     )
-    img = bake(spec, args.bg, args.primary, args.accent, args.seed)
+    img = bake(spec, args.bg, args.primary, args.accent, args.tower_color, args.seed)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     img.save(args.out, optimize=True)
     print(f"wrote {args.out} ({args.out.stat().st_size / 1024:.0f} KB)")
