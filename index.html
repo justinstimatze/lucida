@@ -3893,13 +3893,65 @@ function _mixed3dDriveSwoopyTour(t) {
   // ramp without an accumulator (which would need per-frame dt).
   // User 2026-05-03: "start the camera moving slow and steady for
   // maybe 10 seconds first".
+  // Slow-scan scheduling. Every ~30–50s, decelerate to ~15% speed for
+  // 7s, drift the camera laterally toward one side, and rotate lookAt
+  // 90° to face that side's tower wall. Lets the user actually read
+  // cells on a face during the swoop, and gives the rare cell-conf-high
+  // pink-highlight cells a chance to scroll past as a "this one
+  // matters" surprise. After scan completes, schedule the next.
+  if (t < 10) {
+    // skip scan during boot ease-in
+    sw.scanNextStart = 30 + Math.random() * 20;
+    sw.scanFactor = 0;
+    sw.scanSide = 0;
+  } else {
+    if (sw.scanNextStart == null) sw.scanNextStart = t + 25 + Math.random() * 15;
+    if (t >= sw.scanNextStart) {
+      const dts = t - sw.scanNextStart;
+      // 1.5s ramp in, 4s hold, 1.5s ramp out → 7s total scan window
+      let f;
+      if (dts < 1.5) f = dts / 1.5;
+      else if (dts < 5.5) f = 1;
+      else if (dts < 7.0) f = (7.0 - dts) / 1.5;
+      else {
+        f = 0;
+        sw.scanNextStart = t + 30 + Math.random() * 20;
+        sw.scanSide = 0;
+      }
+      sw.scanFactor = Math.max(0, Math.min(1, f));
+      if (!sw.scanSide && sw.scanFactor > 0) {
+        sw.scanSide = Math.random() < 0.5 ? -1 : 1;
+      }
+    } else {
+      sw.scanFactor = 0;
+      sw.scanSide = 0;
+    }
+  }
+  const scanFactor = sw.scanFactor || 0;
+  const scanSide = sw.scanSide || 0;
+  // Smoothstep ease for visual feel; raw linear ramp is harsh at the
+  // ramp-in/out transitions.
+  const sf = scanFactor * scanFactor * (3 - 2 * scanFactor);
+
   let arc;
   if (t < 10) {
     // ∫(0..t) speed * (0.3 + 0.07τ) dτ = speed * (0.3t + 0.035t²)
     arc = sw.speed * (0.3 * t + 0.035 * t * t);
+    sw.lastT = t;
+    sw.arcAccum = arc;
   } else {
-    // arc(10) = speed * 6.5; afterwards full-speed linear
-    arc = sw.speed * (6.5 + (t - 10));
+    // dt accumulator so slow-scan can modulate speed without breaking
+    // arc continuity. arcAccum carries the closed-form value at t=10
+    // (= speed * 6.5) into linear-time territory.
+    if (sw.lastT == null || sw.arcAccum == null) {
+      sw.lastT = t;
+      sw.arcAccum = sw.speed * 6.5;
+    }
+    const dtReal = Math.max(0, Math.min(0.1, t - sw.lastT));
+    sw.lastT = t;
+    const speedMult = 1 - 0.85 * sf; // 1.0 → 0.15 at full scan
+    sw.arcAccum += sw.speed * speedMult * dtReal;
+    arc = sw.arcAccum;
   }
   const u = (arc % sw.totalLen) / sw.totalLen;
   if (!isFinite(u)) return;
@@ -3922,15 +3974,33 @@ function _mixed3dDriveSwoopyTour(t) {
   tan.y = 0;
   if (tan.lengthSq() < 1e-6) tan.set(1, 0, 0);
   else tan.normalize();
+  // Perpendicular to tangent in XZ plane (rotate 90° CCW).
+  // Used for both the slow-scan lateral drift AND the lookAt swing.
+  const perpX = -tan.z;
+  const perpZ = tan.x;
+  // Slow-scan lateral drift: shift camera ~1u toward the scanSide
+  // tower face during the hold. Stays well clear of the tower (path
+  // sits one full lane in from perimeter towers, so 1u shift leaves
+  // the camera ~spacing/2 - 1u from the tower wall — close enough to
+  // graze, not so close the cells clip the near plane).
+  const SCAN_LATERAL = 1.1;
+  desiredPos.x += perpX * scanSide * sf * SCAN_LATERAL;
+  desiredPos.z += perpZ * scanSide * sf * SCAN_LATERAL;
   if (!sw.posActual) sw.posActual = desiredPos.clone();
   const dt = 1 / 60;
   sw.posActual.lerp(desiredPos, Math.min(1, dt * 6.0));
   cam.position.copy(sw.posActual);
-  const lookAhead = 12.0;
+  // LookAt: blend forward-tan gaze with perp-tan gaze based on scan
+  // factor. At full scan, the camera looks 90° to the side at
+  // ~6u distance — short focal so the tower face fills the frame.
+  const fwdLookAhead = 12.0;
+  const perpLookAhead = 6.0;
+  const fwdMix = 1 - sf;
+  const perpMix = sf;
   const lookAtTarget = new T.Vector3(
-    cam.position.x + tan.x * lookAhead,
+    cam.position.x + tan.x * fwdLookAhead * fwdMix + perpX * scanSide * perpLookAhead * perpMix,
     cam.position.y,
-    cam.position.z + tan.z * lookAhead,
+    cam.position.z + tan.z * fwdLookAhead * fwdMix + perpZ * scanSide * perpLookAhead * perpMix,
   );
   if (!sw.lookAtActual) sw.lookAtActual = lookAtTarget.clone();
   sw.lookAtActual.lerp(lookAtTarget, Math.min(1, dt * 5.0));
@@ -3962,7 +4032,9 @@ function _mixed3dDriveSwoopyTour(t) {
   // slow and steady for maybe 10 seconds first"). The position
   // path itself stays linear so motion is steady.
   const easeIn = Math.min(1, t / 10);
-  const bankTarget = avgRate * BANK_K * easeIn;
+  // Slow-scan suppresses banking — looking sideways at a tower face,
+  // the user wants the wall to read level, not tilted.
+  const bankTarget = avgRate * BANK_K * easeIn * (1 - sf);
   if (sw.bankActual == null) sw.bankActual = 0;
   sw.bankActual += (bankTarget - sw.bankActual) * 0.04;
   const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
@@ -4370,6 +4442,14 @@ function _mixed3dResetCameraTimer() {
     _mixed3dState.swoopCam.lookAtActual = null;
     _mixed3dState.swoopCam.headingHistory = [];
     _mixed3dState.swoopCam.bankActual = 0;
+    // Slow-scan state: drop any in-progress scan so the camera
+    // restarts from a normal-flight pose, and let the post-boot
+    // scheduler pick a fresh scan start once t passes 10.
+    _mixed3dState.swoopCam.scanFactor = 0;
+    _mixed3dState.swoopCam.scanSide = 0;
+    _mixed3dState.swoopCam.scanNextStart = null;
+    _mixed3dState.swoopCam.lastT = null;
+    _mixed3dState.swoopCam.arcAccum = null;
   }
 }
 
@@ -5805,6 +5885,20 @@ function renderCell(c, snippetGroups, cellsById, opts) {
         <text class="magi-label" x="13"   y="15" text-anchor="middle" dominant-baseline="middle">C</text>
       </svg>`.trim());
     if (cv < 0.6) conf.classList.add("cell-conf-low");
+    // High-confidence rarity hook. The hackers theme uses this to
+    // promote the rare cell to the magenta-highlight column visible in
+    // refs/gibson/tower_face_labels.png — pink is the "this one
+    // matters" signal. Threshold 0.88 chosen empirically against the
+    // actual cv distribution (quantized clusters at 0.85/0.86/0.88/
+    // 0.89): >=0.88 yields ~4% pink — sparse enough that during a
+    // slow-scan tower-face graze, an occasional pink cell scrolls by
+    // as a "this one matters" surprise. Tagged on both the conf chip
+    // AND the cell so theme CSS can rail-color the whole cell without
+    // :has() (broader browser compat).
+    if (cv >= 0.88) {
+      conf.classList.add("cell-conf-high");
+      if (card) card.classList.add("cell-conf-high");
+    }
     conf.appendChild(el("span", "cell-conf-num", c.confidence.toFixed(2)));
     conf.title = `classifier confidence: ${c.confidence}`;
     head.appendChild(conf);
