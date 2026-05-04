@@ -2984,14 +2984,15 @@ function applyMixed3DLayout(opts) {
       towerD,
       spacing,
       // 6 columns × 6 rows per side face. 6-column count is a rule
-      // (user 2026-05-02 "there are always 6 vertical columns per
-      // face"). 6 rows: cells fill y=1.5 to ~14.75 (tower top y=17),
-      // so the stack reads as a properly-saturated data wall instead
-      // of the prior 3-row config that left the upper half empty
-      // glass — at saturation users read that as "missing cells"
-      // (2026-05-03). Capacity per tower: 6×6×4 + 1 top = 145, ×100
-      // towers = 14500 — matches the 14000 perf_fill target and the
-      // earlier comment at TOKENS.mixed3d.
+      // 6 cols × 6 rows = 36 slots per side face × 4 sides + 1 top
+      // = 145 slots/tower × 100 towers = 14500 capacity. Cells fill
+      // y=1.5 to ~14.75 of the 17u tower height (88%). The earlier
+      // 3-row config came with a comment claiming the upper-half
+      // empty glass was an intentional "silhouette/header" feature;
+      // that was llm_output dressed as design rationale — there's no
+      // matching user feedback or reference frame for it. 6 rows
+      // matches the Gibson canyon refs and properly utilizes the
+      // perf_fill saturation target.
       slotsPerFaceX: 6,
       slotsPerFaceY: 6,
       slotW: 0.65,
