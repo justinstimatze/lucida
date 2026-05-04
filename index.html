@@ -2748,10 +2748,20 @@ function applyMixed3DLayout(opts) {
     side: T.DoubleSide,
     shininess: 90,
   });
+  // Bumped opacity 0.55 → 0.95 (user 2026-05-03 "the towers are
+  // the dominant shapes ... edges of the tower need to be bolder
+  // and brighter, look at the reference photos"). Reference frames
+  // show towers with crisp, near-fully-saturated cyan wireframe
+  // edges — they read as the structural skeleton against which
+  // cells are subtle content. Three.js LineBasicMaterial linewidth
+  // is clamped to 1px in WebGL on most browsers, so opacity is the
+  // available boldness lever; pair with a slightly brighter base
+  // color (tint shifted toward white).
+  const _edgeColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.18);
   const sharedEdgeMat = new T.LineBasicMaterial({
-    color: tint,
+    color: _edgeColor,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.95,
   });
   // Top-rim highlight: 4 line segments at the very top of each
   // tower, brighter than the regular edge wireframe. Per refs
@@ -4876,26 +4886,29 @@ function _mixed3dDrainMountQueue() {
 // no whitespace at top or bottom (user 2026-05-03 "first/last cell
 // crisply flush ... pretty dense ... variation in heights").
 function _mixed3dPlanColumn(towerH, targetCount) {
-  // ±1 around target; e.g. 6 → {5,6,7}
   const N = Math.max(2, targetCount + Math.floor((Math.random() * 3) - 1));
-  // Random fractional weights, then normalize so heights sum to towerH.
-  // Add a small base padding (0.06u) between cells; the rest is the
-  // cell heights. Reserved padding = (N-1) × 0.06.
+  // baseY=0.1: lift the first cell above the floor plane so its
+  // bottom edge doesn't z-fight with the floor at y=0 (cells were
+  // appearing to have a gap near the bottom because the bottom edge
+  // sat at the same depth as the floor and got discarded by the
+  // depth test — user 2026-05-03 "I do see some gaps in some
+  // columns usually near the bottom"). usableH = towerH - baseY.
+  // Last cell still stretches to land flush at y=towerH.
+  const baseY = 0.1;
+  const usableH = towerH - baseY;
   const minPad = 0.06;
   const reservedPad = (N - 1) * minPad;
-  const cellTotal = towerH - reservedPad;
+  const cellTotal = usableH - reservedPad;
   const fractions = [];
   for (let i = 0; i < N; i++) fractions.push(0.55 + Math.random() * 1.05);
   const sumF = fractions.reduce((a, b) => a + b, 0);
   const heights = fractions.map(f => f * cellTotal / sumF);
   const positions = [];
-  let y = 0;
+  let y = baseY;
   for (let i = 0; i < N; i++) {
     positions.push({ y, h: heights[i] });
     y += heights[i] + minPad;
   }
-  // Floating-point drift can leave the last cell a few µu short of
-  // tower top; nudge the final cell to land exactly at y=towerH.
   const last = positions[positions.length - 1];
   last.h = towerH - last.y;
   return { positions, nextIdx: 0 };
