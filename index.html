@@ -3063,7 +3063,25 @@ function applyMixed3DLayout(opts) {
     const _cyan = (_styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
     const _pink = (_styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
     _mixed3dState.colorCache = { cyan: _cyan, pink: _pink };
-    _mixed3dState.sharedSubstrateMats = _mixed3dBuildSharedSubstrateMats(_cyan, _pink);
+    // Lazy/chunked build: start with empty Map (each substrate maps to
+    // an array that progressively fills via _mixed3dDrainMatBuilder).
+    // Cells of a substrate that doesn't have ANY variants ready yet
+    // fall through to the per-cell mini-texture path; this is bounded
+    // because the chunked build finishes in <1s wall-time and drain
+    // mounts at most ~3-6 cells/frame before the first variants land.
+    _mixed3dState.sharedSubstrateMats = new Map();
+    _mixed3dState.matBuilderQueue = [];
+    for (const sub of _MIXED3D_SUBSTRATES) {
+      _mixed3dState.sharedSubstrateMats.set(sub, []);
+      // Interleave variant indexes across substrates so the FIRST tick
+      // gives every substrate at least one variant — eliminates the
+      // window where a whole substrate has no shared mat available.
+      for (let v = 0; v < _MIXED3D_VARIANTS_PER_SUBSTRATE; v++) {
+        _mixed3dState.matBuilderQueue.push({ sub, v });
+      }
+    }
+    _mixed3dState.matBuilderQueue.sort((a, b) => a.v - b.v);
+    requestAnimationFrame(() => _mixed3dDrainMatBuilder(_cyan, _pink));
   }
   _mixed3dState.tier1Count = 0;
   _mixed3dState._retierKeys = null;
@@ -4523,61 +4541,62 @@ const _MIXED3D_SUBSTRATES = [
   "vega", "treemap", "gauge", "sparkline", "trajectory",
   "text", "code", "image",
 ];
-function _mixed3dBuildSharedSubstrateMats(cyan, pink) {
+// Build ONE (substrate, variant) shared material. Extracted so the
+// chunked drainer below can build them progressively across frames.
+function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v) {
   const T = window.THREE;
-  const out = new Map();
-  for (const substrate of _MIXED3D_SUBSTRATES) {
-    const variants = [];
-    for (let v = 0; v < _MIXED3D_VARIANTS_PER_SUBSTRATE; v++) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 48;
-      canvas.height = 144;
-      const ctx = canvas.getContext("2d");
-      // No bg fill — canvas stays fully transparent. Only the
-      // substrate-preview marks paint pixels with alpha > 0. With
-      // material.transparent: true, transparent pixels alpha-blend
-      // through to whatever's behind, so the cell content reads as
-      // "etched" onto the tower glass rather than painted on a
-      // panel (user 2026-05-03 "the cell backgrounds are basically
-      // transparent. it looks like the terminal text is etched on
-      // the glass of the wall of the tower").
-      const fakeCell = {
-        id: `__shared:${substrate}:${v}`,
-        dataset: { cellType: substrate },
-        querySelector: () => null,
-      };
-      _mixed3dDrawCellPreview(ctx, fakeCell, 2, 2, 44, 140, cyan, pink);
-      const tex = new T.CanvasTexture(canvas);
-      tex.minFilter = T.LinearFilter;
-      tex.magFilter = T.LinearFilter;
-      const mat = new T.MeshBasicMaterial({
-        map: tex,
-        // alphaTest cutout (NOT transparent: true). Pixels with
-        // alpha < 0.5 are discarded (no fragment write, no depth
-        // write); opaque pixels write depth normally. This keeps
-        // the etched-glass look (text/glyphs render, blank canvas
-        // areas show the tower glass behind via depth-test) while
-        // routing the cell through the OPAQUE render pass — no
-        // back-to-front sort. At saturation that's ~6500 tier-2
-        // cells lifted out of the per-frame sort that previously
-        // produced 12-28s frame stalls during drain.
-        // Trade: text edges get binary alpha cutoff instead of
-        // smooth alpha blending. At swoopy-tour distance (the bulk
-        // of tier-2 viewing) the aliasing is imperceptible; close
-        // cells use tier-1 unique materials which keep transparent
-        // alpha for sharper edges.
-        transparent: false,
-        alphaTest: 0.5,
-        // DoubleSide so cells on the FAR side of any tower render
-        // through the translucent glass; substrate-preview content
-        // is abstract enough that the mirrored back face reads fine.
-        side: T.DoubleSide,
-      });
-      variants.push(mat);
-    }
-    out.set(substrate, variants);
+  const canvas = document.createElement("canvas");
+  canvas.width = 48;
+  canvas.height = 144;
+  const ctx = canvas.getContext("2d");
+  // No bg fill — canvas stays fully transparent. Only the
+  // substrate-preview marks paint pixels with alpha > 0. The
+  // alpha-cutout material below discards transparent pixels so
+  // the tower glass behind shows through (etched-glass look).
+  const fakeCell = {
+    id: `__shared:${substrate}:${v}`,
+    dataset: { cellType: substrate },
+    querySelector: () => null,
+  };
+  _mixed3dDrawCellPreview(ctx, fakeCell, 2, 2, 44, 140, cyan, pink);
+  const tex = new T.CanvasTexture(canvas);
+  tex.minFilter = T.LinearFilter;
+  tex.magFilter = T.LinearFilter;
+  return new T.MeshBasicMaterial({
+    map: tex,
+    // alphaTest cutout (NOT transparent: true) — text/glyphs draw,
+    // blank canvas pixels discard so the tower glass shows through
+    // via depth-test. Routes through the OPAQUE pass: no per-frame
+    // back-to-front sort.
+    transparent: false,
+    alphaTest: 0.5,
+    side: T.DoubleSide,
+  });
+}
+
+// Chunked drainer: builds the sharedSubstrateMats Map progressively,
+// 5ms of work per rAF tick, until all 156 (substrate × variant) pairs
+// are built. Replaces the old monolithic build that ran inside
+// applyMixed3DLayout and contributed ~1.5s to the boot-time longtask.
+// Variants are interleaved (v=0 across all substrates first, then v=1,
+// etc.) so every substrate has at least one variant available after
+// the first tick.
+function _mixed3dDrainMatBuilder(cyan, pink) {
+  const S = _mixed3dState;
+  if (!S || !S.matBuilderQueue) return;
+  const start = performance.now();
+  let built = 0;
+  while (S.matBuilderQueue.length > 0) {
+    if (built > 0 && performance.now() - start > 5) break;
+    const { sub, v } = S.matBuilderQueue.shift();
+    const mat = _mixed3dBuildOneSharedMat(cyan, pink, sub, v);
+    const arr = S.sharedSubstrateMats.get(sub);
+    if (arr) arr.push(mat);
+    built++;
   }
-  return out;
+  if (S.matBuilderQueue.length > 0) {
+    requestAnimationFrame(() => _mixed3dDrainMatBuilder(cyan, pink));
+  }
 }
 
 // Pick a deterministic variant from a cell id, so cells with the
