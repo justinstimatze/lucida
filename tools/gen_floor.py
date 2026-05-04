@@ -24,7 +24,7 @@ import argparse
 import random
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 
 class FloorSpec:
@@ -461,6 +461,60 @@ def bake(
     return img
 
 
+def add_glow_around_color(
+    img: Image.Image,
+    target_hex: str,
+    match_tolerance: int,
+    blur_px: int,
+    intensity: float,
+) -> Image.Image:
+    """Composite an additive Gaussian-blur glow halo around pixels that
+    approximately match target_hex.
+
+    Used for the purple PCB traces — the static-bake floor architecture
+    can't run a runtime bloom pass, so this fakes the neon-glow look
+    by painting a blurred copy of the target-color pixels back onto the
+    image with additive blend (ImageChops.add clamps at 255).
+    """
+    target = (
+        int(target_hex[1:3], 16),
+        int(target_hex[3:5], 16),
+        int(target_hex[5:7], 16),
+    )
+    rgb = img.convert("RGB")
+    r, g, b = rgb.split()
+    # Mask = pixels within match_tolerance of the target color on each
+    # channel. Multiplied together so all 3 conditions must hold.
+    r_mask = r.point(lambda v: 255 if abs(v - target[0]) <= match_tolerance else 0)
+    g_mask = g.point(lambda v: 255 if abs(v - target[1]) <= match_tolerance else 0)
+    b_mask = b.point(lambda v: 255 if abs(v - target[2]) <= match_tolerance else 0)
+    mask = ImageChops.multiply(ImageChops.multiply(r_mask, g_mask), b_mask)
+
+    # Paint target color wherever mask is set, black elsewhere.
+    glow_color = Image.new(
+        "RGB",
+        img.size,
+        (
+            int(target[0] * intensity),
+            int(target[1] * intensity),
+            int(target[2] * intensity),
+        ),
+    )
+    glow = Image.composite(glow_color, Image.new("RGB", img.size, (0, 0, 0)), mask)
+    glow = glow.filter(ImageFilter.GaussianBlur(blur_px))
+
+    # Additive composite onto the original (clamps at 255 → bright halo
+    # around traces, no effect on dark floor away from purple).
+    if img.mode == "RGBA":
+        added = ImageChops.add(img.convert("RGB"), glow)
+        out = Image.merge(
+            "RGBA",
+            [*added.split(), img.getchannel("A")],
+        )
+        return out
+    return ImageChops.add(img, glow)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--tower-count", type=int, default=10)
@@ -498,6 +552,13 @@ def main() -> None:
         f"px/unit={spec.px_per_unit:.2f}, out={args.out}"
     )
     img = bake(spec, args.bg, args.primary, args.accent, args.tower_color, args.seed)
+    img = add_glow_around_color(
+        img,
+        target_hex=args.primary,
+        match_tolerance=60,
+        blur_px=int(spec.px_per_unit * 0.5),
+        intensity=0.7,
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     img.save(args.out, optimize=True)
     print(f"wrote {args.out} ({args.out.stat().st_size / 1024:.0f} KB)")
