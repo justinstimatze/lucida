@@ -3764,6 +3764,13 @@ function _mixed3dDriveSwoopyTour(t) {
   const T = window.THREE;
   const S = _mixed3dState;
   const cam = S.camera;
+  // Defensive: NaN/Infinity guards. _mixed3dResetCameraTimer can fire
+  // mid-frame (dt > 1000ms safety net at boot under saturation), and
+  // any race that leaves t non-finite would propagate to getPointAt
+  // and throw — freezing the renderer without freezing the mount
+  // drain, which manifests as "lots of cells minted but only the
+  // first ~3500 visible" because childN grows but no frame repaints.
+  if (!isFinite(t) || t < 0) t = 0;
   if (!S.swoopCam) {
     const G = S.geometry;
     const gridHalf = (G.towerCount - 1) / 2;
@@ -3795,11 +3802,26 @@ function _mixed3dDriveSwoopyTour(t) {
     };
   }
   const sw = S.swoopCam;
+  if (!sw || !isFinite(sw.totalLen) || sw.totalLen <= 0) return;
   // Arc-length parameterization: u sweeps [0..1) at constant linear
   // speed regardless of curve curvature. No smoothstep — no zero-
   // velocity points on the path.
   const u = ((t * sw.speed) % sw.totalLen) / sw.totalLen;
-  const desiredPos = sw.curve.getPointAt(u);
+  if (!isFinite(u)) return;
+  let desiredPos;
+  try {
+    desiredPos = sw.curve.getPointAt(u);
+  } catch (e) {
+    // CatmullRomCurve3 can throw on degenerate cache state during
+    // boot races. Skip this frame; render loop continues. Log once
+    // so we notice if it persists.
+    if (!S._swoopErr) {
+      console.warn("[mixed3d] swoopy-tour curve.getPointAt failed at u=" + u + ":", e);
+      S._swoopErr = true;
+    }
+    return;
+  }
+  if (!desiredPos) return;
   desiredPos.y = 4.5 + Math.sin(t * 0.22) * 0.6;
   const tan = sw.curve.getTangentAt(u);
   tan.y = 0;
