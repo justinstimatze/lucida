@@ -1,13 +1,17 @@
 /* minimal v0 styling — aesthetic doesn't matter, legibility does */
 
-/* Eurostile Extended Black — the actual font from Hackers (1995)
-   per Reddit r/identifythisfont identification of the Gibson scene
-   ("Microgramma/Eurostile Bold Extended"). Self-hosted from
-   font.download (free for personal/commercial use). Loaded once
-   here and referenced by the hackers theme typography tokens. */
+/* Eurostile (OT, Regular weight) — the actual font from Hackers
+   (1995) per Reddit r/identifythisfont identification of the
+   Gibson scene ("Microgramma/Eurostile Bold Extended"). Sourced
+   from github.com/coderiver/mag/blob/master/css/fonts/eurostile.woff2
+   — earlier font.download TTF was rejected by Chrome OTS (corrupt
+   cmap format-4 subtable, header claimed 672 bytes but only 410
+   available). WOFF2 is also smaller (~23KB vs 32KB).
+   This is Regular cut, not Extended Black — wider/heavier variant
+   would match references better but we're working with what loads. */
 @font-face {
-  font-family: "Eurostile Extended";
-  src: url("assets/fonts/EurostileExtendedBlack.ttf") format("truetype");
+  font-family: "Eurostile";
+  src: url("assets/fonts/EurostileOT.woff2") format("woff2");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -133,7 +137,7 @@ body.booted #boot-overlay {
      var --type-mono pre-existed but the boot CSS was reading the
      wrong name (--font-mono), so the chain always fell back to
      Share Tech Mono. */
-  font-family: "Eurostile Extended", var(--type-mono, "Share Tech Mono"), "Courier New", monospace;
+  font-family: "Eurostile", var(--type-mono, "Share Tech Mono"), "Courier New", monospace;
   color: var(--accent, #00ddff);
   letter-spacing: 0.2em;
 }

@@ -4640,7 +4640,7 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const titleEl = cell.querySelector(".cell-title");
   const title = (titleEl?.textContent || cell.id || "").trim().toUpperCase();
   ctx.fillStyle = pink;
-  ctx.font = isTop ? "bold 16px 'Eurostile Extended', 'Share Tech Mono', monospace" : "bold 11px 'Eurostile Extended', 'Share Tech Mono', monospace";
+  ctx.font = isTop ? "bold 16px 'Eurostile', 'Share Tech Mono', monospace" : "bold 11px 'Eurostile', 'Share Tech Mono', monospace";
   ctx.textBaseline = "top";
   const padX = 4;
   const lineH = isTop ? 18 : 13;
@@ -4675,7 +4675,7 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const ctype = (cell.dataset.cellType || "").toUpperCase();
   if (ctype) {
     ctx.fillStyle = cyan;
-    ctx.font = isTop ? "bold 11px 'Eurostile Extended', 'Share Tech Mono', monospace" : "bold 8px 'Eurostile Extended', 'Share Tech Mono', monospace";
+    ctx.font = isTop ? "bold 11px 'Eurostile', 'Share Tech Mono', monospace" : "bold 8px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.fillText(ctype, padX, H - (isTop ? 16 : 12));
   }
   const tex = new T.CanvasTexture(canvas);
