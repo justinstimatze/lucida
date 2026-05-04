@@ -1,5 +1,19 @@
 /* minimal v0 styling — aesthetic doesn't matter, legibility does */
 
+/* Eurostile Extended Black — the actual font from Hackers (1995)
+   per Reddit r/identifythisfont identification of the Gibson scene
+   ("Microgramma/Eurostile Bold Extended"). Self-hosted from
+   font.download (free for personal/commercial use). Loaded once
+   here and referenced by the hackers theme typography tokens. */
+@font-face {
+  font-family: "Eurostile Extended";
+  src: url("assets/fonts/EurostileExtendedBlack.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 /* Reduced-motion: users with vestibular disorders or motion-sensitivity
    preferences get all decorative animation suppressed. Functional
    animations (cell-arrive, hud-flash, lcars-chip-pulse, scene3d render
