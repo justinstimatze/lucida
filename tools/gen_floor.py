@@ -282,7 +282,7 @@ def bake(
         z_mid = (za + zb) / 2
         z_lo = z_mid - corridor / 2 + 0.85
         z_hi = z_mid + corridor / 2 - 0.85
-        n_bundles = rng.randint(2, 3)
+        n_bundles = rng.randint(1, 2)
         for _ in range(n_bundles):
             bsize = rng.randint(3, 6)
             bspacing = rng.uniform(0.18, 0.28)
@@ -332,7 +332,7 @@ def bake(
         x_mid = (xa + xb) / 2
         x_lo = x_mid - corridor / 2 + 0.85
         x_hi = x_mid + corridor / 2 - 0.85
-        n_bundles = rng.randint(2, 3)
+        n_bundles = rng.randint(1, 2)
         for _ in range(n_bundles):
             bsize = rng.randint(3, 6)
             bspacing = rng.uniform(0.18, 0.28)
@@ -469,6 +469,64 @@ def bake(
             continue
         draw_rect_units(draw, spec, x, z, bw, bd, primary)
 
+    # 5a. Wandering individual L-traces: NOT bundles. Each is a single
+    #     trace going point → bend → point in a random location, with
+    #     1-2 bends. Per user 2026-05-04 "when I ask you to add more
+    #     circuits you mostly make more bus lines" — variety comes from
+    #     standalone point-to-point routing, not from bigger bundles.
+    #     Refs show many isolated traces of varying length, weight, and
+    #     orientation between (and outside) the bus corridors.
+    n_wanders = int(spec.field_size * 1.5)  # ~180 for 120u field
+    placed_wander_pads: list[tuple[float, float]] = []
+    for _ in range(n_wanders):
+        for _retry in range(15):
+            ax = rng.uniform(-half + 1.5, half - 1.5)
+            az = rng.uniform(-half + 1.5, half - 1.5)
+            if is_in_tower(spec, ax, az, margin=0.4):
+                continue
+            # First leg
+            leg1_len = rng.uniform(0.6, 2.6)
+            leg1_dir = rng.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
+            bx = ax + leg1_dir[0] * leg1_len
+            bz = az + leg1_dir[1] * leg1_len
+            if is_in_tower(spec, bx, bz, margin=0.3):
+                continue
+            # Second leg, perpendicular
+            leg2_len = rng.uniform(0.4, 2.0)
+            if leg1_dir[0] != 0:
+                leg2_dir = rng.choice([(0, 1), (0, -1)])
+            else:
+                leg2_dir = rng.choice([(1, 0), (-1, 0)])
+            cx_, cz_ = bx + leg2_dir[0] * leg2_len, bz + leg2_dir[1] * leg2_len
+            if is_in_tower(spec, cx_, cz_, margin=0.3):
+                continue
+            # Endpoints must clear other pads
+            if not _pad_clear(ax, az, pad_size, pad_size, clearance=0.10):
+                continue
+            if not _pad_clear(cx_, cz_, pad_size, pad_size, clearance=0.10):
+                continue
+            bw = rng.choice([0.04, 0.05, 0.06, 0.08])
+            wcolor = primary if rng.random() > 0.20 else primary_mid
+            _line(ax, az, bx, bz, bw, wcolor)
+            _line(bx, bz, cx_, cz_, bw, wcolor)
+            # Optional 3rd leg back along leg1's axis
+            if rng.random() < 0.35:
+                leg3_len = rng.uniform(0.4, 1.4)
+                leg3_dir = rng.choice([leg1_dir, (-leg1_dir[0], -leg1_dir[1])])
+                dx_, dz_ = cx_ + leg3_dir[0] * leg3_len, cz_ + leg3_dir[1] * leg3_len
+                if not is_in_tower(spec, dx_, dz_, margin=0.3) and _pad_clear(
+                    dx_, dz_, pad_size, pad_size, clearance=0.10
+                ):
+                    _line(cx_, cz_, dx_, dz_, bw, wcolor)
+                    cx_, cz_ = dx_, dz_
+            # Terminator pads at endpoints
+            ps = pad_size * rng.uniform(0.6, 1.0)
+            draw_rect_units(draw, spec, ax, az, ps, ps, primary)
+            draw_rect_units(draw, spec, cx_, cz_, ps, ps, primary)
+            placed_wander_pads.append((ax, az))
+            placed_wander_pads.append((cx_, cz_))
+            break
+
     # 5b. Diagonal corner traces at corridor intersections — refs
     #     (tower_glass_closeup.png, tower_bases_low_angle.png) show
     #     diagonal/curved cuts where bus bundles meet. Fakes that look
@@ -540,11 +598,9 @@ def bake(
     #    traces are pretty consistently purple ... reflections of the
     #    purple circuit lines in the glass of the tower faces").
     overpaint_tower_bboxes(draw, spec, fill=tower_color, margin=0.0)
-    # 6b. Fine cross-hatch + scattered chip pads inside each tower
-    #     footprint — replaces the flat-cyan look (user 2026-05-03
-    #     "the flat cyan is starting to stand out compare to the other
-    #     refinements ... tower glass closeup is a good example").
-    add_tower_base_detail(draw, spec, rng, tower_color)
+    # (Tower-base detail removed 2026-05-04: cross-hatch read as a
+    # Go-board, scattered chip pads also didn't land. Back to flat
+    # cyan footprints; revisit if a non-grid texture idea surfaces.)
 
     # 7. Per-tower perimeter chip pads + stubs (drawn AFTER overpaint
     #    so they sit on the dark tower border).
