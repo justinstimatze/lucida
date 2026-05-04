@@ -2905,60 +2905,11 @@ function applyMixed3DLayout(opts) {
   // texture loaded above. Source: tools/gen_floor.py. Iterate by
   // re-running that script and refreshing the page.)
 
-  // Lane-light beams: bright additive cyan strips running along
-  // every inter-row corridor, in BOTH grid axes. Refs
-  // canyon_flythrough.png and tower_bases_low_angle.png show a
-  // distinctive thick floor-level glow line down each canyon —
-  // the most recognisable Hackers signature missing from the
-  // pre-2026-05-03 build. Floor sits at y=-0.08, pads at y≈0.04
-  // with depthTest:false renderOrder 999; beams at y=0.01 paint
-  // between them. Additive blend means overlapping perpendicular
-  // beams (cross-points at gap intersections) brighten naturally.
-  const beamMat = new T.MeshBasicMaterial({
-    color: new T.Color(O.world.tower_tint),
-    transparent: true,
-    opacity: 0.55,
-    blending: T.AdditiveBlending,
-    depthWrite: false,
-    // depthTest TRUE — beams correctly hide behind towers instead
-    // of striping through them. The earlier "stripes along corridor"
-    // problem was about beams disappearing in the OPEN corridor when
-    // seen through translucent glass; with the cells now densely
-    // covering tower faces, beams visible through tower glass read
-    // as visual noise overlapping the cell columns (user 2026-05-03
-    // "the glowing lines show through the towers in the way the
-    // glow square bottoms used to and it looks weird").
-    depthTest: true,
-    side: T.DoubleSide,
-  });
-  const beamWidth = 0.32;
-  // X-axis beams: one per inter-row gap (z-direction gaps), running
-  // the full field length along world X.
-  for (let i = 0; i < towerCount - 1; i++) {
-    const zCenter = (i + 0.5 - gridHalf) * spacing;
-    const beam = new T.Mesh(
-      new T.PlaneGeometry(fieldSize, beamWidth),
-      beamMat,
-    );
-    beam.rotation.x = -Math.PI / 2;
-    beam.position.set(0, 0.01, zCenter);
-    beam.frustumCulled = false;
-    beam.renderOrder = 998;
-    scene.add(beam);
-  }
-  // Z-axis beams: one per inter-column gap (x-direction gaps).
-  for (let i = 0; i < towerCount - 1; i++) {
-    const xCenter = (i + 0.5 - gridHalf) * spacing;
-    const beam = new T.Mesh(
-      new T.PlaneGeometry(beamWidth, fieldSize),
-      beamMat,
-    );
-    beam.rotation.x = -Math.PI / 2;
-    beam.position.set(xCenter, 0.01, 0);
-    beam.frustumCulled = false;
-    beam.renderOrder = 998;
-    scene.add(beam);
-  }
+  // (Lane-light beams removed 2026-05-03: the bright additive cyan
+  // corridor strips overpowered the new purple PCB floor traces and
+  // pulled the whole canyon palette toward cyan-dominant. With the
+  // baked floor providing visible corridor work on its own, the
+  // runtime additive overlay was visual noise rather than signal.)
 
   // Particle dust drifting through the field volume.
   let particleSystem = null;
