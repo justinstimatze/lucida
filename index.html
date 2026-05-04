@@ -3083,6 +3083,12 @@ function applyMixed3DLayout(opts) {
     _mixed3dState.matBuilderQueue.sort((a, b) => a.v - b.v);
     requestAnimationFrame(() => _mixed3dDrainMatBuilder(_cyan, _pink));
   }
+  // Tier-2 InstancedMesh state. One InstancedMesh per (substrate ×
+  // variantIdx) bucket; each cell becomes one instance, baking its
+  // (W, H) into the per-instance scale matrix. unitPlaneGeo is a
+  // single shared 1×1 quad reused across all 156 buckets.
+  _mixed3dState.unitPlaneGeo = new (window.THREE).PlaneGeometry(1, 1);
+  _mixed3dState.tier2InstancedMeshes = new Map();
   _mixed3dState.tier1Count = 0;
   _mixed3dState._retierKeys = null;
   _mixed3dState._retierIdx = 0;
@@ -3218,6 +3224,11 @@ function applyMixed3DLayout(opts) {
       // meshes are cheap; the GPU clips offscreen geometry for free.
       const maxD2 = 75 * 75;
       for (const obj of _mixed3dState.cellObjects.values()) {
+        // Tier-2 instanced cells live inside an InstancedMesh — they
+        // have no per-instance visibility flag here. The parent
+        // InstancedMesh has frustumCulled:false and always renders;
+        // GPU vertex stage clips off-screen instances per-fragment.
+        if (obj.isInstanceHandle) continue;
         const dx = obj.position.x - camPos.x;
         const dy = obj.position.y - camPos.y;
         const dz = obj.position.z - camPos.z;
@@ -4492,6 +4503,10 @@ function _mixed3dRetierSweep() {
     const id = S._retierKeys[i++];
     const obj = S.cellObjects.get(id);
     if (!obj) continue;
+    // Tier-2 instanced handles can't be retiered in place — promoting
+    // to tier-1 would need rebuilding the cell as a Mesh with a unique
+    // texture. Skip; cells stay at their initial tier.
+    if (obj.isInstanceHandle) continue;
     const cur = obj.userData.tier || S.cellTier.get(id) || 2;
     const desired = _mixed3dPickTierForPos(obj.position, camPos, cur);
     if (desired === cur) continue;
@@ -4564,12 +4579,16 @@ function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v) {
   tex.magFilter = T.LinearFilter;
   return new T.MeshBasicMaterial({
     map: tex,
-    // alphaTest cutout (NOT transparent: true) — text/glyphs draw,
-    // blank canvas pixels discard so the tower glass shows through
-    // via depth-test. Routes through the OPAQUE pass: no per-frame
-    // back-to-front sort.
-    transparent: false,
-    alphaTest: 0.5,
+    // Transparent pass alpha-blend. Earlier alphaTest:0.5 attempt
+    // produced near-blank cells for most substrates — canvas-alpha
+    // probe (2026-05-03) showed mermaid 1.8%, html 0.0%, gauge 1.1%
+    // pixels above the 0.5 threshold. With the tier-2 instancing
+    // landed below, the back-to-front sort sees ~156 InstancedMesh
+    // objects (one per substrate × variant) instead of ~12000
+    // individual cells, so the sort is cheap again.
+    transparent: true,
+    opacity: 1.0,
+    depthWrite: false,
     side: T.DoubleSide,
   });
 }
@@ -4602,16 +4621,102 @@ function _mixed3dDrainMatBuilder(cyan, pink) {
 // Pick a deterministic variant from a cell id, so cells with the
 // same id always get the same look (avoids flicker on re-mount).
 function _mixed3dPickSharedMat(S, cell) {
-  const substrate = cell.dataset?.cellType || "html";
-  const variants = S.sharedSubstrateMats?.get(substrate)
-    || S.sharedSubstrateMats?.get("html");
+  const info = _mixed3dPickSharedMatVariantIdx(S, cell);
+  return info ? info.mat : null;
+}
+
+// Same as above but returns (substrate, variantIdx) too — needed by
+// the tier-2 instancing path so cells of the same (substrate, variant)
+// group into one InstancedMesh.
+function _mixed3dPickSharedMatVariantIdx(S, cell) {
+  const requested = cell.dataset?.cellType || "html";
+  let variants = S.sharedSubstrateMats?.get(requested);
+  let substrate = requested;
+  if (!variants || !variants.length) {
+    variants = S.sharedSubstrateMats?.get("html");
+    substrate = "html";
+  }
   if (!variants || !variants.length) return null;
   let h = 0;
   const id = cell.id || "";
   for (let i = 0; i < id.length; i++) {
     h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   }
-  return variants[Math.abs(h) % variants.length];
+  const idx = Math.abs(h) % variants.length;
+  return { mat: variants[idx], variantIdx: idx, substrate };
+}
+
+// Tier-2 instancing helpers. Average bucket fill is ~12100/156 ≈ 78
+// at full saturation; capacity 300 absorbs hash skew. Cells that
+// would overflow a bucket fall through to the per-cell Mesh fallback
+// path (still works, just doesn't get the instancing benefit for
+// those cells).
+const _MIXED3D_INST_CAPACITY = 300;
+
+function _mixed3dGetTier2InstMesh(S, mat, substrate, variantIdx) {
+  const T = window.THREE;
+  const key = substrate + ":" + variantIdx;
+  let inst = S.tier2InstancedMeshes.get(key);
+  if (inst) return inst;
+  const mesh = new T.InstancedMesh(S.unitPlaneGeo, mat, _MIXED3D_INST_CAPACITY);
+  mesh.count = 0;
+  // Per-mesh frustum culling disabled — once the canyon is full,
+  // every InstancedMesh has at least some visible instance, so
+  // mesh-level culling rarely helps. The GPU's vertex stage clips
+  // off-screen instances per-fragment for free, and total instance
+  // count is trivial (~12100 quads ≈ 50k verts).
+  mesh.frustumCulled = false;
+  mesh.userData.tier2Group = key;
+  S.scene.add(mesh);
+  inst = { mesh, count: 0, capacity: _MIXED3D_INST_CAPACITY, key, cellAtIdx: [] };
+  S.tier2InstancedMeshes.set(key, inst);
+  return inst;
+}
+
+function _mixed3dAddTier2Instance(S, inst, cellId, tx, ty, tz, rotX, rotY, scaleW, scaleH) {
+  if (inst.count >= inst.capacity) return -1;
+  const T = window.THREE;
+  const m = new T.Matrix4();
+  const e = new T.Euler(rotX, rotY, 0, "XYZ");
+  const q = new T.Quaternion().setFromEuler(e);
+  const p = new T.Vector3(tx, ty, tz);
+  const s = new T.Vector3(scaleW, scaleH, 1);
+  m.compose(p, q, s);
+  const idx = inst.count;
+  inst.mesh.setMatrixAt(idx, m);
+  inst.count++;
+  inst.mesh.count = inst.count;
+  inst.cellAtIdx[idx] = cellId;
+  inst.mesh.instanceMatrix.needsUpdate = true;
+  return idx;
+}
+
+// Swap-and-pop removal: O(1) regardless of position. Moves the last
+// instance into the evicted slot, updates the moved cell's handle so
+// its idx points to the new slot, shrinks count by 1.
+function _mixed3dRemoveTier2Instance(S, handle) {
+  const inst = S.tier2InstancedMeshes.get(handle.meshKey);
+  if (!inst || inst.count === 0) return;
+  const T = window.THREE;
+  const lastIdx = inst.count - 1;
+  if (handle.idx !== lastIdx) {
+    const m = new T.Matrix4();
+    inst.mesh.getMatrixAt(lastIdx, m);
+    inst.mesh.setMatrixAt(handle.idx, m);
+    const movedCellId = inst.cellAtIdx[lastIdx];
+    if (movedCellId) {
+      const movedHandle = S.cellObjects.get(movedCellId);
+      if (movedHandle && movedHandle.isInstanceHandle) {
+        movedHandle.idx = handle.idx;
+      }
+      inst.cellAtIdx[handle.idx] = movedCellId;
+    }
+  }
+  inst.cellAtIdx[lastIdx] = undefined;
+  inst.cellAtIdx.length = lastIdx;
+  inst.count--;
+  inst.mesh.count = inst.count;
+  inst.mesh.instanceMatrix.needsUpdate = true;
 }
 
 // Tier-2 mini-texture. No title, no glyph — just the substrate's
@@ -4768,12 +4873,18 @@ function _mixed3dSyncCells() {
   for (const [id, obj] of [...map.entries()]) {
     const el = obj.userData?.cellEl;
     if (el && el.isConnected) continue;
-    if (obj.parent) obj.parent.remove(obj);
-    const wasTier1 = obj.userData?.tier === 1;
-    if (wasTier1) {
-      if (obj.material?.map) obj.material.map.dispose();
-      if (obj.material) obj.material.dispose();
-      _mixed3dState.tier1Count = Math.max(0, (_mixed3dState.tier1Count || 0) - 1);
+    if (obj.isInstanceHandle) {
+      // Tier-2 instanced cell: swap-and-pop from the InstancedMesh.
+      _mixed3dRemoveTier2Instance(_mixed3dState, obj);
+    } else {
+      // Tier-1 unique-mat Mesh OR tier-2 fallback Mesh.
+      if (obj.parent) obj.parent.remove(obj);
+      const wasTier1 = obj.userData?.tier === 1;
+      if (wasTier1) {
+        if (obj.material?.map) obj.material.map.dispose();
+        if (obj.material) obj.material.dispose();
+        _mixed3dState.tier1Count = Math.max(0, (_mixed3dState.tier1Count || 0) - 1);
+      }
     }
     // Geometry NOT disposed — every cell shares an entry from the
     // sharedGeometries cache. Disposing would invalidate the buffer
@@ -4915,6 +5026,37 @@ function _mixed3dDrainMountQueue() {
     // cell count. Per-cell unique tier-2 textures hit a hard wall
     // around 11000-12000 cells where GPU eviction stalled the tab
     // for 12-25s at a stretch (user 2026-05-03).
+    // Tier-2 instanced path: try to add as an InstancedMesh instance
+    // before allocating a per-cell Mesh. Falls through to the Mesh
+    // path if the shared mat isn't built yet (chunked builder still
+    // running) or if the (substrate, variant) bucket overflows
+    // _MIXED3D_INST_CAPACITY. cellObjects entry is a "handle" (plain
+    // object with isInstanceHandle: true) — eviction path detects
+    // this and dispatches to swap-and-pop instead of scene.remove.
+    if (tier === 2) {
+      const matInfo = _mixed3dPickSharedMatVariantIdx(S, cell);
+      if (matInfo) {
+        const inst = _mixed3dGetTier2InstMesh(S, matInfo.mat, matInfo.substrate, matInfo.variantIdx);
+        const idx = _mixed3dAddTier2Instance(S, inst, cell.id, tx, ty, tz, rotX, rotY, planeW, planeH);
+        if (idx >= 0) {
+          const handle = {
+            isInstanceHandle: true,
+            userData: { tier: 2, cellEl: cell },
+            meshKey: inst.key,
+            idx,
+          };
+          map.set(cell.id, handle);
+          S.cellTier.set(cell.id, 2);
+          S.cellSlotKeys.set(cell.id, key);
+          if (isTop) S.usedSlots.add(key);
+          S.towerCellCount[towerIdx]++;
+          mounted++;
+          continue;
+        }
+      }
+      // Fall through to Mesh-based fallback below.
+    }
+
     let mat;
     if (tier === 1) {
       const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
@@ -4927,17 +5069,13 @@ function _mixed3dDrainMountQueue() {
       });
       S.tier1Count = (S.tier1Count || 0) + 1;
     } else {
-      mat = _mixed3dPickSharedMat(S, cell);
-      if (!mat) {
-        // Fallback: build a one-off material so this cell still
-        // renders. Should never happen if sharedSubstrateMats was
-        // built correctly at boot.
-        const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink);
-        mat = new T.MeshBasicMaterial({
-          map: tex, transparent: true, opacity: 1.0,
-          side: T.DoubleSide, depthWrite: false,
-        });
-      }
+      // Tier-2 fallback Mesh: shared mat not ready yet OR instance
+      // bucket overflow. Per-cell unique CanvasTexture.
+      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink);
+      mat = new T.MeshBasicMaterial({
+        map: tex, transparent: true, opacity: 1.0,
+        side: T.DoubleSide, depthWrite: false,
+      });
     }
 
     const obj = new T.Mesh(planeGeo, mat);
