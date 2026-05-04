@@ -2651,7 +2651,21 @@ function applyMixed3DLayout(opts) {
   const spacing = 12.0;
   const towerMeshes = [];
   const sharedBox = new T.BoxGeometry(towerW, towerH, towerD);
-  const sharedEdges = new T.EdgesGeometry(sharedBox);
+  // Edge-tube architecture: LineBasicMaterial.linewidth is clamped to
+  // 1px in WebGL on most browsers, which made the previous wireframe
+  // edges appear hairline-thin. Per refs the Gibson towers have
+  // distinctly bold cyan corner edges that read as the structural
+  // skeleton of the canyon. Replaced LineSegments with thin BoxGeometry
+  // "tubes" at each of the 12 tower edges (4 X-aligned, 4 Y-aligned,
+  // 4 Z-aligned), batched per-axis as InstancedMesh — 3 draw calls
+  // total for all 1200 edge tubes across 100 towers.
+  const edgeThick = 0.12;
+  // X-axis edges span tower width, Y-axis spans height, Z-axis spans depth.
+  // Each box is slightly oversized on its long axis so corner cubes overlap
+  // cleanly with the perpendicular edges at the joins (no visible gap).
+  const xEdgeGeo = new T.BoxGeometry(towerW + edgeThick, edgeThick, edgeThick);
+  const yEdgeGeo = new T.BoxGeometry(edgeThick, towerH + edgeThick, edgeThick);
+  const zEdgeGeo = new T.BoxGeometry(edgeThick, edgeThick, towerD + edgeThick);
   // Tower base glow — a billboarded sprite (always faces camera)
   // with a radial-gradient cyan texture, additive blend. Sprites
   // stay visible from any camera angle, where a flat disk goes
@@ -2748,47 +2762,25 @@ function applyMixed3DLayout(opts) {
     side: T.DoubleSide,
     shininess: 90,
   });
-  // Bumped opacity 0.55 → 0.95 (user 2026-05-03 "the towers are
-  // the dominant shapes ... edges of the tower need to be bolder
-  // and brighter, look at the reference photos"). Reference frames
-  // show towers with crisp, near-fully-saturated cyan wireframe
-  // edges — they read as the structural skeleton against which
-  // cells are subtle content. Three.js LineBasicMaterial linewidth
-  // is clamped to 1px in WebGL on most browsers, so opacity is the
-  // available boldness lever; pair with a slightly brighter base
-  // color (tint shifted toward white).
-  const _edgeColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.18);
-  const sharedEdgeMat = new T.LineBasicMaterial({
+  // Edge-tube material: opaque MeshBasicMaterial (no lighting, no fog
+  // attenuation, no per-pixel sort cost) shifted strongly toward white
+  // so the cyan reads as luminous against the dim translucent towers.
+  // toneMapped:false keeps the color saturated even with the renderer's
+  // ACES tone curve enabled.
+  const _edgeColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.32);
+  const sharedEdgeMat = new T.MeshBasicMaterial({
     color: _edgeColor,
-    transparent: true,
-    opacity: 0.95,
+    toneMapped: false,
   });
-  // Top-rim highlight: 4 line segments at the very top of each
-  // tower, brighter than the regular edge wireframe. Per refs
-  // tower_glass_closeup.png — the tops of the cyan towers in the
-  // reference have a distinct bright cyan rim.
-  const sharedTopRimGeo = new T.BufferGeometry();
-  {
-    const hW = towerW / 2;
-    const hD = towerD / 2;
-    const yTop = towerH / 2; // geometry-relative top (mesh y = towerH/2)
-    sharedTopRimGeo.setAttribute(
-      "position",
-      new T.BufferAttribute(
-        new Float32Array([
-          -hW, yTop, -hD,  +hW, yTop, -hD,
-          +hW, yTop, -hD,  +hW, yTop, +hD,
-          +hW, yTop, +hD,  -hW, yTop, +hD,
-          -hW, yTop, +hD,  -hW, yTop, -hD,
-        ]),
-        3,
-      ),
-    );
-  }
-  const sharedTopRimMat = new T.LineBasicMaterial({
-    color: tint,
-    transparent: true,
-    opacity: 0.95,
+  // Top-rim accent: same geometry pattern but a brighter, more
+  // saturated color. Per refs tower_glass_closeup.png the top edge
+  // of each tower glows noticeably hotter than the body wireframe —
+  // it reads as the lit "lip" of the canyon walls. Applied to the 4
+  // X-edges and 4 Z-edges at oy = +hH.
+  const _topRimColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.55);
+  const sharedTopRimMat = new T.MeshBasicMaterial({
+    color: _topRimColor,
+    toneMapped: false,
   });
   // Each face spec carries dx/dz (face center offset from tower
   // center), rotY (cell yaw), and hx/hz (in-plane horizontal axis
@@ -2800,6 +2792,17 @@ function applyMixed3DLayout(opts) {
     { dx: -towerW / 2 - 0.02, dz: 0, rotY: +Math.PI / 2, hx: 0, hz: -1 }, // -X (west)
   ];
   const gridHalf = (towerCount - 1) / 2;
+  // Per-axis edge instance count: 4 edges/tower × N towers. X and Z
+  // axes split top vs body so the top rim can use a brighter material.
+  const totalTowers = towerCount * towerCount;
+  const xTopInst = new T.InstancedMesh(xEdgeGeo, sharedTopRimMat, totalTowers * 2);
+  const xBodyInst = new T.InstancedMesh(xEdgeGeo, sharedEdgeMat, totalTowers * 2);
+  const zTopInst = new T.InstancedMesh(zEdgeGeo, sharedTopRimMat, totalTowers * 2);
+  const zBodyInst = new T.InstancedMesh(zEdgeGeo, sharedEdgeMat, totalTowers * 2);
+  const yEdgeInst = new T.InstancedMesh(yEdgeGeo, sharedEdgeMat, totalTowers * 4);
+  const _edgeMat4 = new T.Matrix4();
+  let _xt = 0, _xb = 0, _zt = 0, _zb = 0, _yi = 0;
+  const _hW = towerW / 2, _hH = towerH / 2, _hD = towerD / 2;
   for (let iz = 0; iz < towerCount; iz++) {
     for (let ix = 0; ix < towerCount; ix++) {
       const mesh = new T.Mesh(sharedBox, sharedTowerMat);
@@ -2807,15 +2810,25 @@ function applyMixed3DLayout(opts) {
       mesh.position.y = towerH / 2;
       mesh.position.z = (iz - gridHalf) * spacing;
       scene.add(mesh);
-      const edges = new T.LineSegments(sharedEdges, sharedEdgeMat);
-      edges.position.copy(mesh.position);
-      scene.add(edges);
-      // Bright top-rim highlight. Geometry has y=towerH/2 already,
-      // so position the mesh at the tower's MIDDLE (mesh.position)
-      // and the rim renders at world y=towerH.
-      const topRim = new T.LineSegments(sharedTopRimGeo, sharedTopRimMat);
-      topRim.position.copy(mesh.position);
-      scene.add(topRim);
+      const cx = mesh.position.x, cy = mesh.position.y, cz = mesh.position.z;
+      // X-aligned edges: 4 per tower at (cx, cy±hH, cz±hD). Top two
+      // (oy=+hH) go to the bright top-rim instance bucket; bottom two
+      // go to the regular body bucket.
+      _edgeMat4.makeTranslation(cx, cy + _hH, cz + _hD); xTopInst.setMatrixAt(_xt++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx, cy + _hH, cz - _hD); xTopInst.setMatrixAt(_xt++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx, cy - _hH, cz + _hD); xBodyInst.setMatrixAt(_xb++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx, cy - _hH, cz - _hD); xBodyInst.setMatrixAt(_xb++, _edgeMat4);
+      // Z-aligned edges: 4 per tower at (cx±hW, cy±hH, cz). Same
+      // top vs body split.
+      _edgeMat4.makeTranslation(cx + _hW, cy + _hH, cz); zTopInst.setMatrixAt(_zt++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx - _hW, cy + _hH, cz); zTopInst.setMatrixAt(_zt++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx + _hW, cy - _hH, cz); zBodyInst.setMatrixAt(_zb++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx - _hW, cy - _hH, cz); zBodyInst.setMatrixAt(_zb++, _edgeMat4);
+      // Y-aligned vertical edges: 4 per tower at (cx±hW, cy, cz±hD).
+      _edgeMat4.makeTranslation(cx + _hW, cy, cz + _hD); yEdgeInst.setMatrixAt(_yi++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx + _hW, cy, cz - _hD); yEdgeInst.setMatrixAt(_yi++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx - _hW, cy, cz + _hD); yEdgeInst.setMatrixAt(_yi++, _edgeMat4);
+      _edgeMat4.makeTranslation(cx - _hW, cy, cz - _hD); yEdgeInst.setMatrixAt(_yi++, _edgeMat4);
       // (Sprite halo dropped 2026-05-02: billboarded radial gradient
       // always reads as a "ball at the base," not as light shining
       // up. The square pyramid cone below carries the uplight.)
@@ -2842,9 +2855,21 @@ function applyMixed3DLayout(opts) {
       const seed = (ix * 31 + iz * 17) % 4;
       const faces = [];
       for (let k = 0; k < 4; k++) faces.push(NESW[(k + seed) % 4]);
-      towerMeshes.push({ mesh, edges, ix, iz, index: iz * towerCount + ix, faces });
+      towerMeshes.push({ mesh, ix, iz, index: iz * towerCount + ix, faces });
     }
   }
+  // Commit edge-instance matrices and add the 5 InstancedMesh batches
+  // to the scene (3 axes × top/body split = 5 draw calls).
+  xTopInst.instanceMatrix.needsUpdate = true;
+  xBodyInst.instanceMatrix.needsUpdate = true;
+  zTopInst.instanceMatrix.needsUpdate = true;
+  zBodyInst.instanceMatrix.needsUpdate = true;
+  yEdgeInst.instanceMatrix.needsUpdate = true;
+  scene.add(xTopInst);
+  scene.add(xBodyInst);
+  scene.add(zTopInst);
+  scene.add(zBodyInst);
+  scene.add(yEdgeInst);
 
   // Floor: large enough to fully underlie the grid even at the
   // furthest weave point. Field is towerCount × spacing on each side,
