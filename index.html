@@ -5013,13 +5013,18 @@ function _mixed3dDrainMountQueue() {
   const map = S.cellObjects;
   const pending = S.mountPending;
   const start = performance.now();
-  // 9ms budget (was 6ms, was 12ms before that). Boot perf trace
-  // 2026-05-04 showed drain takes 11.7s wall for 12100 cells at
-  // 6ms — that IS the user-visible "15s" gap, not the layout init
-  // (which is 276ms). Bumping to 9ms gives ~33% faster drain
-  // (target ~8s) at the cost of slightly more visible jitter; still
-  // within 16.67ms frame budget so render stays at 60fps.
+  // Trickle-mode drain. User feedback 2026-05-04: "they don't need to
+  // appear all at once or as fast as possible" — at 12k cells the
+  // greedy drain (BUDGET=9 unchecked) was producing continuous 70–
+  // 200ms stalls while the camera flew over an empty world and then
+  // got slammed at saturation. A small per-frame CAP makes mount
+  // count predictable regardless of how fast individual cells are.
+  // 3 cells × 60fps = 180/s → 12k cells take ~67s to fully saturate,
+  // but the camera flight and HUD stay smooth throughout.
+  // Live operation (1–2 cells/minute) lands in one frame either way,
+  // so the cap is invisible after boot.
   const BUDGET_MS = 9;
+  const PER_FRAME_CAP = 3;
 
   // Hoist style lookups out of the per-cell paint loop. Theme changes
   // teardown the layout (rebuild path), so this is stable across one
@@ -5029,7 +5034,7 @@ function _mixed3dDrainMountQueue() {
   const pink = (styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
 
   let mounted = 0;
-  while (S.mountQueue.length > 0) {
+  while (S.mountQueue.length > 0 && mounted < PER_FRAME_CAP) {
     if (mounted > 0 && performance.now() - start > BUDGET_MS) break;
     const cell = S.mountQueue.pop();
     if (!cell) continue;
