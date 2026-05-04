@@ -3264,13 +3264,7 @@ function applyMixed3DLayout(opts) {
       // rapidly, reading as "flying backwards quickly". Resetting t0
       // and clearing the swoopy cache restarts the path at u=0 just
       // as the user sees the world.
-      _mixed3dState.animation.t0 = performance.now();
-      if (_mixed3dState.swoopCam) {
-        _mixed3dState.swoopCam.posActual = null;
-        _mixed3dState.swoopCam.lookAtActual = null;
-        _mixed3dState.swoopCam.headingHistory = [];
-        _mixed3dState.swoopCam.bankActual = 0;
-      }
+      _mixed3dResetCameraTimer();
       requestAnimationFrame(() => document.body.classList.add("booted"));
     }
   };
@@ -4226,6 +4220,36 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   }
   ctx.restore();
 }
+// Restart the swoopy-tour camera path at u=0 from "right now". Used
+// at loader-fade and on bfcache restore (pageshow with persisted=
+// true). The lerp uses a hardcoded dt=1/60, so when real elapsed
+// time is much larger than expected (held loader, tab-restore), the
+// lerp falls way behind desiredPos and catches up in a visible
+// "flying backwards quickly" snap. Resetting t0 + clearing the
+// swoopCam cached state collapses that to a clean restart.
+function _mixed3dResetCameraTimer() {
+  if (!_mixed3dState) return;
+  _mixed3dState.animation.t0 = performance.now();
+  if (_mixed3dState.swoopCam) {
+    _mixed3dState.swoopCam.posActual = null;
+    _mixed3dState.swoopCam.lookAtActual = null;
+    _mixed3dState.swoopCam.headingHistory = [];
+    _mixed3dState.swoopCam.bankActual = 0;
+  }
+}
+
+// bfcache restore: when the user navigates back via the browser back
+// button, pageshow fires with persisted=true and the JS state is
+// alive but performance.now() advanced while the page was cached.
+// Reset the camera path so it doesn't try to catch up across the
+// cache duration. Registered once globally; safe noop if no mixed3d
+// world is active.
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted && _mixed3dState) {
+    _mixed3dResetCameraTimer();
+  }
+});
+
 // LOD: distance-tier rendering. Tier 1 (close, < ~30u) cells get a
 // unique 80×240 CanvasTexture with title + full substrate preview;
 // tier 2 (far) cells get a unique 32×96 mini-texture — same substrate
