@@ -1117,11 +1117,35 @@ function typeInto(elId, text, perChar = 18, maxChars = 200) {
   tick();
 }
 
+// Last-good payload cache, keyed by path. On parse failure we serve the
+// previously-successful payload instead of returning null — keeps the UI
+// alive when one of the JSON producers writes a malformed file (e.g. an
+// OOM-truncated cells.json: writer killed mid-write, trailing garbage
+// past the closing `}`, JSON.parse throws — happened 2026-05-04). Falls
+// through to null only when there's no cache yet.
+const _fetchJSONLastGood = new Map();
+
 async function fetchJSON(path) {
   try {
     const r = await fetch(path, { cache: "no-store" });
     if (!r.ok) return null;
-    return await r.json();
+    const text = await r.text();
+    try {
+      const data = JSON.parse(text);
+      _fetchJSONLastGood.set(path, data);
+      return data;
+    } catch (parseErr) {
+      const cached = _fetchJSONLastGood.get(path);
+      if (cached !== undefined) {
+        console.warn(
+          `[fetchJSON] parse failed for ${path} (len=${text.length}); ` +
+          `serving last-good cache. error: ${parseErr.message}`,
+        );
+        return cached;
+      }
+      console.error(`[fetchJSON] parse failed for ${path} and no cache available`, parseErr);
+      return null;
+    }
   } catch (e) { return null; }
 }
 
