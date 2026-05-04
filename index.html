@@ -2885,14 +2885,15 @@ function applyMixed3DLayout(opts) {
     opacity: 0.55,
     blending: T.AdditiveBlending,
     depthWrite: false,
-    // depthTest off so the beam stays bright when seen THROUGH the
-    // translucent tower glass. Without this, glass writes depth at
-    // its front face (transparent: true does NOT disable depthWrite
-    // by default in three.js), beam is sorted later and depth-tested
-    // against that, fragments at occluded pixels are discarded —
-    // visible as "dim then tower edge then bright then tower edge
-    // then dim" stripes along a corridor (user 2026-05-03).
-    depthTest: false,
+    // depthTest TRUE — beams correctly hide behind towers instead
+    // of striping through them. The earlier "stripes along corridor"
+    // problem was about beams disappearing in the OPEN corridor when
+    // seen through translucent glass; with the cells now densely
+    // covering tower faces, beams visible through tower glass read
+    // as visual noise overlapping the cell columns (user 2026-05-03
+    // "the glowing lines show through the towers in the way the
+    // glow square bottoms used to and it looks weird").
+    depthTest: true,
     side: T.DoubleSide,
   });
   const beamWidth = 0.32;
@@ -3102,12 +3103,14 @@ function applyMixed3DLayout(opts) {
         // log (not warn) so devtools doesn't append a stack trace per stall.
         console.log(`[mixed3d] frame stall: ${dt.toFixed(0)}ms gap @ ${now.toFixed(0)}ms`);
       }
-      // Long-pause safety net: if a single frame gap exceeds 1s the
-      // page was almost certainly throttled (tab background, GC
-      // pause, OS sleep/wake) — reset the camera path so the lerp
-      // doesn't race through accumulated wall-time. Catches any case
-      // that visibilitychange and pageshow handlers don't.
-      if (dt > 1000) {
+      // Long-pause safety net: only fire on genuinely long pauses
+      // (tab background unthrottle, OS sleep/wake) — bumped from
+      // 1000ms to 5000ms because at saturation the mount drain can
+      // produce 1-2s frame stalls and resetting the camera every
+      // few seconds reads as the camera "snapping back to start"
+      // (user 2026-05-03 "the camera motion resets back to the
+      // initial position every 4 seconds which seems bad").
+      if (dt > 5000) {
         _mixed3dResetCameraTimer();
       }
       // Stable-frame counter for the boot-overlay fade. dt < 33ms =
@@ -4465,7 +4468,16 @@ function _mixed3dBuildSharedSubstrateMats(cyan, pink) {
         map: tex,
         transparent: false,
         opacity: 1.0,
-        side: T.FrontSide,
+        // DoubleSide so cells on the FAR side of any tower are
+        // visible THROUGH the translucent tower glass when the
+        // camera is on the opposite side. With FrontSide, far-face
+        // cells' normals point away from camera and they don't
+        // render — user reads that as "only 2 of 4 sides have
+        // cells". Texture appears mirrored on the back, but the
+        // shared substrate-preview content is abstract enough that
+        // mirroring is invisible at distance. Tier-1 cells stay
+        // FrontSide (preserve title text orientation).
+        side: T.DoubleSide,
         depthWrite: true,
         polygonOffset: true,
         polygonOffsetFactor: -1,
