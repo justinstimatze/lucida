@@ -1150,26 +1150,33 @@ async function fetchJSON(path) {
 }
 
 // Discover the newest substrate-eval audit JSON. Browsers can't glob
-// directories on a static server, so we walk backward from today across a
-// 14-day window. Cached after first lookup so subsequent loadHud polls
-// don't re-issue 14 fetches per cycle. Returns null if no audit is found
-// in the window — kill #3 then displays "n/a".
+// directories on a static server, so we probe a window of recent dates.
+// Cached after first lookup so subsequent loadHud polls don't re-issue.
+// Returns null if no audit is found — kill #3 then displays "n/a".
+//
+// 2026-05-04: 14-day → 4-day window (#129). The earlier walk produced
+// up to 13 sequential 404s in the boot console when the latest audit
+// was older than today; narrower window means at most 3 misses, and
+// they fire in parallel via Promise.all so wall-time is one round-trip.
 async function loadLatestSubstrateAudit() {
   if (state.hud.cachedAudit !== undefined) return state.hud.cachedAudit;
-  // Many pollAll ticks fire concurrently at boot. Without dedup, each
-  // hits cachedAudit === undefined and starts its own 14-day walk —
-  // 5+ parallel walks × 14 fetches = audit 404 spam. Cache the
-  // in-flight promise too so subsequent callers await the same walk.
   if (state.hud.cachedAuditPromise) return state.hud.cachedAuditPromise;
   state.hud.cachedAuditPromise = (async () => {
     const today = new Date();
-    for (let i = 0; i < 14; i++) {
+    const dates = [];
+    for (let i = 0; i < 4; i++) {
       const d = new Date(today.getTime() - i * 86400000);
-      const dateStr = d.toISOString().slice(0, 10);
-      const a = await fetchJSON(`audits/substrate_eval_${dateStr}.json`);
-      if (a) {
-        state.hud.cachedAudit = a;
-        return a;
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    // Parallel probe — collect all 4 in one round-trip instead of
+    // sequentially awaiting each.
+    const results = await Promise.all(
+      dates.map((ds) => fetchJSON(`audits/substrate_eval_${ds}.json`)),
+    );
+    for (let i = 0; i < results.length; i++) {
+      if (results[i]) {
+        state.hud.cachedAudit = results[i];
+        return results[i];
       }
     }
     state.hud.cachedAudit = null;
@@ -4926,13 +4933,13 @@ function _mixed3dDrainMountQueue() {
   const map = S.cellObjects;
   const pending = S.mountPending;
   const start = performance.now();
-  // 6ms budget (was 12ms): perf profile 2026-05-03 found mid-drain
-  // ticks overshooting >100ms when paired with an above-average
-  // render frame. Halving the budget halves the worst-case overshoot
-  // at the cost of ~50% slower wall-time drain (~60s for 14000 cells
-  // vs ~40s prior). Smoother frames during spawn phase win — the
-  // user feels jitter, not the wall-clock difference.
-  const BUDGET_MS = 6;
+  // 9ms budget (was 6ms, was 12ms before that). Boot perf trace
+  // 2026-05-04 showed drain takes 11.7s wall for 12100 cells at
+  // 6ms — that IS the user-visible "15s" gap, not the layout init
+  // (which is 276ms). Bumping to 9ms gives ~33% faster drain
+  // (target ~8s) at the cost of slightly more visible jitter; still
+  // within 16.67ms frame budget so render stays at 60fps.
+  const BUDGET_MS = 9;
 
   // Hoist style lookups out of the per-cell paint loop. Theme changes
   // teardown the layout (rebuild path), so this is stable across one
@@ -5181,21 +5188,31 @@ function _mixed3dPickSlotForNewCell() {
   const cam = S.camera;
   let targetX = cam.position.x;
   let targetZ = cam.position.z;
+  // Lookahead: pick towers about to enter view, not towers in the
+  // far distance. Earlier value (1.5×spacing ≈ 18u, ~5s ahead at
+  // swoopy-tour speed) meant new cells landed on towers the user
+  // wouldn't reach for several seconds — the cell had already aged
+  // out of "fresh" by the time it appeared in view (user 2026-05-04
+  // "we should be sure we're placing new cells along that visual
+  // path so they're seen by the user shortly after minting").
+  // 0.6×spacing ≈ 7u keeps new cells on the tower the camera is
+  // about to fly past — visible within ~1-2 seconds of mint.
+  const _lookahead = G.spacing * 0.6;
   if (S.opts.camera === "weave-grid" && S.weaveCam) {
     const dirX = _WEAVE_DIR_X[S.weaveCam.heading];
     const dirZ = _WEAVE_DIR_Z[S.weaveCam.heading];
-    targetX += dirX * G.spacing * 1.5;
-    targetZ += dirZ * G.spacing * 1.5;
+    targetX += dirX * _lookahead;
+    targetZ += dirZ * _lookahead;
   } else if (S.opts.camera === "dolly-canyon") {
     const t = (performance.now() - S.animation.t0) / 1000;
     const phase = (t % 24) / 24;
     const dir = phase < 0.5 ? 1 : -1;
-    targetX += dir * G.spacing * 1.2;
+    targetX += dir * _lookahead;
   } else {
     const fwd = new window.THREE.Vector3();
     cam.getWorldDirection(fwd);
-    targetX += fwd.x * G.spacing * 1.5;
-    targetZ += fwd.z * G.spacing * 1.5;
+    targetX += fwd.x * _lookahead;
+    targetZ += fwd.z * _lookahead;
   }
   const ranked = S.towerMeshes
     .map((tw, idx) => ({
