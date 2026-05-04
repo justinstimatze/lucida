@@ -427,27 +427,81 @@ def bake(
         tips_b = [t for t in all_tips[(ix_b, iz_b)] if t[2] == side_b]
         if len(tips_a) < 3 or len(tips_b) < 3:
             continue
-        # Random consecutive pin window of 3
+        # True ribbon-offset routing: ONE BFS for the centerline (between
+        # the middle pin of each chip's 3-pin window), then geometrically
+        # offset that path perpendicular to travel direction for the two
+        # adjacent ribbon lines. All three lines bend together at every
+        # corner, maintaining parallel spacing — what nano-banana called
+        # the "Ribbon Cables ... bend together" property the prior
+        # 3-independent-BFS approach was missing.
         start_pin_a = rng.randint(0, len(tips_a) - 3)
         start_pin_b = rng.randint(0, len(tips_b) - 3)
-        net_paths: list[list[tuple[int, int]]] = []
-        for k in range(3):
-            pin_a = tips_a[start_pin_a + k]
-            pin_b = tips_b[start_pin_b + k]
-            grid_a = router.world_to_grid(pin_a[0], pin_a[1])
-            grid_b = router.world_to_grid(pin_b[0], pin_b[1])
-            path = router.find_path(grid_a, grid_b)
-            if path is None:
-                break
-            net_paths.append(path)
-            router.block_path(path, thickness=2)
-        if len(net_paths) < 3:
+        center_pin_a = tips_a[start_pin_a + 1]
+        center_pin_b = tips_b[start_pin_b + 1]
+        grid_a = router.world_to_grid(center_pin_a[0], center_pin_a[1])
+        grid_b = router.world_to_grid(center_pin_b[0], center_pin_b[1])
+        center_path = router.find_path(grid_a, grid_b)
+        if center_path is None:
             continue
-        # Render each path as a stroke + endpoint pads
+        router.block_path(center_path, thickness=3)
+        # Reduce dense path to corner points (only direction changes).
+        center_corners: list[tuple[int, int]] = [center_path[0]]
+        prev_dir: tuple[int, int] | None = None
+        for i in range(1, len(center_path)):
+            cur_dir = (
+                center_path[i][0] - center_path[i - 1][0],
+                center_path[i][1] - center_path[i - 1][1],
+            )
+            if prev_dir is not None and cur_dir != prev_dir:
+                center_corners.append(center_path[i - 1])
+            prev_dir = cur_dir
+        center_corners.append(center_path[-1])
+
+        # Generate offset corner-point sequences for k = -1, 0, +1.
+        # At each corner, offset point shifts by perp(d_in)+perp(d_out)
+        # times k. perp((dx, dz)) = (dz, -dx). At endpoints, only the
+        # one neighboring direction's perp applies.
+        def _offset(corners: list[tuple[int, int]], k: float) -> list[tuple[float, float]]:
+            if len(corners) < 2 or k == 0:
+                return [(float(c), float(r)) for c, r in corners]
+            out: list[tuple[float, float]] = []
+            for i, p in enumerate(corners):
+                shift_x = 0.0
+                shift_z = 0.0
+                if i > 0:
+                    d = (corners[i][0] - corners[i - 1][0], corners[i][1] - corners[i - 1][1])
+                    sgn = (
+                        1 if d[0] > 0 else (-1 if d[0] < 0 else 0),
+                        1 if d[1] > 0 else (-1 if d[1] < 0 else 0),
+                    )
+                    shift_x += sgn[1]
+                    shift_z += -sgn[0]
+                if i < len(corners) - 1:
+                    d = (corners[i + 1][0] - corners[i][0], corners[i + 1][1] - corners[i][1])
+                    sgn = (
+                        1 if d[0] > 0 else (-1 if d[0] < 0 else 0),
+                        1 if d[1] > 0 else (-1 if d[1] < 0 else 0),
+                    )
+                    shift_x += sgn[1]
+                    shift_z += -sgn[0]
+                # Endpoint: divide by 1 (only one neighbor); middle: divide by 2 (sum)
+                divisor = 2.0 if 0 < i < len(corners) - 1 else 1.0
+                shift_x = (shift_x / divisor) * k
+                shift_z = (shift_z / divisor) * k
+                out.append((p[0] + shift_x, p[1] + shift_z))
+            return out
+
+        ribbon_spacing = 0.6  # cells (~0.18u with 0.30u grid) — tight ribbon
+        ribbons = [
+            _offset(center_corners, -ribbon_spacing),
+            [(float(c), float(r)) for c, r in center_corners],
+            _offset(center_corners, +ribbon_spacing),
+        ]
+        # Render: 3 parallel strokes through the same corner sequence.
         bw = rng.choice([0.08, 0.10, 0.12])
         bcolor = primary if rng.random() > 0.15 else primary_mid
-        for path in net_paths:
-            world_pts = [router.grid_to_world(c, r) for c, r in path]
+        for corners in ribbons:
+            world_pts = [router.grid_to_world(c, r) for c, r in corners]
             for i in range(len(world_pts) - 1):
                 _line(
                     world_pts[i][0],
