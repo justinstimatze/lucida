@@ -4439,6 +4439,30 @@ function _mixed3dRetierSweep() {
   S._retierIdx = i;
 }
 
+// Geometry cache: cells share PlaneGeometry instances bucketed by
+// (width, height) at 0.05u resolution. The mount path called
+// `new T.PlaneGeometry(...)` 14000+ times per saturation drain,
+// each producing a fresh BufferGeometry + Float32Arrays — that
+// alloc churn is what created the multi-second GC pauses visible
+// as "frame stall: 5011ms" entries in the saturation console log.
+// At 5 cells/col × 24 cols × 100 towers = 12000 cells with heights
+// in ~1.4u-4u and slotW=0.833 fixed, the cache settles at ~50-80
+// unique geometries — a >150× cut on alloc.
+function _mixed3dGetSharedPlaneGeo(w, h) {
+  const S = _mixed3dState;
+  if (!S) return new window.THREE.PlaneGeometry(w, h);
+  if (!S.sharedGeometries) S.sharedGeometries = new Map();
+  const wKey = Math.round(w * 20) / 20;
+  const hKey = Math.round(h * 20) / 20;
+  const key = wKey + "x" + hKey;
+  let geo = S.sharedGeometries.get(key);
+  if (!geo) {
+    geo = new window.THREE.PlaneGeometry(wKey, hKey);
+    S.sharedGeometries.set(key, geo);
+  }
+  return geo;
+}
+
 // Build shared per-substrate materials for tier-2 cells. 13
 // substrates × 12 variants = 156 unique materials, one CanvasTexture
 // each. Each variant draws a different random sample of the
@@ -4689,7 +4713,9 @@ function _mixed3dSyncCells() {
       if (obj.material) obj.material.dispose();
       _mixed3dState.tier1Count = Math.max(0, (_mixed3dState.tier1Count || 0) - 1);
     }
-    if (obj.geometry) obj.geometry.dispose();
+    // Geometry NOT disposed — every cell shares an entry from the
+    // sharedGeometries cache. Disposing would invalidate the buffer
+    // for any other cell currently using the same (W, H) bucket.
     map.delete(id);
     if (_mixed3dState.cellTier) _mixed3dState.cellTier.delete(id);
     const key = _mixed3dState.cellSlotKeys.get(id);
@@ -4799,7 +4825,15 @@ function _mixed3dDrainMountQueue() {
 
     const planeW = isTop ? G.towerW * 0.95 : G.slotW;
     const planeH = mountedH;
-    const planeGeo = new T.PlaneGeometry(planeW, planeH);
+    // Geometry sharing: cells with similar dimensions reuse one
+    // PlaneGeometry instance instead of allocating a fresh one per
+    // cell. Bucket dims to 0.05u — cells that were 2.30u and 2.32u
+    // tall now share the same geometry (visual diff < 0.025u =
+    // imperceptible at swoopy-tour distance). Result: 14000+
+    // unique geometries → ~80 shared, killing GC pressure from
+    // PlaneGeometry/BufferGeometry/Float32Array alloc cycles which
+    // were producing multi-second frame stalls during mount drain.
+    const planeGeo = _mixed3dGetSharedPlaneGeo(planeW, planeH);
 
     // Pick tier at mount based on camera distance. Tier-2 cells reuse
     // a shared substrate material — no per-cell paint, no per-cell
