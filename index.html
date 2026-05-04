@@ -4886,14 +4886,22 @@ function _mixed3dDrainMountQueue() {
 // no whitespace at top or bottom (user 2026-05-03 "first/last cell
 // crisply flush ... pretty dense ... variation in heights").
 function _mixed3dPlanColumn(towerH, targetCount) {
-  const N = Math.max(2, targetCount + Math.floor((Math.random() * 3) - 1));
+  // Deterministic cell count per column. Earlier code rolled N as
+  // {targetCount-1, targetCount, targetCount+1} for visual variety,
+  // but that makes per-tower plan_total wobble around 24*targetCount;
+  // when cell budget is close to the average, towers with above-avg
+  // plan_total leave 1-3 columns short of their N — visible as
+  // missing cells at the corners of the last-visited (col, face)
+  // (user 2026-05-03 "still a gap at one of the lower corners of one
+  // side on every tower"). HEIGHTS within a column still vary, so
+  // visual variation is preserved without the fill-budget mismatch.
+  const N = targetCount;
   // baseY=0.1: lift the first cell above the floor plane so its
   // bottom edge doesn't z-fight with the floor at y=0 (cells were
   // appearing to have a gap near the bottom because the bottom edge
   // sat at the same depth as the floor and got discarded by the
-  // depth test — user 2026-05-03 "I do see some gaps in some
-  // columns usually near the bottom"). usableH = towerH - baseY.
-  // Last cell still stretches to land flush at y=towerH.
+  // depth test). usableH = towerH - baseY. Last cell still stretches
+  // to land flush at y=towerH.
   const baseY = 0.1;
   const usableH = towerH - baseY;
   const minPad = 0.06;
