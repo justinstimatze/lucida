@@ -23,9 +23,9 @@
     "cat": ["#00ddff", "#ff3a8c", "#9966ff", "#33ff99", "#ffaa44", "#ff5566"]
   },
   "type": {
-    "body": "\"Share Tech Mono\", \"Courier New\", monospace",
-    "head": "\"Share Tech Mono\", \"Courier New\", monospace",
-    "mono": "\"Share Tech Mono\", \"Courier New\", monospace"
+    "body": "\"Eurostile Extended\", \"Share Tech Mono\", \"Courier New\", monospace",
+    "head": "\"Eurostile Extended\", \"Share Tech Mono\", \"Courier New\", monospace",
+    "mono": "\"Eurostile Extended\", \"Share Tech Mono\", \"Courier New\", monospace"
   },
   "fx": {
     "glow":      "rgba(0, 221, 255, 0.55)",
