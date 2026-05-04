@@ -127,6 +127,70 @@ def overpaint_tower_bboxes(
             draw_rect_units(draw, spec, cx, cz, half_t * 2, half_t * 2, fill)
 
 
+def add_tower_base_detail(
+    draw: ImageDraw.ImageDraw,
+    spec: FloorSpec,
+    rng: random.Random,
+    tower_color: str,
+) -> None:
+    """Lay down a fine grid + scattered chip detail inside each tower
+    footprint (after overpaint_tower_bboxes). Replaces the flat-cyan
+    tower base with a circuit-board / mesh look per Hackers refs
+    (user 2026-05-03 "tower glass closeup is a good example").
+    """
+    grid_color = shade(tower_color, 0.55)
+    accent_color = shade(tower_color, 0.40)
+    half_t = spec.tower_w / 2
+    # Inset so grid doesn't touch the very edge of the bright fill
+    inset = 0.18
+    grid_step = 0.30
+    for ix in range(spec.tower_count):
+        for iz in range(spec.tower_count):
+            cx, cz = spec.tower_world_pos(ix, iz)
+            # Fine cross-hatch grid
+            n = int((spec.tower_w - 2 * inset) / grid_step)
+            for k in range(n + 1):
+                t = -half_t + inset + k * grid_step
+                # Horizontal grid line
+                draw_line_units(
+                    draw,
+                    spec,
+                    cx - half_t + inset,
+                    cz + t,
+                    cx + half_t - inset,
+                    cz + t,
+                    0.022,
+                    grid_color,
+                )
+                # Vertical grid line
+                draw_line_units(
+                    draw,
+                    spec,
+                    cx + t,
+                    cz - half_t + inset,
+                    cx + t,
+                    cz + half_t - inset,
+                    0.022,
+                    grid_color,
+                )
+            # Sparse chip-pad accents: 4-7 small squares scattered
+            # at random grid intersections inside the bbox.
+            for _ in range(rng.randint(4, 7)):
+                gi = rng.randint(1, n - 1)
+                gj = rng.randint(1, n - 1)
+                ax = -half_t + inset + gi * grid_step
+                az = -half_t + inset + gj * grid_step
+                draw_rect_units(
+                    draw,
+                    spec,
+                    cx + ax,
+                    cz + az,
+                    grid_step * 0.55,
+                    grid_step * 0.55,
+                    accent_color,
+                )
+
+
 def is_in_tower(spec: FloorSpec, x: float, z: float, margin: float = 0.0) -> bool:
     offset = (spec.tower_count - 1) * 0.5
     ix = round((x / spec.spacing) + offset)
@@ -241,9 +305,9 @@ def bake(
         z_mid = (za + zb) / 2
         z_lo = z_mid - corridor / 2 + 0.85
         z_hi = z_mid + corridor / 2 - 0.85
-        n_bundles = rng.randint(1, 2)
+        n_bundles = rng.randint(2, 3)
         for _ in range(n_bundles):
-            bsize = rng.randint(3, 5)
+            bsize = rng.randint(3, 6)
             bspacing = rng.uniform(0.18, 0.28)
             bwidth = (bsize - 1) * bspacing
             if z_hi - z_lo < bwidth + 0.6:
@@ -278,9 +342,9 @@ def bake(
         x_mid = (xa + xb) / 2
         x_lo = x_mid - corridor / 2 + 0.85
         x_hi = x_mid + corridor / 2 - 0.85
-        n_bundles = rng.randint(1, 2)
+        n_bundles = rng.randint(2, 3)
         for _ in range(n_bundles):
-            bsize = rng.randint(3, 5)
+            bsize = rng.randint(3, 6)
             bspacing = rng.uniform(0.18, 0.28)
             bwidth = (bsize - 1) * bspacing
             if x_hi - x_lo < bwidth + 0.6:
@@ -313,7 +377,7 @@ def bake(
             if edge_perp < 1.4:
                 continue
             spur_pads_x: list[float] = []
-            for _ in range(rng.randint(8, 14)):
+            for _ in range(rng.randint(14, 22)):
                 chosen = None
                 for _r in range(20):
                     xs = rng.uniform(bx0 + 1.0, bx1 - 1.0)
@@ -347,7 +411,7 @@ def bake(
             if edge_perp < 1.4:
                 continue
             spur_pads_z: list[float] = []
-            for _ in range(rng.randint(8, 14)):
+            for _ in range(rng.randint(14, 22)):
                 chosen = None
                 for _r in range(20):
                     zs = rng.uniform(bz0 + 1.0, bz1 - 1.0)
@@ -415,6 +479,52 @@ def bake(
             continue
         draw_rect_units(draw, spec, x, z, bw, bd, primary)
 
+    # 5b. Diagonal corner traces at corridor intersections — refs
+    #     (tower_glass_closeup.png, tower_bases_low_angle.png) show
+    #     diagonal/curved cuts where bus bundles meet. Fakes that look
+    #     by drawing 2-segment diagonals across each cross-corridor
+    #     intersection, in primary purple.
+    for ix in range(spec.tower_count - 1):
+        for iz in range(spec.tower_count - 1):
+            xa, _ = spec.tower_world_pos(ix, 0)
+            xb, _ = spec.tower_world_pos(ix + 1, 0)
+            _, za = spec.tower_world_pos(0, iz)
+            _, zb = spec.tower_world_pos(0, iz + 1)
+            cx = (xa + xb) / 2
+            cz = (za + zb) / 2
+            half_int = corridor / 2 - 1.0
+            for _ in range(rng.randint(2, 4)):
+                # Random diagonal across one of 4 corner quadrants
+                quad = rng.choice([(-1, -1), (-1, 1), (1, -1), (1, 1)])
+                xo = quad[0] * rng.uniform(0.3, half_int)
+                zo = quad[1] * rng.uniform(0.3, half_int)
+                # Endpoint on the perpendicular axis
+                end_along = rng.choice(["x", "z"])
+                if end_along == "x":
+                    ex = xo + quad[0] * rng.uniform(0.5, 1.2)
+                    ez = zo
+                else:
+                    ex = xo
+                    ez = zo + quad[1] * rng.uniform(0.5, 1.2)
+                bw = rng.choice([0.05, 0.06, 0.08])
+                _line(cx + xo, cz + zo, cx + ex, cz + ez, bw, primary)
+                draw_rect_units(
+                    draw, spec, cx + xo, cz + zo, pad_size * 0.6, pad_size * 0.6, primary
+                )
+
+    # 5c. Sprinkled "via" markers — small purple squares scattered
+    #     across the floor (avoiding tower bboxes). Per refs the floor
+    #     reads as a busy circuit board with many small connection
+    #     points, not just the structured bus + spurs.
+    via_count = int(spec.field_size * 1.2)
+    for _ in range(via_count):
+        vx = rng.uniform(-half + 1, half - 1)
+        vz = rng.uniform(-half + 1, half - 1)
+        if is_in_tower(spec, vx, vz, margin=0.2):
+            continue
+        size = rng.choice([0.10, 0.12, 0.14, 0.18])
+        draw_rect_units(draw, spec, vx, vz, size, size, primary)
+
     # 6. Tower footprints = bright "hole into a bright light" visible
     #    through translucent tower glass. Uses tower_color (cyan, matches
     #    the tower-edge tubes) — distinct from primary which colours the
@@ -422,6 +532,11 @@ def bake(
     #    traces are pretty consistently purple ... reflections of the
     #    purple circuit lines in the glass of the tower faces").
     overpaint_tower_bboxes(draw, spec, fill=tower_color, margin=0.0)
+    # 6b. Fine cross-hatch + scattered chip pads inside each tower
+    #     footprint — replaces the flat-cyan look (user 2026-05-03
+    #     "the flat cyan is starting to stand out compare to the other
+    #     refinements ... tower glass closeup is a good example").
+    add_tower_base_detail(draw, spec, rng, tower_color)
 
     # 7. Per-tower perimeter chip pads + stubs (drawn AFTER overpaint
     #    so they sit on the dark tower border).
