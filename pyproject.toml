@@ -17,7 +17,7 @@ image = [
 ]
 dev = [
     "ruff>=0.15.12",
-    "mypy>=1.10",
+    "mypy>=2.0.0",
     "pytest>=8.0",
     "pytest-cov>=7.1.0",
     "pre-commit>=3.7",
