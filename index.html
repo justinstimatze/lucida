@@ -5535,10 +5535,13 @@ function _mixed3dBuildDecorativeLayer() {
   ctx.textBaseline = "top";
   // Rows of tokens, ~14-16px each. Each row picks 1-3 tokens with
   // a leading offset and gaps between, finishes at variable end —
-  // looks like a scrolling log buffer.
+  // looks like a scrolling log buffer. Row alpha stays high so the
+  // text reads as crisp terminal output (refs monitor_directory_
+  // listing.png / tower_face_labels.png show bright, fully-saturated
+  // glyphs, not dim ghost text).
   const rowH = 15;
   for (let y = 2; y < 760; y += rowH) {
-    const rowAlpha = 0.55 + Math.random() * 0.40;
+    const rowAlpha = 0.85 + Math.random() * 0.15;
     // Sparse magenta on ~3% of rows, cyan everywhere else.
     if (Math.random() < 0.03) {
       ctx.fillStyle = `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`;
@@ -5563,7 +5566,11 @@ function _mixed3dBuildDecorativeLayer() {
   const mat = new T.MeshBasicMaterial({
     map: tex,
     transparent: true,
-    opacity: 0.30,
+    // 0.85 — crisp terminal text per ref screenshots, not the faded
+    // ghost-text effect 0.30 produced. instanceColor multiplier
+    // further-modulates per cell but keeps each cell near full
+    // brightness.
+    opacity: 0.85,
     depthWrite: false,
     toneMapped: false,
     // DoubleSide so back faces of each tower also display content —
@@ -5625,17 +5632,16 @@ function _mixed3dBuildDecorativeLayer() {
           m4.compose(v, q, sc);
           const idx = inst.count;
           inst.setMatrixAt(idx, m4);
-          // Per-instance brightness + slight RGB jitter — same approach
-          // as tier-2 instances so decoratives blend with real-cell
-          // textures aesthetically. Skew slightly dim so real cells
-          // visibly pop in front.
+          // Per-instance brightness + slight RGB jitter — keep range
+          // tight (0.85-1.0) so each cell stays crisp; the variation is
+          // about breaking the "identical wallpaper" effect, not dimming.
           const s1 = ((towerIdx * 31 + face * 17 + col * 11 + p * 7) % 100) / 100;
           const s2 = ((towerIdx * 13 + face * 23 + col * 5 + p * 29) % 100) / 100;
-          const bright = 0.45 + s1 * 0.40;
+          const bright = 0.85 + s1 * 0.15;
           colorTmp.setRGB(
-            bright * (0.92 + s2 * 0.08),
-            bright * (1.0 + s1 * 0.06),
-            bright * (1.05 + s2 * 0.10),
+            bright * (0.95 + s2 * 0.05),
+            bright * (1.0 + s1 * 0.04),
+            bright * (1.0 + s2 * 0.05),
           );
           inst.setColorAt(idx, colorTmp);
           inst.count++;
