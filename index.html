@@ -3119,6 +3119,8 @@ function applyMixed3DLayout(opts) {
   _bootMark("state ready, before first syncCells");
   _mixed3dSyncCells();
   _bootMark("syncCells returned (cells queued)");
+  _mixed3dBuildDecorativeLayer();
+  _bootMark("decorative layer built");
 
   const onResize = () => {
     const w2 = window.innerWidth;
@@ -5463,6 +5465,143 @@ function _mixed3dPlanColumn(towerH, targetCount) {
   const last = positions[positions.length - 1];
   last.h = towerH - last.y;
   return { positions, nextIdx: 0 };
+}
+
+// Decorative layer — fills every tower face slot with an InstancedMesh
+// quad of a generic hackers-themed texture, so the tower city always
+// looks fully populated. Real cells (tier-1 / tier-2) mount in front
+// of the decoratives at the same slot positions; depth-test handles
+// occlusion. No DOM, no cellObjects map entry, no tier-1 promotion
+// eligibility. User 2026-05-19: "decorative tier also probably
+// similar to what we used to call ephemeral viz cells, just little
+// animations that match the theme" and "we should be hovering around
+// full towers at all times".
+//
+// Capacity: 100 towers × 4 faces × 6 cols × 5 rows = 12000 instances.
+// One shared CanvasTexture (96×288 procedural scanline+block pattern)
+// reused across all instances; per-instance instanceColor jitter
+// breaks visual repetition.
+function _mixed3dBuildDecorativeLayer() {
+  const S = _mixed3dState;
+  if (!S || S._decorativeBuilt) return;
+  const T = window.THREE;
+  if (!T || !S.towerMeshes || !S.geometry) return;
+  S._decorativeBuilt = true;
+
+  // Procedural hackers-aesthetic texture: cyan scanlines + sparse data
+  // blocks on a near-black field. Looks like "tower face content at
+  // distance" without committing to any specific substrate.
+  const canvas = document.createElement("canvas");
+  canvas.width = 96;
+  canvas.height = 288;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#02080f";
+  ctx.fillRect(0, 0, 96, 288);
+  ctx.fillStyle = "rgba(0, 221, 255, 0.18)";
+  for (let y = 0; y < 288; y += 3) ctx.fillRect(0, y, 96, 1);
+  ctx.fillStyle = "rgba(0, 221, 255, 0.85)";
+  for (let i = 0; i < 60; i++) {
+    const x = Math.floor(Math.random() * 90);
+    const y = Math.floor(Math.random() * 282);
+    const w = 4 + Math.floor(Math.random() * 16);
+    const h = 2 + Math.floor(Math.random() * 4);
+    ctx.fillRect(x, y, w, h);
+  }
+  // Very sparse magenta accents — keeps cyan-dominance per memory
+  // feedback_hackers_cyan_dominant.md.
+  ctx.fillStyle = "rgba(255, 58, 140, 0.7)";
+  for (let i = 0; i < 4; i++) {
+    const x = Math.floor(Math.random() * 90);
+    const y = Math.floor(Math.random() * 282);
+    ctx.fillRect(x, y, 6, 2);
+  }
+  const tex = new T.CanvasTexture(canvas);
+  tex.minFilter = T.LinearFilter;
+  tex.magFilter = T.LinearFilter;
+
+  const mat = new T.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+    toneMapped: false,
+  });
+
+  const G = S.geometry;
+  const totalSlots = S.towerMeshes.length * 4 * G.slotsPerFaceX * G.slotsPerFaceY;
+
+  // Unit plane (1×1); per-instance matrix scales to slotW × slotH.
+  const planeGeo = new T.PlaneGeometry(1, 1);
+  const inst = new T.InstancedMesh(planeGeo, mat, totalSlots);
+  inst.frustumCulled = false;
+  inst.renderOrder = -1; // draw before real cells; depth wins for real cells
+  inst.count = 0;
+
+  const m4 = new T.Matrix4();
+  const q = new T.Quaternion();
+  const e = new T.Euler();
+  const v = new T.Vector3();
+  const sc = new T.Vector3();
+  const colorTmp = new T.Color();
+
+  for (let towerIdx = 0; towerIdx < S.towerMeshes.length; towerIdx++) {
+    const tower = S.towerMeshes[towerIdx];
+    for (let face = 0; face < 4; face++) {
+      const faceSpec = tower.faces[face];
+      const dxNorm = faceSpec.dx === 0 ? 0 : faceSpec.dx > 0 ? 1 : -1;
+      const dzNorm = faceSpec.dz === 0 ? 0 : faceSpec.dz > 0 ? 1 : -1;
+      // outBoost +0.05 sits behind real cells (real uses +0.12), in
+      // front of the tower glass (+0.0). Real cells naturally win the
+      // depth test; decoratives only show where no real cell exists.
+      const outBoost = 0.05;
+      for (let col = 0; col < G.slotsPerFaceX; col++) {
+        // Reuse the existing column plan if real cells already touched
+        // this column — keeps decoratives aligned to the same y/h slots
+        // real cells use. Otherwise build + store one so future real
+        // cells inherit it.
+        const planKey = `${towerIdx}:${face}:${col}`;
+        let plan = S.columnPlans.get(planKey);
+        if (!plan) {
+          plan = _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY);
+          S.columnPlans.set(planKey, plan);
+        }
+        const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * G.slotW;
+        const tx = tower.mesh.position.x + faceSpec.dx + faceSpec.hx * colOffset + dxNorm * outBoost;
+        const tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset + dzNorm * outBoost;
+        const rotY = faceSpec.rotY;
+        for (let p = 0; p < plan.positions.length; p++) {
+          const slot = plan.positions[p];
+          const ty = slot.y + slot.h / 2;
+          v.set(tx, ty, tz);
+          e.set(0, rotY, 0, "XYZ");
+          q.setFromEuler(e);
+          sc.set(G.slotW, slot.h, 1);
+          m4.compose(v, q, sc);
+          const idx = inst.count;
+          inst.setMatrixAt(idx, m4);
+          // Per-instance brightness + slight RGB jitter — same approach
+          // as tier-2 instances so decoratives blend with real-cell
+          // textures aesthetically. Skew slightly dim so real cells
+          // visibly pop in front.
+          const s1 = ((towerIdx * 31 + face * 17 + col * 11 + p * 7) % 100) / 100;
+          const s2 = ((towerIdx * 13 + face * 23 + col * 5 + p * 29) % 100) / 100;
+          const bright = 0.45 + s1 * 0.40;
+          colorTmp.setRGB(
+            bright * (0.92 + s2 * 0.08),
+            bright * (1.0 + s1 * 0.06),
+            bright * (1.05 + s2 * 0.10),
+          );
+          inst.setColorAt(idx, colorTmp);
+          inst.count++;
+        }
+      }
+    }
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+  S.scene.add(inst);
+  S._decorativeInstancedMesh = inst;
+  console.log(`[mixed3d] decorative layer built: ${inst.count} instances`);
 }
 
 // Find a slot for a freshly minted cell, biased toward where the user
