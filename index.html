@@ -4673,7 +4673,25 @@ function _mixed3dRetierSweep() {
   const T = window.THREE;
   if (!T) return;
   if (!S._retierKeys || S._retierIdx >= S._retierKeys.length) {
-    S._retierKeys = [...S.cellObjects.keys()];
+    // Sort by recency so cells with newer timestamps are visited first
+    // per sweep. Combined with the distance gate + PROMOTE_BUDGET=2,
+    // this biases the 400-cell tier-1 set toward the freshest cells
+    // the camera passes (user 2026-05-19: "whatever the camera is
+    // looking at or about to look at is as usefully relevant and
+    // recent as possible"). Cells without a timestamp fall to the
+    // back (-Infinity).
+    const keys = [...S.cellObjects.keys()];
+    const recencyOf = (id) => {
+      const obj = S.cellObjects.get(id);
+      const el = obj && obj.userData && obj.userData.cellEl;
+      if (!el) return -Infinity;
+      const ts = el.dataset && el.dataset.timestamp;
+      if (!ts) return -Infinity;
+      const n = Date.parse(ts);
+      return isFinite(n) ? n : -Infinity;
+    };
+    keys.sort((a, b) => recencyOf(b) - recencyOf(a));
+    S._retierKeys = keys;
     S._retierIdx = 0;
   }
   if (S._retierKeys.length === 0) return;
@@ -5965,6 +5983,9 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   // continue to live on .cell-reflection[data-source-ids] for the
   // existing reflection→source connection rendering.
   if (c.session_id) card.dataset.sessionId = c.session_id;
+  // Recency anchor for tier-1 promotion bias — mixed3d's retier sweep
+  // uses this to prefer recent cells when the camera approaches a face.
+  if (c.timestamp) card.dataset.timestamp = c.timestamp;
   const sources = Array.isArray(c.reflection_source_ids) ? c.reflection_source_ids : [];
   if (sources.length > 0) {
     card.classList.add("cell-reflection");
