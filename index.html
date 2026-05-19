@@ -4670,6 +4670,8 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
 function _mixed3dRetierSweep() {
   const S = _mixed3dState;
   if (!S || !S.cellObjects) return;
+  const T = window.THREE;
+  if (!T) return;
   if (!S._retierKeys || S._retierIdx >= S._retierKeys.length) {
     S._retierKeys = [...S.cellObjects.keys()];
     S._retierIdx = 0;
