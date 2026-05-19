@@ -2838,7 +2838,7 @@ function applyMixed3DLayout(opts) {
   // so the cyan reads as luminous against the dim translucent towers.
   // toneMapped:false keeps the color saturated even with the renderer's
   // ACES tone curve enabled.
-  const _edgeColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.32);
+  const _edgeColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.55);
   const sharedEdgeMat = new T.MeshBasicMaterial({
     color: _edgeColor,
     toneMapped: false,
@@ -2848,7 +2848,7 @@ function applyMixed3DLayout(opts) {
   // of each tower glows noticeably hotter than the body wireframe —
   // it reads as the lit "lip" of the canyon walls. Applied to the 4
   // X-edges and 4 Z-edges at oy = +hH.
-  const _topRimColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.55);
+  const _topRimColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.75);
   const sharedTopRimMat = new T.MeshBasicMaterial({
     color: _topRimColor,
     toneMapped: false,
