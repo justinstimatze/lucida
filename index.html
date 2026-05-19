@@ -5518,46 +5518,87 @@ function _mixed3dBuildDecorativeLayer() {
   canvas.width = 256;
   canvas.height = 768;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#02080f";
-  ctx.fillRect(0, 0, 256, 768);
-  // Faint CRT scanline wash.
-  ctx.fillStyle = "rgba(0, 221, 255, 0.06)";
-  for (let y = 0; y < 768; y += 6) ctx.fillRect(0, y, 256, 1);
-  const TOKENS = [
-    "STATUS", "INIT", "READY", "OK", "FAIL", "EXEC", "RX", "TX",
-    "0xABCD", "0x0042", "$00FE", "[OK]", "[--]", "CHK", "RUN",
-    "WAIT", "BUF", "MEM", "CPU", "PID", "SYS", "NET", "ACK", "NAK",
-    "...", "PASS", "BIND", "REQ", "RESP", "CALL", "RET", "PUSH",
-    "POP", "MOV", "JMP", "HLT", "TIK", "DUMP", "LOAD", "STORE",
-    "0xFF", "0x00", "::1", "0/1", "1/0", "0.0", "1.4e3", "+ok",
+  // Background stays fully transparent. User 2026-05-19: "the cells
+  // should basically have no background ... bright text on
+  // transparent glass (behind which is a dark background)". The dark
+  // void behind the towers + the tower-edge cyan supplies all the
+  // backdrop; the decorative is glyphs only.
+  // Token pools, grouped by length so row-template generators can
+  // pick the right-shaped token. Ref-driven (monitor_directory_
+  // listing.png mixes long ALL-CAPS phrases, short codes, numeric
+  // dumps, arrows, indented continuations, and filler bars).
+  const TOK_LONG = [
+    "SHIPPING_FORECASTS", "ACCOUNTANTS", "COMPANY_STATUS",
+    "WAREHOUSE_LOCATIONS", "COMPOSITE_PLANTS", "INSTRUCTION_PIPELINE",
+    "ANNUAL_BUDGETS", "TROPIC_REPORTS", "INSTRUMENTATION_FLAG",
+    "SEABOARD_LAWS", "KINEMATICS", "TROPIC_EXPEND",
+    "MEMORY_FENCE_TABLE", "DOMAIN_HEAD_BLOCK", "RECRUITMENT",
+    "CARRIAGE_RETURN", "RUBBER_RECOVERY",
   ];
+  const TOK_MED = [
+    "STATUS", "READY", "BUFFER", "TARGET", "PASS", "CALL", "RESP",
+    "BIND", "STORE", "LOAD", "DUMP", "WAIT", "ACK", "NAK", "GARBAGE",
+    "PAYROLL", "TIME_CHECK", "SCREEN_BUF", "INVOICE", "FREIGHT",
+  ];
+  const TOK_SHORT = [
+    "RX", "TX", "OK", "Q", "z", "FF", "00", "FAIL", "INIT", "RUN",
+    "EXEC", "HLT", "JMP", "RET", "MOV", "POP", "PUSH", "TIK", "ETA",
+  ];
+  const TOK_HEX = [
+    "0xABCD", "0x0042", "0x00FE", "0xFF", "0x00", "0x1A2B", "0x77F0",
+    "0xC0DE", "0xFEED", "0xBABE", "0xDEAD",
+  ];
+  const TOK_NUM = [
+    "1.4e3", "0.998", "-0001", "+1923", "12.4ms", "0/1", "1/0",
+    "::1", "0.0", "127.0.0.1", "$00FE", "$0042",
+  ];
+  const ARROWS = ["->", "=>", "<-", ">>", "<<", "==", "::"];
+  const FILLER_CHARS = [".", "-", "=", "_", "+"];
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
   ctx.font = '14px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
   ctx.textBaseline = "top";
-  // Rows of tokens, ~14-16px each. Each row picks 1-3 tokens with
-  // a leading offset and gaps between, finishes at variable end —
-  // looks like a scrolling log buffer. Row alpha stays high so the
-  // text reads as crisp terminal output (refs monitor_directory_
-  // listing.png / tower_face_labels.png show bright, fully-saturated
-  // glyphs, not dim ghost text).
+
+  // 9 row templates, each producing a distinct shape so the visual
+  // density of any column doesn't flatten into "uniform length blocks".
+  // template id → string-producer.
+  const templates = [
+    () => null, // 1. blank line
+    () => pick(TOK_LONG), // 2. one long word
+    () => `${pick(TOK_MED)} ${pick(TOK_HEX)}`, // 3. word + hex
+    () => `${pick(TOK_LONG)} ${pick(ARROWS)} ${pick(TOK_MED)}`, // 4. word -> word
+    () => `${pick(TOK_SHORT)} ${pick(TOK_SHORT)} ${pick(TOK_SHORT)}`, // 5. three short codes
+    () => `${pick(TOK_MED)}=${pick(TOK_NUM)}`, // 6. key=value
+    () => `${pick(TOK_HEX)} ${pick(ARROWS)} ${pick(TOK_HEX)}`, // 7. hex chain
+    () => `${pick(FILLER_CHARS).repeat(4 + Math.floor(Math.random() * 18))}`, // 8. filler bar
+    () => `+-- ${pick(TOK_MED)}`, // 9. tree-branch indent
+  ];
+  // Weighted bias: short/medium templates more common than long.
+  const templateWeights = [3, 2, 3, 2, 3, 2, 2, 1, 2];
+  const totalWeight = templateWeights.reduce((a, b) => a + b, 0);
+  const pickTemplate = () => {
+    let r = Math.random() * totalWeight;
+    for (let i = 0; i < templates.length; i++) {
+      r -= templateWeights[i];
+      if (r <= 0) return templates[i];
+    }
+    return templates[0];
+  };
+
   const rowH = 15;
   for (let y = 2; y < 760; y += rowH) {
+    const tmpl = pickTemplate();
+    const txt = tmpl();
+    if (!txt) continue; // blank row
     const rowAlpha = 0.85 + Math.random() * 0.15;
-    // Sparse magenta on ~3% of rows, cyan everywhere else.
-    if (Math.random() < 0.03) {
+    if (Math.random() < 0.04) {
       ctx.fillStyle = `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`;
     } else {
       ctx.fillStyle = `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
     }
-    // Skip ~30% of rows entirely (gives the column visual breathing
-    // room — not every row is a log line).
-    if (Math.random() < 0.30) continue;
-    let x = 2 + Math.floor(Math.random() * 12);
-    const numTokens = 1 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < numTokens && x < 240; i++) {
-      const tok = TOKENS[Math.floor(Math.random() * TOKENS.length)];
-      ctx.fillText(tok, x, y);
-      x += ctx.measureText(tok).width + 6 + Math.floor(Math.random() * 12);
-    }
+    // Variable indentation: 0-24px leading offset, biased low.
+    const indent = Math.floor(Math.random() * Math.random() * 28);
+    ctx.fillText(txt, 2 + indent, y);
   }
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
@@ -5565,13 +5606,16 @@ function _mixed3dBuildDecorativeLayer() {
 
   const mat = new T.MeshBasicMaterial({
     map: tex,
-    transparent: true,
-    // 0.85 — crisp terminal text per ref screenshots, not the faded
-    // ghost-text effect 0.30 produced. instanceColor multiplier
-    // further-modulates per cell but keeps each cell near full
-    // brightness.
-    opacity: 0.85,
-    depthWrite: false,
+    // alphaTest hard-discards pixels with alpha < 0.1, so empty
+    // canvas pixels never draw and never write depth. Combined with
+    // transparent:false + depthWrite:true, each glyph pixel writes
+    // depth normally → painter's-algorithm overlap artifacts when
+    // towers visibly overlap disappear (user 2026-05-19 "weird
+    // overlap rendering issue when you can see a tower entirely
+    // through another tower").
+    transparent: false,
+    alphaTest: 0.1,
+    depthWrite: true,
     toneMapped: false,
     // DoubleSide so back faces of each tower also display content —
     // user 2026-05-19 noted only 2 of 4 faces were filling. With
