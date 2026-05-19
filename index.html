@@ -5464,6 +5464,17 @@ function _mixed3dPlanColumn(towerH, targetCount) {
   // at towerH (last cell flush with tower top).
   const last = positions[positions.length - 1];
   last.h = towerH - last.y;
+  // Shuffle positions so real cells (consumed in nextIdx order) land
+  // at random vertical positions, not all glued to the bottom row.
+  // User 2026-05-19: "the tier 2 cells are still populating only from
+  // the bottom up". The y/h slots themselves stay where they were —
+  // just the consumption order is randomized.
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = positions[i];
+    positions[i] = positions[j];
+    positions[j] = tmp;
+  }
   return { positions, nextIdx: 0 };
 }
 
@@ -5486,34 +5497,64 @@ function _mixed3dBuildDecorativeLayer() {
   if (!S || S._decorativeBuilt) return;
   const T = window.THREE;
   if (!T || !S.towerMeshes || !S.geometry) return;
+  // Defer until Eurostile is ready — without this, the canvas paints
+  // before the @font-face WOFF2 has loaded and falls back to system
+  // monospace. User 2026-05-19: "note we have the actual font
+  // available in the repo, don't just use a random monospace font".
+  // document.fonts.check returns true once Eurostile is decoded.
+  if (typeof document !== "undefined" && document.fonts && !document.fonts.check('14px "Eurostile"')) {
+    document.fonts.load('14px "Eurostile"').then(() => _mixed3dBuildDecorativeLayer());
+    return;
+  }
   S._decorativeBuilt = true;
 
-  // Procedural hackers-aesthetic texture: cyan scanlines + sparse data
-  // blocks on a near-black field. Looks like "tower face content at
-  // distance" without committing to any specific substrate.
+  // Procedural terminal-text texture. User 2026-05-19: "the content
+  // in the movie is mostly terminal text" + "be sure to use the right
+  // font for terminal text". Real monospace glyphs (system mono ->
+  // Share Tech Mono / Eurostile fallback) drawn as random hackers-
+  // aesthetic tokens. 256×768 canvas so 14px-tall chars are crisp
+  // when sampled by the GPU at tower-face distance.
   const canvas = document.createElement("canvas");
-  canvas.width = 96;
-  canvas.height = 288;
+  canvas.width = 256;
+  canvas.height = 768;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#02080f";
-  ctx.fillRect(0, 0, 96, 288);
-  ctx.fillStyle = "rgba(0, 221, 255, 0.18)";
-  for (let y = 0; y < 288; y += 3) ctx.fillRect(0, y, 96, 1);
-  ctx.fillStyle = "rgba(0, 221, 255, 0.85)";
-  for (let i = 0; i < 60; i++) {
-    const x = Math.floor(Math.random() * 90);
-    const y = Math.floor(Math.random() * 282);
-    const w = 4 + Math.floor(Math.random() * 16);
-    const h = 2 + Math.floor(Math.random() * 4);
-    ctx.fillRect(x, y, w, h);
-  }
-  // Very sparse magenta accents — keeps cyan-dominance per memory
-  // feedback_hackers_cyan_dominant.md.
-  ctx.fillStyle = "rgba(255, 58, 140, 0.7)";
-  for (let i = 0; i < 4; i++) {
-    const x = Math.floor(Math.random() * 90);
-    const y = Math.floor(Math.random() * 282);
-    ctx.fillRect(x, y, 6, 2);
+  ctx.fillRect(0, 0, 256, 768);
+  // Faint CRT scanline wash.
+  ctx.fillStyle = "rgba(0, 221, 255, 0.06)";
+  for (let y = 0; y < 768; y += 6) ctx.fillRect(0, y, 256, 1);
+  const TOKENS = [
+    "STATUS", "INIT", "READY", "OK", "FAIL", "EXEC", "RX", "TX",
+    "0xABCD", "0x0042", "$00FE", "[OK]", "[--]", "CHK", "RUN",
+    "WAIT", "BUF", "MEM", "CPU", "PID", "SYS", "NET", "ACK", "NAK",
+    "...", "PASS", "BIND", "REQ", "RESP", "CALL", "RET", "PUSH",
+    "POP", "MOV", "JMP", "HLT", "TIK", "DUMP", "LOAD", "STORE",
+    "0xFF", "0x00", "::1", "0/1", "1/0", "0.0", "1.4e3", "+ok",
+  ];
+  ctx.font = '14px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
+  ctx.textBaseline = "top";
+  // Rows of tokens, ~14-16px each. Each row picks 1-3 tokens with
+  // a leading offset and gaps between, finishes at variable end —
+  // looks like a scrolling log buffer.
+  const rowH = 15;
+  for (let y = 2; y < 760; y += rowH) {
+    const rowAlpha = 0.55 + Math.random() * 0.40;
+    // Sparse magenta on ~3% of rows, cyan everywhere else.
+    if (Math.random() < 0.03) {
+      ctx.fillStyle = `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`;
+    } else {
+      ctx.fillStyle = `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
+    }
+    // Skip ~30% of rows entirely (gives the column visual breathing
+    // room — not every row is a log line).
+    if (Math.random() < 0.30) continue;
+    let x = 2 + Math.floor(Math.random() * 12);
+    const numTokens = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < numTokens && x < 240; i++) {
+      const tok = TOKENS[Math.floor(Math.random() * TOKENS.length)];
+      ctx.fillText(tok, x, y);
+      x += ctx.measureText(tok).width + 6 + Math.floor(Math.random() * 12);
+    }
   }
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
@@ -5522,9 +5563,14 @@ function _mixed3dBuildDecorativeLayer() {
   const mat = new T.MeshBasicMaterial({
     map: tex,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.30,
     depthWrite: false,
     toneMapped: false,
+    // DoubleSide so back faces of each tower also display content —
+    // user 2026-05-19 noted only 2 of 4 faces were filling. With
+    // PlaneGeometry's default FrontSide, faces angled away from camera
+    // got back-face culled.
+    side: T.DoubleSide,
   });
 
   const G = S.geometry;
