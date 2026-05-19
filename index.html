@@ -4885,6 +4885,26 @@ function _mixed3dGetTier2InstMesh(S, mat, substrate, variantIdx) {
   return inst;
 }
 
+// Deterministic per-cell tint seed. Hash the cell id to a [0, 1) float.
+// Used by tier-2 instance fill to break the "every cell looks identical"
+// effect — without this, all instances of a given (substrate, variant)
+// pair shared the InstancedMesh material's single CanvasTexture and
+// read as duplicates across the canyon.
+function _mixed3dCellTintSeed(cellId) {
+  let h = 0x811c9dc5;
+  const s = String(cellId);
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return (h & 0xffffff) / 0xffffff;
+}
+
+const _MIXED3D_INST_COLOR = (() => {
+  const T = window.THREE;
+  return T ? new T.Color() : null;
+})();
+
 function _mixed3dAddTier2Instance(S, inst, cellId, tx, ty, tz, rotX, rotY, scaleW, scaleH) {
   if (inst.count >= inst.capacity) return -1;
   const T = window.THREE;
@@ -4896,10 +4916,27 @@ function _mixed3dAddTier2Instance(S, inst, cellId, tx, ty, tz, rotX, rotY, scale
   m.compose(p, q, s);
   const idx = inst.count;
   inst.mesh.setMatrixAt(idx, m);
+  // Per-instance multiplicative tint, seeded by cellId. setColorAt
+  // multiplies with the material's base/texture color so we get
+  // brightness + slight RGB jitter without per-cell unique textures.
+  // Range: brightness 0.7 - 1.15, RGB jitter ±0.10. Channels biased
+  // toward the cyan/magenta palette to stay in theme.
+  const seed = _mixed3dCellTintSeed(cellId);
+  const seed2 = _mixed3dCellTintSeed(cellId + ":g");
+  const seed3 = _mixed3dCellTintSeed(cellId + ":b");
+  const bright = 0.7 + seed * 0.45;
+  const tint = _MIXED3D_INST_COLOR || new T.Color();
+  tint.setRGB(
+    bright + (seed2 - 0.5) * 0.20,
+    bright + (seed3 - 0.5) * 0.20,
+    bright + (seed - 0.5) * 0.20,
+  );
+  inst.mesh.setColorAt(idx, tint);
   inst.count++;
   inst.mesh.count = inst.count;
   inst.cellAtIdx[idx] = cellId;
   inst.mesh.instanceMatrix.needsUpdate = true;
+  if (inst.mesh.instanceColor) inst.mesh.instanceColor.needsUpdate = true;
   return idx;
 }
 
@@ -4915,6 +4952,14 @@ function _mixed3dRemoveTier2Instance(S, handle) {
     const m = new T.Matrix4();
     inst.mesh.getMatrixAt(lastIdx, m);
     inst.mesh.setMatrixAt(handle.idx, m);
+    // Carry per-instance color along with the moved instance; without
+    // this swap, the evicted instance's color persists at handle.idx
+    // and the moved cell adopts a stranger's tint.
+    if (inst.mesh.instanceColor) {
+      const c = _MIXED3D_INST_COLOR || new T.Color();
+      inst.mesh.getColorAt(lastIdx, c);
+      inst.mesh.setColorAt(handle.idx, c);
+    }
     const movedCellId = inst.cellAtIdx[lastIdx];
     if (movedCellId) {
       const movedHandle = S.cellObjects.get(movedCellId);
@@ -4929,6 +4974,7 @@ function _mixed3dRemoveTier2Instance(S, handle) {
   inst.count--;
   inst.mesh.count = inst.count;
   inst.mesh.instanceMatrix.needsUpdate = true;
+  if (inst.mesh.instanceColor) inst.mesh.instanceColor.needsUpdate = true;
 }
 
 // Tier-2 mini-texture. No title, no glyph — just the substrate's
