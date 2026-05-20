@@ -3367,6 +3367,7 @@ function applyMixed3DLayout(opts) {
       }
     }
     _mixed3dStepDanger(t);
+    _mixed3dStepDecoratives(t);
     // LOD re-tier: walk a slice of cells per frame, swap material if
     // their camera-distance bucket changed. Bounded by RETIER_BUDGET
     // so a burst of promotions can't stall the frame (each promotion
@@ -5446,15 +5447,13 @@ function _mixed3dPlanColumn(towerH, targetCount) {
   // (user 2026-05-03 "happens that cells are equally sized right
   // now but that won't be true in general").
   const N = targetCount;
-  // baseY=0: first cell sits FLUSH with the tower base (user 2026-
-  // 05-03 "the top and bottom cells need to be flush with the top
-  // and bottom of the tower"). The floor at y=0 doesn't z-fight
-  // with the cell because tier-2 cells use polygonOffset and
-  // tier-1 cells use transparent: true with depthWrite: false —
-  // neither competes with the floor's depth in the same pass.
-  // Last cell still stretches to land flush at y=towerH.
-  const baseY = 0;
-  const usableH = towerH - baseY;
+  // User 2026-05-19: 'the top and bottom of each face need some
+  // padding too'. Inset 0.5u from both tower base and top so cells
+  // don't kiss the cyan edge tubes on the top/bottom rims either.
+  // Reverses the 2026-05-03 "flush" decision.
+  const baseY = 0.5;
+  const topPad = 0.5;
+  const usableH = towerH - baseY - topPad;
   // Inter-cell padding: each gap drawn from [0.28u, 0.52u] for a
   // visibly varied "evenly-but-randomly-spaced" feel (user 2026-05-03
   // "or a little randomly spaced out actually, that could be nice").
@@ -5484,9 +5483,9 @@ function _mixed3dPlanColumn(towerH, targetCount) {
     if (i < N - 1) y += pads[i];
   }
   // Floating-point drift: nudge final cell so its top is exactly
-  // at towerH (last cell flush with tower top).
+  // at towerH - topPad (last cell flush with the top-pad edge).
   const last = positions[positions.length - 1];
-  last.h = towerH - last.y;
+  last.h = (towerH - topPad) - last.y;
   // Shuffle positions so real cells (consumed in nextIdx order) land
   // at random vertical positions, not all glued to the bottom row.
   // User 2026-05-19: "the tier 2 cells are still populating only from
@@ -5644,6 +5643,11 @@ function _mixed3dBuildDecorativeLayer() {
     const t = new T.CanvasTexture(can);
     t.minFilter = T.LinearFilter;
     t.magFilter = T.LinearFilter;
+    // RepeatWrapping so texture.offset.y can scroll the content
+    // continuously without showing a hard edge. User 2026-05-19: 'in
+    // the movie there are clearly text typing, lists scrolling etc'.
+    t.wrapS = T.RepeatWrapping;
+    t.wrapT = T.RepeatWrapping;
     return t;
   };
 
@@ -5758,6 +5762,45 @@ function _mixed3dBuildDecorativeLayer() {
     totalCount += m.count;
   }
   console.log(`[mixed3d] decorative layer built: ${totalCount} instances across ${N_TEXTURES} textures`);
+}
+
+// Per-frame animation step for decoratives. User 2026-05-19: 'in the
+// movie there are clearly text typing, lists scrolling etc' +
+// 'blinking'. Three layers of per-MATERIAL animation (cheap — one
+// uniform update per mesh, not per-instance):
+//   1. Texture UV.y scroll: each mesh rolls its texture at its own
+//      rate, so cells using that mesh appear to scroll terminal
+//      output. Different meshes scroll at different rates → variety.
+//   2. Brightness pulse: smooth sine oscillation around 0.92 ± 0.08,
+//      each mesh with its own period and phase. Reads as gentle
+//      breathing on each mesh group, never all-in-sync.
+//   3. Discrete blink: once every ~4s a random mesh briefly dims to
+//      ~0.25 brightness for 80ms. Reads as a "this terminal just
+//      ACKed something" flash across the canyon.
+function _mixed3dStepDecoratives(t) {
+  const S = _mixed3dState;
+  if (!S || !S._decorativeMeshes) return;
+  if (!S._decoBlink) S._decoBlink = { nextT: t + 4 + Math.random() * 3, meshIdx: -1, until: 0 };
+  const blink = S._decoBlink;
+  if (blink.until > 0 && t > blink.until) {
+    blink.meshIdx = -1;
+    blink.until = 0;
+  }
+  if (t >= blink.nextT) {
+    blink.meshIdx = Math.floor(Math.random() * S._decorativeMeshes.length);
+    blink.until = t + 0.08;
+    blink.nextT = t + 3 + Math.random() * 4;
+  }
+  const meshes = S._decorativeMeshes;
+  for (let i = 0; i < meshes.length; i++) {
+    const m = meshes[i];
+    if (!m.material || !m.material.map) continue;
+    const rate = 0.06 + (i * 0.0075) % 0.12;
+    m.material.map.offset.y = (t * rate) % 1;
+    let pulse = 0.92 + 0.08 * Math.sin((t / (1.5 + (i * 0.137) % 2)) * 2 * Math.PI + i * 0.6);
+    if (i === blink.meshIdx) pulse = 0.25;
+    m.material.color.setRGB(pulse, pulse, pulse);
+  }
 }
 
 // Suppress the decorative instance behind a slot a real cell just
