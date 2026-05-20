@@ -18,12 +18,6 @@
 <!-- Three.js loaded eagerly for scene3d cells. -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
 <script src="vendor/CSS3DRenderer.js"></script>
-<!-- html2canvas for tier-1 cell DOM-snapshot in mixed3d.
-     Tier-1 cells need to render like 2D-pack cells (mermaid graphs, vega
-     charts, etc) — abstract canvas sketches read as "half-assed fuzzy
-     thin-lined versions". html2canvas snapshots the actual cell DOM and
-     uploads as a CanvasTexture. Loaded only on demand. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <!-- d3-hierarchy: canonical squarified treemap (Bruls 2000). Replaces
      ~80 lines of custom squarify code; we just feed it weights and read
      leaf rectangles back. -->
@@ -3415,9 +3409,6 @@ function applyMixed3DLayout(opts) {
     // so a burst of promotions can't stall the frame (each promotion
     // paints a unique CanvasTexture, ~2ms each).
     _mixed3dRetierSweep();
-    // Re-snapshot one tier-1 cell ~every 0.8s so substrate animations
-    // step forward (#142 phase 2). Single in-flight at a time.
-    _mixed3dStepCellSnapshots(t);
     _mixed3dState.renderer.render(_mixed3dState.scene, _mixed3dState.camera);
     // (CSS3DRenderer no longer used — cells are WebGL Plane meshes
     // rendered by S.renderer above. CSS3D infrastructure left in
@@ -5115,112 +5106,6 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
   return tex;
 }
 
-// Tier-1 DOM snapshot via html2canvas. The 2D cell DOM is laid out
-// off-screen (#notebook positioned at left:-100000 in mixed3d mode) so its
-// substrate (mermaid SVG / vega chart / treemap / etc) renders normally.
-// We snapshot that into a canvas and feed it back as the tier-1 texture,
-// giving "real 2D dashboard cell on a 3D plane" instead of abstract sketch.
-//
-// Architecture:
-//   1. _mixed3dCellTexture paints the existing canvas (title + abstract
-//      preview) as a placeholder, returns a CanvasTexture immediately
-//   2. ASYNC: html2canvas the real cell; on completion, swap the texture's
-//      .image to the rendered canvas + needsUpdate. The Mesh's material
-//      reference stays stable.
-//   3. Snapshots cached by cell.id (S._snapTexCache: Map<id, canvas>) so
-//      repeat tier-1 promotions reuse without re-snapshotting.
-//   4. Periodic re-snapshot driver (_mixed3dStepCellSnapshots) walks the
-//      live tier-1 set ~every 2s, re-snapshotting one cell at a time so
-//      animations (sparkline pulses, etc) step forward. Single in-flight.
-//
-// Loads html2canvas via CDN at the top of <head> with defer; if it's not
-// ready when first tier-1 cell mounts, the placeholder texture stays
-// until the first periodic-snapshot tick after script-load.
-function _mixed3dSnapshotCellToCanvas(cellEl) {
-  if (typeof window.html2canvas !== "function") return Promise.resolve(null);
-  if (!cellEl || !cellEl.isConnected) return Promise.resolve(null);
-  // Snapshot at 2x device pixel ratio for crispness when viewed close;
-  // tier-1 cap caps the cost. backgroundColor null preserves the cell's
-  // translucent panel — alphaTest material later cuts the empty corners.
-  return window.html2canvas(cellEl, {
-    backgroundColor: null,
-    scale: 1.5,
-    logging: false,
-    useCORS: false,
-    allowTaint: true,
-    // Force layout for off-screen cells (left:-100000 in mixed3d). Without
-    // a clean rect, html2canvas may render an empty canvas.
-    width: cellEl.offsetWidth || 400,
-    height: cellEl.offsetHeight || 280,
-  }).catch((e) => {
-    console.warn("[mixed3d] html2canvas snapshot failed for", cellEl.id, e);
-    return null;
-  });
-}
-
-// Kick off a snapshot and swap the texture's image when it lands. Safe to
-// call repeatedly; coalesces in-flight requests per cell id.
-function _mixed3dSnapshotTexAsync(cellEl, tex) {
-  const S = _mixed3dState;
-  if (!S || !cellEl || !tex) return;
-  if (!S._snapInflight) S._snapInflight = new Set();
-  const id = cellEl.id;
-  if (!id || S._snapInflight.has(id)) return;
-  S._snapInflight.add(id);
-  _mixed3dSnapshotCellToCanvas(cellEl).then((canvas) => {
-    S._snapInflight.delete(id);
-    if (canvas && tex && !tex.disposed) {
-      tex.image = canvas;
-      tex.needsUpdate = true;
-      // Cache the captured canvas for tier-1 promotions / re-snap.
-      if (!S._snapTexCache) S._snapTexCache = new Map();
-      S._snapTexCache.set(id, canvas);
-    }
-  });
-}
-
-// Periodic re-snapshot of tier-1 cells so substrate animations step
-// forward (sparkline pulse, cell-fresh wireframe, etc). Walks the
-// cellObjects map and re-snapshots one tier-1 cell per cycle.
-// Cycle period: 2000ms means each cell re-renders every (count * 2s)
-// = at 400 tier-1 cells, ~13min per cell. Heavy cells re-snap every
-// few seconds when count is low. Single in-flight at a time keeps perf.
-function _mixed3dStepCellSnapshots(t) {
-  const S = _mixed3dState;
-  if (!S || !S.cellObjects) return;
-  if (typeof window.html2canvas !== "function") return;
-  if (!S._snapNextT) S._snapNextT = t + 0.8; // first kick after a bit
-  if (t < S._snapNextT) return;
-  if (!S._snapInflight) S._snapInflight = new Set();
-  if (S._snapInflight.size > 0) {
-    // wait for in-flight to land before next
-    S._snapNextT = t + 0.4;
-    return;
-  }
-  // Walk tier-1 mesh entries, pick next in rotation.
-  if (!S._snapCycle || S._snapCycle.idx >= S._snapCycle.ids.length) {
-    const ids = [];
-    for (const [id, obj] of S.cellObjects) {
-      if (obj.isInstanceHandle) continue;
-      if (obj.userData?.tier !== 1) continue;
-      ids.push(id);
-    }
-    S._snapCycle = { ids, idx: 0 };
-  }
-  const cyc = S._snapCycle;
-  if (cyc.ids.length === 0) {
-    S._snapNextT = t + 1.0;
-    return;
-  }
-  const id = cyc.ids[cyc.idx++];
-  const obj = S.cellObjects.get(id);
-  if (obj && !obj.isInstanceHandle && obj.material?.map) {
-    const cellEl = obj.userData?.cellEl;
-    if (cellEl) _mixed3dSnapshotTexAsync(cellEl, obj.material.map);
-  }
-  S._snapNextT = t + 0.8; // next cell ~0.8s later
-}
-
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const T = window.THREE;
   // Side cells: 192×576 (#138 follow-up 2026-05-19) — was 80×240 (~19k px),
@@ -5303,21 +5188,6 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
   tex.magFilter = T.LinearFilter;
-  // Pull a previously-captured snapshot from cache if we have one. Don't
-  // kick off a fresh snapshot here — 400+ tier-1 cells mounting at once
-  // would each trigger an html2canvas call in parallel and freeze the
-  // page. The periodic _mixed3dStepCellSnapshots driver handles fresh
-  // snapshots one-at-a-time. This function only paints the placeholder
-  // canvas (title + abstract preview) so the cell looks SOMETHING while
-  // waiting for its first snapshot.
-  const S = _mixed3dState;
-  if (S && cell && cell.id) {
-    const cached = S._snapTexCache?.get(cell.id);
-    if (cached) {
-      tex.image = cached;
-      tex.needsUpdate = true;
-    }
-  }
   return tex;
 }
 function _mixed3dSyncCells() {
