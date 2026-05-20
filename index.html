@@ -6004,13 +6004,36 @@ function _mixed3dPickSlotForNewCell() {
     targetX += fwd.x * _lookahead;
     targetZ += fwd.z * _lookahead;
   }
+  // 2026-05-20: cells were spreading evenly across all 100 towers (probe
+  // showed every tower at 12-13 cells) because (a) the count-first sort
+  // load-balanced, and (b) the camera path traverses every tower during
+  // its long loop, so even dist-first ended up spreading evenly over time.
+  // Fix: restrict mount eligibility to "path-adjacent" inner towers
+  // (distance from world origin < INNER_R). 10×10 grid centered at origin
+  // with spacing=12 puts the camera path within ~30u of center; outer
+  // towers exist only as decorative backdrop. Among eligible towers,
+  // sort by count (load-balance) then distance.
+  const G_FIELD_HALF = ((G.towerCount - 1) / 2) * G.spacing;
+  const INNER_R = G_FIELD_HALF * 0.55;  // inner 55% radius — ~30u for default geometry
   const ranked = S.towerMeshes
     .map((tw, idx) => ({
       idx,
       count: S.towerCellCount[idx] || 0,
       dist: Math.hypot(tw.mesh.position.x - targetX, tw.mesh.position.z - targetZ),
+      centerDist: Math.hypot(tw.mesh.position.x, tw.mesh.position.z),
     }))
+    .filter(t => t.centerDist < INNER_R)
     .sort((a, b) => a.count - b.count || a.dist - b.dist);
+  // If nothing eligible (defensive — shouldn't happen with default geometry),
+  // fall back to the full set so we never strand cells.
+  if (!ranked.length) {
+    const fallback = S.towerMeshes.map((tw, idx) => ({
+      idx,
+      count: S.towerCellCount[idx] || 0,
+      dist: Math.hypot(tw.mesh.position.x - targetX, tw.mesh.position.z - targetZ),
+    })).sort((a, b) => a.count - b.count || a.dist - b.dist);
+    ranked.push(...fallback);
+  }
   for (const { idx } of ranked) {
     // Pick the LEAST-FULL column on this tower (lowest nextIdx).
     // Earlier "first non-full column wins" logic returned col=0
