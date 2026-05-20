@@ -2857,11 +2857,22 @@ function applyMixed3DLayout(opts) {
   // Each face spec carries dx/dz (face center offset from tower
   // center), rotY (cell yaw), and hx/hz (in-plane horizontal axis
   // direction, used for column-offset positioning).
+  // NORMAL-OUTWARD-CORRECTED 2026-05-19. The E and W rotY values were
+  // previously swapped: E used -π/2 (which rotates +Z normal to -X,
+  // pointing INTO the tower) and W used +π/2 (rotates to +X, also
+  // INTO the tower). Probe via chrome MCP confirmed: tower 0's E and
+  // W decorative planes had normals -X and +X respectively, opposite
+  // to their outward direction. Effect: FrontSide culled E and W
+  // faces from any outside camera, and DoubleSide showed the BACK of
+  // those planes (texture mirrored). Real cells too — they've been
+  // appearing left-right-flipped on E/W faces; users haven't noticed
+  // because chart content is mostly symmetric. Corrected values:
+  // E: rotY = +π/2 (+Z → +X, outward), W: rotY = -π/2 (+Z → -X).
   const NESW = [
     { dx: 0, dz: +towerD / 2 + 0.02, rotY: 0, hx: 1, hz: 0 },     // +Z (north)
-    { dx: +towerW / 2 + 0.02, dz: 0, rotY: -Math.PI / 2, hx: 0, hz: 1 }, // +X (east)
+    { dx: +towerW / 2 + 0.02, dz: 0, rotY: +Math.PI / 2, hx: 0, hz: 1 }, // +X (east)
     { dx: 0, dz: -towerD / 2 - 0.02, rotY: Math.PI, hx: -1, hz: 0 }, // -Z (south)
-    { dx: -towerW / 2 - 0.02, dz: 0, rotY: +Math.PI / 2, hx: 0, hz: -1 }, // -X (west)
+    { dx: -towerW / 2 - 0.02, dz: 0, rotY: -Math.PI / 2, hx: 0, hz: -1 }, // -X (west)
   ];
   const gridHalf = (towerCount - 1) / 2;
   // Per-axis edge instance count: 4 edges/tower × N towers. X and Z
@@ -3910,7 +3921,7 @@ function _mixed3dDriveSwoopyTour(t) {
     S.swoopCam = {
       curve,
       totalLen: curve.getLength(),
-      speed: 4.0, // world units per second
+      speed: 2.0, // world units per second (temporarily halved 2026-05-19 for close-look inspection; restore to 4.0 once visual polish is done)
       headingHistory: [],
     };
   }
@@ -5592,7 +5603,7 @@ function _mixed3dBuildDecorativeLayer() {
     return templates[0];
   };
 
-  const rowH = 15;
+  const rowH = 24;
   for (let y = 2; y < 760; y += rowH) {
     const tmpl = pickTemplate();
     const txt = tmpl();
@@ -5603,9 +5614,10 @@ function _mixed3dBuildDecorativeLayer() {
     } else {
       ctx.fillStyle = `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
     }
-    // Variable indentation: 0-24px leading offset, biased low.
-    const indent = Math.floor(Math.random() * Math.random() * 28);
-    ctx.fillText(txt, 2 + indent, y);
+    // Left-justified with a small consistent margin. Refs (monitor_
+    // directory_listing.png, tower_face_labels.png) show text flush
+    // left or close to it, not the random-indent scatter pattern.
+    ctx.fillText(txt, 4, y);
   }
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
@@ -5624,13 +5636,11 @@ function _mixed3dBuildDecorativeLayer() {
     alphaTest: 0.1,
     depthWrite: true,
     toneMapped: false,
-    // FrontSide — DoubleSide caused back-of-tower decoratives to
-    // render mirrored THROUGH the (0.025-opacity) tower glass,
-    // producing a "doubled-up" text effect (user 2026-05-19).
-    // FrontSide culls back-facing decoratives so only the camera-
-    // facing 2 of 4 tower sides render. That's geometrically correct;
-    // the 2 side faces hidden from this camera angle would be at
-    // glancing angles anyway.
+    // FrontSide is correct now that the NESW rotY bug is fixed. All
+    // 4 faces' planes point outward, so FrontSide renders them from
+    // any outside camera angle without mirror artifacts. The 2-of-4
+    // hidden-faces complaint that motivated DoubleSide was an artifact
+    // of the broken normals, not of FrontSide itself.
     side: T.FrontSide,
   });
 
