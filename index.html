@@ -2676,11 +2676,12 @@ function applyMixed3DLayout(opts) {
   // subtree regardless of source scene.
   const cssScene = new T.Scene();
   const cssSceneFar = new T.Scene();
-  // Heavier fog (0.04 vs prior 0.025) so the 20×20 grid fades into
-  // void at its far edge — sells the "semi-infinite" read user
-  // flagged 2026-05-02. Towers ~50 units away ≈ 13% visible; ~80
-  // units away ≈ 4%. Up close (within 10 units) towers read clearly.
-  scene.fog = new T.FogExp2(0x000308, 0.04);
+  // Heavier fog (0.06 vs prior 0.04) so back tower faces fade into
+  // black void rather than contributing decorative text clutter to
+  // mid-distance — user 2026-05-19 "we need more dark fog drop off
+  // so that the back tower faces don't add too much visual clutter".
+  // Towers ~50 units away ≈ 5% visible; ~80 units ≈ 1%.
+  scene.fog = new T.FogExp2(0x000308, 0.06);
 
   // Lighting — bright key from above-canyon, low ambient, side fill.
   scene.add(new T.AmbientLight(0xffffff, 0.35));
@@ -5245,9 +5246,15 @@ function _mixed3dDrainMountQueue() {
       pending.clear();
       break;
     }
-    const { towerIdx, facePri, col, key, y: cellY, h: cellH } = placement;
+    const { towerIdx, facePri, col, key, y: cellY, h: cellH, p: claimedP } = placement;
     const tower = S.towerMeshes[towerIdx];
     const isTop = facePri === 4;
+    // Hide any decorative-tier instance behind this real cell so its
+    // terminal text doesn't bleed through transparent pixels in the
+    // cell's substrate render. Top-face slots have no decorative.
+    if (!isTop && typeof claimedP === "number") {
+      _mixed3dHideDecorativeAtSlot(towerIdx, facePri, col, claimedP);
+    }
     let tx, ty, tz, rotX = 0, rotY = 0;
     let mountedH = G.towerW * 0.95;
     if (isTop) {
@@ -5556,7 +5563,7 @@ function _mixed3dBuildDecorativeLayer() {
   const FILLER_CHARS = [".", "-", "=", "_", "+"];
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-  ctx.font = '14px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
+  ctx.font = '18px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
   ctx.textBaseline = "top";
 
   // 9 row templates, each producing a distinct shape so the visual
@@ -5617,11 +5624,14 @@ function _mixed3dBuildDecorativeLayer() {
     alphaTest: 0.1,
     depthWrite: true,
     toneMapped: false,
-    // DoubleSide so back faces of each tower also display content —
-    // user 2026-05-19 noted only 2 of 4 faces were filling. With
-    // PlaneGeometry's default FrontSide, faces angled away from camera
-    // got back-face culled.
-    side: T.DoubleSide,
+    // FrontSide — DoubleSide caused back-of-tower decoratives to
+    // render mirrored THROUGH the (0.025-opacity) tower glass,
+    // producing a "doubled-up" text effect (user 2026-05-19).
+    // FrontSide culls back-facing decoratives so only the camera-
+    // facing 2 of 4 tower sides render. That's geometrically correct;
+    // the 2 side faces hidden from this camera angle would be at
+    // glancing angles anyway.
+    side: T.FrontSide,
   });
 
   const G = S.geometry;
@@ -5640,6 +5650,12 @@ function _mixed3dBuildDecorativeLayer() {
   const v = new T.Vector3();
   const sc = new T.Vector3();
   const colorTmp = new T.Color();
+
+  // Slot → decorative instance index, so a real cell mount can call
+  // _mixed3dHideDecorativeAtSlot to suppress the decorative behind
+  // it. Otherwise the decorative's terminal text bleeds through any
+  // transparent pixels in the real cell's substrate render.
+  S._decorativeSlotIdx = new Map();
 
   for (let towerIdx = 0; towerIdx < S.towerMeshes.length; towerIdx++) {
     const tower = S.towerMeshes[towerIdx];
@@ -5676,6 +5692,7 @@ function _mixed3dBuildDecorativeLayer() {
           m4.compose(v, q, sc);
           const idx = inst.count;
           inst.setMatrixAt(idx, m4);
+          S._decorativeSlotIdx.set(`${towerIdx}:${face}:${col}:${p}`, idx);
           // Per-instance brightness + slight RGB jitter — keep range
           // tight (0.85-1.0) so each cell stays crisp; the variation is
           // about breaking the "identical wallpaper" effect, not dimming.
@@ -5698,6 +5715,24 @@ function _mixed3dBuildDecorativeLayer() {
   S.scene.add(inst);
   S._decorativeInstancedMesh = inst;
   console.log(`[mixed3d] decorative layer built: ${inst.count} instances`);
+}
+
+// Suppress the decorative instance behind a slot a real cell just
+// claimed. Move it far off-screen so the GPU still processes its
+// vertex but it never lands in the frustum. Without this, the
+// decorative's terminal text bleeds through any transparent pixels
+// in the real cell's substrate render.
+function _mixed3dHideDecorativeAtSlot(towerIdx, face, col, p) {
+  const S = _mixed3dState;
+  if (!S || !S._decorativeInstancedMesh || !S._decorativeSlotIdx) return;
+  const key = `${towerIdx}:${face}:${col}:${p}`;
+  const idx = S._decorativeSlotIdx.get(key);
+  if (idx == null) return;
+  const T = window.THREE;
+  const m4 = new T.Matrix4().makeTranslation(0, -99999, 0);
+  S._decorativeInstancedMesh.setMatrixAt(idx, m4);
+  S._decorativeInstancedMesh.instanceMatrix.needsUpdate = true;
+  S._decorativeSlotIdx.delete(key);
 }
 
 // Find a slot for a freshly minted cell, biased toward where the user
@@ -5771,11 +5806,12 @@ function _mixed3dPickSlotForNewCell() {
     }
     if (bestKey !== null) {
       const plan = S.columnPlans.get(bestKey);
-      const slot = plan.positions[plan.nextIdx];
+      const claimedP = plan.nextIdx;
+      const slot = plan.positions[claimedP];
       plan.nextIdx++;
       return {
         towerIdx: idx, facePri: bestFace, col: bestCol, key: bestKey,
-        y: slot.y, h: slot.h,
+        y: slot.y, h: slot.h, p: claimedP,
       };
     }
     const topKey = `${idx}:4:0:0`;
