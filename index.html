@@ -5802,20 +5802,49 @@ function _mixed3dStepDecoratives(t) {
   const CAN_W = 256, CAN_H = 768;
   if (!S._decoScrollState) {
     S._decoScrollState = meshes.map((_, i) => ({
-      nextT: t + 1 + Math.random() * 2,
-      period: 2 + (i * 0.19) % 2,
+      nextT: t + 0.2 + Math.random() * 1.2,
+      period: 0.8 + (i * 0.13) % 1.2,
     }));
-    S._decoTokens = [
-      "STATUS", "READY", "BUFFER", "PASS", "CALL", "RESP", "BIND",
-      "STORE", "LOAD", "DUMP", "WAIT", "ACK", "NAK", "GARBAGE", "RX",
-      "TX", "INIT", "RUN", "EXEC", "HLT", "PAYROLL", "TIME_CHECK",
-      "SCREEN_BUF", "INVOICE", "FREIGHT", "INSTRUCTION_PIPELINE",
-      "COMPANY_STATUS", "RECRUITMENT", "WAREHOUSE_LOCATIONS",
-      "0xABCD", "0x00FE", "127.0.0.1", "::1", "1.4e3", "+ok",
-      "COMPOSITE_PLANTS", "ANNUAL_BUDGETS", "TROPIC_EXPEND",
-      "+-- STATUS", "STATUS=ok", "READY -> WAIT", "ETA RUN EXEC",
-      "----------",
-    ];
+    // Shared scratch canvas so canvas-to-self drawImage with
+    // overlapping source/dest rects can't produce undefined-behavior
+    // smear (user 2026-05-19 'I think maybe your lines are overwriting
+    // each other'). Reused across all 16 meshes — scroll events are
+    // sequential within a single tick.
+    S._decoScrollTempCan = document.createElement("canvas");
+    S._decoScrollTempCan.width = CAN_W;
+    S._decoScrollTempCan.height = CAN_H;
+    S._decoLineGen = (() => {
+      const longs = [
+        "INSTRUCTION_PIPELINE", "COMPANY_STATUS", "RECRUITMENT",
+        "WAREHOUSE_LOCATIONS", "COMPOSITE_PLANTS", "ANNUAL_BUDGETS",
+        "TROPIC_EXPEND", "INSTRUMENTATION_FLAG", "DOMAIN_HEAD_BLOCK",
+        "MEMORY_FENCE_TABLE", "SHIPPING_FORECASTS",
+      ];
+      const meds = [
+        "STATUS", "READY", "BUFFER", "PASS", "CALL", "RESP", "BIND",
+        "STORE", "LOAD", "DUMP", "WAIT", "ACK", "NAK", "GARBAGE",
+        "PAYROLL", "TIME_CHECK", "SCREEN_BUF", "INVOICE", "FREIGHT",
+      ];
+      const shorts = [
+        "RX", "TX", "OK", "FF", "00", "FAIL", "INIT", "RUN", "EXEC",
+        "HLT", "JMP", "RET", "MOV", "POP", "PUSH",
+      ];
+      const arrows = ["->", "=>", "<-", ">>", "::"];
+      const nums = ["1.4e3", "0.998", "12.4ms", "127.0.0.1", "$00FE", "0xABCD"];
+      const pick = (a) => a[Math.floor(Math.random() * a.length)];
+      return () => {
+        const r = Math.random();
+        if (r < 0.10) return pick(longs);
+        if (r < 0.25) return `${pick(meds)} ${pick(arrows)} ${pick(meds)}`;
+        if (r < 0.40) return `${pick(meds)}=${pick(nums)}`;
+        if (r < 0.55) return `${pick(shorts)} ${pick(shorts)} ${pick(shorts)}`;
+        if (r < 0.65) return `+-- ${pick(meds)}`;
+        if (r < 0.78) return `${pick(meds)} ${pick(nums)}`;
+        if (r < 0.85) return ".".repeat(6 + Math.floor(Math.random() * 14));
+        if (r < 0.92) return `${pick(longs)} ${pick(arrows)} ${pick(shorts)}`;
+        return pick(meds);
+      };
+    })();
   }
   for (let i = 0; i < meshes.length; i++) {
     const m = meshes[i];
@@ -5825,18 +5854,24 @@ function _mixed3dStepDecoratives(t) {
     if (t >= state.nextT) {
       const can = m.material.map.image;
       const ctx = can.getContext("2d");
-      ctx.drawImage(can, 0, ROW_H, CAN_W, CAN_H - ROW_H, 0, 0, CAN_W, CAN_H - ROW_H);
-      ctx.clearRect(0, CAN_H - ROW_H, CAN_W, ROW_H);
+      const tempCan = S._decoScrollTempCan;
+      const tempCtx = tempCan.getContext("2d");
+      // Copy upper-shifted content into temp; clear original; copy
+      // back. Two non-overlapping drawImage calls — defined behavior.
+      tempCtx.clearRect(0, 0, CAN_W, CAN_H);
+      tempCtx.drawImage(can, 0, ROW_H, CAN_W, CAN_H - ROW_H, 0, 0, CAN_W, CAN_H - ROW_H);
+      ctx.clearRect(0, 0, CAN_W, CAN_H);
+      ctx.drawImage(tempCan, 0, 0, CAN_W, CAN_H - ROW_H, 0, 0, CAN_W, CAN_H - ROW_H);
       ctx.font = '18px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
       ctx.textBaseline = "top";
       const rowAlpha = 0.85 + Math.random() * 0.15;
       ctx.fillStyle = Math.random() < 0.04
         ? `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`
         : `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
-      const tok = S._decoTokens[Math.floor(Math.random() * S._decoTokens.length)];
+      const tok = S._decoLineGen();
       ctx.fillText(tok, 4, CAN_H - ROW_H + 2);
       m.material.map.needsUpdate = true;
-      state.nextT = t + state.period + Math.random() * 1.5;
+      state.nextT = t + state.period + Math.random() * 0.6;
     }
     let pulse = 0.92 + 0.08 * Math.sin((t / (1.5 + (i * 0.137) % 2)) * 2 * Math.PI + i * 0.6);
     if (i === blink.meshIdx) pulse = 0.25;
