@@ -5199,53 +5199,242 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h) {
 }
 
 // Toggle tier-2 cell visibility. URL: ?notier2=1 calls this at boot for
-// A/B-comparing tier-1 + decorative against the full mix. Hides both
-// the InstancedMesh tier-2 path (most cells) and the per-cell Mesh
-// fallback path. Tier-1 + decoratives unaffected.
-window.toggleMixed3dTier2 = function(visible) {
+// A/B-comparing tier-1 + decorative against the full mix. Sets a persistent
+// flag — the snapshot driver re-applies it every tick because tier-2
+// Meshes get regenerated when cells demote from tier-1.
+let _mixed3dTier2Suppressed = false;
+function _mixed3dApplyTier2Visibility(visible) {
   const S = _mixed3dState;
-  if (!S) return "no-state";
+  if (!S) return 0;
+  let n = 0;
   if (S.tier2InstancedMeshes) {
     for (const [, inst] of S.tier2InstancedMeshes) {
-      if (inst && inst.mesh) inst.mesh.visible = visible;
+      if (inst && inst.mesh && inst.mesh.visible !== visible) {
+        inst.mesh.visible = visible;
+        n++;
+      }
     }
   }
   if (S.cellObjects) {
     for (const [, obj] of S.cellObjects) {
       if (obj.isInstanceHandle) continue;
-      if (obj.userData?.tier === 2) obj.visible = visible;
+      if (obj.userData?.tier === 2 && obj.visible !== visible) {
+        obj.visible = visible;
+        n++;
+      }
     }
   }
-  return `tier-2 visible: ${visible}`;
+  return n;
+}
+window.toggleMixed3dTier2 = function(visible) {
+  _mixed3dTier2Suppressed = !visible;
+  const n = _mixed3dApplyTier2Visibility(visible);
+  return `tier-2 visible: ${visible} (${n} updated)`;
 };
+
+// Custom-canvas renderers for non-mermaid tier-1 substrates. Each
+// returns a Promise<canvas> rendering the cell's actual spec data into
+// a hackers-palette canvas. Synchronous draws wrapped in resolved
+// Promise to match the mermaid pipeline shape.
+
+function _mixed3dRenderGaugeToCanvas(spec, w, h) {
+  // Gauge spec: { value, min, max, label, unit? }
+  let value, min, max, label;
+  try {
+    const s = typeof spec === "string" ? JSON.parse(spec) : spec;
+    value = +s.value; min = +s.min; max = +s.max; label = s.label;
+  } catch (e) { return Promise.resolve(null); }
+  if (!isFinite(value) || !isFinite(min) || !isFinite(max) || max <= min) return Promise.resolve(null);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const cx = w / 2;
+  const cy = h * 0.55;
+  const r = Math.min(w, h * 0.65) * 0.42;
+  // Track arc
+  ctx.strokeStyle = "#9966ff";
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, 0, false);
+  ctx.stroke();
+  // Filled arc
+  const norm = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  ctx.strokeStyle = "#00ddff";
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, Math.PI + norm * Math.PI, false);
+  ctx.stroke();
+  // Value
+  ctx.fillStyle = "#ccf3ff";
+  ctx.font = "bold 42px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  const vs = (Number.isInteger(value) ? value.toString() : value.toFixed(1));
+  ctx.fillText(vs, cx, cy + 6);
+  // Label below
+  if (label) {
+    ctx.fillStyle = "#9966ff";
+    ctx.font = "16px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.fillText(String(label).toUpperCase().slice(0, 18), cx, cy + r + 36);
+  }
+  return Promise.resolve(canvas);
+}
+
+function _mixed3dRenderSparklineToCanvas(spec, w, h) {
+  // Sparkline spec: { data: [...], label? } or just [...]
+  let data, label;
+  try {
+    const s = typeof spec === "string" ? JSON.parse(spec) : spec;
+    if (Array.isArray(s)) { data = s; }
+    else { data = s.data; label = s.label; }
+  } catch (e) { return Promise.resolve(null); }
+  if (!Array.isArray(data) || data.length < 2) return Promise.resolve(null);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const pad = 16;
+  const py0 = h * 0.3;
+  const py1 = h * 0.85;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  ctx.strokeStyle = "#00ddff";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = pad + (w - pad * 2) * (i / (data.length - 1));
+    const y = py1 - ((data[i] - min) / range) * (py1 - py0);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // End dot in pink
+  const xL = pad + (w - pad * 2);
+  const yL = py1 - ((data[data.length - 1] - min) / range) * (py1 - py0);
+  ctx.fillStyle = "#ff3a8c";
+  ctx.beginPath();
+  ctx.arc(xL, yL, 6, 0, Math.PI * 2);
+  ctx.fill();
+  // End value
+  ctx.fillStyle = "#ccf3ff";
+  ctx.font = "bold 22px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  const last = data[data.length - 1];
+  const lastStr = (Number.isInteger(last) ? last.toString() : last.toFixed(2));
+  ctx.fillText(lastStr, xL - 12, yL - 8);
+  // Label
+  if (label) {
+    ctx.fillStyle = "#9966ff";
+    ctx.font = "14px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(String(label).toUpperCase().slice(0, 22), pad, py0 - 22);
+  }
+  return Promise.resolve(canvas);
+}
+
+function _mixed3dRenderTreemapToCanvas(spec, w, h) {
+  // Treemap spec: { children: [{name, value}, ...] } or [{name,value},...]
+  let items;
+  try {
+    const s = typeof spec === "string" ? JSON.parse(spec) : spec;
+    items = Array.isArray(s) ? s : (s.children || []);
+  } catch (e) { return Promise.resolve(null); }
+  if (!Array.isArray(items) || !items.length) return Promise.resolve(null);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const pad = 8;
+  const x0 = pad, y0 = pad, x1 = w - pad, y1 = h - pad;
+  const total = items.reduce((a, it) => a + Math.max(0, +(it.value ?? it.size ?? 1)), 0) || 1;
+  // Squarified-ish: alternate rows/cols
+  const colors = ["#00ddff", "#9966ff", "#ff3a8c", "#33ff99", "#ffaa44"];
+  let curX = x0, curY = y0, remW = x1 - x0, remH = y1 - y0;
+  let horizontal = remW > remH;
+  let i = 0;
+  for (const it of items.slice(0, 12)) {
+    const v = Math.max(0, +(it.value ?? it.size ?? 1));
+    const frac = v / total;
+    let rw, rh;
+    if (horizontal) {
+      rw = remW * frac; rh = remH;
+    } else {
+      rw = remW; rh = remH * frac;
+    }
+    if (i === items.length - 1 || i === 11) { rw = remW; rh = remH; }
+    const color = colors[i % colors.length];
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.18;
+    ctx.fillRect(curX, curY, rw, rh);
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(curX, curY, rw, rh);
+    // Label
+    if (rw > 40 && rh > 24) {
+      ctx.fillStyle = "#ccf3ff";
+      ctx.globalAlpha = 1;
+      ctx.font = "bold 14px 'Eurostile', 'Share Tech Mono', monospace";
+      ctx.textBaseline = "top";
+      ctx.textAlign = "left";
+      const name = String(it.name || "").slice(0, Math.floor(rw / 8));
+      ctx.fillText(name, curX + 4, curY + 4);
+      if (rh > 40) {
+        ctx.font = "12px 'Eurostile', 'Share Tech Mono', monospace";
+        ctx.fillStyle = color;
+        ctx.fillText(String(v), curX + 4, curY + 20);
+      }
+    }
+    if (horizontal) { curX += rw; remW -= rw; }
+    else { curY += rh; remH -= rh; }
+    i++;
+  }
+  ctx.globalAlpha = 1;
+  return Promise.resolve(canvas);
+}
 
 let _mixed3dSnapInterval = null;
 let _mixed3dSnapInflight = false;
+
+// Dispatch table: substrate type → render function. Returns Promise<canvas|null>.
+const _MIXED3D_RENDERERS = {
+  mermaid: _mixed3dRenderMermaidToCanvas,
+  gauge: _mixed3dRenderGaugeToCanvas,
+  sparkline: _mixed3dRenderSparklineToCanvas,
+  treemap: _mixed3dRenderTreemapToCanvas,
+};
+
 function _mixed3dStartSnapshotDriver() {
   if (_mixed3dSnapInterval) return;
-  console.log("[mixed3d] tier-1 mermaid snapshot driver started");
+  console.log("[mixed3d] tier-1 snapshot driver started (substrates: " + Object.keys(_MIXED3D_RENDERERS).join(",") + ")");
   _mixed3dSnapInterval = setInterval(() => {
     const S = _mixed3dState;
     if (!S || !S.cellObjects) return;
+    // Persistent tier-2 suppression: re-apply each tick since cells demote
+    // between tier-1 and tier-2 dynamically, creating fresh visible Meshes.
+    if (_mixed3dTier2Suppressed) _mixed3dApplyTier2Visibility(false);
     if (S.mountDraining) return;
     if (_mixed3dSnapInflight) return;
-    if (typeof window.mermaid !== "object") return;
     let target = null;
     for (const [id, obj] of S.cellObjects) {
       if (obj.isInstanceHandle) continue;
       if (obj.userData?.tier !== 1) continue;
       if (S._snapTexCache?.has(id)) continue;
       const el = obj.userData?.cellEl;
-      if (!el || (el.dataset?.cellType || "") !== "mermaid") continue;
+      if (!el) continue;
+      const ct = el.dataset?.cellType || "";
+      const renderer = _MIXED3D_RENDERERS[ct];
+      if (!renderer) continue;
       const cellData = state.rendering.cellsById?.get(id);
       const specStr = cellData?.spec;
       if (!specStr || specStr === "None") continue;
-      target = { id, obj, spec: specStr };
+      target = { id, obj, spec: specStr, renderer };
       break;
     }
     if (!target) return;
     _mixed3dSnapInflight = true;
-    _mixed3dRenderMermaidToCanvas(target.spec, 192, 576).then((canvas) => {
+    target.renderer(target.spec, 192, 576).then((canvas) => {
       _mixed3dSnapInflight = false;
       if (!canvas) return;
       if (!S._snapTexCache) S._snapTexCache = new Map();
@@ -5258,7 +5447,7 @@ function _mixed3dStartSnapshotDriver() {
         curObj.material.map.needsUpdate = true;
       }
     });
-  }, 1500);
+  }, 800);  // bumped from 1500 — gauges/sparklines/treemaps are synchronous; mermaid still the bottleneck
 }
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
@@ -5327,12 +5516,48 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
-  // Substrate-specific preview filling the middle area between title
-  // rule and bottom type chip.
+  // Body area: render an OBVIOUS placeholder (diagonal hatch + "PENDING")
+  // until the snapshot driver replaces this texture with a real substrate
+  // render. User 2026-05-20: "abstract sketch should be more of an obvious
+  // placeholder so I can see those as placeholders instead of just shitty
+  // looking cells". The shippy substrate-sketch path (bar charts / scatter
+  // dots / text lines) was indistinguishable from a low-quality real cell.
   const previewY0 = y + 17;
   const previewY1 = H - (isTop ? 44 : 34);
   if (previewY1 - previewY0 > 20) {
-    _mixed3dDrawCellPreview(ctx, cell, padX, previewY0, W - padX * 2, previewY1 - previewY0, cyan, pink);
+    const pw = W - padX * 2;
+    const ph = previewY1 - previewY0;
+    // Diagonal-hatch background: dim purple stripes at 30°.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(padX, previewY0, pw, ph);
+    ctx.clip();
+    ctx.strokeStyle = "#9966ff";
+    ctx.globalAlpha = 0.18;
+    ctx.lineWidth = 2;
+    const step = 16;
+    for (let xOff = -ph; xOff < pw; xOff += step) {
+      ctx.beginPath();
+      ctx.moveTo(padX + xOff, previewY1);
+      ctx.lineTo(padX + xOff + ph, previewY0);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // "PENDING" stamp centered.
+    ctx.fillStyle = "#9966ff";
+    ctx.globalAlpha = 0.85;
+    ctx.font = isTop ? "bold 28px 'Eurostile', 'Share Tech Mono', monospace" : "bold 22px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    const midX = padX + pw / 2;
+    const midY = previewY0 + ph / 2;
+    ctx.fillText("PENDING", midX, midY - 14);
+    ctx.font = isTop ? "16px 'Eurostile', 'Share Tech Mono', monospace" : "12px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.fillStyle = "#00ddff";
+    ctx.fillText("substrate render queued", midX, midY + 14);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.globalAlpha = 1;
   }
   const ctype = (cell.dataset.cellType || "").toUpperCase();
   if (ctype) {
