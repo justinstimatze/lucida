@@ -4452,12 +4452,17 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   const ctype = cell.dataset.cellType || "";
   ctx.save();
+  // Alpha values bumped 2026-05-19 (#138) for crispness pass —
+  // 0.45→0.75 strokes, 0.5→0.8 lines, 0.55→0.85 bars, 0.7→0.92 ribbons,
+  // 0.85→1.0 needles. Matches the decoratives' opaque look that the
+  // user flagged as the target ("lines should be chunkier, text bolder,
+  // closer to the decorative cells").
   if (ctype === "mermaid" || ctype === "force_graph") {
     const N = 4 + Math.floor(rng() * 3);
     const pts = [];
     for (let i = 0; i < N; i++) pts.push({ x: x0 + rng() * w, y: y0 + rng() * h });
     ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.45;
+    ctx.globalAlpha = 0.75;
     ctx.lineWidth = 1;
     for (let i = 0; i < N - 1; i++) {
       ctx.beginPath();
@@ -4465,14 +4470,14 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
       ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
       ctx.stroke();
     }
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = 0.92;
     ctx.fillStyle = pink;
     for (const p of pts) ctx.fillRect(p.x - 3, p.y - 2.5, 6, 5);
   } else if (ctype === "vega" || ctype === "treemap") {
     const N = 5 + Math.floor(rng() * 4);
     const bw = w / N - 1;
     ctx.fillStyle = cyan;
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.85;
     for (let i = 0; i < N; i++) {
       const bh = (0.25 + rng() * 0.7) * h;
       ctx.fillRect(x0 + i * (bw + 1), y0 + h - bh, bw, bh);
@@ -4481,7 +4486,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
     const lineH = 5;
     const rows = Math.floor(h / lineH);
     ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.8;
     ctx.lineWidth = 1;
     for (let i = 0; i < rows; i++) {
       const len = (0.35 + rng() * 0.6) * w;
@@ -4493,7 +4498,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
     }
   } else if (ctype === "timeline_ribbon" || ctype === "sparkline") {
     ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = 0.92;
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     const segs = 8 + Math.floor(rng() * 6);
@@ -4509,13 +4514,13 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
     const cy = y0 + h * 0.75;
     const r = Math.min(w, h) * 0.42;
     ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.8;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(cx, cy, r, Math.PI, 0, false);
     ctx.stroke();
     ctx.strokeStyle = pink;
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = 1.0;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     const angle = Math.PI + (0.25 + rng() * 0.65) * Math.PI;
@@ -4525,7 +4530,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   } else if (ctype === "animated_svg" || ctype === "image") {
     const N = 3 + Math.floor(rng() * 4);
     ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
     for (let i = 0; i < N; i++) {
       const cx = x0 + (0.2 + rng() * 0.6) * w;
@@ -4842,14 +4847,19 @@ const _MIXED3D_SUBSTRATES = [
 function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v) {
   const T = window.THREE;
   const canvas = document.createElement("canvas");
-  // 96x288 (was 48x144) — 4x pixel area = denser substrate preview at
-  // distance. The texture is sampled mipmap-linearly when far cells
-  // shrink in viewport, so a higher source resolution means each
-  // visible pixel averages over MORE substrate detail, reading as
-  // richer rather than washed-out at the canyon's far end (#121).
-  canvas.width = 96;
-  canvas.height = 288;
+  // 192x576 (#138) — 2x linear, 4x pixel area vs prior 96×288. ctx.scale(2,2)
+  // below makes the 1px lineWidths and small fillRects render at 2px source,
+  // matching the decorative tier's stroke weight (user 2026-05-19: "tier 2
+  // cells are too blurry, lines should be chunkier, closer to the decorative
+  // cells"). Higher source res also feeds richer mipmaps for far cells.
+  // Memory cost: 156 × 192×576×4B ≈ 69MB before mipmaps (was ~17MB).
+  canvas.width = 192;
+  canvas.height = 576;
   const ctx = canvas.getContext("2d");
+  // Scale 2x so the existing draw routine (which uses 1-2px lineWidths +
+  // small fillRects sized for 96×288) chunks up to 2-4px source strokes —
+  // visibly bolder at any LOD without rewriting the draw routine.
+  ctx.scale(2, 2);
   // No bg fill — canvas stays fully transparent. Only the
   // substrate-preview marks paint pixels with alpha > 0. The
   // alpha-cutout material below discards transparent pixels so
