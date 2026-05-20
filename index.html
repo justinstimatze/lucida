@@ -2731,7 +2731,7 @@ function applyMixed3DLayout(opts) {
   // "tubes" at each of the 12 tower edges (4 X-aligned, 4 Y-aligned,
   // 4 Z-aligned), batched per-axis as InstancedMesh — 3 draw calls
   // total for all 1200 edge tubes across 100 towers.
-  const edgeThick = 0.12;
+  const edgeThick = 0.06;
   // X-axis edges span tower width, Y-axis spans height, Z-axis spans depth.
   // Each box is slightly oversized on its long axis so corner cubes overlap
   // cleanly with the perpendicular edges at the joins (no visible gap).
@@ -2844,12 +2844,11 @@ function applyMixed3DLayout(opts) {
     color: _edgeColor,
     toneMapped: false,
   });
-  // Top-rim accent: same geometry pattern but a brighter, more
-  // saturated color. Per refs tower_glass_closeup.png the top edge
-  // of each tower glows noticeably hotter than the body wireframe —
-  // it reads as the lit "lip" of the canyon walls. Applied to the 4
-  // X-edges and 4 Z-edges at oy = +hH.
-  const _topRimColor = new T.Color(tint).lerp(new T.Color(0xffffff), 0.75);
+  // Top-rim matches the body edge color (user 2026-05-19: 'the lines
+  // on the top of the tower can be the same color as the side corner
+  // edges. looks too white right now'). Earlier #133 had this lerping
+  // 0.75 toward white which read as nearly solid white at distance.
+  const _topRimColor = _edgeColor;
   const sharedTopRimMat = new T.MeshBasicMaterial({
     color: _topRimColor,
     toneMapped: false,
@@ -3076,12 +3075,13 @@ function applyMixed3DLayout(opts) {
       // randomly varies each cell.
       slotsPerFaceX: 6,
       slotsPerFaceY: 5,
-      // 0.78 (was 0.833) — leaves ~0.16u of buffer between the outer
-      // cells and the cyan edge tubes per face. User 2026-05-19: 'the
-      // cells need a little space buffer from the edges of the tower,
-      // the text is running into the thick bold neon tower corner edge
-      // on both sides of each face'.
+      // slotW is the pitch between slot centers (positioning step).
+      // cellW is the rendered cell width (smaller than slotW so cells
+      // don't touch each other and don't kiss the cyan edge tubes).
+      // Edge buffer per face side: (towerW - 5*slotW - cellW)/2 = 0.24u.
+      // Inter-column gap: slotW - cellW = 0.16u.
       slotW: 0.78,
+      cellW: 0.62,
       slotH: 2.833,
       slotMarginX: 0,
       slotMargin: 0,
@@ -5300,7 +5300,7 @@ function _mixed3dDrainMountQueue() {
       mountedH = cellH;
     }
 
-    const planeW = isTop ? G.towerW * 0.95 : G.slotW;
+    const planeW = isTop ? G.towerW * 0.95 : G.cellW;
     const planeH = mountedH;
     // Geometry sharing: cells with similar dimensions reuse one
     // PlaneGeometry instance instead of allocating a fresh one per
@@ -5614,59 +5614,70 @@ function _mixed3dBuildDecorativeLayer() {
     return templates[0];
   };
 
-  const rowH = 24;
-  for (let y = 2; y < 760; y += rowH) {
-    const tmpl = pickTemplate();
-    const txt = tmpl();
-    if (!txt) continue; // blank row
-    const rowAlpha = 0.85 + Math.random() * 0.15;
-    if (Math.random() < 0.04) {
-      ctx.fillStyle = `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`;
-    } else {
-      ctx.fillStyle = `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
+  // Paint helper — called N times to generate N distinct decorative
+  // canvases. Math.random() inside the row loop gives unique content
+  // per canvas. User 2026-05-19: 'I'm seeing some duplication in
+  // decorative cell text, like several "kinematics" cells next to
+  // each other ... we need a lot more variety'.
+  const paintDecoCanvas = () => {
+    const can = document.createElement("canvas");
+    can.width = 256;
+    can.height = 768;
+    const c2 = can.getContext("2d");
+    c2.fillStyle = "rgba(0, 221, 255, 0.06)";
+    for (let y = 0; y < 768; y += 6) c2.fillRect(0, y, 256, 1);
+    c2.font = '18px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
+    c2.textBaseline = "top";
+    const rH = 24;
+    for (let y = 2; y < 760; y += rH) {
+      const tmpl = pickTemplate();
+      const txt = tmpl();
+      if (!txt) continue;
+      const rowAlpha = 0.85 + Math.random() * 0.15;
+      if (Math.random() < 0.04) {
+        c2.fillStyle = `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`;
+      } else {
+        c2.fillStyle = `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
+      }
+      c2.fillText(txt, 4, y);
     }
-    // Left-justified with a small consistent margin. Refs (monitor_
-    // directory_listing.png, tower_face_labels.png) show text flush
-    // left or close to it, not the random-indent scatter pattern.
-    ctx.fillText(txt, 4, y);
-  }
-  const tex = new T.CanvasTexture(canvas);
-  tex.minFilter = T.LinearFilter;
-  tex.magFilter = T.LinearFilter;
+    const t = new T.CanvasTexture(can);
+    t.minFilter = T.LinearFilter;
+    t.magFilter = T.LinearFilter;
+    return t;
+  };
 
-  const mat = new T.MeshBasicMaterial({
+  const N_TEXTURES = 16;
+  const textures = [];
+  for (let i = 0; i < N_TEXTURES; i++) textures.push(paintDecoCanvas());
+
+  const materials = textures.map((tex) => new T.MeshBasicMaterial({
     map: tex,
-    // alphaTest hard-discards pixels with alpha < 0.1, so empty
-    // canvas pixels never draw and never write depth. Combined with
-    // transparent:false + depthWrite:true, each glyph pixel writes
-    // depth normally → painter's-algorithm overlap artifacts when
-    // towers visibly overlap disappear (user 2026-05-19 "weird
-    // overlap rendering issue when you can see a tower entirely
-    // through another tower").
     transparent: false,
     alphaTest: 0.1,
     depthWrite: true,
     toneMapped: false,
-    // DoubleSide. With the rotY bug fixed, the FRONT of each plane
-    // now points OUTWARD, so camera looking at the near-side tower
-    // sees crisp un-mirrored text. The far-side tower (across the
-    // canyon, behind the near tower) renders the BACK of its
-    // plane = mirrored text — user 2026-05-19 explicitly wants this
-    // visual density: 'I do actually want to see all four faces
-    // always, but seeing the text from the back for the rear sides
-    // of the tower'.
     side: T.DoubleSide,
-  });
+  }));
 
   const G = S.geometry;
   const totalSlots = S.towerMeshes.length * 4 * G.slotsPerFaceX * G.slotsPerFaceY;
+  const perMeshCap = Math.ceil(totalSlots / N_TEXTURES) + 100;
 
-  // Unit plane (1×1); per-instance matrix scales to slotW × slotH.
+  // 16 InstancedMeshes, one per texture. Each slot deterministically
+  // picks a mesh via hash, so adjacent slots usually land on different
+  // textures = visible variety. Per-instance instanceColor adds another
+  // brightness/RGB jitter layer on top.
   const planeGeo = new T.PlaneGeometry(1, 1);
-  const inst = new T.InstancedMesh(planeGeo, mat, totalSlots);
-  inst.frustumCulled = false;
-  inst.renderOrder = -1; // draw before real cells; depth wins for real cells
-  inst.count = 0;
+  const meshes = materials.map((mat) => {
+    const m = new T.InstancedMesh(planeGeo, mat, perMeshCap);
+    m.count = 0;
+    m.frustumCulled = false;
+    m.renderOrder = -1;
+    S.scene.add(m);
+    return m;
+  });
+  S._decorativeMeshes = meshes;
 
   const m4 = new T.Matrix4();
   const q = new T.Quaternion();
@@ -5712,11 +5723,17 @@ function _mixed3dBuildDecorativeLayer() {
           v.set(tx, ty, tz);
           e.set(0, rotY, 0, "XYZ");
           q.setFromEuler(e);
-          sc.set(G.slotW, slot.h, 1);
+          sc.set(G.cellW, slot.h, 1);
           m4.compose(v, q, sc);
-          const idx = inst.count;
-          inst.setMatrixAt(idx, m4);
-          S._decorativeSlotIdx.set(`${towerIdx}:${face}:${col}:${p}`, idx);
+          // Pick which of the N decorative textures this slot uses.
+          // Deterministic hash so the same slot always gets the same
+          // texture; spread keys ensure adjacent slots usually differ.
+          let h = ((towerIdx * 1009) ^ (face * 113) ^ (col * 47) ^ (p * 31)) >>> 0;
+          const meshIdx = h % N_TEXTURES;
+          const targetMesh = meshes[meshIdx];
+          const instIdx = targetMesh.count;
+          targetMesh.setMatrixAt(instIdx, m4);
+          S._decorativeSlotIdx.set(`${towerIdx}:${face}:${col}:${p}`, { meshIdx, instIdx });
           // Per-instance brightness + slight RGB jitter — keep range
           // tight (0.85-1.0) so each cell stays crisp; the variation is
           // about breaking the "identical wallpaper" effect, not dimming.
@@ -5728,17 +5745,21 @@ function _mixed3dBuildDecorativeLayer() {
             bright * (1.0 + s1 * 0.04),
             bright * (1.0 + s2 * 0.05),
           );
-          inst.setColorAt(idx, colorTmp);
-          inst.count++;
+          targetMesh.setColorAt(instIdx, colorTmp);
+          targetMesh.count++;
         }
       }
     }
   }
   inst.instanceMatrix.needsUpdate = true;
   if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
-  S.scene.add(inst);
-  S._decorativeInstancedMesh = inst;
-  console.log(`[mixed3d] decorative layer built: ${inst.count} instances`);
+  let totalCount = 0;
+  for (const m of meshes) {
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    totalCount += m.count;
+  }
+  console.log(`[mixed3d] decorative layer built: ${totalCount} instances across ${N_TEXTURES} textures`);
 }
 
 // Suppress the decorative instance behind a slot a real cell just
@@ -5748,14 +5769,16 @@ function _mixed3dBuildDecorativeLayer() {
 // in the real cell's substrate render.
 function _mixed3dHideDecorativeAtSlot(towerIdx, face, col, p) {
   const S = _mixed3dState;
-  if (!S || !S._decorativeInstancedMesh || !S._decorativeSlotIdx) return;
+  if (!S || !S._decorativeMeshes || !S._decorativeSlotIdx) return;
   const key = `${towerIdx}:${face}:${col}:${p}`;
-  const idx = S._decorativeSlotIdx.get(key);
-  if (idx == null) return;
+  const slot = S._decorativeSlotIdx.get(key);
+  if (!slot) return;
+  const mesh = S._decorativeMeshes[slot.meshIdx];
+  if (!mesh) return;
   const T = window.THREE;
   const m4 = new T.Matrix4().makeTranslation(0, -99999, 0);
-  S._decorativeInstancedMesh.setMatrixAt(idx, m4);
-  S._decorativeInstancedMesh.instanceMatrix.needsUpdate = true;
+  mesh.setMatrixAt(slot.instIdx, m4);
+  mesh.instanceMatrix.needsUpdate = true;
   S._decorativeSlotIdx.delete(key);
 }
 
