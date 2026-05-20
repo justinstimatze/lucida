@@ -5792,11 +5792,52 @@ function _mixed3dStepDecoratives(t) {
     blink.nextT = t + 3 + Math.random() * 4;
   }
   const meshes = S._decorativeMeshes;
+  // Per-mesh scroll state. UV scroll was sloppy because partial rows
+  // were visible at the wrap edge (user 2026-05-19: 'scrolling a
+  // partial line into or out of visibility just looks like sloppy').
+  // Now: at each scroll tick, shift the canvas contents up by exactly
+  // ROW_H px and paint a fresh line at the bottom. Texture re-uploads
+  // to GPU once per scroll event (cheap — once every 2-4s per mesh).
+  const ROW_H = 24;
+  const CAN_W = 256, CAN_H = 768;
+  if (!S._decoScrollState) {
+    S._decoScrollState = meshes.map((_, i) => ({
+      nextT: t + 1 + Math.random() * 2,
+      period: 2 + (i * 0.19) % 2,
+    }));
+    S._decoTokens = [
+      "STATUS", "READY", "BUFFER", "PASS", "CALL", "RESP", "BIND",
+      "STORE", "LOAD", "DUMP", "WAIT", "ACK", "NAK", "GARBAGE", "RX",
+      "TX", "INIT", "RUN", "EXEC", "HLT", "PAYROLL", "TIME_CHECK",
+      "SCREEN_BUF", "INVOICE", "FREIGHT", "INSTRUCTION_PIPELINE",
+      "COMPANY_STATUS", "RECRUITMENT", "WAREHOUSE_LOCATIONS",
+      "0xABCD", "0x00FE", "127.0.0.1", "::1", "1.4e3", "+ok",
+      "COMPOSITE_PLANTS", "ANNUAL_BUDGETS", "TROPIC_EXPEND",
+      "+-- STATUS", "STATUS=ok", "READY -> WAIT", "ETA RUN EXEC",
+      "----------",
+    ];
+  }
   for (let i = 0; i < meshes.length; i++) {
     const m = meshes[i];
     if (!m.material || !m.material.map) continue;
-    const rate = 0.06 + (i * 0.0075) % 0.12;
-    m.material.map.offset.y = (t * rate) % 1;
+    m.material.map.offset.y = 0;
+    const state = S._decoScrollState[i];
+    if (t >= state.nextT) {
+      const can = m.material.map.image;
+      const ctx = can.getContext("2d");
+      ctx.drawImage(can, 0, ROW_H, CAN_W, CAN_H - ROW_H, 0, 0, CAN_W, CAN_H - ROW_H);
+      ctx.clearRect(0, CAN_H - ROW_H, CAN_W, ROW_H);
+      ctx.font = '18px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
+      ctx.textBaseline = "top";
+      const rowAlpha = 0.85 + Math.random() * 0.15;
+      ctx.fillStyle = Math.random() < 0.04
+        ? `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`
+        : `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
+      const tok = S._decoTokens[Math.floor(Math.random() * S._decoTokens.length)];
+      ctx.fillText(tok, 4, CAN_H - ROW_H + 2);
+      m.material.map.needsUpdate = true;
+      state.nextT = t + state.period + Math.random() * 1.5;
+    }
     let pulse = 0.92 + 0.08 * Math.sin((t / (1.5 + (i * 0.137) % 2)) * 2 * Math.PI + i * 0.6);
     if (i === blink.meshIdx) pulse = 0.25;
     m.material.color.setRGB(pulse, pulse, pulse);
