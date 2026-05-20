@@ -5103,10 +5103,15 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const T = window.THREE;
-  // Side cells: 80×240 to match 6×6 face layout (cell plane is
-  // 0.81×2.78, ratio 1:3.4, tall narrow).
-  const W = isTop ? 192 : 80;
-  const H = isTop ? 192 : 240;
+  // Side cells: 192×576 (#138 follow-up 2026-05-19) — was 80×240 (~19k px),
+  // bumped to match the tier-2 shared canvas (192×576). Tier-1 was the
+  // BLURRIEST tier after the tier-2 crispness bump, which was backwards.
+  // Now tier-1 has the same source resolution as tier-2 BUT carries unique
+  // content (title + substrate preview + type chip) so it reads as the
+  // distinct, sharp tier the user expects close to camera. Memory:
+  // ~442KB × 400 cap ≈ 176MB worst case (was ~30MB).
+  const W = isTop ? 384 : 192;
+  const H = isTop ? 384 : 576;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -5126,10 +5131,12 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const titleEl = cell.querySelector(".cell-title");
   const title = (titleEl?.textContent || cell.id || "").trim().toUpperCase();
   ctx.fillStyle = pink;
-  ctx.font = isTop ? "bold 16px 'Eurostile', 'Share Tech Mono', monospace" : "bold 11px 'Eurostile', 'Share Tech Mono', monospace";
+  // Fonts scaled 2.4× to match the canvas resolution bump. 11→26 side,
+  // 16→38 top, 8→19 chip. Title text now readable at corridor distance.
+  ctx.font = isTop ? "bold 38px 'Eurostile', 'Share Tech Mono', monospace" : "bold 26px 'Eurostile', 'Share Tech Mono', monospace";
   ctx.textBaseline = "top";
-  const padX = 4;
-  const lineH = isTop ? 18 : 13;
+  const padX = 10;
+  const lineH = isTop ? 44 : 32;
   let y = padX;
   let line = "";
   const maxW = W - padX * 2;
@@ -5146,23 +5153,25 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   // Title rule
   ctx.strokeStyle = pink;
   ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(padX, y + 2);
-  ctx.lineTo(W - padX, y + 2);
+  ctx.moveTo(padX, y + 5);
+  ctx.lineTo(W - padX, y + 5);
   ctx.stroke();
   ctx.globalAlpha = 1;
+  ctx.lineWidth = 1;
   // Substrate-specific preview filling the middle area between title
   // rule and bottom type chip.
-  const previewY0 = y + 7;
-  const previewY1 = H - (isTop ? 18 : 14);
-  if (previewY1 - previewY0 > 8) {
+  const previewY0 = y + 17;
+  const previewY1 = H - (isTop ? 44 : 34);
+  if (previewY1 - previewY0 > 20) {
     _mixed3dDrawCellPreview(ctx, cell, padX, previewY0, W - padX * 2, previewY1 - previewY0, cyan, pink);
   }
   const ctype = (cell.dataset.cellType || "").toUpperCase();
   if (ctype) {
     ctx.fillStyle = cyan;
-    ctx.font = isTop ? "bold 11px 'Eurostile', 'Share Tech Mono', monospace" : "bold 8px 'Eurostile', 'Share Tech Mono', monospace";
-    ctx.fillText(ctype, padX, H - (isTop ? 16 : 12));
+    ctx.font = isTop ? "bold 26px 'Eurostile', 'Share Tech Mono', monospace" : "bold 19px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.fillText(ctype, padX, H - (isTop ? 38 : 28));
   }
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
