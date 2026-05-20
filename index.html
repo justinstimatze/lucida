@@ -262,6 +262,20 @@ function matchesActiveSession(cell) {
   if (state.sessions.active.has("untagged") && !cell.session_id) return true;
   return state.sessions.active.has(cell.session_id);
 }
+// True when classifier picked a substrate but the specialist never produced
+// content. ingest writes spec/html/image as Python None which JSON-serializes
+// to the string "None" (legacy) or null/empty. These cells render as
+// classifier-reasoning prose blocks and dominate layouts that aren't aware of
+// them — see 2026-05-19 audit: 50% of cells.json was in this state. Filtering
+// them out is non-destructive; cells.json keeps them in case a retrigger
+// backfills.
+function isAwaitingMint(cell) {
+  if (cell.cell_type === "text") return false;  // text cells legitimately render from caption
+  if (cell.cell_type === "image") return !cell.image_path || cell.image_path === "None";
+  const noSpec = !cell.spec || cell.spec === "None";
+  const noHtml = !cell.html || cell.html === "None";
+  return noSpec && noHtml;
+}
 // Persist the current filter to the URL so the view is shareable from
 // inside a Claude Code session without the user typing a query string.
 function syncSessionFilterToURL() {
@@ -1368,6 +1382,7 @@ function liveAppendNewCells(cellsData) {
     if (c.cell_type === "text" && c.attempted_cell_type) return false;
     if (c.replaced_by) return false;
     if (!matchesActiveSession(c)) return false;  // ?session=<id> filter (step 2)
+    if (isAwaitingMint(c)) return false;
     return true;
   });
   // Removal detection — fixes demo-replay flow where replay.py wipes
@@ -2241,6 +2256,7 @@ async function load() {
     if (c.cell_type === "text" && c.attempted_cell_type) return false;  // demoted by trivial-filter
     if (c.replaced_by) return false;                                     // superseded by a retrigger
     if (!matchesActiveSession(c)) return false;                          // ?session=<id> filter (step 2)
+    if (isAwaitingMint(c)) return false;                                 // classifier picked but specialist never minted
     return true;
   });
 
@@ -2412,17 +2428,26 @@ function applyPackLayout() {
   // Tear down any prior alternate-layout inline styles so Muuri has a
   // clean slate. Treemap leaves left/top/width/height set on each cell;
   // those would override Muuri's transform-based positioning.
+  //
+  // Only safe to clear when we DON'T already have a Muuri grid — once
+  // Muuri owns the items, its internal positions are the source of truth
+  // and we'd wipe them on every poll-tick re-apply (2026-05-19 bug:
+  // cells were stacked at container origin because the noop incremental
+  // path wiped transforms without re-laying out). Width/height stay
+  // untouched too; Muuri caches them on item construction.
   const cells = [...root.querySelectorAll(":scope > .cell")];
-  cells.forEach(c => {
-    c.style.left = "";
-    c.style.top = "";
-    c.style.width = "";
-    c.style.height = "";
-    c.style.maxHeight = "";
-    c.style.maxWidth = "";
-    c.style.zIndex = "";
-    c.style.transform = "";
-  });
+  if (!_muuriGrid) {
+    cells.forEach(c => {
+      c.style.left = "";
+      c.style.top = "";
+      c.style.width = "";
+      c.style.height = "";
+      c.style.maxHeight = "";
+      c.style.maxWidth = "";
+      c.style.zIndex = "";
+      c.style.transform = "";
+    });
+  }
   // Reset container — Muuri requires position: relative on the parent
   // and absolute on items. Height auto-grows via Muuri's layout calc.
   root.style.height = "";
@@ -2465,6 +2490,10 @@ function applyPackLayout() {
         _muuriGrid.add(fresh, { layout: false });
       }
       if (stale.length || fresh.length) {
+        // Refresh sizes too — fresh items just hydrated and their
+        // existing siblings may have grown into their natural sizes
+        // since the last layout pass (substrates lazy-mount async).
+        _muuriGrid.refreshItems();
         _muuriGrid.layout(false, () => {
           fresh.forEach(el => { el.style.visibility = ""; });
         });
@@ -2474,6 +2503,13 @@ function applyPackLayout() {
         window._lucidaPackDebug.calls.push(dbg);
         return;
       }
+      // Noop path: no items changed but cells may have grown since the
+      // last layout (substrates finishing async mount). Refresh sizes
+      // and re-pack — without this, cells stay positioned for their
+      // pre-hydration sizes and overlap once they've grown to natural
+      // dimensions (2026-05-19 bug: 356 overlapping cell pairs).
+      _muuriGrid.refreshItems();
+      _muuriGrid.layout(false);
       dbg.path = "noop";
       window._lucidaPackDebug.calls.push(dbg);
       return;
