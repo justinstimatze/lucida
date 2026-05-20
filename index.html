@@ -5699,18 +5699,11 @@ function _mixed3dBuildDecorativeLayer() {
       const tmpl = pickTemplate();
       const txt = tmpl();
       if (!txt) continue;
-      // Color-darkened 2026-05-20: real cells (tier-1/2) should dominate
-      // the visual hierarchy on a flyby; decoratives are backdrop chatter.
-      // Material uses alphaTest:0.1 + transparent:false, so lowering
-      // globalAlpha doesn't dim — must drop the RGB values instead. Cyan
-      // 0,221,255 → 0,90,120 (~40% brightness). Pink stays vivid since it's
-      // the rare 4% highlight already. Real tier-1 purple titles + tier-2
-      // brighter substrate marks now read clearly against this backdrop.
       const rowAlpha = 0.85 + Math.random() * 0.15;
       if (Math.random() < 0.04) {
         c2.fillStyle = `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`;
       } else {
-        c2.fillStyle = `rgba(0, 90, 120, ${rowAlpha.toFixed(2)})`;
+        c2.fillStyle = `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
       }
       c2.fillText(txt, 4, y);
     }
