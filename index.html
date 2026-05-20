@@ -3434,6 +3434,13 @@ function applyMixed3DLayout(opts) {
       _mixed3dState._booted = true;
       // Kick off tier-1 rich-substrate snapshot driver (#142).
       _mixed3dStartSnapshotDriver();
+      // URL toggle: ?notier2=1 suppresses tier-2 cell rendering so user can
+      // A/B compare tier-1 + decorative against the full mix.
+      if (new URLSearchParams(window.location.search).get("notier2") === "1") {
+        if (typeof window.toggleMixed3dTier2 === "function") {
+          console.log(window.toggleMixed3dTier2(false));
+        }
+      }
       // Reset camera animation timer at boot reveal: t was advancing
       // during the held-loader phase (15-20s), but the swoopy-tour
       // lerp uses a hardcoded dt=1/60 regardless of real frame time.
@@ -5117,11 +5124,52 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
 // → SVG (via mermaid.render) → drawImage to canvas → swap material.map's
 // image. No DOM dependency. ~56% of cells are mermaid; remaining
 // substrate-specific renderers can plug in here later.
+// Inject a <style> block into a mermaid SVG that recolors strokes/fills
+// to hackers cyan/purple and thickens line weights so the rendered graph
+// reads boldly at canyon distance. Mermaid's default theme is thin neutral
+// gray which disappears against the tower glass — user 2026-05-20
+// "diagrams are pretty thin and uninspiring".
+function _mixed3dStyleMermaidSVG(svgString) {
+  const css = `
+    <style>
+      svg { background: transparent !important; }
+      .node rect, .node polygon, .node circle, .node ellipse, .node path {
+        fill: rgba(0, 221, 255, 0.12) !important;
+        stroke: #9966ff !important;
+        stroke-width: 4px !important;
+      }
+      .node .label, .nodeLabel, .label foreignObject div, .label text, text.label {
+        fill: #ccf3ff !important;
+        color: #ccf3ff !important;
+        font-weight: 700 !important;
+      }
+      .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
+        stroke: #9966ff !important;
+        stroke-width: 3px !important;
+        fill: none !important;
+      }
+      .marker, .arrowheadPath, marker path {
+        fill: #9966ff !important;
+        stroke: #9966ff !important;
+      }
+      .edgeLabel, .edgeLabel rect, .edgeLabel foreignObject div, .edgeLabel text {
+        background-color: transparent !important;
+        fill: #ff3a8c !important;
+        color: #ff3a8c !important;
+      }
+      .cluster rect, .cluster path { stroke: #9966ff !important; fill: rgba(153, 102, 255, 0.06) !important; }
+    </style>
+  `;
+  // Inject right after the opening <svg ...> tag.
+  return svgString.replace(/(<svg[^>]*>)/, "$1" + css);
+}
+
 function _mixed3dRenderMermaidToCanvas(spec, w, h) {
   if (!spec || typeof window.mermaid !== "object") return Promise.resolve(null);
   const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
   return window.mermaid.parse(spec).then(() => window.mermaid.render(id, spec))
     .then(({ svg }) => new Promise((resolve, reject) => {
+      const styledSvg = _mixed3dStyleMermaidSVG(svg);
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
@@ -5141,7 +5189,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h) {
         resolve(canvas);
       };
       img.onerror = (e) => { URL.revokeObjectURL(img.src); reject(e); };
-      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      const blob = new Blob([styledSvg], { type: "image/svg+xml;charset=utf-8" });
       img.src = URL.createObjectURL(blob);
     }))
     .catch((e) => {
@@ -5149,6 +5197,27 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h) {
       return null;
     });
 }
+
+// Toggle tier-2 cell visibility. URL: ?notier2=1 calls this at boot for
+// A/B-comparing tier-1 + decorative against the full mix. Hides both
+// the InstancedMesh tier-2 path (most cells) and the per-cell Mesh
+// fallback path. Tier-1 + decoratives unaffected.
+window.toggleMixed3dTier2 = function(visible) {
+  const S = _mixed3dState;
+  if (!S) return "no-state";
+  if (S.tier2InstancedMeshes) {
+    for (const [, inst] of S.tier2InstancedMeshes) {
+      if (inst && inst.mesh) inst.mesh.visible = visible;
+    }
+  }
+  if (S.cellObjects) {
+    for (const [, obj] of S.cellObjects) {
+      if (obj.isInstanceHandle) continue;
+      if (obj.userData?.tier === 2) obj.visible = visible;
+    }
+  }
+  return `tier-2 visible: ${visible}`;
+};
 
 let _mixed3dSnapInterval = null;
 let _mixed3dSnapInflight = false;
