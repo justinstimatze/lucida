@@ -5394,15 +5394,273 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h) {
   return Promise.resolve(canvas);
 }
 
+function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h) {
+  let stages, axisLabel;
+  try {
+    const s = typeof spec === "string" ? JSON.parse(spec) : spec;
+    stages = s.stages; axisLabel = s.axis_label;
+  } catch (e) { return Promise.resolve(null); }
+  if (!Array.isArray(stages) || !stages.length) return Promise.resolve(null);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const cy = h / 2;
+  const pad = 24;
+  const n = Math.min(stages.length, 6);
+  const stepX = (w - pad * 2) / (n - 1 || 1);
+  // Axis line
+  ctx.strokeStyle = "#9966ff";
+  ctx.globalAlpha = 0.6;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(pad, cy);
+  ctx.lineTo(w - pad, cy);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < n; i++) {
+    const x = pad + i * stepX;
+    const st = stages[i];
+    const isActive = (st.status || "") === "active";
+    const isDone = (st.status || "") === "complete" || (st.status || "") === "done";
+    const color = isActive ? "#00ddff" : (isDone ? "#9966ff" : "rgba(153,102,255,0.4)");
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, cy, isActive ? 10 : 7, 0, Math.PI * 2);
+    ctx.fill();
+    if (isActive) {
+      ctx.strokeStyle = "#00ddff";
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, cy, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // Label above or below depending on i parity
+    ctx.fillStyle = "#ccf3ff";
+    ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = (i % 2 === 0) ? "bottom" : "top";
+    const label = String(st.label || "").toUpperCase().slice(0, 14);
+    ctx.fillText(label, x, (i % 2 === 0) ? cy - 22 : cy + 24);
+  }
+  if (axisLabel) {
+    ctx.fillStyle = "#9966ff";
+    ctx.font = "bold 14px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(String(axisLabel).toUpperCase(), pad, 8);
+  }
+  return Promise.resolve(canvas);
+}
+
+function _mixed3dRenderVegaToCanvas(spec, w, h) {
+  let values;
+  try {
+    const s = typeof spec === "string" ? JSON.parse(spec) : spec;
+    values = s.data?.values || s.values || s.data;
+  } catch (e) { return Promise.resolve(null); }
+  if (!Array.isArray(values) || !values.length) return Promise.resolve(null);
+  const sample = values[0];
+  if (!sample || typeof sample !== "object") return Promise.resolve(null);
+  // Find first numeric field as the value axis.
+  const numericKey = Object.keys(sample).find(k => typeof sample[k] === "number");
+  const labelKey = Object.keys(sample).find(k => typeof sample[k] === "string");
+  if (!numericKey) return Promise.resolve(null);
+  const items = values.slice(0, 8).map(v => ({ label: labelKey ? String(v[labelKey]) : "", value: +v[numericKey] || 0 }));
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const pad = 16;
+  const py0 = h * 0.18;
+  const py1 = h * 0.85;
+  const maxV = Math.max(...items.map(it => it.value)) || 1;
+  const bw = (w - pad * 2) / items.length - 4;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const bx = pad + i * (bw + 4);
+    const bh = (py1 - py0) * (it.value / maxV);
+    ctx.fillStyle = "#00ddff";
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(bx, py1 - bh, bw, bh);
+    ctx.strokeStyle = "#9966ff";
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 1;
+    ctx.strokeRect(bx, py1 - bh, bw, bh);
+    // Value
+    ctx.fillStyle = "#ccf3ff";
+    ctx.font = "bold 12px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(String(Math.round(it.value)), bx + bw / 2, py1 - bh - 4);
+    // Label
+    ctx.fillStyle = "#9966ff";
+    ctx.font = "10px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.save();
+    ctx.translate(bx + bw / 2, py1 + 8);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillText(it.label.slice(0, 18), 0, 0);
+    ctx.restore();
+  }
+  return Promise.resolve(canvas);
+}
+
+function _mixed3dRenderForceGraphToCanvas(spec, w, h) {
+  let nodes, edges;
+  try {
+    const s = typeof spec === "string" ? JSON.parse(spec) : spec;
+    nodes = s.nodes; edges = s.edges || s.links || [];
+  } catch (e) { return Promise.resolve(null); }
+  if (!Array.isArray(nodes) || !nodes.length) return Promise.resolve(null);
+  const N = Math.min(nodes.length, 10);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  // Place nodes on a circle deterministically by index.
+  const cx = w / 2, cy = h / 2;
+  const r = Math.min(w, h) * 0.35;
+  const positions = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+    positions.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, node: nodes[i] });
+  }
+  // Edges (only edges between visible nodes).
+  const idToIdx = new Map();
+  for (let i = 0; i < positions.length; i++) idToIdx.set(positions[i].node.id, i);
+  ctx.strokeStyle = "#9966ff";
+  ctx.globalAlpha = 0.5;
+  ctx.lineWidth = 2;
+  for (const e of edges.slice(0, 30)) {
+    const a = idToIdx.get(e.source || e.from);
+    const b = idToIdx.get(e.target || e.to);
+    if (a === undefined || b === undefined) continue;
+    ctx.beginPath();
+    ctx.moveTo(positions[a].x, positions[a].y);
+    ctx.lineTo(positions[b].x, positions[b].y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  // Nodes
+  for (const p of positions) {
+    ctx.fillStyle = "#00ddff";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#9966ff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Label
+    ctx.fillStyle = "#ccf3ff";
+    ctx.font = "bold 11px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const label = String(p.node.label || p.node.id || "").slice(0, 14);
+    ctx.fillText(label, p.x, p.y + 12);
+  }
+  return Promise.resolve(canvas);
+}
+
+function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h) {
+  if (!spec || typeof spec !== "string" || !spec.includes("<svg")) return Promise.resolve(null);
+  // Substitute theme placeholders → hackers palette.
+  const themed = spec
+    .replace(/\$accent\b/g, "#00ddff")
+    .replace(/\$muted\b/g, "#9966ff")
+    .replace(/\$pink\b/g, "#ff3a8c")
+    .replace(/\$fg\b/g, "#ccf3ff");
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      const aspectImg = img.naturalWidth / img.naturalHeight;
+      const aspectCan = w / h;
+      let dw, dh, dx, dy;
+      if (aspectImg > aspectCan) {
+        dw = w; dh = w / aspectImg; dx = 0; dy = (h - dh) / 2;
+      } else {
+        dh = h; dw = h * aspectImg; dx = (w - dw) / 2; dy = 0;
+      }
+      ctx.drawImage(img, dx, dy, dw, dh);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas);
+    };
+    img.onerror = (e) => { URL.revokeObjectURL(img.src); resolve(null); };
+    const blob = new Blob([themed], { type: "image/svg+xml;charset=utf-8" });
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
+// html cells: draw a "summary card" with cell title + caption. Not a real
+// html render (avoiding html2canvas + DOM dependency) but conveys the
+// cell's content as readable text vs the abstract sketch placeholder.
+function _mixed3dRenderHtmlToCanvas(cellData, w, h) {
+  if (!cellData) return Promise.resolve(null);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const title = String(cellData.title || "").toUpperCase();
+  const caption = String(cellData.caption || "");
+  if (!title && !caption) return Promise.resolve(null);
+  const pad = 14;
+  // "HTML" tag chip at top.
+  ctx.fillStyle = "#9966ff";
+  ctx.globalAlpha = 0.2;
+  ctx.fillRect(pad, pad, 56, 22);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#9966ff";
+  ctx.font = "bold 12px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.fillText("HTML", pad + 28, pad + 11);
+  // Caption as wrapped text — fixed-char wrap (no measureText).
+  ctx.fillStyle = "#ccf3ff";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.font = "14px 'Eurostile', 'Share Tech Mono', monospace";
+  const charsPerLine = 22;
+  const lineH = 19;
+  const yStart = pad + 38;
+  const yMax = h - pad - 24;
+  const words = caption.split(/\s+/);
+  const lines = [];
+  let cur = "";
+  for (const word of words) {
+    const next = cur ? cur + " " + word : word;
+    if (next.length > charsPerLine) {
+      if (cur) lines.push(cur);
+      cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
+    } else cur = next;
+    if ((yStart + lines.length * lineH) > yMax) break;
+  }
+  if (cur && yStart + lines.length * lineH <= yMax) lines.push(cur);
+  let cy = yStart;
+  for (const L of lines) {
+    ctx.fillText(L, pad, cy);
+    cy += lineH;
+  }
+  return Promise.resolve(canvas);
+}
+
 let _mixed3dSnapInterval = null;
 let _mixed3dSnapInflight = false;
 
 // Dispatch table: substrate type → render function. Returns Promise<canvas|null>.
+// Note: html renderer takes (cellData, w, h) — uses caption/title from cells.json,
+// not spec. Driver passes the right arg below.
 const _MIXED3D_RENDERERS = {
   mermaid: _mixed3dRenderMermaidToCanvas,
   gauge: _mixed3dRenderGaugeToCanvas,
   sparkline: _mixed3dRenderSparklineToCanvas,
   treemap: _mixed3dRenderTreemapToCanvas,
+  timeline_ribbon: _mixed3dRenderTimelineRibbonToCanvas,
+  vega: _mixed3dRenderVegaToCanvas,
+  force_graph: _mixed3dRenderForceGraphToCanvas,
+  animated_svg: _mixed3dRenderAnimatedSvgToCanvas,
+  html: _mixed3dRenderHtmlToCanvas,
 };
 
 function _mixed3dStartSnapshotDriver() {
@@ -5427,14 +5685,23 @@ function _mixed3dStartSnapshotDriver() {
       const renderer = _MIXED3D_RENDERERS[ct];
       if (!renderer) continue;
       const cellData = state.rendering.cellsById?.get(id);
-      const specStr = cellData?.spec;
-      if (!specStr || specStr === "None") continue;
-      target = { id, obj, spec: specStr, renderer };
+      if (!cellData) continue;
+      // html renderer reads from cellData (title + caption); all others
+      // read from cellData.spec which must be a parsable string/object.
+      let arg;
+      if (ct === "html") {
+        if (!cellData.title && !cellData.caption) continue;
+        arg = cellData;
+      } else {
+        if (!cellData.spec || cellData.spec === "None") continue;
+        arg = cellData.spec;
+      }
+      target = { id, obj, arg, renderer };
       break;
     }
     if (!target) return;
     _mixed3dSnapInflight = true;
-    target.renderer(target.spec, 192, 576).then((canvas) => {
+    target.renderer(target.arg, 192, 576).then((canvas) => {
       _mixed3dSnapInflight = false;
       if (!canvas) return;
       if (!S._snapTexCache) S._snapTexCache = new Map();
