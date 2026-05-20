@@ -5183,7 +5183,19 @@ body {
    uses a 3D transform set by CSS3DRenderer each frame.
    ============================================================ */
 body.layout-mixed3d #notebook {
-  display: none;
+  /* Hide visually but keep layout — cells must render off-screen so
+     html2canvas (tier-1 snapshotting) can capture their real DOM
+     (mermaid SVGs, vega charts, etc). 2026-05-20 (#142). Scene3d cells
+     still display:none via the rule below — they create their own
+     WebGLRenderer and we don't want extra GL contexts. */
+  position: fixed;
+  left: -100000px;
+  top: 0;
+  width: 1600px;
+  height: auto;
+  display: block;
+  pointer-events: none;
+  z-index: -1;
 }
 body.layout-mixed3d {
   background: #000308;
