@@ -5751,8 +5751,6 @@ function _mixed3dBuildDecorativeLayer() {
       }
     }
   }
-  inst.instanceMatrix.needsUpdate = true;
-  if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
   let totalCount = 0;
   for (const m of meshes) {
     m.instanceMatrix.needsUpdate = true;
