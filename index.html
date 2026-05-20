@@ -6005,27 +6005,55 @@ function _mixed3dPickSlotForNewCell() {
     targetZ += fwd.z * _lookahead;
   }
   // 2026-05-20: cells were spreading evenly across all 100 towers (probe
-  // showed every tower at 12-13 cells) because (a) the count-first sort
-  // load-balanced, and (b) the camera path traverses every tower during
-  // its long loop, so even dist-first ended up spreading evenly over time.
-  // Fix: restrict mount eligibility to "path-adjacent" inner towers
-  // (distance from world origin < INNER_R). 10×10 grid centered at origin
-  // with spacing=12 puts the camera path within ~30u of center; outer
-  // towers exist only as decorative backdrop. Among eligible towers,
-  // sort by count (load-balance) then distance.
-  const G_FIELD_HALF = ((G.towerCount - 1) / 2) * G.spacing;
-  const INNER_R = G_FIELD_HALF * 0.55;  // inner 55% radius — ~30u for default geometry
-  const ranked = S.towerMeshes
-    .map((tw, idx) => ({
-      idx,
-      count: S.towerCellCount[idx] || 0,
-      dist: Math.hypot(tw.mesh.position.x - targetX, tw.mesh.position.z - targetZ),
-      centerDist: Math.hypot(tw.mesh.position.x, tw.mesh.position.z),
-    }))
-    .filter(t => t.centerDist < INNER_R)
-    .sort((a, b) => a.count - b.count || a.dist - b.dist);
-  // If nothing eligible (defensive — shouldn't happen with default geometry),
-  // fall back to the full set so we never strand cells.
+  // showed every tower at 12-13 cells) because cell-count load-balanced.
+  // First fix attempted inner-radius filter — but probe revealed the camera
+  // path is at radius 37-50 from origin (the OUTER half of the grid), so
+  // "inner towers" sat 20u behind whatever camera was actually next to.
+  //
+  // Real fix: compute each tower's distance to the camera path (bezier
+  // curve), filter to towers within one spacing-unit of the path. Camera
+  // grazes these towers directly. Path-adjacent set computed once per
+  // picker call but cached on swoopCam since the curve is static after init.
+  const sw = S.swoopCam;
+  let pathDistByTower;
+  if (sw && sw.curve && sw._pathDistByTower) {
+    pathDistByTower = sw._pathDistByTower;
+  } else if (sw && sw.curve) {
+    // Sample 60 points along the curve, compute each tower's min distance.
+    const samples = [];
+    for (let i = 0; i < 60; i++) {
+      const p = sw.curve.getPointAt(i / 60);
+      samples.push([p.x, p.z]);
+    }
+    pathDistByTower = new Array(S.towerMeshes.length);
+    for (let i = 0; i < S.towerMeshes.length; i++) {
+      const tw = S.towerMeshes[i];
+      let minD = Infinity;
+      for (const [sx, sz] of samples) {
+        const d = Math.hypot(tw.mesh.position.x - sx, tw.mesh.position.z - sz);
+        if (d < minD) minD = d;
+      }
+      pathDistByTower[i] = minD;
+    }
+    sw._pathDistByTower = pathDistByTower;
+  }
+  const PATH_R = G.spacing * 1.2;  // ~14u: tower within ~1 spacing of path
+  let ranked;
+  if (pathDistByTower) {
+    ranked = S.towerMeshes
+      .map((tw, idx) => ({
+        idx,
+        count: S.towerCellCount[idx] || 0,
+        dist: Math.hypot(tw.mesh.position.x - targetX, tw.mesh.position.z - targetZ),
+        pathDist: pathDistByTower[idx],
+      }))
+      .filter(t => t.pathDist < PATH_R)
+      .sort((a, b) => a.count - b.count || a.dist - b.dist);
+  } else {
+    ranked = [];
+  }
+  // Defensive fallback if no path-adjacent towers (no curve yet, e.g.
+  // boot race) — fall back to full set sorted by current-camera distance.
   if (!ranked.length) {
     const fallback = S.towerMeshes.map((tw, idx) => ({
       idx,
