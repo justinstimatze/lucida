@@ -3984,12 +3984,15 @@ function _mixed3dDriveSwoopyTour(t) {
   // pink-highlight cells a chance to scroll past as a "this one
   // matters" surprise. After scan completes, schedule the next.
   if (t < 10) {
-    // skip scan during boot ease-in
-    sw.scanNextStart = 30 + Math.random() * 20;
+    // skip scan during boot ease-in. After boot, scans fire ~every 8-14s
+    // (forward-fly), giving roughly 50/50 wall-facing to corridor-flying
+    // ratio. User 2026-05-20: "swing the camera around to face the tower
+    // walls more often ... like visually scanning across a 2d dashboard".
+    sw.scanNextStart = 8 + Math.random() * 6;
     sw.scanFactor = 0;
     sw.scanSide = 0;
   } else {
-    if (sw.scanNextStart == null) sw.scanNextStart = t + 25 + Math.random() * 15;
+    if (sw.scanNextStart == null) sw.scanNextStart = t + 8 + Math.random() * 6;
     if (t >= sw.scanNextStart) {
       const dts = t - sw.scanNextStart;
       // 2.5s ramp in, 8s hold, 2.5s ramp out → 13s total scan window.
@@ -4005,7 +4008,9 @@ function _mixed3dDriveSwoopyTour(t) {
       else if (dts < 13.0) f = (13.0 - dts) / 2.5;
       else {
         f = 0;
-        sw.scanNextStart = t + 30 + Math.random() * 20;
+        // 8-14s forward fly between scans (was 30-50s) — user 2026-05-20:
+        // wants 2D-dashboard-like wall scanning more often than corridor flight.
+        sw.scanNextStart = t + 8 + Math.random() * 6;
         sw.scanSide = 0;
       }
       sw.scanFactor = Math.max(0, Math.min(1, f));
