@@ -5128,9 +5128,16 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   // rule + substrate preview + type chip all paint over a fully
   // transparent canvas. Material's transparent pass alpha-blends
   // through to whatever's behind (tower glass).
+  //
+  // Title color: purple (#9966ff) — user 2026-05-19 "pink should be more
+  // purple. the pink is really more when the whole system is under attack".
+  // Pink (--accent-secondary) is reserved for danger signal; purple is the
+  // normal-mode tier-1 highlight. Pulled from hackers.tokens.json
+  // palette.stroke3 / data.cat[2].
+  const titleColor = "#9966ff";
   const titleEl = cell.querySelector(".cell-title");
   const title = (titleEl?.textContent || cell.id || "").trim().toUpperCase();
-  ctx.fillStyle = pink;
+  ctx.fillStyle = titleColor;
   // Fonts scaled 2.4× to match the canvas resolution bump. 11→26 side,
   // 16→38 top, 8→19 chip. Title text now readable at corridor distance.
   ctx.font = isTop ? "bold 38px 'Eurostile', 'Share Tech Mono', monospace" : "bold 26px 'Eurostile', 'Share Tech Mono', monospace";
@@ -5150,8 +5157,8 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
     } else line = test;
   }
   if (line) { ctx.fillText(line, padX, y); y += lineH; }
-  // Title rule
-  ctx.strokeStyle = pink;
+  // Title rule — purple to match title text.
+  ctx.strokeStyle = titleColor;
   ctx.globalAlpha = 0.55;
   ctx.lineWidth = 2;
   ctx.beginPath();
