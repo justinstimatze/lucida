@@ -5124,61 +5124,114 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink) {
     cyan = (styles.getPropertyValue("--accent-primary") || "#00ddff").trim();
     pink = (styles.getPropertyValue("--accent-secondary") || "#ff3a8c").trim();
   }
-  // No bg fill, no border — etched-glass look. Title text + title
-  // rule + substrate preview + type chip all paint over a fully
-  // transparent canvas. Material's transparent pass alpha-blends
-  // through to whatever's behind (tower glass).
+  // No bg fill, no border — etched-glass look. Title text + type chip
+  // paint over a fully transparent canvas. Material's transparent pass
+  // alpha-blends through to whatever's behind (tower glass).
   //
-  // Title color: purple (#9966ff) — user 2026-05-19 "pink should be more
-  // purple. the pink is really more when the whole system is under attack".
-  // Pink (--accent-secondary) is reserved for danger signal; purple is the
-  // normal-mode tier-1 highlight. Pulled from hackers.tokens.json
-  // palette.stroke3 / data.cat[2].
+  // 2026-05-20 anchor pass vs refs/gibson/tower_face_labels.png:
+  // labels in the ref DOMINATE the face (~1/6 of face per label, vertical
+  // orientation, dwarfing the small cyan background text). Tier-1 cells
+  // here render the cell title rotated 90° so it reads vertically along
+  // the tall cell axis at huge type size, mimicking the ref's column-label
+  // pattern. Substrate preview dropped — the ref doesn't show inline
+  // previews on the labels themselves.
+  //
+  // Title color: purple (#9966ff) — pink reserved for danger signal
+  // (user 2026-05-19). Palette source: hackers.tokens.json data.cat[2].
   const titleColor = "#9966ff";
   const titleEl = cell.querySelector(".cell-title");
   const title = (titleEl?.textContent || cell.id || "").trim().toUpperCase();
-  ctx.fillStyle = titleColor;
-  // Fonts scaled 2.4× to match the canvas resolution bump. 11→26 side,
-  // 16→38 top, 8→19 chip. Title text now readable at corridor distance.
-  ctx.font = isTop ? "bold 38px 'Eurostile', 'Share Tech Mono', monospace" : "bold 26px 'Eurostile', 'Share Tech Mono', monospace";
-  ctx.textBaseline = "top";
-  const padX = 10;
-  const lineH = isTop ? 44 : 32;
-  let y = padX;
-  let line = "";
-  const maxW = W - padX * 2;
-  for (const word of title.split(/\s+/)) {
-    const test = line ? line + " " + word : word;
-    if (ctx.measureText(test).width > maxW) {
-      ctx.fillText(line, padX, y);
-      y += lineH;
-      line = word;
-      if (y > H * 0.35) break;
-    } else line = test;
-  }
-  if (line) { ctx.fillText(line, padX, y); y += lineH; }
-  // Title rule — purple to match title text.
-  ctx.strokeStyle = titleColor;
-  ctx.globalAlpha = 0.55;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(padX, y + 5);
-  ctx.lineTo(W - padX, y + 5);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.lineWidth = 1;
-  // Substrate-specific preview filling the middle area between title
-  // rule and bottom type chip.
-  const previewY0 = y + 17;
-  const previewY1 = H - (isTop ? 44 : 34);
-  if (previewY1 - previewY0 > 20) {
-    _mixed3dDrawCellPreview(ctx, cell, padX, previewY0, W - padX * 2, previewY1 - previewY0, cyan, pink);
-  }
   const ctype = (cell.dataset.cellType || "").toUpperCase();
-  if (ctype) {
-    ctx.fillStyle = cyan;
-    ctx.font = isTop ? "bold 26px 'Eurostile', 'Share Tech Mono', monospace" : "bold 19px 'Eurostile', 'Share Tech Mono', monospace";
-    ctx.fillText(ctype, padX, H - (isTop ? 38 : 28));
+  if (isTop) {
+    // Top face: horizontal layout, no rotation. Cap looks down on cell.
+    ctx.fillStyle = titleColor;
+    ctx.font = "bold 38px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textBaseline = "top";
+    const padX = 10;
+    let y = padX;
+    let line = "";
+    const maxW = W - padX * 2;
+    for (const word of title.split(/\s+/)) {
+      const test = line ? line + " " + word : word;
+      if (ctx.measureText(test).width > maxW) {
+        ctx.fillText(line, padX, y); y += 44; line = word;
+        if (y > H * 0.7) break;
+      } else line = test;
+    }
+    if (line) ctx.fillText(line, padX, y);
+    if (ctype) {
+      ctx.fillStyle = cyan;
+      ctx.font = "bold 26px 'Eurostile', 'Share Tech Mono', monospace";
+      ctx.fillText(ctype, padX, H - 38);
+    }
+  } else {
+    // Side cell: rotate 90° CCW so title reads bottom-to-top along the
+    // tall axis. After rotation, the canvas's H (576) becomes the
+    // available "horizontal" run for text; W (192) becomes the "line
+    // height" — plenty of room for HUGE type that dominates the face.
+    ctx.save();
+    ctx.translate(W / 2, H);             // pivot at bottom-center
+    ctx.rotate(-Math.PI / 2);            // rotate -90°: +X now points up the cell
+    // After this transform, drawing at (0, 0) lands at canvas (W/2, H).
+    // x axis runs UP the cell, y axis runs to the LEFT.
+    // textBaseline="middle" + textAlign="left" centers on the cell width.
+    ctx.fillStyle = titleColor;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    // Pick font size to fit the title in the available run (H - 2*padEnd),
+    // word-wrapped onto 1-3 stacked lines (across the cell width W after rot).
+    const padEnd = 24;            // gap from top/bottom of cell
+    const runLen = H - padEnd * 2;
+    // Try sizes 84 → 56 → 38 until words fit. Big-first so dominant titles
+    // win when possible. Three-line wrap allowed at smallest size.
+    const tries = [
+      { font: 84, lineGap: 0,  maxLines: 1 },
+      { font: 72, lineGap: 78, maxLines: 2 },
+      { font: 56, lineGap: 62, maxLines: 2 },
+      { font: 44, lineGap: 50, maxLines: 3 },
+    ];
+    const words = title.split(/\s+/);
+    let chosen = null;
+    for (const t of tries) {
+      ctx.font = `bold ${t.font}px 'Eurostile', 'Share Tech Mono', monospace`;
+      const lines = [];
+      let cur = "";
+      for (const w of words) {
+        const test = cur ? cur + " " + w : w;
+        if (ctx.measureText(test).width > runLen) {
+          if (cur) lines.push(cur);
+          cur = w;
+        } else cur = test;
+      }
+      if (cur) lines.push(cur);
+      if (lines.length <= t.maxLines && lines.every(L => ctx.measureText(L).width <= runLen)) {
+        chosen = { ...t, lines }; break;
+      }
+    }
+    if (!chosen) {
+      // Last-resort: truncate to single line at smallest size.
+      ctx.font = "bold 44px 'Eurostile', 'Share Tech Mono', monospace";
+      let s = title;
+      while (s.length > 4 && ctx.measureText(s).width > runLen) s = s.slice(0, -1);
+      chosen = { font: 44, lineGap: 50, lines: [s] };
+    }
+    ctx.font = `bold ${chosen.font}px 'Eurostile', 'Share Tech Mono', monospace`;
+    // Center the line-stack across the cell's width (post-rotation y axis).
+    const totalH = (chosen.lines.length - 1) * chosen.lineGap;
+    let yOff = totalH / 2;  // first line offset above center
+    for (const L of chosen.lines) {
+      ctx.fillText(L, padEnd, -yOff);
+      yOff -= chosen.lineGap;
+    }
+    // Type chip at bottom of cell — small cyan tag, oriented same as title.
+    if (ctype) {
+      ctx.fillStyle = cyan;
+      ctx.font = "bold 24px 'Eurostile', 'Share Tech Mono', monospace";
+      ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left";
+      ctx.fillText(ctype, padEnd, W / 2 - 6);
+    }
+    ctx.restore();
   }
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
