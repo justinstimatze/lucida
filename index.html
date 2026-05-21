@@ -5537,12 +5537,12 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const cx = w / 2;
-  // Captions removed 2026-05-21 — dial now sized to fill the body
-  // generously instead of anchored top. r is half of min(w, h*0.7)
-  // so a tall narrow cell still gets a big dial while wider colspan=2
-  // cells go even bigger.
-  const r = Math.min(w * 0.38, h * 0.32);
-  const cy = h * 0.45;
+  // Dial scales with cell WIDTH; cell-portrait orientation gives
+  // plenty of vertical room so the half-circle isn't height-bound.
+  // Was capped by h*0.32 which left ~30% horizontal padding —
+  // user 2026-05-21: "gauges look a little horizontally squished".
+  const r = w * 0.42;
+  const cy = h * 0.40;
   // Track arc
   ctx.strokeStyle = "#9966ff";
   ctx.globalAlpha = 0.35;
@@ -7508,16 +7508,14 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
     })).sort((a, b) => a.count - b.count || a.dist - b.dist);
     ranked.push(...fallback);
   }
+  // PASS 1: try to place at the desired colspan on every ranked
+  // tower before falling back. Earlier loop fell back to colspan=1
+  // on the same tower if no K-wide run was found, which made
+  // wide-eligible cells (mermaid flowcharts, vega, force_graph)
+  // mount as single-column when even a slightly-fragmented tower
+  // was picked first. User saw it as a "tiny diagram" with extra
+  // empty placeholder space.
   for (const { idx } of ranked) {
-    // Pick the LEAST-FULL column on this tower (lowest nextIdx).
-    // Earlier "first non-full column wins" logic returned col=0
-    // face=0 for every cell on a tower until that column was packed,
-    // producing "one full column on one side of each tower" instead
-    // of even distribution.
-    // For colspan=K we need K adjacent columns on the SAME face that
-    // share a free position p at the same row index. Walk faces, find
-    // the run of K adjacent columns whose .nextIdx values are equal
-    // and within plan.positions.length; pick the lowest such p.
     let bestKey = null, bestFace = -1, bestCol = -1, bestNext = Infinity, bestSpanKeys = null;
     for (let face = 0; face < 4; face++) {
       for (let col = 0; col + colspan <= G.slotsPerFaceX; col++) {
@@ -7527,8 +7525,6 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
           const ck = `${idx}:${face}:${col + k}`;
           let plan = S.columnPlans.get(ck);
           if (!plan) {
-            // Share positions across columns on the same face so wide
-            // cells line up cleanly with neighbors and no overlap.
             const facePlan = _mixed3dGetFaceSharedPlan(S, idx, face);
             const positions = facePlan
               ? facePlan.positions
@@ -7537,10 +7533,6 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
             S.columnPlans.set(ck, plan);
           }
           if (plan.nextIdx >= plan.positions.length) { ok = false; break; }
-          // All spanned columns must agree on the row index — wide
-          // cell occupies one row across K columns. If a neighbor's
-          // nextIdx has drifted ahead, advance the laggards via the
-          // claim path (see below) before re-checking.
           if (runP === -1) runP = plan.nextIdx;
           else if (plan.nextIdx !== runP) { ok = false; break; }
           spanKeys.push(ck);
@@ -7559,11 +7551,6 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
       const plan = S.columnPlans.get(bestKey);
       const claimedP = plan.nextIdx;
       const slot = plan.positions[claimedP];
-      // Advance nextIdx on EVERY spanned column so the next picker
-      // pass treats those slots as taken. Columns now share a face's
-      // positions array (see _mixed3dGetFaceSharedPlan) so row-y
-      // alignment is automatic; only the per-column nextIdx counter
-      // needs the explicit bump.
       for (const ck of bestSpanKeys) S.columnPlans.get(ck).nextIdx++;
       return {
         towerIdx: idx, facePri: bestFace, col: bestCol, key: bestKey,
@@ -7571,11 +7558,12 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
         colspan, spanKeys: bestSpanKeys,
       };
     }
-    // Fall back to single-slot pick if no run of K could be found
-    // (face is fragmented). Prevents wide cells from completely
-    // failing to land when the grid is mostly full but no K-wide
-    // run exists.
-    if (colspan > 1) {
+  }
+  // PASS 2: every tower failed at the desired colspan. Now fall
+  // back to colspan=1 across all towers (also covers the
+  // top-face top-slot case if no side slot worked).
+  if (colspan > 1) {
+    for (const { idx } of ranked) {
       let bestKey1 = null, bestFace1 = -1, bestCol1 = -1, bestNext1 = Infinity;
       for (let col = 0; col < G.slotsPerFaceX; col++) {
         for (let face = 0; face < 4; face++) {
@@ -7602,6 +7590,11 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
         };
       }
     }
+  }
+  // PASS 3: top-face slot (one per tower). Tower tops are oriented
+  // horizontally on the canyon — typically less visible during dolly
+  // but still claimable if every side face is packed.
+  for (const { idx } of ranked) {
     const topKey = `${idx}:4:0:0`;
     if (!S.usedSlots.has(topKey)) {
       return { towerIdx: idx, facePri: 4, col: 0, key: topKey, y: 0, h: 0 };
