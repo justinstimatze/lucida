@@ -2886,13 +2886,11 @@ function applyMixed3DLayout(opts) {
     color: _edgeColor,
     toneMapped: false,
   });
-  // Top-rim: violet accent (#122). The 2026-05-19 veto was specifically
-  // about WHITE brightness — body-color lerped 0.75 toward white read as
-  // solid white at distance. Violet is a different chromatic direction
-  // (the same purple as tier-1 titles) so it gives the tower top a
-  // crown without replaying the white-out failure. Lerped 0.2 toward
-  // white so it stays readable through ACES tone-mapping at distance.
-  const _topRimColor = new T.Color(0x9966ff).lerp(new T.Color(0xffffff), 0.2);
+  // Top-rim matches the body edge color. The 2026-05-19 veto rejected
+  // brighter rims (read as white); the 2026-05-21 reversal of #122
+  // rejected violet rims too — a tower is monochromatic-cyan-or-purple
+  // overall, not a chromatic mix. Top-rim + body edges share one color.
+  const _topRimColor = _edgeColor;
   const sharedTopRimMat = new T.MeshBasicMaterial({
     color: _topRimColor,
     toneMapped: false,
@@ -5167,8 +5165,8 @@ function _mixed3dStyleMermaidSVG(svgString) {
       }
       .edgeLabel, .edgeLabel rect, .edgeLabel foreignObject div, .edgeLabel text {
         background-color: transparent !important;
-        fill: #ff3a8c !important;
-        color: #ff3a8c !important;
+        fill: #9966ff !important;
+        color: #9966ff !important;
       }
       .cluster rect, .cluster path { stroke: #9966ff !important; fill: rgba(153, 102, 255, 0.06) !important; }
     </style>
@@ -5631,11 +5629,14 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
 
 function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (!spec || typeof spec !== "string" || !spec.includes("<svg")) return Promise.resolve(null);
-  // Substitute theme placeholders → hackers palette.
+  // Substitute theme placeholders → hackers palette. $pink collapses to
+  // purple in normal scenes (pink is reserved for tower-attack state);
+  // animated SVGs that explicitly want danger framing should re-introduce
+  // pink via the danger-state path, not via this default substitution.
   const themed = spec
     .replace(/\$accent\b/g, "#00ddff")
     .replace(/\$muted\b/g, "#9966ff")
-    .replace(/\$pink\b/g, "#ff3a8c")
+    .replace(/\$pink\b/g, "#9966ff")
     .replace(/\$fg\b/g, "#ccf3ff");
   return new Promise((resolve, reject) => {
     const img = new Image();
