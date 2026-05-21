@@ -4681,6 +4681,9 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
   }
   if (newTier === 1) {
     const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
+    // Re-apply cached snap if available — see _mixed3dPromoteInstanceToTier1.
+    const cachedSnap = S._snapTexCache?.get(id);
+    if (cachedSnap) { tex.image = cachedSnap; tex.needsUpdate = true; }
     obj.material = new T.MeshBasicMaterial({
       map: tex,
       transparent: true,
@@ -4719,6 +4722,11 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   _mixed3dRemoveTier2Instance(S, handle);
   const isTop = !!handle.mountIsTop;
   const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
+  // Re-apply cached snap if we've rendered this cell before. Without
+  // this the snap driver skips (cache.has(id)=true) and the cell stays
+  // on the placeholder texture forever after demote→promote cycles.
+  const cachedSnap = S._snapTexCache?.get(id);
+  if (cachedSnap) { tex.image = cachedSnap; tex.needsUpdate = true; }
   const mat = new T.MeshBasicMaterial({
     map: tex,
     transparent: true,
@@ -5985,6 +5993,10 @@ function _mixed3dSyncCells() {
     // for any other cell currently using the same (W, H) bucket.
     map.delete(id);
     if (_mixed3dState.cellTier) _mixed3dState.cellTier.delete(id);
+    // Drop the cached composite canvas. Without this every cell whose
+    // DOM gets evicted (RAM cap, session clear, synthetic-backfill cull)
+    // leaks ~440KB of canvas + GPU texture mirror. Unbounded over time.
+    _mixed3dState._snapTexCache?.delete(id);
     const key = _mixed3dState.cellSlotKeys.get(id);
     if (key) {
       _mixed3dState.usedSlots.delete(key);
