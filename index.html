@@ -5235,20 +5235,24 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
 function _mixed3dStyleMermaidSVG(svgString) {
   const css = `
     <style>
+      /* Colors only. Font weight + size are left at mermaid's
+         layout-time defaults so the rectangles mermaid sized for
+         the text actually contain the text. Earlier overrides
+         (font-weight:800, stroke-width:6) made labels exceed the
+         pre-computed box bounds, causing visible overflow. */
       svg { background: transparent !important; }
       .node rect, .node polygon, .node circle, .node ellipse, .node path {
         fill: rgba(0, 221, 255, 0.18) !important;
         stroke: #00ddff !important;
-        stroke-width: 6px !important;
+        stroke-width: 2.5px !important;
       }
       .node .label, .nodeLabel, .label foreignObject div, .label text, text.label {
         fill: #e8f8ff !important;
         color: #e8f8ff !important;
-        font-weight: 800 !important;
       }
       .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
         stroke: #66e6ff !important;
-        stroke-width: 5px !important;
+        stroke-width: 2px !important;
         fill: none !important;
       }
       .marker, .arrowheadPath, marker path {
@@ -5259,11 +5263,10 @@ function _mixed3dStyleMermaidSVG(svgString) {
         background-color: transparent !important;
         fill: #ccf3ff !important;
         color: #ccf3ff !important;
-        font-weight: 700 !important;
       }
       .cluster rect, .cluster path {
         stroke: #9966ff !important;
-        stroke-width: 4px !important;
+        stroke-width: 2px !important;
         fill: rgba(153, 102, 255, 0.06) !important;
       }
     </style>
