@@ -5839,16 +5839,40 @@ function _mixed3dStartSnapshotDriver() {
       kicked++;
       const targetId = id;
       const targetCellData = cellData;
-      renderer(arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title }).then((bodyCanvas) => {
+      const targetCt = ct;
+      // 10s per-render timeout — earlier debugging found cells stuck at
+      // 28% after 30 min, consistent with renderers hanging without
+      // rejecting (e.g. mermaid Image.onload never firing on a malformed
+      // SVG). Without a timeout, hung promises eat the 3 inflight slots
+      // permanently and the driver appears alive but makes no progress.
+      const renderP = renderer(arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title });
+      const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("snap-render-timeout-10s")), 10000));
+      Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
         _mixed3dSnapInflight.delete(targetId);
         _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, targetCellData);
       }).catch((e) => {
         _mixed3dSnapInflight.delete(targetId);
-        console.warn("[mixed3d] snap render fail for", targetId, e?.message || e);
+        console.warn("[mixed3d] snap fail", targetCt, targetId, e?.message || e);
       });
     }
   }, 120);
 }
+
+// Dev hooks for diagnosing snap-driver state from console / MCP probes.
+// The driver's setInterval handle + inflight Set live in module scope
+// (so they survive teardown cleanly) but were unreachable from outside,
+// which made "is the driver actually running?" probes return false even
+// when it was.
+window._mixed3dSnapDebug = function() {
+  return {
+    intervalActive: _mixed3dSnapInterval !== null,
+    inflightSize: _mixed3dSnapInflight.size,
+    inflightIds: Array.from(_mixed3dSnapInflight),
+    cap: _MIXED3D_SNAP_MAX_INFLIGHT,
+    batch: _MIXED3D_SNAP_BATCH,
+  };
+};
+window._mixed3dStartSnapshotDriver = _mixed3dStartSnapshotDriver;
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
   const T = window.THREE;
