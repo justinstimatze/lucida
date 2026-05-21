@@ -5328,7 +5328,9 @@ function _mixed3dPaintPromoteStub(id, cellData, colspan) {
   ctx.fillStyle = "#000814";
   ctx.fillRect(0, 0, W, 576);
   _mixed3dPaintTitleBlock(ctx, cellData?.title || id, W);
-  _mixed3dPaintCaption(ctx, cellData?.caption, 72 + 8, 576 - 8, W);
+  // No caption — Gibson aesthetic is terse labels, not explanatory
+  // prose. Pending stubs show title-only; substrate renderers fill
+  // the body when their snap lands.
   return canvas;
 }
 
@@ -5386,10 +5388,9 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
       const ctx = canvas.getContext("2d");
       const aspectImg = img.naturalWidth / img.naturalHeight;
       const graphW = w;
-      const graphH = Math.min(h * 0.7, w / aspectImg);
+      const graphH = Math.min(h * 0.95, w / aspectImg);
       ctx.drawImage(img, 0, 0, graphW, graphH);
       URL.revokeObjectURL(url);
-      _mixed3dPaintCaption(ctx, extras?.caption, graphH + 12, h - 8, w);
       resolve(canvas);
     };
     img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
@@ -5521,7 +5522,6 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
     ctx.font = "16px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.fillText(String(label).toUpperCase().slice(0, 18), cx, labelY);
   }
-  _mixed3dPaintCaption(ctx, extras?.caption, labelY + 28, h - 8, w);
   return Promise.resolve(canvas);
 }
 
@@ -5576,7 +5576,6 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
     ctx.textBaseline = "top";
     ctx.fillText(String(label).toUpperCase().slice(0, 22), pad, py0 - 22);
   }
-  _mixed3dPaintCaption(ctx, extras?.caption, py1 + 20, h - 8, w);
   return Promise.resolve(canvas);
 }
 
@@ -5708,8 +5707,6 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
     ctx.textBaseline = "top";
     ctx.fillText(String(axisLabel).toUpperCase(), pad, 8);
   }
-  // Caption fills space below the labels under the axis.
-  _mixed3dPaintCaption(ctx, extras?.caption, cy + 56, h - 8, w);
   return Promise.resolve(canvas);
 }
 
@@ -5822,8 +5819,6 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
     const label = String(p.node.label || p.node.id || "").slice(0, 14);
     ctx.fillText(label, p.x, p.y + 12);
   }
-  // Caption fills space below the circle + node labels.
-  _mixed3dPaintCaption(ctx, extras?.caption, cy + r + 36, h - 8, w);
   return Promise.resolve(canvas);
 }
 
@@ -5844,15 +5839,15 @@ function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext("2d");
-      // Top-anchored width-fill, capped at 60% of body height — caption
-      // fills the rest. Was vertically centered which letterboxed the
-      // image in tall narrow cells.
+      // Top-anchored width-fill — captions removed across all substrate
+      // renderers 2026-05-21 per Gibson aesthetic (terse labels only,
+      // no explanatory prose). SVG fills as much of the body as its
+      // aspect allows.
       const aspectImg = img.naturalWidth / img.naturalHeight;
       const dw = w;
-      const dh = Math.min(h * 0.6, w / aspectImg);
+      const dh = Math.min(h * 0.95, w / aspectImg);
       ctx.drawImage(img, 0, 0, dw, dh);
       URL.revokeObjectURL(img.src);
-      _mixed3dPaintCaption(ctx, extras?.caption, dh + 12, h - 8, w);
       resolve(canvas);
     };
     img.onerror = (e) => { URL.revokeObjectURL(img.src); resolve(null); };
@@ -5924,7 +5919,11 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   const html = cellData.html || "";
   const layout = cellData.html_layout || "";
   const rows = _mixed3dExtractHtmlRows(html, layout);
-  if (!title && !caption && !rows) return Promise.resolve(null);
+  // No structured content → return null. Substrate driver will keep
+  // the title-only stub. Matches [[feedback_text_cells_uninteresting]]:
+  // silence > caption-prose for html cells that aren't actually tables/
+  // lists/definitions.
+  if (!rows) return Promise.resolve(null);
   // Decorative-text aesthetic: no chip, no card frame. Mono dim cyan
   // text + faint horizontal scanlines so the cell visually melts into
   // the decorative bed. Title in purple at top, content rows below.
@@ -5958,7 +5957,8 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     cy += 18;
   }
   const yMax = h - pad - 12;
-  // Render rows if structured, else fall back to caption.
+  // Render rows in decorative-text aesthetic. (Caption fallback was
+  // dropped 2026-05-21 — no prose in cells, Gibson aesthetic.)
   if (rows && rows.length) {
     ctx.fillStyle = "#ccf3ff";
     ctx.globalAlpha = 0.78;
@@ -5983,23 +5983,6 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
       }
       cy += 15;
     }
-  } else if (caption) {
-    // Caption fallback: word-wrap monospace dim cyan, no card frame.
-    ctx.fillStyle = "#ccf3ff";
-    ctx.globalAlpha = 0.78;
-    ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
-    const charsPerLine = Math.max(20, Math.floor((w - pad * 2) / 7));
-    const words = caption.split(/\s+/);
-    let cur = "";
-    for (const word of words) {
-      if (cy + 18 > yMax) break;
-      const next = cur ? cur + " " + word : word;
-      if (next.length > charsPerLine) {
-        if (cur) { ctx.fillText(cur, pad, cy); cy += 17; }
-        cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
-      } else cur = next;
-    }
-    if (cur && cy + 18 <= yMax) ctx.fillText(cur, pad, cy);
   }
   return Promise.resolve(canvas);
 }
