@@ -6628,12 +6628,34 @@ function _mixed3dDrainMountQueue() {
     const tower = S.towerMeshes[towerIdx];
     const isTop = facePri === 4;
     const cs = gotColspan || 1;
-    // Hide decorative-tier instances at every slot this wide cell
-    // now covers. Otherwise the decorative terminal-text bleeds
-    // through transparent pixels on the cell's substrate render.
+    // Hide decorative-tier instances at every slot this cell covers,
+    // PLUS any decorative in the spanned columns whose y-range
+    // overlaps the wide cell's vertical extent. Per-column height
+    // variance means col=N+1's other rows can sit at a world-y that
+    // the wide cell's mesh extends through — without this extra
+    // sweep those decoratives bleed through the wide cell's
+    // transparent pixels.
     if (!isTop && typeof claimedP === "number") {
       for (let k = 0; k < cs; k++) {
         _mixed3dHideDecorativeAtSlot(towerIdx, facePri, col + k, claimedP);
+      }
+      if (cs > 1) {
+        // placement.y/h are bestCol's slot — that's where the wide
+        // mesh actually sits in world space.
+        const wideYLo = placement.y;
+        const wideYHi = placement.y + placement.h;
+        for (let k = 1; k < cs; k++) {
+          const planK = _mixed3dState.columnPlans.get(`${towerIdx}:${facePri}:${col + k}`);
+          if (!planK) continue;
+          for (let pp = 0; pp < planK.positions.length; pp++) {
+            if (pp === claimedP) continue;
+            const s = planK.positions[pp];
+            const yLo = s.y, yHi = s.y + s.h;
+            if (yHi > wideYLo && yLo < wideYHi) {
+              _mixed3dHideDecorativeAtSlot(towerIdx, facePri, col + k, pp);
+            }
+          }
+        }
       }
     }
     let tx, ty, tz, rotX = 0, rotY = 0;
@@ -7019,7 +7041,12 @@ function _mixed3dBuildDecorativeLayer() {
     return t;
   };
 
-  const N_TEXTURES = 16;
+  // Bumped 16→32 (2026-05-21) — user saw lots of duplicate decoratives
+  // near each other when looking closely. 32 variants × ~440KB ≈ 14MB
+  // GPU still fits comfortably; visible duplication per face drops
+  // by ~half. Hash spread (col*47 ^ p*31) gives ~independent draws
+  // across adjacent slots at the larger pool.
+  const N_TEXTURES = 32;
   const textures = [];
   for (let i = 0; i < N_TEXTURES; i++) textures.push(paintDecoCanvas());
 
