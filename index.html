@@ -2687,6 +2687,40 @@ function applyMixed3DLayout(opts) {
   renderer.domElement.addEventListener("webglcontextrestored", (e) => {
     console.info(`[mixed3d] WebGL context RESTORED @ ${performance.now().toFixed(0)}ms`);
   }, false);
+  // Click-to-park: raycast through cellObjects, lerp the camera to the
+  // hit cell for inspection / screenshotting. Click empty space (or
+  // press Escape) to release. Disabled during warmup so the user
+  // doesn't accidentally fire it while the boot overlay is up.
+  renderer.domElement.addEventListener("click", (e) => {
+    const S = _mixed3dState;
+    if (!S || S._warmupActive) return;
+    const T2 = window.THREE;
+    if (!T2) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouse = new T2.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    const ray = new T2.Raycaster();
+    ray.setFromCamera(mouse, S.camera);
+    const meshes = [];
+    for (const o of S.cellObjects.values()) {
+      if (!o.isInstanceHandle && o.visible !== false) meshes.push(o);
+    }
+    const hits = ray.intersectObjects(meshes, false);
+    if (hits.length === 0) {
+      if (S._park) window._mixed3dUnpark();
+      return;
+    }
+    let hitId = null;
+    for (const [id, o] of S.cellObjects) {
+      if (o === hits[0].object) { hitId = id; break; }
+    }
+    if (hitId) console.log("[mixed3d] park", window._mixed3dParkAt(hitId));
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && _mixed3dState?._park) window._mixed3dUnpark();
+  });
 
   const css3dRenderer = new T.CSS3DRenderer();
   css3dRenderer.setSize(w, h);
@@ -3563,6 +3597,16 @@ function _mixed3dDriveCamera(t) {
   // tier-1 snap cache. Without this the curve advances during the
   // 5-20s warmup and cells start popping in before they're prerendered.
   if (_mixed3dState._warmupActive) return;
+  // Park-at-cell mode: lerp toward the parked pose, ignore the tour.
+  // Used for cell inspection / screenshotting via _mixed3dParkAt(id).
+  if (_mixed3dState._park) {
+    const T = window.THREE;
+    if (T) {
+      _mixed3dState.camera.position.lerp(_mixed3dState._park.target, 0.08);
+      _mixed3dState.camera.lookAt(_mixed3dState._park.lookAt);
+    }
+    return;
+  }
   const policy = _mixed3dState.opts.camera;
   // First-call announce so the active camera mode is visible in
   // DevTools — quick way to confirm new tokens loaded vs. stale
@@ -5875,24 +5919,26 @@ function _mixed3dStartSnapshotDriver() {
     // off-screen rather than at eye-level. Doesn't fix throughput.
     const camPos = S.camera?.position;
     const candidates = [];
+    if (!window._snapSkipReasons) window._snapSkipReasons = {};
+    const _sr = window._snapSkipReasons;
     for (const [id, obj] of S.cellObjects) {
       if (obj.isInstanceHandle) continue;
       if (obj.userData?.tier !== 1) continue;
       if (S._snapTexCache?.has(id)) continue;
-      if (_mixed3dSnapInflight.has(id)) continue;
+      if (_mixed3dSnapInflight.has(id)) { _sr.inflight = (_sr.inflight||0)+1; continue; }
       const el = obj.userData?.cellEl;
-      if (!el) continue;
+      if (!el) { _sr.no_el = (_sr.no_el||0)+1; continue; }
       const ct = el.dataset?.cellType || "";
       const renderer = _MIXED3D_RENDERERS[ct];
-      if (!renderer) continue;
+      if (!renderer) { _sr.no_renderer = (_sr.no_renderer||0)+1; continue; }
       const cellData = state.rendering.cellsById?.get(id);
-      if (!cellData) continue;
+      if (!cellData) { _sr.no_cellData = (_sr.no_cellData||0)+1; continue; }
       let arg;
       if (ct === "html") {
-        if (!cellData.title && !cellData.caption) continue;
+        if (!cellData.title && !cellData.caption) { _sr.html_empty = (_sr.html_empty||0)+1; continue; }
         arg = cellData;
       } else {
-        if (!cellData.spec || cellData.spec === "None") continue;
+        if (!cellData.spec || cellData.spec === "None") { _sr.no_spec = (_sr.no_spec||0)+1; continue; }
         arg = cellData.spec;
       }
       let distSq = 0;
@@ -6071,6 +6117,36 @@ function _mixed3dUpdateWarmupProgress(S) {
 // (so they survive teardown cleanly) but were unreachable from outside,
 // which made "is the driver actually running?" probes return false even
 // when it was.
+// Park the camera at a specific cell for inspection / screenshotting.
+// Sets _mixed3dState._park = { target, lookAt, cellId }; the camera
+// drive lerps toward target each frame and looks at the cell center.
+// Call _mixed3dUnpark() to release. Used by the canvas click handler
+// (registered in applyMixed3DLayout) and from console for diagnostics.
+window._mixed3dParkAt = function(cellId, offset) {
+  const S = _mixed3dState;
+  if (!S) return null;
+  const T = window.THREE;
+  if (!T) return null;
+  const obj = S.cellObjects.get(cellId);
+  if (!obj || obj.isInstanceHandle) return { err: "not a tier-1 mesh" };
+  const parkOffset = offset || 3.5;
+  // The plane mesh's local +Z is the front face; rotate it by the
+  // mesh's world rotation to get the camera-side normal in world space.
+  const normal = new T.Vector3(0, 0, 1).applyEuler(obj.rotation);
+  const target = new T.Vector3(
+    obj.position.x + normal.x * parkOffset,
+    obj.position.y + normal.y * parkOffset,
+    obj.position.z + normal.z * parkOffset
+  );
+  S._park = { target, lookAt: obj.position.clone(), cellId };
+  return { parked: cellId, at: { x: target.x.toFixed(2), y: target.y.toFixed(2), z: target.z.toFixed(2) } };
+};
+window._mixed3dUnpark = function() {
+  if (_mixed3dState) _mixed3dState._park = null;
+  _mixed3dResetCameraTimer();
+  return "unparked";
+};
+
 window._mixed3dSnapDebug = function() {
   return {
     intervalActive: _mixed3dSnapInterval !== null,
