@@ -2841,9 +2841,12 @@ function applyMixed3DLayout(opts) {
   // bottom (slightly elliptical falloff) so the glow reads as
   // rising from the tower base, matching the prior cone's intent.
   const _coneGrad = _coneCtx.createRadialGradient(128, 192, 0, 128, 192, 160);
-  _coneGrad.addColorStop(0.0, "rgba(255, 255, 255, 0.18)");
-  _coneGrad.addColorStop(0.35, "rgba(255, 255, 255, 0.08)");
-  _coneGrad.addColorStop(0.7, "rgba(255, 255, 255, 0.02)");
+  // #123: bump inner alphas from .18/.08/.02 to brighten the uplight halo
+  // without hardening the silhouette — additive blending + soft falloff
+  // mean a +50% center stop reads as glow intensification, not a disc.
+  _coneGrad.addColorStop(0.0, "rgba(255, 255, 255, 0.27)");
+  _coneGrad.addColorStop(0.35, "rgba(255, 255, 255, 0.13)");
+  _coneGrad.addColorStop(0.7, "rgba(255, 255, 255, 0.03)");
   _coneGrad.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
   _coneCtx.fillStyle = _coneGrad;
   _coneCtx.fillRect(0, 0, 256, 256);
@@ -2883,11 +2886,13 @@ function applyMixed3DLayout(opts) {
     color: _edgeColor,
     toneMapped: false,
   });
-  // Top-rim matches the body edge color (user 2026-05-19: 'the lines
-  // on the top of the tower can be the same color as the side corner
-  // edges. looks too white right now'). Earlier #133 had this lerping
-  // 0.75 toward white which read as nearly solid white at distance.
-  const _topRimColor = _edgeColor;
+  // Top-rim: violet accent (#122). The 2026-05-19 veto was specifically
+  // about WHITE brightness — body-color lerped 0.75 toward white read as
+  // solid white at distance. Violet is a different chromatic direction
+  // (the same purple as tier-1 titles) so it gives the tower top a
+  // crown without replaying the white-out failure. Lerped 0.2 toward
+  // white so it stays readable through ACES tone-mapping at distance.
+  const _topRimColor = new T.Color(0x9966ff).lerp(new T.Color(0xffffff), 0.2);
   const sharedTopRimMat = new T.MeshBasicMaterial({
     color: _topRimColor,
     toneMapped: false,
