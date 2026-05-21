@@ -5489,10 +5489,12 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const cx = w / 2;
-  // Top-anchored dial so caption fills the body below — was floating at
-  // h*0.55 leaving ~150px dead space at the bottom of the tall narrow cell.
-  const r = w * 0.32;
-  const cy = r + 24;
+  // Captions removed 2026-05-21 — dial now sized to fill the body
+  // generously instead of anchored top. r is half of min(w, h*0.7)
+  // so a tall narrow cell still gets a big dial while wider colspan=2
+  // cells go even bigger.
+  const r = Math.min(w * 0.38, h * 0.32);
+  const cy = h * 0.45;
   // Track arc
   ctx.strokeStyle = "#9966ff";
   ctx.globalAlpha = 0.35;
@@ -5538,10 +5540,12 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const pad = 16;
-  // Plot occupies the top portion; caption fills below — was using 30%-85%
-  // of body height, leaving the bottom unused.
+  // Plot fills most of body — captions removed 2026-05-21 so the
+  // full body height is available. Top margin for the label, bottom
+  // padding to keep the end-dot from sitting flush against the cell
+  // edge.
   const py0 = h * 0.12;
-  const py1 = h * 0.42;
+  const py1 = h * 0.92;
   const min = Math.min(...data), max = Math.max(...data);
   const range = max - min || 1;
   ctx.strokeStyle = "#00ddff";
@@ -7956,6 +7960,12 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   if (c.id && !opts.compact) card.id = c.id;
   if (opts.compact) card.classList.add("cell-compact");
   if (c.cell_type) card.dataset.cellType = c.cell_type;
+  // mixed3d colspan heuristic reads cell.dataset.mermaidSubtype to
+  // decide which mermaid cells get colspan=2 (flowchart, timeline,
+  // etc — wide-aspect diagrams). Without this attribute push, every
+  // mermaid stayed at colspan=1 regardless of shape.
+  if (c.mermaid_subtype) card.dataset.mermaidSubtype = c.mermaid_subtype;
+  if (c.html_layout) card.dataset.htmlLayout = c.html_layout;
   // Session id on the card for the WebGL session-thread connection lines
   // (drawSessionThreads in alt-layout modes). Reflection source-ids
   // continue to live on .cell-reflection[data-source-ids] for the
