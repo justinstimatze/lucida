@@ -1,14 +1,12 @@
-# Session handoff — 2026-05-20
+# Session handoff — 2026-05-20 (evening update)
 
-Working surface: **hackers / mixed3d tier-1 rich-substrate rendering (#142)** — making tier-1 cells render actual content (mermaid graphs, gauges, sparklines, etc.) instead of abstract sketches.
+Working surface: **hackers / mixed3d tier-1 rich-substrate rendering (#142)** — tier-1 cells now render real content (mermaid graphs, gauges, sparklines, etc.) with persistent titles and parallel snap generation.
 
-Branch: `main`. Last commit: `bd13a68` (revert of 4b10bce). Working tree clean.
+Branch: `main`. Last commit: `c22a36c`. Working tree clean.
 
-## Critical issue going into next session
+## ⚠️ Memory note up front
 
-**Mount drain is intermittently broken.** After ~3 reloads in the same Chrome tab during today's session, `_mixed3dDrainMountQueue` stalls at 0 cells / 1248 queued. Same exact code that worked in a freshly-created tab fails after several reloads. **Almost certainly an MCP browser-tab state issue, not code.** Today's pattern: kill the tab + create a fresh one → mount works.
-
-If next session opens and `realCells: 0` after 30s wait, **close the tab + open a new one**, don't waste time debugging code first.
+Today the host OOM'd while testing the parallel snap driver. Root cause was a `_snapTexCache` leak (fixed) plus too-aggressive concurrency caps (lowered). Stay alert if you make snap-driver changes — `_MIXED3D_SNAP_MAX_INFLIGHT` is now 3, do not raise without checking heap.
 
 ## Quick start to resume
 
@@ -17,111 +15,118 @@ If next session opens and `realCells: 0` after 30s wait, **close the tab + open 
 python3 -m http.server 8766
 ```
 
-Open `http://localhost:8766/?theme=hackers&layout=mixed3d&notier2=1&_=N` (use a unique `_=N` cache-bust each time).
+Open `http://localhost:8766/?theme=hackers&layout=mixed3d&notier2=1&_=N` (unique `_=N` cache-bust each time).
 
 Useful URL params:
 - `?notier2=1` — hides tier-2 cells, so you can A/B compare tier-1 + decoratives only. Runtime toggle via console: `toggleMixed3dTier2(true)` / `toggleMixed3dTier2(false)`.
 
 ## What landed today (most recent first)
 
-1. `bd13a68` — Revert of `4b10bce` (title-composite broke mount; functionally equivalent to `7d0ca9a` now).
-2. `4b10bce` — REVERTED. Tried to compose title-at-top + body in driver; broke mount.
-3. `7d0ca9a` — Added 5 substrate renderers: timeline_ribbon, vega, force_graph, animated_svg, html. ~60% of tier-1 PENDING-forever cells get real renders.
-4. `585377e` — PENDING placeholder (diagonal hatch + purple stamp) instead of abstract sketch. Persistent tier-2 hide via setInterval re-apply. Added gauge/sparkline/treemap renderers.
-5. `1951326` — Bold mermaid palette: hackers-colored CSS injected into rendered SVG. Tier-2 suppress toggle.
-6. `fbc5539` — Tier-1 mermaid snapshot pipeline (setInterval driver, single in-flight, ~1.5s cadence). Mermaid renders via `mermaid.render(spec)` → SVG → Image → canvas.
-7. `c7562c0` — Cluster cells along camera path (was inner-radius). 48 path-adjacent towers densify; 52 off-path stay decorative-backdrop.
-8. `0317d54` — Initial (wrong) attempt at clustering — radius from origin, but path is at radius 37-50 from origin not <30. Replaced by `c7562c0`.
-9. `44ba20e` — Filter awaiting-mint cells (50% of cells.json was placeholder PROPOSALs). Fixed Muuri layout-wipe bug in 2D pack.
-10. Earlier today: `c7b56b0` purple tier-1 title color; `5742d4d` tier-1 canvas res bump to 192×576.
+1. `c22a36c` — Teardown clears `_mixed3dSnapInterval` + `_mixed3dSnapInflight`; stale-state guard in composite (correctness, not memory).
+2. `6bf3414` — Fix `_snapTexCache` leak on DOM eviction + silent-placeholder bug after retier-promote. **Cache now scoped to live cells; ceiling ~177MB instead of unbounded over session.**
+3. `75ba261` — Tighter OOM-safer caps: snap concurrency 8→3, batch 4→2, hidden-tab mount cap 60→12. (60 caused the OOM.)
+4. `86aaa16` — Title-at-top composite in driver + parallel snap dispatch. **4-min boot fill → ~10-15s on visible tab.** Renderers paint into 192×504 body region; driver composites with 72px title block + cyan rule. Mermaid renderer anchors top-aligned width-fill with caption filling space below.
+5. `215d036` — `_mixed3dScheduleDrain` helper falls back to `setTimeout(16)` when `document.hidden` (rAF is 0Hz on hidden tabs). **This is the real root cause of what the morning handoff called "MCP browser tab state degradation"** — visibility-throttled rAF, not stale tab state.
+6. `f06c2b4` — (this morning) Original handoff doc.
+7. `bd13a68` — Revert of `4b10bce`. Note: 86aaa16 effectively re-lands 4b10bce now that 215d036 fixes the underlying rAF stall that made 4b10bce look broken.
 
-## Open #142 state
+## #142 — what's done vs open
 
-Current state (commit `bd13a68`, identical to `7d0ca9a`):
+**Done today:**
+- ✅ #145 Title persists across snapshot generations (driver composites)
+- ✅ #146 Mermaid graph anchors top, caption fills below
+- ✅ Parallel snap driver (was single-in-flight)
+- ✅ Hidden-tab boot fallback
 
-- 9 substrate renderers in `_MIXED3D_RENDERERS` table dispatch:
-  - `mermaid` (async, ~500ms each)
-  - `gauge`, `sparkline`, `treemap`, `timeline_ribbon`, `vega`, `force_graph` (synchronous, fast)
-  - `animated_svg` (async, fast)
-  - `html` (synchronous, draws title chip + caption text — no real HTML render)
-- Setinterval(800ms) driver, single in-flight via `_mixed3dSnapInflight` flag.
-- Driver bails on `S.mountDraining === true`.
-- Renderer output replaces `material.map.image` + `needsUpdate = true`.
-- Cache in `S._snapTexCache: Map<cellId, canvas>`.
-- Re-applies tier-2 suppression each tick (handles tier-1↔tier-2 demote churn).
+**Open (in priority order):**
+- Other substrate renderers may want caption-fills-empty-space treatment too (mermaid was the obvious one; gauges/sparklines might benefit similarly).
+- #80 Real-bezel chrome generalization
+- #122 Tower-top violet accent rim
+- #123 Cone glow brightness tune
+- #134 Floor lane-light brightness/contrast (in_progress paused)
+- #135 Pink-ratio audit
+- #139 Restore camera speed 1.0 → 4.0 when polish wraps
+- #147 IndexedDB persistence for `_snapTexCache` — **deferred** (user 2026-05-20: "right now things are changing too fast"). Wiring sketch in task #147.
 
-**Mount drain reaches 1248 cells, drain finishes, then driver starts snapping. ~80 snapshots per minute peak (mermaid is bottleneck).**
+## Snap pipeline architecture (current)
 
-## Open #142 follow-ups (didn't land today)
+```
+Driver: setInterval(120ms)
+  ├─ Skip if mountDraining
+  ├─ Take up to BATCH=2 fresh tier-1 targets (cap MAX_INFLIGHT=3)
+  ├─ Dispatch renderer(arg, 192, 504, {caption, title}) in parallel
+  └─ On each promise:
+      _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData):
+        - bail if S !== _mixed3dState (stale)
+        - paint title block (72px, purple bold, 18-char wrap) onto fresh 192×576
+        - drawImage(bodyCanvas, 0, 72)
+        - cache, swap material.map.image, needsUpdate
+```
 
-1. **Title persists across snapshot generations.** Renderers replace the WHOLE canvas; the placeholder's title (drawn by `_mixed3dCellTexture`) is wiped. Fix is: driver composites title-at-top + body-canvas (renderers paint into body region only). I tried this in `4b10bce` and it broke mount; needs careful investigation.
+- 9 renderers in `_MIXED3D_RENDERERS` dispatch (mermaid, gauge, sparkline, treemap, timeline_ribbon, vega, force_graph, animated_svg, html)
+- `_mixed3dSnapInflight` is a Set (was a boolean)
+- `_mixed3dCompositeAndCacheSnap` hoisted helper — title composite + cache + GPU swap
 
-2. **Mermaid graph too small** in 192×576 portrait canvas. User: "title, vertical space, tiny mermaid, more vertical space". Fix is part of #1 — anchor graph at top of body, fill empty space below with caption text. Mermaid renderer is set up to accept `extras: { caption, title }` already.
+## Tier-1 retier promote paths (just fixed)
 
-3. **Vega cells have complex specs** my naive bar-chart renderer might miss edge cases — verify after fresh tab works.
+Both `_mixed3dSwapCellTier` (newTier=1 path) and `_mixed3dPromoteInstanceToTier1` now re-apply the cached snap canvas onto the fresh placeholder texture if `_snapTexCache.has(id)`. Without this, demote→promote left cells stuck on the placeholder forever because the driver skips cached cells.
 
-## Locked-in visual decisions
+## Locked-in visual decisions (DON'T re-litigate)
 
-These are tested and validated; don't re-litigate.
-
-- Tier-1 canvas 192×576 (matches tier-2 shared)
+- Tier-1 canvas **192×576** with **72px title block + 504px body**
 - Tier-1 title color: **purple `#9966ff`** — pink reserved for danger signal
+- Title rule: thin cyan `#00ddff` at alpha 0.4
+- Mermaid: top-anchored width-fill, capped at 70% body height, caption fills below
 - Mermaid palette: cyan nodes / purple edges / pink edge labels, 3-4px strokes
 - Decoratives stay full-cyan `rgba(0, 221, 255, ...)` — user vetoed darkening
 - Tower count stays **10×10 = 100** — user vetoed reducing
 - Path-clustering: cells mount only on towers within `spacing * 1.2` (~14u) of camera bezier curve
-- Camera slow-scan cadence: ~8-14s between scans (was 30-50s)
+- Camera slow-scan cadence: ~8-14s between scans
 - `?notier2=1` is the A/B comparison knob
+
+## Memory characterization (from today's audit)
+
+| Source | Size | Bounded? |
+|---|---|---|
+| Tier-1 unique canvases (live) | ~177MB (400 × 442KB) | TIER1_CAP=400 |
+| `_snapTexCache` | ~177MB | now bounded ↔ live cells (was unbounded) |
+| Decorative tier textures | ~26MB JS+GPU (16 × 256×768) | once at boot |
+| Tier-2 shared mats | ~26MB (~30 × 442KB) | once at boot |
+| `state.rendering.cellsById` | ~15-30MB | server-cull bounded |
+
+No other unbounded leaks found code-side.
 
 ## Critical bug history (gotchas)
 
-1. **MCP browser tab state degrades after multiple reloads** — mount drain stalls. Fresh tab fixes it. Today this happened 3-4 times.
-2. **Adding html2canvas via `<script defer>` broke mount** in 3 swings before I tried a fresh tab — the script tag alone seems to interact poorly with mount drain in stale tabs. Use cache-bust URL param.
-3. **Title-composite (4b10bce) broke mount** — code review showed nothing obviously wrong. May be tab-state related; revert was the right call.
-4. **`cells.json` HEAD returns 503** from Python http.server — pollAll falls through to GET. Noisy but non-fatal.
+1. **Hidden tab → rAF throttled to 0Hz** → mount drain stalls indefinitely. Fix landed: `_mixed3dScheduleDrain` falls back to `setTimeout`. The "fresh tab fixes it" workaround from morning handoff is **no longer needed**; it was diagnostic noise.
+2. **`_snapTexCache` was unbounded leak.** Every DOM-evicted cell stuck its ~440KB canvas in the cache forever. Fixed.
+3. **Silent-placeholder bug on retier 1→2→1.** Cache hit blocked re-snap, fresh material got placeholder. Fixed by re-applying cached canvas on promote.
+4. **`PER_FRAME_CAP=60` mount burst OOM'd host.** Pulled back to 12 (still 4× over visible-tab default). Don't raise without a heap check.
+5. **`_mixed3dSnapInterval` was module-level**, never cleared on teardown. Wasted ticks across theme/layout switches. Cleared now.
+6. **`cells.json` HEAD returns 503** from Python http.server — pollAll falls through to GET. Noisy but non-fatal.
 
 ## Files to know
 
-- `index.html` — single-file renderer. Key sections in mixed3d (~lines 2576-6500):
-  - `applyMixed3DLayout` (~2583): scene setup
-  - `_mixed3dDrainMountQueue` (~5419): mounts cells from queue
-  - `_mixed3dCellTexture` (~5106): builds the placeholder canvas + diagonal hatch PENDING
-  - `_mixed3dRenderMermaidToCanvas` (~5120): mermaid pipeline
-  - `_mixed3dRender{Gauge,Sparkline,Treemap,TimelineRibbon,Vega,ForceGraph,AnimatedSvg,Html}ToCanvas` — substrate renderers
-  - `_mixed3dStartSnapshotDriver` (~5520): setInterval driver
-  - `_MIXED3D_RENDERERS` table (~5510): dispatch by `cell_type`
-  - `_mixed3dApplyTier2Visibility` (~5180): tier-2 hide
-  - Tier-1 promotion logic: `_mixed3dRetierSweep` (~4742), `_mixed3dPromoteInstanceToTier1` (~4692)
-- `notebook.css` — `body.layout-mixed3d #notebook { display: none }` (currently — DO NOT change to position:absolute, will eat boot perf)
+- `index.html` — single-file renderer. Key sections in mixed3d:
+  - `applyMixed3DLayout` (~2622): scene setup
+  - `teardownMixed3DLayout` (~6867): now clears snap interval + inflight
+  - `_mixed3dDrainMountQueue` (~5946 area)
+  - `_mixed3dScheduleDrain` — rAF/setTimeout chooser based on document.hidden
+  - `_mixed3dCellTexture` (~5891): placeholder canvas (diagonal hatch PENDING)
+  - `_mixed3dRender{Mermaid,Gauge,Sparkline,Treemap,TimelineRibbon,Vega,ForceGraph,AnimatedSvg,Html}ToCanvas` — substrate renderers (paint 192×504 body)
+  - `_mixed3dCompositeAndCacheSnap` (~5710): composite + cache + GPU swap
+  - `_mixed3dStartSnapshotDriver` (~5748): parallel setInterval driver
+  - `_MIXED3D_RENDERERS` table (~5697): dispatch by `cell_type`
+  - `_mixed3dSwapCellTier` (~4662), `_mixed3dPromoteInstanceToTier1` (~4709): both re-apply cached snap
 - `cells.json` — 2594 cells (2531 real + 63 ambient). 1248 mount in mixed3d after awaiting-filter.
-
-## User-stated visual targets carry into next session
-
-- Tier-1 cells "almost as legible as 2D dashboard" during flyby
-- "Diagrams pretty thin and uninspiring" → addressed by bold mermaid palette (1951326)
-- "Abstract sketch should be obvious placeholder" → addressed by PENDING (585377e)
-- "Suppress tier 2 for comparison" → `?notier2=1` flag
-- Mermaid sizing inside narrow cells — outstanding (#142 followup 1+2)
-
-## Pending tasks (priority order for next session)
-
-- **#142** open — title-persistence + mermaid-sizing follow-ups (see above)
-- **#139** Restore camera speed 1.0 → 4.0 when polish wraps
-- **#134** Floor lane-light brightness (in_progress, paused)
-- **#135** Pink-ratio audit
-- **#129** audit-404 cleanup
-- **#132** Tech-debt sweep
 
 ## Probes that proved useful
 
 ```js
-// Snapshot driver state
-(()=>{const S=window._mixed3dState;return{realCells:S?.cellObjects?.size,snapCache:S?._snapTexCache?.size||0,mountQueueLen:S?.mountQueue?.length||0,booted:S?._booted,mountDraining:S?.mountDraining};})()
+// Snap driver state + tier-1 mix + snap coverage
+(()=>{const S=window._mixed3dState;const byType={};const snapByType={};let t1=0,sn=0;for(const [id,obj] of S.cellObjects){if(obj.isInstanceHandle)continue;if(obj.userData?.tier!==1)continue;t1++;const ct=obj.userData?.cellEl?.dataset?.cellType||'?';byType[ct]=(byType[ct]||0)+1;if(S._snapTexCache?.has(id)){sn++;snapByType[ct]=(snapByType[ct]||0)+1;}}return{realCells:S?.cellObjects?.size,snapCache:S?._snapTexCache?.size||0,mountQueueLen:S?.mountQueue?.length||0,mountDraining:S?.mountDraining,hidden:document.hidden,tier1Total:t1,snappedTotal:sn,pct:t1?(sn/t1*100).toFixed(0)+'%':'n/a',byType,snapByType};})()
 
-// Tier-1 cells by substrate type + snapshot status
-(()=>{const S=window._mixed3dState;const byType={};const snapByType={};for(const [id,obj] of S.cellObjects){if(obj.isInstanceHandle)continue;if(obj.userData?.tier!==1)continue;const ct=obj.userData?.cellEl?.dataset?.cellType||'?';byType[ct]=(byType[ct]||0)+1;if(S._snapTexCache?.has(id))snapByType[ct]=(snapByType[ct]||0)+1;}return {tier1ByType:byType,snappedByType:snapByType};})()
-
-// Camera path radius check (verifies path-clustering still works)
+// Camera path radius (verifies path-clustering still works)
 (()=>{const S=window._mixed3dState;const sw=S.swoopCam;const pts=[];for(let i=0;i<10;i++){const p=sw.curve.getPointAt(i/10);pts.push(+Math.hypot(p.x,p.z).toFixed(1));}return {pathRadii:pts};})()
 ```
 
@@ -132,4 +137,7 @@ These are tested and validated; don't re-litigate.
 - Don't rotate tier-1 titles vertically (user vetoed)
 - Don't bring back html2canvas for snapshot pipeline (mermaid SVG path works fine)
 - Don't change `#notebook` from `display:none` in mixed3d mode (eats boot perf)
-- Don't redo path-clustering math — `c7562c0` is verified correct (path radius 37-50, threshold 14u from curve)
+- Don't redo path-clustering math — `c7562c0` verified
+- Don't raise `_MIXED3D_SNAP_MAX_INFLIGHT` above 3 without heap-check (OOM history)
+- Don't raise hidden-tab `PER_FRAME_CAP` above 12 (OOM history)
+- Don't land IndexedDB cache (#147) yet — substrate/renderer surface still in flux
