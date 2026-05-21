@@ -5580,12 +5580,20 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
   return Promise.resolve(canvas);
 }
 
-function _mixed3dRenderTreemapToCanvas(spec, w, h) {
-  // Treemap spec: { children: [{name, value}, ...] } or [{name,value},...]
+function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
+  // Treemap spec, accept all common shapes:
+  //   { items: [{label, value}, ...] }
+  //   { children: [{name, value}, ...] }
+  //   { data: [...] }
+  //   [{...}, ...]
+  // Plus per-item key flexibility: label OR name OR title; value OR size.
+  // The specialist has minted both items and children variants over time;
+  // before this normalization the renderer silently returned null on the
+  // mismatch — observed as treemap cells getting cached as title-only stubs.
   let items;
   try {
     const s = typeof spec === "string" ? JSON.parse(spec) : spec;
-    items = Array.isArray(s) ? s : (s.children || []);
+    items = Array.isArray(s) ? s : (s.items || s.children || s.data || []);
   } catch (e) { return Promise.resolve(null); }
   if (!Array.isArray(items) || !items.length) return Promise.resolve(null);
   const canvas = document.createElement("canvas");
@@ -5625,7 +5633,7 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h) {
       ctx.font = "bold 14px 'Eurostile', 'Share Tech Mono', monospace";
       ctx.textBaseline = "top";
       ctx.textAlign = "left";
-      const name = String(it.name || "").slice(0, Math.floor(rw / 8));
+      const name = String(it.label || it.name || it.title || "").slice(0, Math.floor(rw / 8));
       ctx.fillText(name, curX + 4, curY + 4);
       if (rh > 40) {
         ctx.font = "12px 'Eurostile', 'Share Tech Mono', monospace";
