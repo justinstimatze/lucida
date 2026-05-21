@@ -5236,30 +5236,31 @@ function _mixed3dStyleMermaidSVG(svgString) {
     <style>
       svg { background: transparent !important; }
       .node rect, .node polygon, .node circle, .node ellipse, .node path {
-        fill: rgba(0, 221, 255, 0.12) !important;
-        stroke: #9966ff !important;
-        stroke-width: 4px !important;
+        fill: rgba(0, 221, 255, 0.22) !important;
+        stroke: #b48aff !important;
+        stroke-width: 6px !important;
       }
       .node .label, .nodeLabel, .label foreignObject div, .label text, text.label {
-        fill: #ccf3ff !important;
-        color: #ccf3ff !important;
-        font-weight: 700 !important;
+        fill: #e8f8ff !important;
+        color: #e8f8ff !important;
+        font-weight: 800 !important;
       }
       .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
-        stroke: #9966ff !important;
-        stroke-width: 3px !important;
+        stroke: #b48aff !important;
+        stroke-width: 5px !important;
         fill: none !important;
       }
       .marker, .arrowheadPath, marker path {
-        fill: #9966ff !important;
-        stroke: #9966ff !important;
+        fill: #b48aff !important;
+        stroke: #b48aff !important;
       }
       .edgeLabel, .edgeLabel rect, .edgeLabel foreignObject div, .edgeLabel text {
         background-color: transparent !important;
-        fill: #9966ff !important;
-        color: #9966ff !important;
+        fill: #d8c8ff !important;
+        color: #d8c8ff !important;
+        font-weight: 700 !important;
       }
-      .cluster rect, .cluster path { stroke: #9966ff !important; fill: rgba(153, 102, 255, 0.06) !important; }
+      .cluster rect, .cluster path { stroke: #b48aff !important; stroke-width: 5px !important; fill: rgba(153, 102, 255, 0.10) !important; }
     </style>
   `;
   // Inject right after the opening <svg ...> tag.
@@ -6177,7 +6178,9 @@ window._mixed3dParkAt = function(cellId, offset) {
   if (!T) return null;
   const obj = S.cellObjects.get(cellId);
   if (!obj || obj.isInstanceHandle) return { err: "not a tier-1 mesh" };
-  const parkOffset = offset || 3.5;
+  // 2.0u in front fills more of the viewport (cells are ~0.8u wide at
+  // the typical face-to-face camera distance). Was 3.5u — felt too far.
+  const parkOffset = offset || 2.0;
   // The plane mesh's local +Z is the front face; rotate it by the
   // mesh's world rotation to get the camera-side normal in world space.
   const normal = new T.Vector3(0, 0, 1).applyEuler(obj.rotation);
