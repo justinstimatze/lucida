@@ -5910,10 +5910,15 @@ function _mixed3dStartSnapshotDriver() {
       // rejecting (e.g. mermaid Image.onload never firing on a malformed
       // SVG). Without a timeout, hung promises eat the 3 inflight slots
       // permanently and the driver appears alive but makes no progress.
+      const t0 = performance.now();
       const renderP = renderer(arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title });
       const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("snap-render-timeout-10s")), 10000));
       Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
         _mixed3dSnapInflight.delete(targetId);
+        const dt = performance.now() - t0;
+        if (!window._snapProfBySubstrate) window._snapProfBySubstrate = {};
+        const p = (window._snapProfBySubstrate[targetCt] ||= { n: 0, totalMs: 0, maxMs: 0 });
+        p.n++; p.totalMs += dt; if (dt > p.maxMs) p.maxMs = dt;
         _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, targetCellData);
       }).catch((e) => {
         _mixed3dSnapInflight.delete(targetId);
