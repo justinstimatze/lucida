@@ -2691,12 +2691,20 @@ function applyMixed3DLayout(opts) {
   // hit cell for inspection / screenshotting. Click empty space (or
   // press Escape) to release. Disabled during warmup so the user
   // doesn't accidentally fire it while the boot overlay is up.
-  renderer.domElement.addEventListener("click", (e) => {
+  //
+  // Listener attached on `window` with capture, because the WebGL
+  // canvas itself has pointer-events:none (the CSS3D layer floats
+  // above it and pointer-events flow to that for cell interactivity).
+  // We don't need the listener to BE on the canvas — the event still
+  // carries client coordinates, which is all the raycaster needs.
+  window.addEventListener("click", (e) => {
     const S = _mixed3dState;
     if (!S || S._warmupActive) return;
+    // Ignore clicks on HUD chrome (dropdowns, dialogs, etc).
+    if (e.target?.closest?.("#hud, #notebook-dialog, .dropdown, button, a")) return;
     const T2 = window.THREE;
-    if (!T2) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    if (!T2 || !S.camera || !S.renderer) return;
+    const rect = S.renderer.domElement.getBoundingClientRect();
     const mouse = new T2.Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       -((e.clientY - rect.top) / rect.height) * 2 + 1,
@@ -2717,7 +2725,7 @@ function applyMixed3DLayout(opts) {
       if (o === hits[0].object) { hitId = id; break; }
     }
     if (hitId) console.log("[mixed3d] park", window._mixed3dParkAt(hitId));
-  });
+  }, true);
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && _mixed3dState?._park) window._mixed3dUnpark();
   });
