@@ -5164,7 +5164,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
   return svgString.replace(/(<svg[^>]*>)/, "$1" + css);
 }
 
-function _mixed3dRenderMermaidToCanvas(spec, w, h) {
+function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   if (!spec || typeof window.mermaid !== "object") return Promise.resolve(null);
   const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
   return window.mermaid.parse(spec).then(() => window.mermaid.render(id, spec))
@@ -5176,16 +5176,43 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h) {
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
+        // Top-anchored width-fill so the graph sits flush against the
+        // title bar above, not letterboxed in the middle of a tall body
+        // region. Caption fills the empty space below the graph.
         const aspectImg = img.naturalWidth / img.naturalHeight;
-        const aspectCan = w / h;
-        let dw, dh, dx, dy;
-        if (aspectImg > aspectCan) {
-          dw = w; dh = w / aspectImg; dx = 0; dy = (h - dh) / 2;
-        } else {
-          dh = h; dw = h * aspectImg; dx = (w - dw) / 2; dy = 0;
-        }
-        ctx.drawImage(img, dx, dy, dw, dh);
+        const graphW = w;
+        const graphH = Math.min(h * 0.7, w / aspectImg);
+        ctx.drawImage(img, 0, 0, graphW, graphH);
         URL.revokeObjectURL(img.src);
+        const caption = String(extras?.caption || "").trim();
+        if (caption && h - graphH > 40) {
+          const capY0 = graphH + 12;
+          const capY1 = h - 8;
+          ctx.fillStyle = "#ccf3ff";
+          ctx.globalAlpha = 0.85;
+          ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "top";
+          const padX = 8;
+          const charsPerLine = 22;
+          const lineH = 17;
+          const maxLines = Math.floor((capY1 - capY0) / lineH);
+          const words = caption.split(/\s+/);
+          const lines = [];
+          let cur = "";
+          for (const word of words) {
+            const next = cur ? cur + " " + word : word;
+            if (next.length > charsPerLine) {
+              if (cur) lines.push(cur);
+              cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
+            } else cur = next;
+            if (lines.length >= maxLines) break;
+          }
+          if (cur && lines.length < maxLines) lines.push(cur);
+          let cy = capY0;
+          for (const L of lines) { ctx.fillText(L, padX, cy); cy += lineH; }
+          ctx.globalAlpha = 1;
+        }
         resolve(canvas);
       };
       img.onerror = (e) => { URL.revokeObjectURL(img.src); reject(e); };
@@ -5646,7 +5673,12 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h) {
 }
 
 let _mixed3dSnapInterval = null;
-let _mixed3dSnapInflight = false;
+// Cells currently being rendered (id → true). Prevents double-dispatch
+// while a render is in flight without blocking the rest of the queue —
+// each tick can kick BATCH_SIZE new renders in parallel.
+const _mixed3dSnapInflight = new Set();
+const _MIXED3D_SNAP_MAX_INFLIGHT = 8;
+const _MIXED3D_SNAP_BATCH = 4;
 
 // Dispatch table: substrate type → render function. Returns Promise<canvas|null>.
 // Note: html renderer takes (cellData, w, h) — uses caption/title from cells.json,
@@ -5663,6 +5695,54 @@ const _MIXED3D_RENDERERS = {
   html: _mixed3dRenderHtmlToCanvas,
 };
 
+function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData) {
+  if (!bodyCanvas) return;
+  const TITLE_H = 72;
+  const fullCanvas = document.createElement("canvas");
+  fullCanvas.width = 192;
+  fullCanvas.height = 576;
+  const ctx = fullCanvas.getContext("2d");
+  const title = String(cellData?.title || targetId || "").toUpperCase();
+  ctx.fillStyle = "#9966ff";
+  ctx.font = "bold 17px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  const padX = 8;
+  const charsPerLine = 18;
+  const lineH = 20;
+  const words = title.split(/\s+/);
+  let y = 8;
+  let cur = "";
+  for (const w of words) {
+    const next = cur ? cur + " " + w : w;
+    if (next.length > charsPerLine) {
+      if (cur) ctx.fillText(cur, padX, y);
+      y += lineH;
+      if (y + lineH > TITLE_H - 4) { cur = ""; break; }
+      cur = w.length > charsPerLine ? w.slice(0, charsPerLine - 1) + "…" : w;
+    } else cur = next;
+  }
+  if (cur && y + lineH <= TITLE_H - 4) ctx.fillText(cur, padX, y);
+  ctx.strokeStyle = "#00ddff";
+  ctx.globalAlpha = 0.4;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padX, TITLE_H - 2);
+  ctx.lineTo(192 - padX, TITLE_H - 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.drawImage(bodyCanvas, 0, TITLE_H);
+  if (!S._snapTexCache) S._snapTexCache = new Map();
+  S._snapTexCache.set(targetId, fullCanvas);
+  const curObj = S.cellObjects.get(targetId);
+  if (curObj && !curObj.isInstanceHandle
+      && curObj.userData?.tier === 1
+      && curObj.material?.map) {
+    curObj.material.map.image = fullCanvas;
+    curObj.material.map.needsUpdate = true;
+  }
+}
+
 function _mixed3dStartSnapshotDriver() {
   if (_mixed3dSnapInterval) return;
   console.log("[mixed3d] tier-1 snapshot driver started (substrates: " + Object.keys(_MIXED3D_RENDERERS).join(",") + ")");
@@ -5673,12 +5753,20 @@ function _mixed3dStartSnapshotDriver() {
     // between tier-1 and tier-2 dynamically, creating fresh visible Meshes.
     if (_mixed3dTier2Suppressed) _mixed3dApplyTier2Visibility(false);
     if (S.mountDraining) return;
-    if (_mixed3dSnapInflight) return;
-    let target = null;
+    // Cap concurrent renders to keep the main thread responsive (mermaid
+    // can spike to ~200ms each, animated_svg parses SVG, etc).
+    const capacity = _MIXED3D_SNAP_MAX_INFLIGHT - _mixed3dSnapInflight.size;
+    if (capacity <= 0) return;
+    const dispatch = Math.min(capacity, _MIXED3D_SNAP_BATCH);
+    let kicked = 0;
+    const TITLE_H = 72;
+    const BODY_H = 576 - TITLE_H;
     for (const [id, obj] of S.cellObjects) {
+      if (kicked >= dispatch) break;
       if (obj.isInstanceHandle) continue;
       if (obj.userData?.tier !== 1) continue;
       if (S._snapTexCache?.has(id)) continue;
+      if (_mixed3dSnapInflight.has(id)) continue;
       const el = obj.userData?.cellEl;
       if (!el) continue;
       const ct = el.dataset?.cellType || "";
@@ -5686,8 +5774,6 @@ function _mixed3dStartSnapshotDriver() {
       if (!renderer) continue;
       const cellData = state.rendering.cellsById?.get(id);
       if (!cellData) continue;
-      // html renderer reads from cellData (title + caption); all others
-      // read from cellData.spec which must be a parsable string/object.
       let arg;
       if (ct === "html") {
         if (!cellData.title && !cellData.caption) continue;
@@ -5696,25 +5782,19 @@ function _mixed3dStartSnapshotDriver() {
         if (!cellData.spec || cellData.spec === "None") continue;
         arg = cellData.spec;
       }
-      target = { id, obj, arg, renderer };
-      break;
+      _mixed3dSnapInflight.add(id);
+      kicked++;
+      const targetId = id;
+      const targetCellData = cellData;
+      renderer(arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title }).then((bodyCanvas) => {
+        _mixed3dSnapInflight.delete(targetId);
+        _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, targetCellData);
+      }).catch((e) => {
+        _mixed3dSnapInflight.delete(targetId);
+        console.warn("[mixed3d] snap render fail for", targetId, e?.message || e);
+      });
     }
-    if (!target) return;
-    _mixed3dSnapInflight = true;
-    target.renderer(target.arg, 192, 576).then((canvas) => {
-      _mixed3dSnapInflight = false;
-      if (!canvas) return;
-      if (!S._snapTexCache) S._snapTexCache = new Map();
-      S._snapTexCache.set(target.id, canvas);
-      const curObj = S.cellObjects.get(target.id);
-      if (curObj && !curObj.isInstanceHandle
-          && curObj.userData?.tier === 1
-          && curObj.material?.map) {
-        curObj.material.map.image = canvas;
-        curObj.material.map.needsUpdate = true;
-      }
-    });
-  }, 800);  // bumped from 1500 — gauges/sparklines/treemaps are synchronous; mermaid still the bottleneck
+  }, 120);
 }
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
@@ -5963,7 +6043,12 @@ function _mixed3dDrainMountQueue() {
   // Live operation (1–2 cells/minute) lands in one frame either way,
   // so the cap is invisible after boot.
   const BUDGET_MS = 9;
-  const PER_FRAME_CAP = 3;
+  // Hidden tabs throttle setTimeout to ~1Hz, so a 3-cell cap means 3
+  // cells/sec — a 1248-cell boot would take 7+ minutes. Bump the cap
+  // hard when hidden (we're not competing with rAF rendering anyway,
+  // since the WebGL frame loop is also throttled). Visible tabs keep
+  // the smooth 3 cells/frame trickle the user signed off on.
+  const PER_FRAME_CAP = document.hidden ? 60 : 3;
 
   // Hoist style lookups out of the per-cell paint loop. Theme changes
   // teardown the layout (rebuild path), so this is stable across one
