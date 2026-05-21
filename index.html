@@ -3431,9 +3431,14 @@ function applyMixed3DLayout(opts) {
     // The legacy 20s timeout in the boot script (index.html:81) still
     // serves as a hard fallback if something keeps frames unstable
     // forever, so we never strand the user behind a stuck loader.
+    // On a hidden tab rAF runs at ~1Hz with dt=1000ms, so the dt<33 stable-
+    // frame check never accumulates and _stableFrames stays at 0 forever —
+    // boot never fires and the snap driver never starts. When hidden, drop
+    // the frame-stability gate (it's meaningless without real rendering)
+    // and fire as soon as mount drain finishes.
     if (!_mixed3dState._booted
         && !_mixed3dState.mountDraining
-        && (_mixed3dState._stableFrames || 0) >= 30) {
+        && (document.hidden || (_mixed3dState._stableFrames || 0) >= 30)) {
       _mixed3dState._booted = true;
       // Kick off tier-1 rich-substrate snapshot driver (#142).
       _mixed3dStartSnapshotDriver();
