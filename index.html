@@ -4766,7 +4766,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
       // with the proper substrate render when its turn comes up. We
       // deliberately do NOT cache the stub — the snap driver checks
       // cache.has(id) to skip, and we want it to render this cell.
-      const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id));
+      const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id), obj.userData?.colspan || 1);
       if (stub) { tex.image = stub; tex.needsUpdate = true; }
     }
     obj.material = new T.MeshBasicMaterial({
@@ -4818,7 +4818,7 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
     // Synchronous title+caption stub so the cell is legible the
     // instant it crosses the LOD boundary. Snap driver overwrites
     // with the substrate render when its turn comes up.
-    const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id));
+    const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id), handle?.userData?.colspan || 1);
     if (stub) { tex.image = stub; tex.needsUpdate = true; }
   }
   const mat = new T.MeshBasicMaterial({
@@ -5276,10 +5276,13 @@ function _mixed3dStyleMermaidSVG(svgString) {
 // Paint the standard tier-1 title block (72px purple bold uppercase
 // with cyan divider rule). Shared by the async snap composite and the
 // synchronous promote stub so they agree on title layout.
-function _mixed3dPaintTitleBlock(ctx, title) {
+function _mixed3dPaintTitleBlock(ctx, title, fullW) {
   const TITLE_H = 72;
   const padX = 8;
-  const charsPerLine = 18;
+  const W = fullW || 192;
+  // Char width scales with W so colspan=2 cells fit ~36 chars per line
+  // instead of just 18.
+  const charsPerLine = Math.max(18, Math.floor(18 * (W / 192)));
   const lineH = 20;
   ctx.save();
   ctx.fillStyle = "#9966ff";
@@ -5304,7 +5307,7 @@ function _mixed3dPaintTitleBlock(ctx, title) {
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(padX, TITLE_H - 2);
-  ctx.lineTo(192 - padX, TITLE_H - 2);
+  ctx.lineTo(W - padX, TITLE_H - 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -5315,15 +5318,17 @@ function _mixed3dPaintTitleBlock(ctx, title) {
 // replaces this with the proper substrate render (mermaid/vega/etc)
 // ~100-500ms later. ~3-5ms per call — cheap enough to run in the
 // retier-sweep budget without blowing PROMOTE_BUDGET.
-function _mixed3dPaintPromoteStub(id, cellData) {
+function _mixed3dPaintPromoteStub(id, cellData, colspan) {
+  const cs = Math.max(1, Math.min(3, colspan || 1));
+  const W = 192 * cs;
   const canvas = document.createElement("canvas");
-  canvas.width = 192;
+  canvas.width = W;
   canvas.height = 576;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#000814";
-  ctx.fillRect(0, 0, 192, 576);
-  _mixed3dPaintTitleBlock(ctx, cellData?.title || id);
-  _mixed3dPaintCaption(ctx, cellData?.caption, 72 + 8, 576 - 8, 192);
+  ctx.fillRect(0, 0, W, 576);
+  _mixed3dPaintTitleBlock(ctx, cellData?.title || id, W);
+  _mixed3dPaintCaption(ctx, cellData?.caption, 72 + 8, 576 - 8, W);
   return canvas;
 }
 
@@ -5395,10 +5400,16 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
 function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   if (!spec || typeof window.mermaid !== "object") return Promise.resolve(null);
   const cellId = extras?.id;
+  // Cache key now includes colspan since wide cells need a wider
+  // canvas — re-rasterizing a 192-wide SVG into a 384-wide cell is
+  // technically OK (SVG scales) but content like edge labels would
+  // be undersized in the wider context. Keep variants separate.
+  const cs = Math.max(1, Math.min(3, extras?.colspan || 1));
+  const cacheKey = cs > 1 ? `mermaid.c${cs}` : "mermaid";
   // Cache hit path: fetch the pre-rendered SVG from the static server.
   // Same origin, so no CORS dance. 404 → fall through to fresh render.
   const tryCache = cellId
-    ? fetch(`/cells/${encodeURIComponent(cellId)}.mermaid.svg`)
+    ? fetch(`/cells/${encodeURIComponent(cellId)}.${cacheKey}.svg`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("cache-miss"))))
         .then((svg) => _mixed3dRasterizeSvgToCanvas(svg, w, h, extras))
     : Promise.reject(new Error("no-cellId"));
@@ -5411,7 +5422,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
       .then(({ svg }) => {
         const styledSvg = _mixed3dStyleMermaidSVG(svg);
         if (cellId) {
-          fetch(`http://127.0.0.1:8767/cells/${encodeURIComponent(cellId)}.mermaid.svg`, {
+          fetch(`http://127.0.0.1:8767/cells/${encodeURIComponent(cellId)}.${cacheKey}.svg`, {
             method: "POST",
             body: styledSvg,
             headers: { "content-type": "image/svg+xml" },
@@ -5920,18 +5931,19 @@ const _MIXED3D_RENDERERS = {
   html: _mixed3dRenderHtmlToCanvas,
 };
 
-function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData) {
+function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspan) {
   if (!bodyCanvas) return;
   // Bail if teardown happened mid-render — S is stale, _mixed3dState has
   // moved on (or gone null). Without this we'd write into a defunct
   // _snapTexCache and try to mutate a disposed material.
   if (S !== _mixed3dState) return;
   const TITLE_H = 72;
+  const cs = Math.max(1, Math.min(3, colspan || S.cellObjects.get(targetId)?.userData?.colspan || 1));
   const fullCanvas = document.createElement("canvas");
-  fullCanvas.width = 192;
+  fullCanvas.width = 192 * cs;
   fullCanvas.height = 576;
   const ctx = fullCanvas.getContext("2d");
-  _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId);
+  _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   if (!S._snapTexCache) S._snapTexCache = new Map();
   S._snapTexCache.set(targetId, fullCanvas);
@@ -6009,13 +6021,17 @@ function _mixed3dStartSnapshotDriver() {
       const targetCellData = cellData;
       const targetCt = ct;
       const renderer = _MIXED3D_RENDERERS[ct];
+      // Read colspan stored at mount time; default to 1 for legacy paths.
+      const obj = S.cellObjects.get(id);
+      const colspan = obj?.userData?.colspan || 1;
+      const W_full = 192 * colspan;
       // 10s per-render timeout — earlier debugging found cells stuck at
       // 28% after 30 min, consistent with renderers hanging without
       // rejecting (e.g. mermaid Image.onload never firing on a malformed
       // SVG). Without a timeout, hung promises eat the 3 inflight slots
       // permanently and the driver appears alive but makes no progress.
       const t0 = performance.now();
-      const renderP = renderer(arg, 192, BODY_H, { id: id, caption: cellData?.caption, title: cellData?.title });
+      const renderP = renderer(arg, W_full, BODY_H, { id: id, colspan, caption: cellData?.caption, title: cellData?.title });
       const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("snap-render-timeout-10s")), 10000));
       Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
         _mixed3dSnapInflight.delete(targetId);
@@ -6023,10 +6039,34 @@ function _mixed3dStartSnapshotDriver() {
         if (!window._snapProfBySubstrate) window._snapProfBySubstrate = {};
         const p = (window._snapProfBySubstrate[targetCt] ||= { n: 0, totalMs: 0, maxMs: 0 });
         p.n++; p.totalMs += dt; if (dt > p.maxMs) p.maxMs = dt;
-        _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, targetCellData);
+        if (!bodyCanvas) {
+          // Renderer returned null (unparseable spec, missing data,
+          // etc). Without this branch the snap driver would retry
+          // this same cell every 120ms forever — observed 22,891
+          // redundant treemap renders before this fix. Cache the
+          // promote-time stub so the driver skips on next tick.
+          if (!S._snapTexCache) S._snapTexCache = new Map();
+          const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan);
+          if (stub) {
+            S._snapTexCache.set(targetId, stub);
+            const curObj = S.cellObjects.get(targetId);
+            if (curObj && !curObj.isInstanceHandle && curObj.userData?.tier === 1 && curObj.material?.map) {
+              curObj.material.map.image = stub;
+              curObj.material.map.needsUpdate = true;
+            }
+          }
+          return;
+        }
+        _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, targetCellData, colspan);
       }).catch((e) => {
         _mixed3dSnapInflight.delete(targetId);
         console.warn("[mixed3d] snap fail", targetCt, targetId, e?.message || e);
+        // Cache a stub on persistent failure so we don't loop on the
+        // same broken cell every tick. (Mirrors the null-bodyCanvas
+        // branch above — keep them in sync.)
+        if (!S._snapTexCache) S._snapTexCache = new Map();
+        const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan);
+        if (stub) S._snapTexCache.set(targetId, stub);
       });
     }
   }, 120);
@@ -6126,15 +6166,27 @@ function _mixed3dRunPathWarmup(S) {
         }
         if (S._snapTexCache?.has(id)) { _advance(); continue; }
         inflight.add(id);
-        const renderP = renderer(arg, 192, BODY_H, { id: id, caption: cellData?.caption, title: cellData?.title });
+        const colspan = obj?.userData?.colspan || 1;
+        const W_full = 192 * colspan;
+        const renderP = renderer(arg, W_full, BODY_H, { id: id, colspan, caption: cellData?.caption, title: cellData?.title });
         const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("warmup-render-timeout-10s")), 10000));
         Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
           inflight.delete(id);
-          _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData);
+          if (!bodyCanvas) {
+            // Null-render stub-cache (mirrors steady-state driver).
+            if (!S._snapTexCache) S._snapTexCache = new Map();
+            const stub = _mixed3dPaintPromoteStub(id, cellData, colspan);
+            if (stub) S._snapTexCache.set(id, stub);
+          } else {
+            _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData, colspan);
+          }
           _advance();
         }).catch((e) => {
           inflight.delete(id);
           console.warn("[mixed3d] warmup fail", ct, id, e?.message || e);
+          if (!S._snapTexCache) S._snapTexCache = new Map();
+          const stub = _mixed3dPaintPromoteStub(id, cellData, colspan);
+          if (stub) S._snapTexCache.set(id, stub);
           _advance();
         });
       }
@@ -6209,16 +6261,14 @@ window._mixed3dSnapDebug = function() {
 };
 window._mixed3dStartSnapshotDriver = _mixed3dStartSnapshotDriver;
 
-function _mixed3dCellTexture(cell, isTop, cyan, pink) {
+function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan) {
   const T = window.THREE;
-  // Side cells: 192×576 (#138 follow-up 2026-05-19) — was 80×240 (~19k px),
-  // bumped to match the tier-2 shared canvas (192×576). Tier-1 was the
-  // BLURRIEST tier after the tier-2 crispness bump, which was backwards.
-  // Now tier-1 has the same source resolution as tier-2 BUT carries unique
-  // content (title + substrate preview + type chip) so it reads as the
-  // distinct, sharp tier the user expects close to camera. Memory:
-  // ~442KB × 400 cap ≈ 176MB worst case (was ~30MB).
-  const W = isTop ? 384 : 192;
+  // Side cells: 192×576 base, scaled horizontally by colspan (#157)
+  // so wide cells (mermaid flowchart / vega / force_graph) carry a
+  // proportionally wider canvas — no horizontal stretching of the
+  // substrate render. colspan=1 → 192 wide, colspan=2 → 384, etc.
+  const cs = Math.max(1, Math.min(3, colspan || 1));
+  const W = isTop ? 384 : (192 * cs);
   const H = isTop ? 384 : 576;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -6482,7 +6532,8 @@ function _mixed3dDrainMountQueue() {
     if (!cell.isConnected) continue;
     if (map.has(cell.id)) continue;
 
-    const placement = _mixed3dPickSlotForNewCell();
+    const desiredColspan = _mixed3dColspanForCell(cell);
+    const placement = _mixed3dPickSlotForNewCell(desiredColspan);
     if (!placement) {
       // Field is full — drop the rest of the queue. Future syncCells
       // calls will re-enqueue fresh cells if eviction frees slots.
@@ -6490,14 +6541,17 @@ function _mixed3dDrainMountQueue() {
       pending.clear();
       break;
     }
-    const { towerIdx, facePri, col, key, y: cellY, h: cellH, p: claimedP } = placement;
+    const { towerIdx, facePri, col, key, y: cellY, h: cellH, p: claimedP, colspan: gotColspan, spanKeys } = placement;
     const tower = S.towerMeshes[towerIdx];
     const isTop = facePri === 4;
-    // Hide any decorative-tier instance behind this real cell so its
-    // terminal text doesn't bleed through transparent pixels in the
-    // cell's substrate render. Top-face slots have no decorative.
+    const cs = gotColspan || 1;
+    // Hide decorative-tier instances at every slot this wide cell
+    // now covers. Otherwise the decorative terminal-text bleeds
+    // through transparent pixels on the cell's substrate render.
     if (!isTop && typeof claimedP === "number") {
-      _mixed3dHideDecorativeAtSlot(towerIdx, facePri, col, claimedP);
+      for (let k = 0; k < cs; k++) {
+        _mixed3dHideDecorativeAtSlot(towerIdx, facePri, col + k, claimedP);
+      }
     }
     let tx, ty, tz, rotX = 0, rotY = 0;
     let mountedH = G.towerW * 0.95;
@@ -6508,13 +6562,11 @@ function _mixed3dDrainMountQueue() {
       rotX = -Math.PI / 2;
     } else {
       const faceSpec = tower.faces[facePri];
-      const colOffset = (col - (G.slotsPerFaceX - 1) / 2) * G.slotW;
-      // Tier-2 cells nudged 0.12u further outward than tier-1 so they
-      // sit physically in front of the tower glass plane. The +0.02
-      // baked into faceSpec.dx/dz wasn't enough to win the depth test
-      // against the transparent tower at saturation — at distance the
-      // depth resolution collapses and tier-2 cells got overdrawn by
-      // tower glass even with polygonOffset enabled.
+      // Center across the spanned columns: the left edge sits at
+      // col, the right edge at col+cs-1, so the cell-center column
+      // index is col + (cs-1)/2.
+      const centerCol = col + (cs - 1) / 2;
+      const colOffset = (centerCol - (G.slotsPerFaceX - 1) / 2) * G.slotW;
       const outwardBoost = 0.12;
       const dxNorm = faceSpec.dx === 0 ? 0 : (faceSpec.dx > 0 ? 1 : -1);
       const dzNorm = faceSpec.dz === 0 ? 0 : (faceSpec.dz > 0 ? 1 : -1);
@@ -6528,7 +6580,7 @@ function _mixed3dDrainMountQueue() {
       mountedH = cellH;
     }
 
-    const planeW = isTop ? G.towerW * 0.95 : G.cellW;
+    const planeW = isTop ? G.towerW * 0.95 : (G.cellW * cs);
     const planeH = mountedH;
     // Geometry sharing: cells with similar dimensions reuse one
     // PlaneGeometry instance instead of allocating a fresh one per
@@ -6590,6 +6642,7 @@ function _mixed3dDrainMountQueue() {
             mountPlaneW: planeW, mountPlaneH: planeH,
             mountIsTop: isTop,
           };
+          handle.userData.colspan = cs;
           map.set(cell.id, handle);
           S.cellTier.set(cell.id, 2);
           S.cellSlotKeys.set(cell.id, key);
@@ -6604,7 +6657,7 @@ function _mixed3dDrainMountQueue() {
 
     let mat;
     if (tier === 1) {
-      const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
+      const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs);
       mat = new T.MeshBasicMaterial({
         map: tex,
         transparent: true,
@@ -6633,6 +6686,7 @@ function _mixed3dDrainMountQueue() {
     obj.frustumCulled = true;
     obj.userData.cellEl = cell;
     obj.userData.tier = tier;
+    obj.userData.colspan = cs;
     S.scene.add(obj);
     map.set(cell.id, obj);
     S.cellTier.set(cell.id, tier);
@@ -7137,11 +7191,32 @@ function _mixed3dHideDecorativeAtSlot(towerIdx, face, col, p) {
 // to camera target. Within the picked tower, walks col→face and uses
 // the column-pack plan to return the next { y, h } slot in that
 // column. Returns null if every column on every tower is fully packed.
-function _mixed3dPickSlotForNewCell() {
+// Derive horizontal span (1..3) for a cell from its substrate/subtype.
+// Wider cells get more body area; the visual signature of narrow
+// columns is preserved by leaving most cells at colspan=1.
+// User 2026-05-21: "diagrams and graphs just don't like good squished
+// into the tall vertical cell default" — graph-shaped substrates get
+// 2 columns so mermaid flowcharts / vega / force_graph have aspect
+// closer to 1:1.5 instead of 1:3.
+function _mixed3dColspanForCell(cell) {
+  if (!cell || !cell.dataset) return 1;
+  const ct = cell.dataset.cellType || "";
+  if (ct === "vega" || ct === "force_graph") return 2;
+  if (ct === "mermaid") {
+    const sub = cell.dataset.mermaidSubtype || "";
+    if (sub === "flowchart" || sub === "timeline" || sub === "quadrantChart" || sub === "sankey-beta") {
+      return 2;
+    }
+  }
+  return 1;
+}
+
+function _mixed3dPickSlotForNewCell(desiredColspan) {
   const S = _mixed3dState;
   if (!S) return null;
   const G = S.geometry;
   const cam = S.camera;
+  const colspan = Math.max(1, Math.min(3, desiredColspan || 1));
   let targetX = cam.position.x;
   let targetZ = cam.position.z;
   // Lookahead: pick towers about to enter view, not towers in the
@@ -7234,21 +7309,38 @@ function _mixed3dPickSlotForNewCell() {
     // face=0 for every cell on a tower until that column was packed,
     // producing "one full column on one side of each tower" instead
     // of even distribution.
-    let bestKey = null, bestFace = -1, bestCol = -1, bestNext = Infinity;
-    for (let col = 0; col < G.slotsPerFaceX; col++) {
-      for (let face = 0; face < 4; face++) {
-        const key = `${idx}:${face}:${col}`;
-        let plan = S.columnPlans.get(key);
-        if (!plan) {
-          plan = _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY);
-          S.columnPlans.set(key, plan);
+    // For colspan=K we need K adjacent columns on the SAME face that
+    // share a free position p at the same row index. Walk faces, find
+    // the run of K adjacent columns whose .nextIdx values are equal
+    // and within plan.positions.length; pick the lowest such p.
+    let bestKey = null, bestFace = -1, bestCol = -1, bestNext = Infinity, bestSpanKeys = null;
+    for (let face = 0; face < 4; face++) {
+      for (let col = 0; col + colspan <= G.slotsPerFaceX; col++) {
+        const spanKeys = [];
+        let runP = -1, ok = true;
+        for (let k = 0; k < colspan; k++) {
+          const ck = `${idx}:${face}:${col + k}`;
+          let plan = S.columnPlans.get(ck);
+          if (!plan) {
+            plan = _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY);
+            S.columnPlans.set(ck, plan);
+          }
+          if (plan.nextIdx >= plan.positions.length) { ok = false; break; }
+          // All spanned columns must agree on the row index — wide
+          // cell occupies one row across K columns. If a neighbor's
+          // nextIdx has drifted ahead, advance the laggards via the
+          // claim path (see below) before re-checking.
+          if (runP === -1) runP = plan.nextIdx;
+          else if (plan.nextIdx !== runP) { ok = false; break; }
+          spanKeys.push(ck);
         }
-        if (plan.nextIdx >= plan.positions.length) continue;
-        if (plan.nextIdx < bestNext) {
-          bestNext = plan.nextIdx;
-          bestKey = key;
+        if (!ok) continue;
+        if (runP < bestNext) {
+          bestNext = runP;
+          bestKey = `${idx}:${face}:${col}`;
           bestFace = face;
           bestCol = col;
+          bestSpanKeys = spanKeys;
         }
       }
     }
@@ -7256,11 +7348,47 @@ function _mixed3dPickSlotForNewCell() {
       const plan = S.columnPlans.get(bestKey);
       const claimedP = plan.nextIdx;
       const slot = plan.positions[claimedP];
-      plan.nextIdx++;
+      // Advance nextIdx on EVERY spanned column so the next picker
+      // pass treats those slots as taken. Without this, a colspan=2
+      // wide cell would only consume col-N's slot and col-(N+1)
+      // would mount another cell on top of the wide cell.
+      for (const ck of bestSpanKeys) S.columnPlans.get(ck).nextIdx++;
       return {
         towerIdx: idx, facePri: bestFace, col: bestCol, key: bestKey,
         y: slot.y, h: slot.h, p: claimedP,
+        colspan, spanKeys: bestSpanKeys,
       };
+    }
+    // Fall back to single-slot pick if no run of K could be found
+    // (face is fragmented). Prevents wide cells from completely
+    // failing to land when the grid is mostly full but no K-wide
+    // run exists.
+    if (colspan > 1) {
+      let bestKey1 = null, bestFace1 = -1, bestCol1 = -1, bestNext1 = Infinity;
+      for (let col = 0; col < G.slotsPerFaceX; col++) {
+        for (let face = 0; face < 4; face++) {
+          const key = `${idx}:${face}:${col}`;
+          const plan = S.columnPlans.get(key);
+          if (!plan || plan.nextIdx >= plan.positions.length) continue;
+          if (plan.nextIdx < bestNext1) {
+            bestNext1 = plan.nextIdx;
+            bestKey1 = key;
+            bestFace1 = face;
+            bestCol1 = col;
+          }
+        }
+      }
+      if (bestKey1 !== null) {
+        const plan = S.columnPlans.get(bestKey1);
+        const claimedP = plan.nextIdx;
+        const slot = plan.positions[claimedP];
+        plan.nextIdx++;
+        return {
+          towerIdx: idx, facePri: bestFace1, col: bestCol1, key: bestKey1,
+          y: slot.y, h: slot.h, p: claimedP,
+          colspan: 1, spanKeys: [bestKey1],
+        };
+      }
     }
     const topKey = `${idx}:4:0:0`;
     if (!S.usedSlots.has(topKey)) {
