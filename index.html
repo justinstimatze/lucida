@@ -5415,13 +5415,18 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // be undersized in the wider context. Keep variants separate.
   const cs = Math.max(1, Math.min(3, extras?.colspan || 1));
   const cacheKey = cs > 1 ? `mermaid.c${cs}` : "mermaid";
-  // Cache hit path: fetch the pre-rendered SVG from the static server.
-  // Same origin, so no CORS dance. 404 → fall through to fresh render.
-  const tryCache = cellId
+  const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
+  // Boot-time manifest tells us which SVGs exist on disk. Without
+  // this check, every cache-miss render fired a fetch that 404'd
+  // and Chrome devtools logged it as an error — 70+ red lines per
+  // session even though the fallback was clean.
+  const haveCache = filename && window._mixed3dSvgManifest?.has(filename);
+  // Cache hit path: fetch only when manifest says it exists.
+  const tryCache = haveCache
     ? fetch(`/cells/${encodeURIComponent(cellId)}.${cacheKey}.svg`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("cache-miss"))))
         .then((svg) => _mixed3dRasterizeSvgToCanvas(svg, w, h, extras))
-    : Promise.reject(new Error("no-cellId"));
+    : Promise.reject(new Error("no-cache-or-id"));
   // Fresh render path: parse + render + style, then fire-and-forget
   // POST to snap_receiver:8767 so the next load hits the cache.
   const freshRender = () => {
@@ -5435,6 +5440,10 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
             method: "POST",
             body: styledSvg,
             headers: { "content-type": "image/svg+xml" },
+          }).then(() => {
+            // Update the in-memory manifest so subsequent renders of
+            // this cell hit the cache path instead of doing fresh work.
+            if (window._mixed3dSvgManifest) window._mixed3dSvgManifest.add(filename);
           }).catch(() => {}); // receiver may be down; non-fatal
         }
         return _mixed3dRasterizeSvgToCanvas(styledSvg, w, h, extras);
@@ -6187,6 +6196,20 @@ function _mixed3dRunPathWarmup(S) {
   // ease-in arc at t=0 is 0).
   if (!S.swoopCam) {
     try { _mixed3dDriveSwoopyTour(0); } catch (e) { /* fall through */ }
+  }
+  // Fetch the disk SVG cache manifest once so cache-miss renders
+  // can skip the fetch step entirely (avoiding the 404 devtools
+  // spam). Fire-and-forget — if snap_receiver is down, the manifest
+  // stays empty, and renderers fall straight to fresh-render every
+  // time. Same behavior as before this commit, just no cache lookup.
+  if (!window._mixed3dSvgManifest) {
+    window._mixed3dSvgManifest = new Set();
+    fetch("http://127.0.0.1:8767/cells-index.json").then(r => r.ok ? r.json() : null).then(j => {
+      if (j && Array.isArray(j.files)) {
+        for (const f of j.files) window._mixed3dSvgManifest.add(f);
+        console.log(`[mixed3d] svg cache manifest: ${window._mixed3dSvgManifest.size} entries`);
+      }
+    }).catch(() => {});
   }
   const sw = S.swoopCam;
   if (!sw || !sw.curve) return Promise.resolve();

@@ -100,6 +100,30 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        # Manifest: GET /cells-index.json returns a list of cached SVG
+        # filenames so the browser can skip 404-noisy fetches on cells
+        # that aren't yet cached. Without this, every cache-miss render
+        # logs a 404 in DevTools — visible to the user as red error
+        # spam even though the fall-through to fresh-render is fine.
+        if self.path == "/cells-index.json":
+            import json
+
+            names = []
+            try:
+                with os.scandir(CELLS_DEST) as it:
+                    for e in it:
+                        if e.is_file() and e.name.endswith(".svg") and e.name.count(".") >= 2:
+                            names.append(e.name)
+            except OSError:
+                pass
+            body = json.dumps({"files": names}).encode()
+            self.send_response(200)
+            self._cors()
+            self.send_header("content-type", "application/json")
+            self.send_header("cache-control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         self.send_response(200)
         self._cors()
         self.send_header("content-type", "text/plain")
