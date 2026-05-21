@@ -5172,6 +5172,43 @@ function _mixed3dStyleMermaidSVG(svgString) {
   return svgString.replace(/(<svg[^>]*>)/, "$1" + css);
 }
 
+// Paint the cell's caption into the body region below whatever the
+// substrate renderer drew. Caller provides the y-band that's free; this
+// word-wraps and truncates to fit. Cyan-white text @0.85 alpha so caption
+// reads as supporting detail, not the headline (title block above is the
+// headline). Shared across all substrate renderers to keep the "anchor
+// the viz to the top, caption fills below" pattern consistent.
+function _mixed3dPaintCaption(ctx, caption, y0, y1, w, opts) {
+  const text = String(caption || "").trim();
+  if (!text) return;
+  if (y1 - y0 < 24) return;
+  const padX = (opts && opts.padX) || 8;
+  const charsPerLine = (opts && opts.charsPerLine) || 22;
+  const lineH = (opts && opts.lineH) || 17;
+  const font = (opts && opts.font) || "13px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.save();
+  ctx.fillStyle = "#ccf3ff";
+  ctx.globalAlpha = 0.85;
+  ctx.font = font;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  const maxLines = Math.max(1, Math.floor((y1 - y0) / lineH));
+  const lines = [];
+  let cur = "";
+  for (const word of text.split(/\s+/)) {
+    const next = cur ? cur + " " + word : word;
+    if (next.length > charsPerLine) {
+      if (cur) lines.push(cur);
+      cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
+    } else cur = next;
+    if (lines.length >= maxLines) break;
+  }
+  if (cur && lines.length < maxLines) lines.push(cur);
+  let y = y0;
+  for (const L of lines) { ctx.fillText(L, padX, y); y += lineH; }
+  ctx.restore();
+}
+
 function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   if (!spec || typeof window.mermaid !== "object") return Promise.resolve(null);
   const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
@@ -5192,35 +5229,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
         const graphH = Math.min(h * 0.7, w / aspectImg);
         ctx.drawImage(img, 0, 0, graphW, graphH);
         URL.revokeObjectURL(img.src);
-        const caption = String(extras?.caption || "").trim();
-        if (caption && h - graphH > 40) {
-          const capY0 = graphH + 12;
-          const capY1 = h - 8;
-          ctx.fillStyle = "#ccf3ff";
-          ctx.globalAlpha = 0.85;
-          ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "top";
-          const padX = 8;
-          const charsPerLine = 22;
-          const lineH = 17;
-          const maxLines = Math.floor((capY1 - capY0) / lineH);
-          const words = caption.split(/\s+/);
-          const lines = [];
-          let cur = "";
-          for (const word of words) {
-            const next = cur ? cur + " " + word : word;
-            if (next.length > charsPerLine) {
-              if (cur) lines.push(cur);
-              cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
-            } else cur = next;
-            if (lines.length >= maxLines) break;
-          }
-          if (cur && lines.length < maxLines) lines.push(cur);
-          let cy = capY0;
-          for (const L of lines) { ctx.fillText(L, padX, cy); cy += lineH; }
-          ctx.globalAlpha = 1;
-        }
+        _mixed3dPaintCaption(ctx, extras?.caption, graphH + 12, h - 8, w);
         resolve(canvas);
       };
       img.onerror = (e) => { URL.revokeObjectURL(img.src); reject(e); };
@@ -5272,7 +5281,7 @@ window.toggleMixed3dTier2 = function(visible) {
 // a hackers-palette canvas. Synchronous draws wrapped in resolved
 // Promise to match the mermaid pipeline shape.
 
-function _mixed3dRenderGaugeToCanvas(spec, w, h) {
+function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   // Gauge spec: { value, min, max, label, unit? }
   let value, min, max, label;
   try {
@@ -5284,8 +5293,10 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const cx = w / 2;
-  const cy = h * 0.55;
-  const r = Math.min(w, h * 0.65) * 0.42;
+  // Top-anchored dial so caption fills the body below — was floating at
+  // h*0.55 leaving ~150px dead space at the bottom of the tall narrow cell.
+  const r = w * 0.32;
+  const cy = r + 24;
   // Track arc
   ctx.strokeStyle = "#9966ff";
   ctx.globalAlpha = 0.35;
@@ -5303,21 +5314,23 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h) {
   ctx.stroke();
   // Value
   ctx.fillStyle = "#ccf3ff";
-  ctx.font = "bold 42px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.font = "bold 36px 'Eurostile', 'Share Tech Mono', monospace";
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
   const vs = (Number.isInteger(value) ? value.toString() : value.toFixed(1));
   ctx.fillText(vs, cx, cy + 6);
-  // Label below
+  // Label below dial
+  let labelY = cy + 28;
   if (label) {
     ctx.fillStyle = "#9966ff";
     ctx.font = "16px 'Eurostile', 'Share Tech Mono', monospace";
-    ctx.fillText(String(label).toUpperCase().slice(0, 18), cx, cy + r + 36);
+    ctx.fillText(String(label).toUpperCase().slice(0, 18), cx, labelY);
   }
+  _mixed3dPaintCaption(ctx, extras?.caption, labelY + 28, h - 8, w);
   return Promise.resolve(canvas);
 }
 
-function _mixed3dRenderSparklineToCanvas(spec, w, h) {
+function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
   // Sparkline spec: { data: [...], label? } or just [...]
   let data, label;
   try {
@@ -5330,8 +5343,10 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const pad = 16;
-  const py0 = h * 0.3;
-  const py1 = h * 0.85;
+  // Plot occupies the top portion; caption fills below — was using 30%-85%
+  // of body height, leaving the bottom unused.
+  const py0 = h * 0.12;
+  const py1 = h * 0.42;
   const min = Math.min(...data), max = Math.max(...data);
   const range = max - min || 1;
   ctx.strokeStyle = "#00ddff";
@@ -5343,16 +5358,16 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h) {
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
   ctx.stroke();
-  // End dot in pink
+  // End dot — bright cyan-white, not pink (pink is tower-attack-state only).
   const xL = pad + (w - pad * 2);
   const yL = py1 - ((data[data.length - 1] - min) / range) * (py1 - py0);
-  ctx.fillStyle = "#ff3a8c";
+  ctx.fillStyle = "#ccf3ff";
   ctx.beginPath();
   ctx.arc(xL, yL, 6, 0, Math.PI * 2);
   ctx.fill();
   // End value
   ctx.fillStyle = "#ccf3ff";
-  ctx.font = "bold 22px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.font = "bold 20px 'Eurostile', 'Share Tech Mono', monospace";
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
   const last = data[data.length - 1];
@@ -5366,6 +5381,7 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h) {
     ctx.textBaseline = "top";
     ctx.fillText(String(label).toUpperCase().slice(0, 22), pad, py0 - 22);
   }
+  _mixed3dPaintCaption(ctx, extras?.caption, py1 + 20, h - 8, w);
   return Promise.resolve(canvas);
 }
 
@@ -5383,8 +5399,9 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h) {
   const pad = 8;
   const x0 = pad, y0 = pad, x1 = w - pad, y1 = h - pad;
   const total = items.reduce((a, it) => a + Math.max(0, +(it.value ?? it.size ?? 1)), 0) || 1;
-  // Squarified-ish: alternate rows/cols
-  const colors = ["#00ddff", "#9966ff", "#ff3a8c", "#33ff99", "#ffaa44"];
+  // Squarified-ish: alternate rows/cols. Cyan + purple only — pink/green/
+  // orange violated the normal-scene rule (pink = tower-attack state).
+  const colors = ["#00ddff", "#9966ff"];
   let curX = x0, curY = y0, remW = x1 - x0, remH = y1 - y0;
   let horizontal = remW > remH;
   let i = 0;
@@ -5429,7 +5446,7 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h) {
   return Promise.resolve(canvas);
 }
 
-function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h) {
+function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   let stages, axisLabel;
   try {
     const s = typeof spec === "string" ? JSON.parse(spec) : spec;
@@ -5439,7 +5456,9 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  const cy = h / 2;
+  // Axis anchored in top third so caption can fill the rest — was h/2
+  // centered with ~140px dead space above and below.
+  const cy = Math.round(h * 0.28);
   const pad = 24;
   const n = Math.min(stages.length, 6);
   const stepX = (w - pad * 2) / (n - 1 || 1);
@@ -5486,10 +5505,12 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h) {
     ctx.textBaseline = "top";
     ctx.fillText(String(axisLabel).toUpperCase(), pad, 8);
   }
+  // Caption fills space below the labels under the axis.
+  _mixed3dPaintCaption(ctx, extras?.caption, cy + 56, h - 8, w);
   return Promise.resolve(canvas);
 }
 
-function _mixed3dRenderVegaToCanvas(spec, w, h) {
+function _mixed3dRenderVegaToCanvas(spec, w, h, extras) {
   let values;
   try {
     const s = typeof spec === "string" ? JSON.parse(spec) : spec;
@@ -5542,7 +5563,7 @@ function _mixed3dRenderVegaToCanvas(spec, w, h) {
   return Promise.resolve(canvas);
 }
 
-function _mixed3dRenderForceGraphToCanvas(spec, w, h) {
+function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
   let nodes, edges;
   try {
     const s = typeof spec === "string" ? JSON.parse(spec) : spec;
@@ -5553,9 +5574,13 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  // Place nodes on a circle deterministically by index.
-  const cx = w / 2, cy = h / 2;
-  const r = Math.min(w, h) * 0.35;
+  // Place nodes on a circle deterministically by index. Circle anchored in
+  // top portion — was h/2 centered which left big empty regions above and
+  // below in tall narrow cells. Radius scales with w so the graph still
+  // fills the width.
+  const cx = w / 2;
+  const r = w * 0.38;
+  const cy = r + 30;
   const positions = [];
   for (let i = 0; i < N; i++) {
     const a = (i / N) * Math.PI * 2 - Math.PI / 2;
@@ -5594,10 +5619,12 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h) {
     const label = String(p.node.label || p.node.id || "").slice(0, 14);
     ctx.fillText(label, p.x, p.y + 12);
   }
+  // Caption fills space below the circle + node labels.
+  _mixed3dPaintCaption(ctx, extras?.caption, cy + r + 36, h - 8, w);
   return Promise.resolve(canvas);
 }
 
-function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h) {
+function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (!spec || typeof spec !== "string" || !spec.includes("<svg")) return Promise.resolve(null);
   // Substitute theme placeholders → hackers palette.
   const themed = spec
@@ -5611,16 +5638,15 @@ function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h) {
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext("2d");
+      // Top-anchored width-fill, capped at 60% of body height — caption
+      // fills the rest. Was vertically centered which letterboxed the
+      // image in tall narrow cells.
       const aspectImg = img.naturalWidth / img.naturalHeight;
-      const aspectCan = w / h;
-      let dw, dh, dx, dy;
-      if (aspectImg > aspectCan) {
-        dw = w; dh = w / aspectImg; dx = 0; dy = (h - dh) / 2;
-      } else {
-        dh = h; dw = h * aspectImg; dx = (w - dw) / 2; dy = 0;
-      }
-      ctx.drawImage(img, dx, dy, dw, dh);
+      const dw = w;
+      const dh = Math.min(h * 0.6, w / aspectImg);
+      ctx.drawImage(img, 0, 0, dw, dh);
       URL.revokeObjectURL(img.src);
+      _mixed3dPaintCaption(ctx, extras?.caption, dh + 12, h - 8, w);
       resolve(canvas);
     };
     img.onerror = (e) => { URL.revokeObjectURL(img.src); resolve(null); };
