@@ -4691,7 +4691,18 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
     // Re-apply cached snap if available — see _mixed3dPromoteInstanceToTier1.
     const cachedSnap = S._snapTexCache?.get(id);
-    if (cachedSnap) { tex.image = cachedSnap; tex.needsUpdate = true; }
+    if (cachedSnap) {
+      tex.image = cachedSnap;
+      tex.needsUpdate = true;
+    } else {
+      // Synchronous title+caption stub so the cell is legible the
+      // instant it crosses the LOD boundary. Snap driver overwrites
+      // with the proper substrate render when its turn comes up. We
+      // deliberately do NOT cache the stub — the snap driver checks
+      // cache.has(id) to skip, and we want it to render this cell.
+      const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id));
+      if (stub) { tex.image = stub; tex.needsUpdate = true; }
+    }
     obj.material = new T.MeshBasicMaterial({
       map: tex,
       transparent: true,
@@ -4734,7 +4745,16 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   // this the snap driver skips (cache.has(id)=true) and the cell stays
   // on the placeholder texture forever after demote→promote cycles.
   const cachedSnap = S._snapTexCache?.get(id);
-  if (cachedSnap) { tex.image = cachedSnap; tex.needsUpdate = true; }
+  if (cachedSnap) {
+    tex.image = cachedSnap;
+    tex.needsUpdate = true;
+  } else {
+    // Synchronous title+caption stub so the cell is legible the
+    // instant it crosses the LOD boundary. Snap driver overwrites
+    // with the substrate render when its turn comes up.
+    const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id));
+    if (stub) { tex.image = stub; tex.needsUpdate = true; }
+  }
   const mat = new T.MeshBasicMaterial({
     map: tex,
     transparent: true,
@@ -5186,6 +5206,60 @@ function _mixed3dStyleMermaidSVG(svgString) {
 // reads as supporting detail, not the headline (title block above is the
 // headline). Shared across all substrate renderers to keep the "anchor
 // the viz to the top, caption fills below" pattern consistent.
+// Paint the standard tier-1 title block (72px purple bold uppercase
+// with cyan divider rule). Shared by the async snap composite and the
+// synchronous promote stub so they agree on title layout.
+function _mixed3dPaintTitleBlock(ctx, title) {
+  const TITLE_H = 72;
+  const padX = 8;
+  const charsPerLine = 18;
+  const lineH = 20;
+  ctx.save();
+  ctx.fillStyle = "#9966ff";
+  ctx.font = "bold 17px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  const text = String(title || "").toUpperCase();
+  const words = text.split(/\s+/);
+  let y = 8, cur = "";
+  for (const w of words) {
+    const next = cur ? cur + " " + w : w;
+    if (next.length > charsPerLine) {
+      if (cur) ctx.fillText(cur, padX, y);
+      y += lineH;
+      if (y + lineH > TITLE_H - 4) { cur = ""; break; }
+      cur = w.length > charsPerLine ? w.slice(0, charsPerLine - 1) + "…" : w;
+    } else cur = next;
+  }
+  if (cur && y + lineH <= TITLE_H - 4) ctx.fillText(cur, padX, y);
+  ctx.strokeStyle = "#00ddff";
+  ctx.globalAlpha = 0.4;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padX, TITLE_H - 2);
+  ctx.lineTo(192 - padX, TITLE_H - 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Synchronous stopgap at tier-2→tier-1 promote when no full snapshot
+// is cached yet. Paints title block + caption so the cell is legible
+// the moment it crosses the LOD boundary. The async snap driver
+// replaces this with the proper substrate render (mermaid/vega/etc)
+// ~100-500ms later. ~3-5ms per call — cheap enough to run in the
+// retier-sweep budget without blowing PROMOTE_BUDGET.
+function _mixed3dPaintPromoteStub(id, cellData) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 192;
+  canvas.height = 576;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#000814";
+  ctx.fillRect(0, 0, 192, 576);
+  _mixed3dPaintTitleBlock(ctx, cellData?.title || id);
+  _mixed3dPaintCaption(ctx, cellData?.caption, 72 + 8, 576 - 8, 192);
+  return canvas;
+}
+
 function _mixed3dPaintCaption(ctx, caption, y0, y1, w, opts) {
   const text = String(caption || "").trim();
   if (!text) return;
@@ -5755,35 +5829,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData) {
   fullCanvas.width = 192;
   fullCanvas.height = 576;
   const ctx = fullCanvas.getContext("2d");
-  const title = String(cellData?.title || targetId || "").toUpperCase();
-  ctx.fillStyle = "#9966ff";
-  ctx.font = "bold 17px 'Eurostile', 'Share Tech Mono', monospace";
-  ctx.textBaseline = "top";
-  ctx.textAlign = "left";
-  const padX = 8;
-  const charsPerLine = 18;
-  const lineH = 20;
-  const words = title.split(/\s+/);
-  let y = 8;
-  let cur = "";
-  for (const w of words) {
-    const next = cur ? cur + " " + w : w;
-    if (next.length > charsPerLine) {
-      if (cur) ctx.fillText(cur, padX, y);
-      y += lineH;
-      if (y + lineH > TITLE_H - 4) { cur = ""; break; }
-      cur = w.length > charsPerLine ? w.slice(0, charsPerLine - 1) + "…" : w;
-    } else cur = next;
-  }
-  if (cur && y + lineH <= TITLE_H - 4) ctx.fillText(cur, padX, y);
-  ctx.strokeStyle = "#00ddff";
-  ctx.globalAlpha = 0.4;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padX, TITLE_H - 2);
-  ctx.lineTo(192 - padX, TITLE_H - 2);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   if (!S._snapTexCache) S._snapTexCache = new Map();
   S._snapTexCache.set(targetId, fullCanvas);
