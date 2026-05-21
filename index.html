@@ -6501,8 +6501,12 @@ function _mixed3dBuildDecorativeLayer() {
       const txt = tmpl();
       if (!txt) continue;
       const rowAlpha = 0.85 + Math.random() * 0.15;
+      // 4% of rows highlight in purple — "cyan with purple highlights"
+      // per the tightened normal-scene rule. Was pink (#ff3a8c) for the
+      // "rare highlight" framing; pink now reserved for under-attack
+      // tower state only.
       if (Math.random() < 0.04) {
-        c2.fillStyle = `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`;
+        c2.fillStyle = `rgba(153, 102, 255, ${rowAlpha.toFixed(2)})`;
       } else {
         c2.fillStyle = `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
       }
@@ -6733,8 +6737,10 @@ function _mixed3dStepDecoratives(t) {
       ctx.font = '18px "Share Tech Mono", "Eurostile", "Consolas", "Courier New", monospace';
       ctx.textBaseline = "top";
       const rowAlpha = 0.85 + Math.random() * 0.15;
+      // Mirror the initial-paint rule: 4% purple highlight, rest cyan.
+      // Pink reserved for under-attack tower state.
       ctx.fillStyle = Math.random() < 0.04
-        ? `rgba(255, 58, 140, ${rowAlpha.toFixed(2)})`
+        ? `rgba(153, 102, 255, ${rowAlpha.toFixed(2)})`
         : `rgba(0, 221, 255, ${rowAlpha.toFixed(2)})`;
       const tok = S._decoLineGen();
       ctx.fillText(tok, 4, CAN_H - ROW_H + 2);
