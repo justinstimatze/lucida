@@ -5864,50 +5864,142 @@ function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
 // html cells: draw a "summary card" with cell title + caption. Not a real
 // html render (avoiding html2canvas + DOM dependency) but conveys the
 // cell's content as readable text vs the abstract sketch placeholder.
-function _mixed3dRenderHtmlToCanvas(cellData, w, h) {
+// Extract rows of plain text from a cell's html field per html_layout.
+// Returns an array of arrays — each inner array is one display row's
+// columns. Tables → header-then-rows. Lists → one item per row.
+// Key-value / definition lists → ["key", "value"] pairs.
+// Returns null if the html doesn't yield anything renderable.
+function _mixed3dExtractHtmlRows(html, layout) {
+  if (!html || typeof html !== "string") return null;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  const root = tpl.content;
+  const tableEl = root.querySelector("table");
+  const ulEl = root.querySelector("ul, ol");
+  const dlEl = root.querySelector("dl");
+  if (layout === "table" || tableEl) {
+    if (!tableEl) return null;
+    const rows = [];
+    for (const tr of tableEl.querySelectorAll("tr")) {
+      const cols = [];
+      for (const cell of tr.querySelectorAll("th, td")) {
+        cols.push((cell.textContent || "").replace(/\s+/g, " ").trim());
+      }
+      if (cols.length) rows.push(cols);
+    }
+    return rows.length ? rows : null;
+  }
+  if (layout === "list" || ulEl) {
+    if (!ulEl) return null;
+    const items = [];
+    for (const li of ulEl.querySelectorAll(":scope > li")) {
+      const t = (li.textContent || "").replace(/\s+/g, " ").trim();
+      if (t) items.push([t]);
+    }
+    return items.length ? items : null;
+  }
+  if (layout === "definitions" || dlEl) {
+    if (!dlEl) return null;
+    const pairs = [];
+    const kids = [...dlEl.children];
+    for (let i = 0; i < kids.length; i++) {
+      if (kids[i].tagName !== "DT") continue;
+      const key = (kids[i].textContent || "").trim();
+      const dd = kids[i + 1]?.tagName === "DD" ? kids[i + 1] : null;
+      const val = dd ? (dd.textContent || "").trim() : "";
+      pairs.push([key, val]);
+    }
+    return pairs.length ? pairs : null;
+  }
+  return null;
+}
+
+function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   if (!cellData) return Promise.resolve(null);
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const title = String(cellData.title || "").toUpperCase();
   const caption = String(cellData.caption || "");
-  if (!title && !caption) return Promise.resolve(null);
-  const pad = 14;
-  // "HTML" tag chip at top.
-  ctx.fillStyle = "#9966ff";
-  ctx.globalAlpha = 0.2;
-  ctx.fillRect(pad, pad, 56, 22);
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#9966ff";
-  ctx.font = "bold 12px 'Eurostile', 'Share Tech Mono', monospace";
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "center";
-  ctx.fillText("HTML", pad + 28, pad + 11);
-  // Caption as wrapped text — fixed-char wrap (no measureText).
-  ctx.fillStyle = "#ccf3ff";
+  const html = cellData.html || "";
+  const layout = cellData.html_layout || "";
+  const rows = _mixed3dExtractHtmlRows(html, layout);
+  if (!title && !caption && !rows) return Promise.resolve(null);
+  // Decorative-text aesthetic: no chip, no card frame. Mono dim cyan
+  // text + faint horizontal scanlines so the cell visually melts into
+  // the decorative bed. Title in purple at top, content rows below.
+  // User 2026-05-21: "html type cells need to look a lot more like
+  // the decorative text style. if we have them at all". Approach A+B
+  // with B-emphasis — show the table/list content, styled to merge.
+  const pad = 10;
+  // Faint scanlines across the body region.
+  ctx.save();
+  ctx.strokeStyle = "#00ddff";
+  ctx.globalAlpha = 0.05;
+  ctx.lineWidth = 1;
+  for (let y = pad; y < h - pad; y += 4) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(w, y + 0.5);
+    ctx.stroke();
+  }
+  ctx.restore();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.font = "14px 'Eurostile', 'Share Tech Mono', monospace";
-  const charsPerLine = 22;
-  const lineH = 19;
-  const yStart = pad + 38;
-  const yMax = h - pad - 24;
-  const words = caption.split(/\s+/);
-  const lines = [];
-  let cur = "";
-  for (const word of words) {
-    const next = cur ? cur + " " + word : word;
-    if (next.length > charsPerLine) {
-      if (cur) lines.push(cur);
-      cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
-    } else cur = next;
-    if ((yStart + lines.length * lineH) > yMax) break;
+  let cy = pad;
+  // Subtle prompt-prefix glyph + title. Purple, smaller than substrate
+  // titles so the cell reads as ambient rather than headline.
+  if (title) {
+    ctx.fillStyle = "#9966ff";
+    ctx.globalAlpha = 0.9;
+    ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
+    const titleLine = "> " + (title.length > Math.floor(w / 7) ? title.slice(0, Math.floor(w / 7) - 1) + "…" : title);
+    ctx.fillText(titleLine, pad, cy);
+    cy += 18;
   }
-  if (cur && yStart + lines.length * lineH <= yMax) lines.push(cur);
-  let cy = yStart;
-  for (const L of lines) {
-    ctx.fillText(L, pad, cy);
-    cy += lineH;
+  const yMax = h - pad - 12;
+  // Render rows if structured, else fall back to caption.
+  if (rows && rows.length) {
+    ctx.fillStyle = "#ccf3ff";
+    ctx.globalAlpha = 0.78;
+    ctx.font = "12px 'Eurostile', 'Share Tech Mono', monospace";
+    const charW = 7;
+    const cols = Math.max(...rows.map(r => r.length));
+    const colWidth = Math.floor((w - pad * 2) / Math.max(1, cols));
+    const maxCharsPerCol = Math.max(2, Math.floor(colWidth / charW) - 1);
+    for (let ri = 0; ri < rows.length; ri++) {
+      if (cy + 16 > yMax) break;
+      const r = rows[ri];
+      // Header row (ri==0 in tables) gets purple emphasis.
+      const isHeader = layout === "table" && ri === 0;
+      ctx.fillStyle = isHeader ? "#9966ff" : "#ccf3ff";
+      ctx.globalAlpha = isHeader ? 0.95 : 0.78;
+      let cx = pad;
+      for (let ci = 0; ci < cols; ci++) {
+        const raw = (r[ci] || "").replace(/[✓✗]/g, m => m === "✓" ? "+" : "-");
+        const txt = raw.length > maxCharsPerCol ? raw.slice(0, maxCharsPerCol - 1) + "…" : raw;
+        ctx.fillText(txt, cx, cy);
+        cx += colWidth;
+      }
+      cy += 15;
+    }
+  } else if (caption) {
+    // Caption fallback: word-wrap monospace dim cyan, no card frame.
+    ctx.fillStyle = "#ccf3ff";
+    ctx.globalAlpha = 0.78;
+    ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
+    const charsPerLine = Math.max(20, Math.floor((w - pad * 2) / 7));
+    const words = caption.split(/\s+/);
+    let cur = "";
+    for (const word of words) {
+      if (cy + 18 > yMax) break;
+      const next = cur ? cur + " " + word : word;
+      if (next.length > charsPerLine) {
+        if (cur) { ctx.fillText(cur, pad, cy); cy += 17; }
+        cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
+      } else cur = next;
+    }
+    if (cur && cy + 18 <= yMax) ctx.fillText(cur, pad, cy);
   }
   return Promise.resolve(canvas);
 }
@@ -7361,6 +7453,18 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
       // wide cell would only consume col-N's slot and col-(N+1)
       // would mount another cell on top of the wide cell.
       for (const ck of bestSpanKeys) S.columnPlans.get(ck).nextIdx++;
+      // Each column has independent per-row height variance, so
+      // col=N's row-p is at world-y Y1 while col=N+1's row-p might
+      // be at Y2. A wide cell centered at Y1 visually overlaps a
+      // decorative at Y2. Force the spanned columns' row-p to mirror
+      // bestCol's slot — overlap fixed for the wide-row only;
+      // adjacent rows still use their own per-column variance.
+      for (let k = 1; k < colspan; k++) {
+        const otherPlan = S.columnPlans.get(bestSpanKeys[k]);
+        if (otherPlan && otherPlan.positions[claimedP]) {
+          otherPlan.positions[claimedP] = { y: slot.y, h: slot.h };
+        }
+      }
       return {
         towerIdx: idx, facePri: bestFace, col: bestCol, key: bestKey,
         y: slot.y, h: slot.h, p: claimedP,
