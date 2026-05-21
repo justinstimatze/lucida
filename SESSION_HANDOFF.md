@@ -1,52 +1,94 @@
-# Session handoff — 2026-05-20 (evening update)
+# Session handoff — 2026-05-21 (evening)
 
-Working surface: **hackers / mixed3d tier-1 rich-substrate rendering (#142)** — tier-1 cells now render real content (mermaid graphs, gauges, sparklines, etc.) with persistent titles and parallel snap generation.
+Working surface: **hackers / mixed3d tier-1 rich-substrate rendering (#142)** plus a fresh **Gibson refs corpus** extracted from the Hackers (1995) hacking-scenes video. Tier-1 cells render real content; the color contract was tightened today (pink→purple) and validated against actual movie frames via bmg.
 
-Branch: `main`. Last commit: `c22a36c`. Working tree clean.
+Branch: `main`. Last commit: `65487ba`. Working tree clean except untracked dev artifacts (`tools/snap_receiver.py`, `refs/gibson/hackers-video/`, `refs/gibson/live-shots/`).
 
-## ⚠️ Memory note up front
+## ⚠️ Open issue: pending cells (#152 — top priority)
 
-Today the host OOM'd while testing the parallel snap driver. Root cause was a `_snapTexCache` leak (fixed) plus too-aggressive concurrency caps (lowered). Stay alert if you make snap-driver changes — `_MIXED3D_SNAP_MAX_INFLIGHT` is now 3, do not raise without checking heap.
+User-visible problem: looking at the live scene, **many cells stay in the diagonal-hatch PENDING placeholder** indefinitely. Steady state has 297+ tier-1 cells unsnapped at any given time.
+
+**Diagnosed today via window._mixed3dSnapDebug():**
+- Driver IS running (`intervalActive: true`, `inflightSize: 0` — no stuck slots)
+- Cache IS persisted across tier-1↔tier-2 demote (commit 6bf3414 from prev day)
+- **Real throughput: ~1.3 cells/sec** vs theoretical ~15/sec
+- Bottleneck is single-threaded JS — 3 inflight promises don't actually parallelize because mermaid.parse / canvas paint / SVG image decode all block the main thread
+- Camera promotes new tier-1 cells faster than snap can fill → steady-state pending stays high
+
+**Fix candidates (pick when next opening this):**
+1. **Camera-distance priority dispatch** (recommended first move) — sort tier-1 unsnapped by distance to camera, process closest-first. Doesn't increase throughput but ensures pending cells are off-screen. Surgical edit in `_mixed3dStartSnapshotDriver` (index.html ~5799).
+2. **Web Worker offload** for mermaid SVG + raster. Days of work.
+3. **Server-side pre-render** PNG. Architectural shift; conflicts with reflect-and-persist direction.
+
+Probe to verify state at any time:
+```js
+const S=window._mixed3dState;let t1=0,t1Cached=0,t2=0,t2Cached=0;for(const [id,obj] of (S?.cellObjects||[])){if(obj.isInstanceHandle)continue;const inCache=S._snapTexCache?.has(id);if(obj.userData?.tier===1){t1++;if(inCache)t1Cached++;}else if(obj.userData?.tier===2){t2++;if(inCache)t2Cached++;}}({cacheSize:S._snapTexCache?.size,t1,t1Cached,t1Unsnapped:t1-t1Cached,t2,t2Cached,dbg:window._mixed3dSnapDebug?.()})
+```
+
+## ⚠️ Memory note still relevant
+
+The 2026-05-20 OOM cause hasn't changed. Don't raise `_MIXED3D_SNAP_MAX_INFLIGHT` above 3 or hidden-tab `PER_FRAME_CAP` above 12 without a heap check. Bumping concurrency won't help anyway (single-threaded — see #152).
 
 ## Quick start to resume
 
 ```bash
-# Server (probably running; check with: curl -sI http://localhost:8766/ | head -1)
+# Static server (probably running):
 python3 -m http.server 8766
+# Optional dev tool for headless screenshot validation:
+python3 tools/snap_receiver.py  # listens on 8767, writes to refs/gibson/live-shots/
 ```
 
-Open `http://localhost:8766/?theme=hackers&layout=mixed3d&notier2=1&_=N` (unique `_=N` cache-bust each time).
+URL: `http://localhost:8766/?theme=hackers&layout=mixed3d&notier2=1&_=N`
 
-Useful URL params:
-- `?notier2=1` — hides tier-2 cells, so you can A/B compare tier-1 + decoratives only. Runtime toggle via console: `toggleMixed3dTier2(true)` / `toggleMixed3dTier2(false)`.
+Useful console one-liners after page boot:
+- `window._mixed3dSnapDebug()` — interval + inflight state
+- `window._mixed3dStartSnapshotDriver()` — restart the driver if needed
+- `window.toggleMixed3dTier2(true/false)` — tier-2 visibility toggle
 
 ## What landed today (most recent first)
 
-1. `c22a36c` — Teardown clears `_mixed3dSnapInterval` + `_mixed3dSnapInflight`; stale-state guard in composite (correctness, not memory).
-2. `6bf3414` — Fix `_snapTexCache` leak on DOM eviction + silent-placeholder bug after retier-promote. **Cache now scoped to live cells; ceiling ~177MB instead of unbounded over session.**
-3. `75ba261` — Tighter OOM-safer caps: snap concurrency 8→3, batch 4→2, hidden-tab mount cap 60→12. (60 caused the OOM.)
-4. `86aaa16` — Title-at-top composite in driver + parallel snap dispatch. **4-min boot fill → ~10-15s on visible tab.** Renderers paint into 192×504 body region; driver composites with 72px title block + cyan rule. Mermaid renderer anchors top-aligned width-fill with caption filling space below.
-5. `215d036` — `_mixed3dScheduleDrain` helper falls back to `setTimeout(16)` when `document.hidden` (rAF is 0Hz on hidden tabs). **This is the real root cause of what the morning handoff called "MCP browser tab state degradation"** — visibility-throttled rAF, not stale tab state.
-6. `f06c2b4` — (this morning) Original handoff doc.
-7. `bd13a68` — Revert of `4b10bce`. Note: 86aaa16 effectively re-lands 4b10bce now that 215d036 fixes the underlying rAF stall that made 4b10bce look broken.
+1. `65487ba` — Snap render 10s timeout via Promise.race + `window._mixed3dSnapDebug()` dev hooks. **Was diagnosing a separate "stuck at 28%" issue that turned out to be probe-error** (module-scoped vars unreachable from window). Timeout still useful as defense-in-depth; debug hooks are essential for ongoing snap diagnostics.
+2. `0a34147` — Decorative tier 4% pink row injection → purple (both at initial-paint AND scrolling-update). Source of bmg-flagged FAIL/SHIPPING_FORECASTS-as-pink visible in normal scenes.
+3. `d5d3ba5` — Boot gate drops `_stableFrames >= 30` requirement when `document.hidden`. Snap driver could never start on a hidden tab because rAF=1Hz with dt=1000ms never satisfied dt<33.
+4. `d4763a4` — **Reverted violet tower-top rim (#122)** and flipped mermaid edge labels + animated_svg `$pink` substitution from pink to purple. User clarified: tower is monochromatic-cyan-OR-purple, not a chromatic mix.
+5. `9083809` — Tower-top violet rim (#122) + brighter cone glow (#123, .18→.27 inner alpha). **Note: #122 reverted by next commit (#d4763a4).** Cone glow kept.
+6. `e4bcf8a` — Body-fill parity for 5 substrate renderers (gauge / sparkline / timeline_ribbon / force_graph / animated_svg). Extracted shared `_mixed3dPaintCaption` helper. Also dropped pink end-dot from sparkline and pink palette entries from treemap.
+7. `9fc01c3` — (morning) Handoff doc update.
+8. — Pre-morning state at `c22a36c`.
 
-## #142 — what's done vs open
+**Untracked dev artifacts (intentional, not committed):**
+- `tools/snap_receiver.py` — POST receiver on :8767 for browser screenshot uploads → `refs/gibson/live-shots/`. Used today for headless validation.
+- `refs/gibson/hackers-video/` — 11 frames extracted via ffmpeg + bmg analysis + NOTES.md per-frame breakdown.
+- `refs/gibson/live-shots/` — multiple `.png` shots of the live scene (top-rim, eye-level, low-angle, post-fix, etc.) from today's validation.
 
-**Done today:**
-- ✅ #145 Title persists across snapshot generations (driver composites)
-- ✅ #146 Mermaid graph anchors top, caption fills below
-- ✅ Parallel snap driver (was single-in-flight)
-- ✅ Hidden-tab boot fallback
+## Gibson refs corpus (new today)
 
-**Open (in priority order):**
-- Other substrate renderers may want caption-fills-empty-space treatment too (mermaid was the obvious one; gauges/sparklines might benefit similarly).
-- #80 Real-bezel chrome generalization
-- #122 Tower-top violet accent rim
-- #123 Cone glow brightness tune
-- #134 Floor lane-light brightness/contrast (in_progress paused)
-- #135 Pink-ratio audit
-- #139 Restore camera speed 1.0 → 4.0 when polish wraps
-- #147 IndexedDB persistence for `_snapTexCache` — **deferred** (user 2026-05-20: "right now things are changing too fast"). Wiring sketch in task #147.
+Source: HACKERS \| Just the Hacking Scenes (MGM, 9:39, https://www.youtube.com/watch?v=IESEcsjDcmM). Extracted 11 frames at hand-picked timestamps spanning the different hack-mode color phases. Each has a bmg vision report. Full per-frame breakdown in `refs/gibson/hackers-video/NOTES.md`.
+
+Highlights:
+- **`t07m15s.jpg`** — the Gibson cityscape proper. Cyan + purple tower grid, "GARBAGE" labels repeated across columns, data-grid floor. **Direct visual match to mixed3d.**
+- **`t03m00s.jpg`** — labeled vertical list: GARBAGE / COMP. SERVICING / COMPANY BUDGETS / SCIENTIFIC BUDGETS / COMPANY POLICIES / ANNUAL RETURNS / MINE RESEARCH / CENTRAL LIBRARY / QUANTATIVE SPSS / PAYMENT LEVELS / CENTRAL SERVER / KNMTS. EVENT. / LICENSING / DELEGATIONS. **The canonical tower-label vocabulary — wire as synthetic demo content (#149).**
+- **`t06m20s.jpg`** — layered semi-transparent data windows over a hex glyph grid; pac-man icon. Future "active-hack overlay" archetype (#150, long-roadmap).
+- **`t03m35s` / `t06m50s` / `t08m35s`** — pink/red under-attack states. Long-roadmap (#151), gated on danger-cell-ratio classifier (`danger_cell_ratio` memory).
+
+## Locked-in visual decisions (DON'T re-litigate)
+
+**Updated 2026-05-21:**
+- **Tower chrome is monochromatic per tower** — body edges + top rim share one color. Don't ship cyan-body-with-violet-top mixes (#122 was reverted).
+- **Normal scenes: cyan + purple only, no pink.** Pink is reserved for the future whole-tower under-attack state. Mermaid edge labels, animated_svg `$pink`, decorative 4% pink injection all flipped to purple.
+- **Lucida is calm/ambient by default.** Danger-state archetypes are long-roadmap, not near-term substrate gaps. See `feedback_calm_ambient_default` memory.
+
+Unchanged from prior:
+- Tier-1 canvas **192×576** with **72px title block + 504px body**
+- Tier-1 title color: **purple `#9966ff`**
+- Title rule: thin cyan `#00ddff` at alpha 0.4
+- Mermaid: top-anchored width-fill, capped at 70% body height, caption fills below
+- Decoratives stay full-cyan
+- Tower count stays **10×10 = 100**
+- Path-clustering: cells mount only on towers within `spacing * 1.2` (~14u) of camera bezier curve
+- Camera slow-scan cadence: ~8-14s between scans
+- `?notier2=1` is the A/B comparison knob
+- Cone glow inner stops: .27/.13/.03 (was .18/.08/.02)
 
 ## Snap pipeline architecture (current)
 
@@ -54,90 +96,75 @@ Useful URL params:
 Driver: setInterval(120ms)
   ├─ Skip if mountDraining
   ├─ Take up to BATCH=2 fresh tier-1 targets (cap MAX_INFLIGHT=3)
-  ├─ Dispatch renderer(arg, 192, 504, {caption, title}) in parallel
+  ├─ Promise.race against 10s timeout (added today — defense in depth)
   └─ On each promise:
       _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData):
         - bail if S !== _mixed3dState (stale)
         - paint title block (72px, purple bold, 18-char wrap) onto fresh 192×576
         - drawImage(bodyCanvas, 0, 72)
-        - cache, swap material.map.image, needsUpdate
+        - cache UNCONDITIONALLY (line 5789) — preserves entries across tier 1↔2 demote
+        - swap material.map.image ONLY if cell is currently tier-1 (line 5791)
 ```
 
-- 9 renderers in `_MIXED3D_RENDERERS` dispatch (mermaid, gauge, sparkline, treemap, timeline_ribbon, vega, force_graph, animated_svg, html)
-- `_mixed3dSnapInflight` is a Set (was a boolean)
-- `_mixed3dCompositeAndCacheSnap` hoisted helper — title composite + cache + GPU swap
-
-## Tier-1 retier promote paths (just fixed)
-
-Both `_mixed3dSwapCellTier` (newTier=1 path) and `_mixed3dPromoteInstanceToTier1` now re-apply the cached snap canvas onto the fresh placeholder texture if `_snapTexCache.has(id)`. Without this, demote→promote left cells stuck on the placeholder forever because the driver skips cached cells.
-
-## Locked-in visual decisions (DON'T re-litigate)
-
-- Tier-1 canvas **192×576** with **72px title block + 504px body**
-- Tier-1 title color: **purple `#9966ff`** — pink reserved for danger signal
-- Title rule: thin cyan `#00ddff` at alpha 0.4
-- Mermaid: top-anchored width-fill, capped at 70% body height, caption fills below
-- Mermaid palette: cyan nodes / purple edges / pink edge labels, 3-4px strokes
-- Decoratives stay full-cyan `rgba(0, 221, 255, ...)` — user vetoed darkening
-- Tower count stays **10×10 = 100** — user vetoed reducing
-- Path-clustering: cells mount only on towers within `spacing * 1.2` (~14u) of camera bezier curve
-- Camera slow-scan cadence: ~8-14s between scans
-- `?notier2=1` is the A/B comparison knob
-
-## Memory characterization (from today's audit)
-
-| Source | Size | Bounded? |
-|---|---|---|
-| Tier-1 unique canvases (live) | ~177MB (400 × 442KB) | TIER1_CAP=400 |
-| `_snapTexCache` | ~177MB | now bounded ↔ live cells (was unbounded) |
-| Decorative tier textures | ~26MB JS+GPU (16 × 256×768) | once at boot |
-| Tier-2 shared mats | ~26MB (~30 × 442KB) | once at boot |
-| `state.rendering.cellsById` | ~15-30MB | server-cull bounded |
-
-No other unbounded leaks found code-side.
+- 9 renderers in `_MIXED3D_RENDERERS` dispatch
+- `_mixed3dSnapInflight` is a Set
+- All substrate renderers now receive `(spec, w, h, extras)` with `extras.caption` for body-fill
+- Cache invariant: entries deleted only when cell DOM is `!el.isConnected` (RAM cap, session clear) — NOT on tier transition
 
 ## Critical bug history (gotchas)
 
-1. **Hidden tab → rAF throttled to 0Hz** → mount drain stalls indefinitely. Fix landed: `_mixed3dScheduleDrain` falls back to `setTimeout`. The "fresh tab fixes it" workaround from morning handoff is **no longer needed**; it was diagnostic noise.
-2. **`_snapTexCache` was unbounded leak.** Every DOM-evicted cell stuck its ~440KB canvas in the cache forever. Fixed.
-3. **Silent-placeholder bug on retier 1→2→1.** Cache hit blocked re-snap, fresh material got placeholder. Fixed by re-applying cached canvas on promote.
-4. **`PER_FRAME_CAP=60` mount burst OOM'd host.** Pulled back to 12 (still 4× over visible-tab default). Don't raise without a heap check.
-5. **`_mixed3dSnapInterval` was module-level**, never cleared on teardown. Wasted ticks across theme/layout switches. Cleared now.
-6. **`cells.json` HEAD returns 503** from Python http.server — pollAll falls through to GET. Noisy but non-fatal.
+1. **Hidden tab → rAF throttled to 0Hz** → mount drain stalls. Fix: `_mixed3dScheduleDrain` falls back to `setTimeout`. The "fresh tab fixes it" workaround is **no longer needed**.
+2. **`_snapTexCache` was unbounded leak** — fixed by deleting on DOM eviction only (NOT tier transition).
+3. **Silent-placeholder bug on retier 1→2→1** — fixed by re-applying cached canvas on promote paths.
+4. **`PER_FRAME_CAP=60` mount burst OOM'd host.** Pulled back to 12. Don't raise without heap check.
+5. **`_mixed3dSnapInterval` module-level, never cleared on teardown** — fixed.
+6. **Hidden-tab boot gate stuck** — `_stableFrames >= 30` requires dt<33; hidden-tab rAF has dt=1000. Fixed today (d5d3ba5) — gate drops when document.hidden.
+7. **Module-scoped state unreachable from window** — diagnostic probes against `window._mixed3dSnapInterval` always returned undefined. Fixed today (65487ba) — `window._mixed3dSnapDebug()` exposes inflight/interval state.
+8. **Pink leakage across mermaid edge labels + animated_svg `$pink` + decorative 4% row injection.** All three flipped to purple today.
 
 ## Files to know
 
 - `index.html` — single-file renderer. Key sections in mixed3d:
   - `applyMixed3DLayout` (~2622): scene setup
-  - `teardownMixed3DLayout` (~6867): now clears snap interval + inflight
-  - `_mixed3dDrainMountQueue` (~5946 area)
+  - `teardownMixed3DLayout` (~6904): clears snap interval + inflight
+  - `_mixed3dDrainMountQueue` (~5980)
   - `_mixed3dScheduleDrain` — rAF/setTimeout chooser based on document.hidden
-  - `_mixed3dCellTexture` (~5891): placeholder canvas (diagonal hatch PENDING)
-  - `_mixed3dRender{Mermaid,Gauge,Sparkline,Treemap,TimelineRibbon,Vega,ForceGraph,AnimatedSvg,Html}ToCanvas` — substrate renderers (paint 192×504 body)
-  - `_mixed3dCompositeAndCacheSnap` (~5710): composite + cache + GPU swap
-  - `_mixed3dStartSnapshotDriver` (~5748): parallel setInterval driver
-  - `_MIXED3D_RENDERERS` table (~5697): dispatch by `cell_type`
-  - `_mixed3dSwapCellTier` (~4662), `_mixed3dPromoteInstanceToTier1` (~4709): both re-apply cached snap
+  - `_mixed3dCellTexture` (~5853): placeholder canvas (diagonal hatch PENDING)
+  - `_mixed3dPaintCaption` (~5145): shared body-caption painter
+  - `_mixed3dRender{Mermaid,Gauge,Sparkline,Treemap,TimelineRibbon,Vega,ForceGraph,AnimatedSvg,Html}ToCanvas` — substrate renderers
+  - `_mixed3dCompositeAndCacheSnap` (~5747): composite + cache + GPU swap
+  - `_mixed3dStartSnapshotDriver` (~5799): parallel setInterval driver with 10s render timeout
+  - `_MIXED3D_RENDERERS` table (~5734): dispatch by `cell_type`
+  - `_mixed3dSwapCellTier`, `_mixed3dPromoteInstanceToTier1`: both re-apply cached snap on promote
+- `tools/snap_receiver.py` — POST receiver for headless screenshot validation (NOT yet committed)
+- `refs/gibson/hackers-video/NOTES.md` — Gibson frame analysis
 - `cells.json` — 2594 cells (2531 real + 63 ambient). 1248 mount in mixed3d after awaiting-filter.
-
-## Probes that proved useful
-
-```js
-// Snap driver state + tier-1 mix + snap coverage
-(()=>{const S=window._mixed3dState;const byType={};const snapByType={};let t1=0,sn=0;for(const [id,obj] of S.cellObjects){if(obj.isInstanceHandle)continue;if(obj.userData?.tier!==1)continue;t1++;const ct=obj.userData?.cellEl?.dataset?.cellType||'?';byType[ct]=(byType[ct]||0)+1;if(S._snapTexCache?.has(id)){sn++;snapByType[ct]=(snapByType[ct]||0)+1;}}return{realCells:S?.cellObjects?.size,snapCache:S?._snapTexCache?.size||0,mountQueueLen:S?.mountQueue?.length||0,mountDraining:S?.mountDraining,hidden:document.hidden,tier1Total:t1,snappedTotal:sn,pct:t1?(sn/t1*100).toFixed(0)+'%':'n/a',byType,snapByType};})()
-
-// Camera path radius (verifies path-clustering still works)
-(()=>{const S=window._mixed3dState;const sw=S.swoopCam;const pts=[];for(let i=0;i<10;i++){const p=sw.curve.getPointAt(i/10);pts.push(+Math.hypot(p.x,p.z).toFixed(1));}return {pathRadii:pts};})()
-```
 
 ## What I should NOT redo without checking with user
 
-- Don't darken decoratives (user vetoed)
-- Don't reduce tower count (user vetoed)
-- Don't rotate tier-1 titles vertically (user vetoed)
-- Don't bring back html2canvas for snapshot pipeline (mermaid SVG path works fine)
-- Don't change `#notebook` from `display:none` in mixed3d mode (eats boot perf)
-- Don't redo path-clustering math — `c7562c0` verified
-- Don't raise `_MIXED3D_SNAP_MAX_INFLIGHT` above 3 without heap-check (OOM history)
-- Don't raise hidden-tab `PER_FRAME_CAP` above 12 (OOM history)
-- Don't land IndexedDB cache (#147) yet — substrate/renderer surface still in flux
+- Don't darken decoratives
+- Don't reduce tower count
+- Don't rotate tier-1 titles vertically
+- Don't bring back html2canvas for snapshot pipeline
+- Don't change `#notebook` from `display:none` in mixed3d mode
+- Don't redo path-clustering math
+- Don't raise `_MIXED3D_SNAP_MAX_INFLIGHT` above 3 without heap check
+- Don't raise hidden-tab `PER_FRAME_CAP` above 12
+- Don't land IndexedDB cache (#147) yet
+- **Don't re-introduce pink to cell-level chrome** (tower-level only, under-attack state)
+- **Don't ship cyan-body-with-violet-top mixes** — tower is monochromatic
+- **Don't propose danger archetypes as near-term substrate gaps** (calm-ambient default)
+
+## Open priority queue
+
+Pending tasks ranked roughly by likely-next-up:
+- **#152** Snap throughput / pending-cells (TOP — user-visible issue)
+- #149 Synthetic Gibson tower-label demo content (calm-mode, cheap, uses today's refs)
+- #134 Floor lane-light brightness/contrast (paused in_progress)
+- #80 Real-bezel chrome generalization
+- #109 Pink-column part is now obsolete; scanline-framing part still valid — needs reframe
+- #150 Layered data-window overlay (long-roadmap)
+- #112 Inter-tower data pulses
+- #139 Restore camera speed 1.0 → 4.0
+- #151 Danger archetypes (long-roadmap, gated)
+- #147 IndexedDB persistence (deferred per user)
