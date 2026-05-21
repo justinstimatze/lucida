@@ -5349,37 +5349,72 @@ function _mixed3dPaintCaption(ctx, caption, y0, y1, w, opts) {
   ctx.restore();
 }
 
+// Persistent SVG cache (#152d): if a cell has been rendered before,
+// the styled SVG lives at /cells/<id>.mermaid.svg on disk. Skip
+// mermaid.parse + mermaid.render (~63ms blocking main-thread on
+// average, 213ms p100) and load the cached SVG via Image directly.
+// First render still does mermaid.render then POSTs the styled SVG
+// to snap_receiver on :8767 so future loads hit the cache.
+//
+// Why this works for the throughput problem: mermaid is 92% of total
+// per-render cost (treemap/sparkline/etc are <1ms). Caching only
+// mermaid removes the bottleneck for ~32% of tier-1 cells. After a
+// warm session the steady-state stub backlog should drop dramatically.
+function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      const aspectImg = img.naturalWidth / img.naturalHeight;
+      const graphW = w;
+      const graphH = Math.min(h * 0.7, w / aspectImg);
+      ctx.drawImage(img, 0, 0, graphW, graphH);
+      URL.revokeObjectURL(url);
+      _mixed3dPaintCaption(ctx, extras?.caption, graphH + 12, h - 8, w);
+      resolve(canvas);
+    };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
+
 function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   if (!spec || typeof window.mermaid !== "object") return Promise.resolve(null);
-  const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
-  return window.mermaid.parse(spec).then(() => window.mermaid.render(id, spec))
-    .then(({ svg }) => new Promise((resolve, reject) => {
-      const styledSvg = _mixed3dStyleMermaidSVG(svg);
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        // Top-anchored width-fill so the graph sits flush against the
-        // title bar above, not letterboxed in the middle of a tall body
-        // region. Caption fills the empty space below the graph.
-        const aspectImg = img.naturalWidth / img.naturalHeight;
-        const graphW = w;
-        const graphH = Math.min(h * 0.7, w / aspectImg);
-        ctx.drawImage(img, 0, 0, graphW, graphH);
-        URL.revokeObjectURL(img.src);
-        _mixed3dPaintCaption(ctx, extras?.caption, graphH + 12, h - 8, w);
-        resolve(canvas);
-      };
-      img.onerror = (e) => { URL.revokeObjectURL(img.src); reject(e); };
-      const blob = new Blob([styledSvg], { type: "image/svg+xml;charset=utf-8" });
-      img.src = URL.createObjectURL(blob);
-    }))
-    .catch((e) => {
-      console.warn("[mixed3d] mermaid snap fail:", e?.message || e);
-      return null;
-    });
+  const cellId = extras?.id;
+  // Cache hit path: fetch the pre-rendered SVG from the static server.
+  // Same origin, so no CORS dance. 404 → fall through to fresh render.
+  const tryCache = cellId
+    ? fetch(`/cells/${encodeURIComponent(cellId)}.mermaid.svg`)
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error("cache-miss"))))
+        .then((svg) => _mixed3dRasterizeSvgToCanvas(svg, w, h, extras))
+    : Promise.reject(new Error("no-cellId"));
+  // Fresh render path: parse + render + style, then fire-and-forget
+  // POST to snap_receiver:8767 so the next load hits the cache.
+  const freshRender = () => {
+    const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
+    return window.mermaid.parse(spec)
+      .then(() => window.mermaid.render(id, spec))
+      .then(({ svg }) => {
+        const styledSvg = _mixed3dStyleMermaidSVG(svg);
+        if (cellId) {
+          fetch(`http://127.0.0.1:8767/cells/${encodeURIComponent(cellId)}.mermaid.svg`, {
+            method: "POST",
+            body: styledSvg,
+            headers: { "content-type": "image/svg+xml" },
+          }).catch(() => {}); // receiver may be down; non-fatal
+        }
+        return _mixed3dRasterizeSvgToCanvas(styledSvg, w, h, extras);
+      });
+  };
+  return tryCache.catch(() => freshRender()).catch((e) => {
+    console.warn("[mixed3d] mermaid snap fail:", e?.message || e);
+    return null;
+  });
 }
 
 // Toggle tier-2 cell visibility. URL: ?notier2=1 calls this at boot for
@@ -5971,7 +6006,7 @@ function _mixed3dStartSnapshotDriver() {
       // SVG). Without a timeout, hung promises eat the 3 inflight slots
       // permanently and the driver appears alive but makes no progress.
       const t0 = performance.now();
-      const renderP = renderer(arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title });
+      const renderP = renderer(arg, 192, BODY_H, { id: id, caption: cellData?.caption, title: cellData?.title });
       const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("snap-render-timeout-10s")), 10000));
       Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
         _mixed3dSnapInflight.delete(targetId);
@@ -6082,7 +6117,7 @@ function _mixed3dRunPathWarmup(S) {
         }
         if (S._snapTexCache?.has(id)) { _advance(); continue; }
         inflight.add(id);
-        const renderP = renderer(arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title });
+        const renderP = renderer(arg, 192, BODY_H, { id: id, caption: cellData?.caption, title: cellData?.title });
         const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("warmup-render-timeout-10s")), 10000));
         Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
           inflight.delete(id);
