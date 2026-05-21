@@ -2726,7 +2726,32 @@ function applyMixed3DLayout(opts) {
     for (const [id, o] of S.cellObjects) {
       if (o === hits[0].object) { hitId = id; break; }
     }
-    if (hitId) console.log("[mixed3d] park", window._mixed3dParkAt(hitId));
+    if (!hitId) return;
+    console.log("[mixed3d] park", window._mixed3dParkAt(hitId));
+    // Also copy id + metadata to clipboard so the user can paste it
+    // to the assistant. Includes the bits needed to look up the cell
+    // in cells.json + understand its rendering state.
+    const hitObj = S.cellObjects.get(hitId);
+    const hitEl = hitObj?.userData?.cellEl;
+    const meta = {
+      id: hitId,
+      cellType: hitEl?.dataset?.cellType,
+      mermaidSubtype: hitEl?.dataset?.mermaidSubtype,
+      htmlLayout: hitEl?.dataset?.htmlLayout,
+      title: hitEl?.querySelector(".cell-title")?.textContent?.trim(),
+      tier: hitObj?.userData?.tier,
+      colspan: hitObj?.userData?.colspan,
+      cached: !!S._snapTexCache?.has(hitId),
+      position: hitObj ? {
+        x: +hitObj.position.x.toFixed(2),
+        y: +hitObj.position.y.toFixed(2),
+        z: +hitObj.position.z.toFixed(2),
+      } : null,
+    };
+    const text = JSON.stringify(meta, null, 2);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
   }, true);
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && _mixed3dState?._park) window._mixed3dUnpark();
@@ -5415,7 +5440,12 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // technically OK (SVG scales) but content like edge labels would
   // be undersized in the wider context. Keep variants separate.
   const cs = Math.max(1, Math.min(3, extras?.colspan || 1));
-  const cacheKey = cs > 1 ? `mermaid.c${cs}` : "mermaid";
+  // Style version baked into the cache filename — bump when
+  // _mixed3dStyleMermaidSVG changes so stale renders don't haunt
+  // future sessions. v2 = post-2026-05-21 cyan-dominant + no
+  // font-weight overrides (the overrides were causing label overflow).
+  const STYLE_V = "v2";
+  const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
   // this check, every cache-miss render fired a fetch that 404'd
