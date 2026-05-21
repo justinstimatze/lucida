@@ -5709,6 +5709,10 @@ const _MIXED3D_RENDERERS = {
 
 function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData) {
   if (!bodyCanvas) return;
+  // Bail if teardown happened mid-render — S is stale, _mixed3dState has
+  // moved on (or gone null). Without this we'd write into a defunct
+  // _snapTexCache and try to mutate a disposed material.
+  if (S !== _mixed3dState) return;
   const TITLE_H = 72;
   const fullCanvas = document.createElement("canvas");
   fullCanvas.width = 192;
@@ -6868,6 +6872,15 @@ function teardownMixed3DLayout() {
   if (!_mixed3dState) return;
   const S = _mixed3dState;
   S.animation.running = false;
+  // Stop the snap driver — it's a module-level setInterval that survives
+  // _mixed3dState=null otherwise, ticking every 120ms forever on every
+  // theme/layout switch. Inflight Set cleared so the stale-state guard
+  // in _mixed3dCompositeAndCacheSnap doesn't have to handle them either.
+  if (_mixed3dSnapInterval) {
+    clearInterval(_mixed3dSnapInterval);
+    _mixed3dSnapInterval = null;
+  }
+  _mixed3dSnapInflight.clear();
   // Cells are now WebGL Plane meshes — their DOM elements never
   // moved (stayed in #notebook hidden via CSS), so no DOM reset is
   // needed. Just dispose the meshes; the scene.traverse below picks
