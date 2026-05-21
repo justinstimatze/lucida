@@ -4036,7 +4036,7 @@ function _mixed3dDriveSwoopyTour(t) {
     S.swoopCam = {
       curve,
       totalLen: curve.getLength(),
-      speed: 1.0, // world units per second (temporarily quartered 2026-05-19 for close-look inspection; restore to 4.0 once visual polish is done)
+      speed: 0.5, // world units per second (halved further 2026-05-21 #152: at 1.0 the camera-arrival rate exceeded snap throughput (~17.7/s) so a stub backlog persisted in view. 0.5 cuts arrivals roughly in half. Original 4.0 was the pre-polish target.)
       headingHistory: [],
     };
   }
@@ -4696,8 +4696,13 @@ document.addEventListener("visibilitychange", () => {
 // than a shared substrate stamp. Memory at 15000 cells: ~110MB GPU
 // (vs ~1.1GB for 80×240-everywhere); the 5× cut comes from the
 // resolution drop on far cells, not from sharing.
-const _MIXED3D_TIER1_DIST_SQ = 30 * 30;
-const _MIXED3D_TIER2_DIST_SQ = 35 * 35;
+// Tightened 2026-05-21 (#152): was 30/35, but at camera speed 1.0 the
+// arrival rate into the 30u radius exceeded snap throughput, leaving
+// ~60 stub cells visible at any time. Pulling promote in to 22u
+// halves the eligible-cells count; the hysteresis gap (22→26) still
+// prevents thrash at the boundary.
+const _MIXED3D_TIER1_DIST_SQ = 22 * 22;
+const _MIXED3D_TIER2_DIST_SQ = 26 * 26;
 const _MIXED3D_TIER1_CAP = 400;
 const _MIXED3D_RETIER_BUDGET_MS = 4;
 
