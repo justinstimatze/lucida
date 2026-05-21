@@ -3449,16 +3449,21 @@ function applyMixed3DLayout(opts) {
           console.log(window.toggleMixed3dTier2(false));
         }
       }
-      // Reset camera animation timer at boot reveal: t was advancing
-      // during the held-loader phase (15-20s), but the swoopy-tour
-      // lerp uses a hardcoded dt=1/60 regardless of real frame time.
-      // Multi-second frame stalls during boot left posActual far
-      // behind desiredPos; when frames stabilize the lerp catches up
-      // rapidly, reading as "flying backwards quickly". Resetting t0
-      // and clearing the swoopy cache restarts the path at u=0 just
-      // as the user sees the world.
-      _mixed3dResetCameraTimer();
-      requestAnimationFrame(() => document.body.classList.add("booted"));
+      // Path warmup (#152c): pre-render every cell the camera will
+      // see, so stub→body pop never occurs in view. Camera is held
+      // (gated in _mixed3dDriveCamera) until the warmup promise
+      // settles. ?nowarmup=1 skips for fast iteration.
+      const skipWarmup = new URLSearchParams(window.location.search).get("nowarmup") === "1";
+      const warmupP = skipWarmup
+        ? Promise.resolve()
+        : _mixed3dRunPathWarmup(_mixed3dState);
+      warmupP.finally(() => {
+        // Reset camera timer here as a fallback — the warmup's own
+        // finish() also resets, but if warmup was skipped or hit the
+        // 30s cap we still want a clean u=0 start.
+        _mixed3dResetCameraTimer();
+        requestAnimationFrame(() => document.body.classList.add("booted"));
+      });
     }
   };
   tick();
@@ -3554,6 +3559,10 @@ function _mixed3dStepDanger(t) {
 //   "dolly-canyon" — ping-pong sweep along canyon (legacy)
 function _mixed3dDriveCamera(t) {
   if (!_mixed3dState) return;
+  // Hold camera at the initial pose while path warmup is filling the
+  // tier-1 snap cache. Without this the curve advances during the
+  // 5-20s warmup and cells start popping in before they're prerendered.
+  if (_mixed3dState._warmupActive) return;
   const policy = _mixed3dState.opts.camera;
   // First-call announce so the active camera mode is visible in
   // DevTools — quick way to confirm new tokens loaded vs. stale
@@ -5926,6 +5935,135 @@ function _mixed3dStartSnapshotDriver() {
       });
     }
   }, 120);
+}
+
+// One-shot scripted-path warmup. Walks the swoopy-tour Catmull-Rom
+// curve, finds every cell that will ever be tier-1 (within the LOD
+// promote radius from some sampled camera position along the path),
+// and snap-renders the entire union into _snapTexCache before the
+// camera starts moving. Goal: when the dolly starts, no cell pops
+// from stub→body in view — the cache is already warm.
+//
+// Concurrency is higher than the steady-state driver (CONCURRENCY=4
+// vs MAX_INFLIGHT=3 BATCH=2) because main thread is otherwise idle
+// during warmup. Hard 30s wall-clock cap so a regression in a single
+// substrate can't strand the user on the boot overlay.
+function _mixed3dRunPathWarmup(S) {
+  if (!S || S._warmupComplete) return Promise.resolve();
+  const T = window.THREE;
+  if (!T) return Promise.resolve();
+  // Force-init the camera curve. _mixed3dDriveSwoopyTour caches
+  // S.swoopCam on first call; passing t=0 won't move the camera (the
+  // ease-in arc at t=0 is 0).
+  if (!S.swoopCam) {
+    try { _mixed3dDriveSwoopyTour(0); } catch (e) { /* fall through */ }
+  }
+  const sw = S.swoopCam;
+  if (!sw || !sw.curve) return Promise.resolve();
+  // Sample at finer resolution than the LOD radius so adjacent samples
+  // overlap — no cell sits between two samples and gets missed.
+  const sampleStep = Math.sqrt(_MIXED3D_TIER1_DIST_SQ) * 0.7; // ~21u
+  const sampleCount = Math.max(60, Math.ceil(sw.totalLen / sampleStep));
+  const warmupSet = new Set();
+  const sample = new T.Vector3();
+  for (let i = 0; i < sampleCount; i++) {
+    const u = i / sampleCount;
+    let p;
+    try { p = sw.curve.getPointAt(u); } catch (e) { continue; }
+    if (!p) continue;
+    sample.set(p.x, 4.5, p.z);
+    for (const [id, obj] of S.cellObjects) {
+      if (obj.isInstanceHandle) continue;
+      const dx = obj.position.x - sample.x;
+      const dy = obj.position.y - sample.y;
+      const dz = obj.position.z - sample.z;
+      if (dx * dx + dy * dy + dz * dz < _MIXED3D_TIER1_DIST_SQ) {
+        warmupSet.add(id);
+      }
+    }
+  }
+  if (warmupSet.size === 0) return Promise.resolve();
+  S._warmupActive = true;
+  S._warmupTotal = warmupSet.size;
+  S._warmupCount = 0;
+  S._warmupStart = performance.now();
+  console.log(`[mixed3d] path warmup: ${warmupSet.size} cells to pre-render`);
+  _mixed3dUpdateWarmupProgress(S);
+  const todo = Array.from(warmupSet);
+  const BODY_H = 576 - 72;
+  const CONCURRENCY = 4;
+  const HARD_CAP_MS = 30000;
+  let nextIdx = 0;
+  return new Promise((resolve) => {
+    const finish = () => {
+      const wall = performance.now() - S._warmupStart;
+      console.log(`[mixed3d] path warmup done: ${S._warmupCount}/${S._warmupTotal} in ${wall.toFixed(0)}ms`);
+      S._warmupActive = false;
+      S._warmupComplete = true;
+      _mixed3dResetCameraTimer();
+      resolve();
+    };
+    const inflight = new Set();
+    const kick = () => {
+      if (performance.now() - S._warmupStart > HARD_CAP_MS) {
+        console.warn("[mixed3d] path warmup hit 30s cap, releasing camera");
+        if (inflight.size === 0) finish();
+        return;
+      }
+      while (inflight.size < CONCURRENCY && nextIdx < todo.length) {
+        const id = todo[nextIdx++];
+        const obj = S.cellObjects.get(id);
+        if (!obj || obj.isInstanceHandle) { _advance(); continue; }
+        const el = obj.userData?.cellEl;
+        if (!el) { _advance(); continue; }
+        const ct = el.dataset?.cellType || "";
+        const renderer = _MIXED3D_RENDERERS[ct];
+        if (!renderer) { _advance(); continue; }
+        const cellData = state.rendering.cellsById?.get(id);
+        if (!cellData) { _advance(); continue; }
+        let arg;
+        if (ct === "html") {
+          if (!cellData.title && !cellData.caption) { _advance(); continue; }
+          arg = cellData;
+        } else {
+          if (!cellData.spec || cellData.spec === "None") { _advance(); continue; }
+          arg = cellData.spec;
+        }
+        if (S._snapTexCache?.has(id)) { _advance(); continue; }
+        inflight.add(id);
+        const renderP = renderer(arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title });
+        const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("warmup-render-timeout-10s")), 10000));
+        Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
+          inflight.delete(id);
+          _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData);
+          _advance();
+        }).catch((e) => {
+          inflight.delete(id);
+          console.warn("[mixed3d] warmup fail", ct, id, e?.message || e);
+          _advance();
+        });
+      }
+      if (inflight.size === 0 && nextIdx >= todo.length) finish();
+    };
+    const _advance = () => {
+      S._warmupCount++;
+      if (S._warmupCount % 8 === 0) _mixed3dUpdateWarmupProgress(S);
+      kick();
+    };
+    kick();
+  });
+}
+
+function _mixed3dUpdateWarmupProgress(S) {
+  const titleEl = document.querySelector("#boot-overlay .boot-title");
+  const barEl = document.querySelector("#boot-overlay .boot-bar-fill");
+  if (titleEl) titleEl.textContent = `PRE-RENDERING ${S._warmupCount}/${S._warmupTotal}`;
+  if (barEl && S._warmupTotal > 0) {
+    // Replace the indeterminate slide animation with a determinate fill.
+    barEl.style.animation = "none";
+    barEl.style.left = "0";
+    barEl.style.width = (100 * S._warmupCount / S._warmupTotal).toFixed(1) + "%";
+  }
 }
 
 // Dev hooks for diagnosing snap-driver state from console / MCP probes.
