@@ -5164,7 +5164,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
   return svgString.replace(/(<svg[^>]*>)/, "$1" + css);
 }
 
-function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
+function _mixed3dRenderMermaidToCanvas(spec, w, h) {
   if (!spec || typeof window.mermaid !== "object") return Promise.resolve(null);
   const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
   return window.mermaid.parse(spec).then(() => window.mermaid.render(id, spec))
@@ -5176,45 +5176,16 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
-        // Top-anchored width-fill so the graph sits flush against the
-        // title bar above, rather than letterboxed in the middle of the
-        // tall body region. User 2026-05-20: "title, a bunch of vertical
-        // space, the tiny mermaid diagram, and then more vertical space".
         const aspectImg = img.naturalWidth / img.naturalHeight;
-        const graphW = w;
-        const graphH = Math.min(h * 0.7, w / aspectImg);  // cap at 70% of body
-        ctx.drawImage(img, 0, 0, graphW, graphH);
-        URL.revokeObjectURL(img.src);
-        // Caption fills space below the graph.
-        const caption = String(extras?.caption || "").trim();
-        if (caption && h - graphH > 40) {
-          const capY0 = graphH + 12;
-          const capY1 = h - 8;
-          ctx.fillStyle = "#ccf3ff";
-          ctx.globalAlpha = 0.85;
-          ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "top";
-          const padX = 8;
-          const charsPerLine = 22;
-          const lineH = 17;
-          const maxLines = Math.floor((capY1 - capY0) / lineH);
-          const words = caption.split(/\s+/);
-          const lines = [];
-          let cur = "";
-          for (const word of words) {
-            const next = cur ? cur + " " + word : word;
-            if (next.length > charsPerLine) {
-              if (cur) lines.push(cur);
-              cur = word.length > charsPerLine ? word.slice(0, charsPerLine - 1) + "…" : word;
-            } else cur = next;
-            if (lines.length >= maxLines) break;
-          }
-          if (cur && lines.length < maxLines) lines.push(cur);
-          let cy = capY0;
-          for (const L of lines) { ctx.fillText(L, padX, cy); cy += lineH; }
-          ctx.globalAlpha = 1;
+        const aspectCan = w / h;
+        let dw, dh, dx, dy;
+        if (aspectImg > aspectCan) {
+          dw = w; dh = w / aspectImg; dx = 0; dy = (h - dh) / 2;
+        } else {
+          dh = h; dw = h * aspectImg; dx = (w - dw) / 2; dy = 0;
         }
+        ctx.drawImage(img, dx, dy, dw, dh);
+        URL.revokeObjectURL(img.src);
         resolve(canvas);
       };
       img.onerror = (e) => { URL.revokeObjectURL(img.src); reject(e); };
@@ -5730,63 +5701,20 @@ function _mixed3dStartSnapshotDriver() {
     }
     if (!target) return;
     _mixed3dSnapInflight = true;
-    const cellData = state.rendering.cellsById?.get(target.id);
-    const TITLE_H = 72;
-    const BODY_H = 576 - TITLE_H;
-    target.renderer(target.arg, 192, BODY_H, { caption: cellData?.caption, title: cellData?.title }).then((bodyCanvas) => {
+    target.renderer(target.arg, 192, 576).then((canvas) => {
       _mixed3dSnapInflight = false;
-      if (!bodyCanvas) return;
-      // Composite: title-at-top + body. Title rendered fresh into a new
-      // 192×576 canvas; body drawn below. Mimics the placeholder canvas
-      // title style so it visually continues from the pre-snapshot state.
-      const fullCanvas = document.createElement("canvas");
-      fullCanvas.width = 192;
-      fullCanvas.height = 576;
-      const ctx = fullCanvas.getContext("2d");
-      // Title block: purple, wrapped fixed-char.
-      const title = String(cellData?.title || target.id || "").toUpperCase();
-      ctx.fillStyle = "#9966ff";
-      ctx.font = "bold 17px 'Eurostile', 'Share Tech Mono', monospace";
-      ctx.textBaseline = "top";
-      ctx.textAlign = "left";
-      const padX = 8;
-      const charsPerLine = 18;
-      const lineH = 20;
-      const words = title.split(/\s+/);
-      let y = 8;
-      let cur = "";
-      for (const w of words) {
-        const next = cur ? cur + " " + w : w;
-        if (next.length > charsPerLine) {
-          if (cur) ctx.fillText(cur, padX, y);
-          y += lineH;
-          if (y + lineH > TITLE_H - 4) { cur = ""; break; }
-          cur = w.length > charsPerLine ? w.slice(0, charsPerLine - 1) + "…" : w;
-        } else cur = next;
-      }
-      if (cur && y + lineH <= TITLE_H - 4) ctx.fillText(cur, padX, y);
-      // Title rule: thin cyan line at TITLE_H.
-      ctx.strokeStyle = "#00ddff";
-      ctx.globalAlpha = 0.4;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(padX, TITLE_H - 2);
-      ctx.lineTo(192 - padX, TITLE_H - 2);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      // Body: drawn at (0, TITLE_H). bodyCanvas is 192 × BODY_H.
-      ctx.drawImage(bodyCanvas, 0, TITLE_H);
+      if (!canvas) return;
       if (!S._snapTexCache) S._snapTexCache = new Map();
-      S._snapTexCache.set(target.id, fullCanvas);
+      S._snapTexCache.set(target.id, canvas);
       const curObj = S.cellObjects.get(target.id);
       if (curObj && !curObj.isInstanceHandle
           && curObj.userData?.tier === 1
           && curObj.material?.map) {
-        curObj.material.map.image = fullCanvas;
+        curObj.material.map.image = canvas;
         curObj.material.map.needsUpdate = true;
       }
     });
-  }, 800);  // gauges/sparklines/treemaps/timeline_ribbon are synchronous; mermaid + animated_svg dominate per-tick
+  }, 800);  // bumped from 1500 — gauges/sparklines/treemaps are synchronous; mermaid still the bottleneck
 }
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink) {
