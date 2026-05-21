@@ -147,6 +147,13 @@ body.booted #boot-overlay {
   text-shadow: 0 0 8px var(--accent, #00ddff);
   animation: boot-title-pulse 1.4s ease-in-out infinite;
 }
+.boot-counter {
+  font-size: 0.85rem;
+  margin-top: 0.6rem;
+  opacity: 0.7;
+  letter-spacing: 0.15em;
+  min-height: 1em;
+}
 .boot-bar {
   width: 220px;
   height: 2px;
