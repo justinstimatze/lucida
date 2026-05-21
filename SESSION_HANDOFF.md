@@ -1,106 +1,135 @@
-# Session handoff — 2026-05-19
+# Session handoff — 2026-05-20
 
-Working surface: **hackers / mixed3d visual polish round** toward public-release quality.
-Branch: `main`. Last commit: `911db3e` (pushed). Working tree clean except for 4 untracked backup/note files (safe to ignore).
+Working surface: **hackers / mixed3d tier-1 rich-substrate rendering (#142)** — making tier-1 cells render actual content (mermaid graphs, gauges, sparklines, etc.) instead of abstract sketches.
+
+Branch: `main`. Last commit: `bd13a68` (revert of 4b10bce). Working tree clean.
+
+## Critical issue going into next session
+
+**Mount drain is intermittently broken.** After ~3 reloads in the same Chrome tab during today's session, `_mixed3dDrainMountQueue` stalls at 0 cells / 1248 queued. Same exact code that worked in a freshly-created tab fails after several reloads. **Almost certainly an MCP browser-tab state issue, not code.** Today's pattern: kill the tab + create a fresh one → mount works.
+
+If next session opens and `realCells: 0` after 30s wait, **close the tab + open a new one**, don't waste time debugging code first.
 
 ## Quick start to resume
 
 ```bash
-# server (probably not running)
+# Server (probably running; check with: curl -sI http://localhost:8766/ | head -1)
 python3 -m http.server 8766
 ```
 
-Open <http://localhost:8766/?theme=hackers&layout=mixed3d>. Eurostile font loads via @font-face in notebook.css. Camera path is closed-loop swoopy-tour.
+Open `http://localhost:8766/?theme=hackers&layout=mixed3d&notier2=1&_=N` (use a unique `_=N` cache-bust each time).
 
-## What just landed this session (most recent first)
+Useful URL params:
+- `?notier2=1` — hides tier-2 cells, so you can A/B compare tier-1 + decoratives only. Runtime toggle via console: `toggleMixed3dTier2(true)` / `toggleMixed3dTier2(false)`.
 
-1. `911db3e` — terminal-scroll polish (temp canvas + line variety + faster scroll). User: "really good actually"
-2. `5695224` — replaced UV-scroll with real canvas line-jump animation
-3. `98aae72` — top/bottom face padding + scrolling/blinking animation
-4. `4fc7f93` — fixed dead `inst` reference after 16-texture refactor
-5. `46303d1` — 16 decorative textures + `cellW` spacing + half-thick edges + top-rim color matches body
-6. `07a9b04` — DoubleSide + edge buffer + less hex
-7. `80c0015` — **E/W face normal direction bug** fix in NESW + camera speed temp slow
-8. `f5bf216` — transparent glyphs (alphaTest) + line-shape variety in decoratives
-9. `5c24558` — hide decoratives behind real cells + fog bump + FrontSide (later reverted)
-10. `f844003` — `tools/gen_ambient.py` — 63 real-data ambient panels
-11. `c1046fa` — recency-bias on tier-1 retier sweep
-12. `d0b0f03` — initial decorative-tier InstancedMesh
-13. `148eb25` — tier-2 per-instance color tint
-14. `258c111` — tower edge brightness boost (#133)
-15. `7640b2d` — **T-not-defined regression fix** (had been silently breaking retier sweep since 5de82e6)
-16. cells.json cull (not git-tracked) — dropped 11,835 perf-fill clones + 749 text cells. Backup at `cells.json.before-cull-*`.
+## What landed today (most recent first)
 
-## Pending tasks for next session
+1. `bd13a68` — Revert of `4b10bce` (title-composite broke mount; functionally equivalent to `7d0ca9a` now).
+2. `4b10bce` — REVERTED. Tried to compose title-at-top + body in driver; broke mount.
+3. `7d0ca9a` — Added 5 substrate renderers: timeline_ribbon, vega, force_graph, animated_svg, html. ~60% of tier-1 PENDING-forever cells get real renders.
+4. `585377e` — PENDING placeholder (diagonal hatch + purple stamp) instead of abstract sketch. Persistent tier-2 hide via setInterval re-apply. Added gauge/sparkline/treemap renderers.
+5. `1951326` — Bold mermaid palette: hackers-colored CSS injected into rendered SVG. Tier-2 suppress toggle.
+6. `fbc5539` — Tier-1 mermaid snapshot pipeline (setInterval driver, single in-flight, ~1.5s cadence). Mermaid renders via `mermaid.render(spec)` → SVG → Image → canvas.
+7. `c7562c0` — Cluster cells along camera path (was inner-radius). 48 path-adjacent towers densify; 52 off-path stay decorative-backdrop.
+8. `0317d54` — Initial (wrong) attempt at clustering — radius from origin, but path is at radius 37-50 from origin not <30. Replaced by `c7562c0`.
+9. `44ba20e` — Filter awaiting-mint cells (50% of cells.json was placeholder PROPOSALs). Fixed Muuri layout-wipe bug in 2D pack.
+10. Earlier today: `c7b56b0` purple tier-1 title color; `5742d4d` tier-1 canvas res bump to 192×576.
 
-- **#138** — Tier-2 cells crispness pass. User: "tier 2 cells are too blurry and hard to see. lines should be chunkier, text bolder, closer to the decorative cells". Strategy options in the task description.
-- **#139** — Restore camera speed 1.0 → 4.0 in index.html ~line 3924 when polish wraps.
-- **#134** floor lane-lights (in_progress, paused mid-task many turns ago)
-- **#135** pink-ratio audit + scene contrast
-- **#128** debug logging cleanup (gate `[mixed3d]` per-frame logs behind `?debug=1`)
-- **#132** tech-debt sweep (cells.json atomic write, security audit, mount-lifecycle test, README docs)
-- **#136** dependabot moderate vulnerability triage
-- See `TaskList` for the rest.
+## Open #142 state
+
+Current state (commit `bd13a68`, identical to `7d0ca9a`):
+
+- 9 substrate renderers in `_MIXED3D_RENDERERS` table dispatch:
+  - `mermaid` (async, ~500ms each)
+  - `gauge`, `sparkline`, `treemap`, `timeline_ribbon`, `vega`, `force_graph` (synchronous, fast)
+  - `animated_svg` (async, fast)
+  - `html` (synchronous, draws title chip + caption text — no real HTML render)
+- Setinterval(800ms) driver, single in-flight via `_mixed3dSnapInflight` flag.
+- Driver bails on `S.mountDraining === true`.
+- Renderer output replaces `material.map.image` + `needsUpdate = true`.
+- Cache in `S._snapTexCache: Map<cellId, canvas>`.
+- Re-applies tier-2 suppression each tick (handles tier-1↔tier-2 demote churn).
+
+**Mount drain reaches 1248 cells, drain finishes, then driver starts snapping. ~80 snapshots per minute peak (mermaid is bottleneck).**
+
+## Open #142 follow-ups (didn't land today)
+
+1. **Title persists across snapshot generations.** Renderers replace the WHOLE canvas; the placeholder's title (drawn by `_mixed3dCellTexture`) is wiped. Fix is: driver composites title-at-top + body-canvas (renderers paint into body region only). I tried this in `4b10bce` and it broke mount; needs careful investigation.
+
+2. **Mermaid graph too small** in 192×576 portrait canvas. User: "title, vertical space, tiny mermaid, more vertical space". Fix is part of #1 — anchor graph at top of body, fill empty space below with caption text. Mermaid renderer is set up to accept `extras: { caption, title }` already.
+
+3. **Vega cells have complex specs** my naive bar-chart renderer might miss edge cases — verify after fresh tab works.
 
 ## Locked-in visual decisions
 
-These were tested and accepted; don't re-litigate without strong reason.
+These are tested and validated; don't re-litigate.
 
-- **DoubleSide** on decorative material — user explicitly accepted mirrored back-face text as the trade-off for "all 4 faces visible always"
-- **Tower glass opacity 0.025** — see-through canyon depth is desired
-- **Edge tubes 0.06 thick** (half of original 0.12)
-- **Top rim color = edge color** (no white lerp)
-- **`slotW=0.78` for positioning, `cellW=0.62` for cell mesh width** — separates pitch from cell size, gives both edge buffer and inter-column gap
-- **Top/bottom face padding 0.5u** (baseY=0.5, topPad=0.5 in `_mixed3dPlanColumn`)
-- **alphaTest on decoratives, not transparent:true blend** — hard glyph silhouette, no painter's-algorithm overlap artifacts
-- **16 decorative textures** with per-slot hash-picked mesh — variety without per-instance shader work
-- **Real-canvas line-jump scrolling** (NOT UV.y offset) — uses scratch temp canvas to avoid drawImage canvas-to-self overlap smear
-- **Decorative animation: scroll period 0.8-1.6s, pulse ±0.08, blink to 0.25 for 80ms every ~4s**
-- **Tier-1 and tier-2 cells DO NOT animate** — only decoratives do
-- **cells.json: 2,594 cells** (2,531 real session content + 63 ambient panels). No perf-fill, no text. Don't run `perf_fill.py` against this file again.
-- **Recency-bias in retier sweep** — `_retierKeys` sorted by `data-timestamp` desc on each cycle rebuild
+- Tier-1 canvas 192×576 (matches tier-2 shared)
+- Tier-1 title color: **purple `#9966ff`** — pink reserved for danger signal
+- Mermaid palette: cyan nodes / purple edges / pink edge labels, 3-4px strokes
+- Decoratives stay full-cyan `rgba(0, 221, 255, ...)` — user vetoed darkening
+- Tower count stays **10×10 = 100** — user vetoed reducing
+- Path-clustering: cells mount only on towers within `spacing * 1.2` (~14u) of camera bezier curve
+- Camera slow-scan cadence: ~8-14s between scans (was 30-50s)
+- `?notier2=1` is the A/B comparison knob
 
 ## Critical bug history (gotchas)
 
-1. **NESW E/W rotY were reversed** — for weeks, real cells on east/west tower faces rendered with MIRRORED textures. Fixed 2026-05-19 in `80c0015`. The probe `tower.faces[i].rotY` should give plane normal direction matching `dx/dz` sign for all 4 faces. Always run that probe if face orientation feels off.
-2. **`drawImage` canvas-to-self with overlapping rectangles is undefined** — produced smearing when I tried to shift canvas content for scrolling. Fix: use a scratch canvas intermediary (S._decoScrollTempCan), two non-overlapping calls.
-3. **`T is not defined`** silently broke tier promotion for weeks after `5de82e6` — `_mixed3dRetierSweep` used `new T.Matrix4()` without `const T = window.THREE;` at function top. The thrown exception aborted retier mid-loop. Console drowning in 1000+ exceptions was the smoking gun.
+1. **MCP browser tab state degrades after multiple reloads** — mount drain stalls. Fresh tab fixes it. Today this happened 3-4 times.
+2. **Adding html2canvas via `<script defer>` broke mount** in 3 swings before I tried a fresh tab — the script tag alone seems to interact poorly with mount drain in stale tabs. Use cache-bust URL param.
+3. **Title-composite (4b10bce) broke mount** — code review showed nothing obviously wrong. May be tab-state related; revert was the right call.
+4. **`cells.json` HEAD returns 503** from Python http.server — pollAll falls through to GET. Noisy but non-fatal.
 
 ## Files to know
 
-- `index.html` — single-file renderer + mixed3d code. `applyMixed3DLayout` around line 2583. `_mixed3dBuildDecorativeLayer` around line 5500. `_mixed3dStepDecoratives` is the per-frame animation hook.
-- `notebook.css` — themes. `theme-hackers` block + Eurostile @font-face at top.
-- `tools/gen_ambient.py` — generates 63 real-data ambient panels from `mint_log.jsonl` + `cells.json`. Run with `--merge` to append into cells.json.
-- `tools/gen_floor.py` — bakes `assets/floor_baked.png` (the magenta PCB floor).
-- `themes/hackers.tokens.json` — theme color/font tokens.
-- `refs/gibson/` — reference screenshots from the movie. `canyon_flythrough.png` is the gold standard for canyon look.
+- `index.html` — single-file renderer. Key sections in mixed3d (~lines 2576-6500):
+  - `applyMixed3DLayout` (~2583): scene setup
+  - `_mixed3dDrainMountQueue` (~5419): mounts cells from queue
+  - `_mixed3dCellTexture` (~5106): builds the placeholder canvas + diagonal hatch PENDING
+  - `_mixed3dRenderMermaidToCanvas` (~5120): mermaid pipeline
+  - `_mixed3dRender{Gauge,Sparkline,Treemap,TimelineRibbon,Vega,ForceGraph,AnimatedSvg,Html}ToCanvas` — substrate renderers
+  - `_mixed3dStartSnapshotDriver` (~5520): setInterval driver
+  - `_MIXED3D_RENDERERS` table (~5510): dispatch by `cell_type`
+  - `_mixed3dApplyTier2Visibility` (~5180): tier-2 hide
+  - Tier-1 promotion logic: `_mixed3dRetierSweep` (~4742), `_mixed3dPromoteInstanceToTier1` (~4692)
+- `notebook.css` — `body.layout-mixed3d #notebook { display: none }` (currently — DO NOT change to position:absolute, will eat boot perf)
+- `cells.json` — 2594 cells (2531 real + 63 ambient). 1248 mount in mixed3d after awaiting-filter.
+
+## User-stated visual targets carry into next session
+
+- Tier-1 cells "almost as legible as 2D dashboard" during flyby
+- "Diagrams pretty thin and uninspiring" → addressed by bold mermaid palette (1951326)
+- "Abstract sketch should be obvious placeholder" → addressed by PENDING (585377e)
+- "Suppress tier 2 for comparison" → `?notier2=1` flag
+- Mermaid sizing inside narrow cells — outstanding (#142 followup 1+2)
+
+## Pending tasks (priority order for next session)
+
+- **#142** open — title-persistence + mermaid-sizing follow-ups (see above)
+- **#139** Restore camera speed 1.0 → 4.0 when polish wraps
+- **#134** Floor lane-light brightness (in_progress, paused)
+- **#135** Pink-ratio audit
+- **#129** audit-404 cleanup
+- **#132** Tech-debt sweep
 
 ## Probes that proved useful
 
 ```js
-// Face normal check (any tower)
-(()=>{const S=window._mixed3dState;const T=window.THREE;const t0=S.towerMeshes[0];return t0.faces.map((f,i)=>{const q=new T.Quaternion().setFromEuler(new T.Euler(0,f.rotY,0,'XYZ'));const n=new T.Vector3(0,0,1).applyQuaternion(q);return{face:i,out:f.dx>0?'+X':f.dx<0?'-X':f.dz>0?'+Z':'-Z',normal:[n.x.toFixed(1),n.z.toFixed(1)]};});})()
+// Snapshot driver state
+(()=>{const S=window._mixed3dState;return{realCells:S?.cellObjects?.size,snapCache:S?._snapTexCache?.size||0,mountQueueLen:S?.mountQueue?.length||0,booted:S?._booted,mountDraining:S?.mountDraining};})()
 
-// Decorative + tier counts
-(()=>{const S=window._mixed3dState;return{decorativeMeshes:S?._decorativeMeshes?.length||0,realCells:S?.cellObjects?.size||0,tier1:S?.tier1Count||0,mountQueue:S?.mountQueue?.length||0};})()
+// Tier-1 cells by substrate type + snapshot status
+(()=>{const S=window._mixed3dState;const byType={};const snapByType={};for(const [id,obj] of S.cellObjects){if(obj.isInstanceHandle)continue;if(obj.userData?.tier!==1)continue;const ct=obj.userData?.cellEl?.dataset?.cellType||'?';byType[ct]=(byType[ct]||0)+1;if(S._snapTexCache?.has(id))snapByType[ct]=(snapByType[ct]||0)+1;}return {tier1ByType:byType,snappedByType:snapByType};})()
 
-// FPS sample over 60 frames
-(()=>{let last=performance.now(),frames=0;const samples=[];return new Promise(r=>{const loop=()=>{const now=performance.now();samples.push(now-last);last=now;frames++;if(frames<60)requestAnimationFrame(loop);else{samples.sort((a,b)=>a-b);r({p50:+samples[30].toFixed(1),p95:+samples[57].toFixed(1),fps:+(1000/samples[30]).toFixed(1)});}};requestAnimationFrame(loop);});})()
+// Camera path radius check (verifies path-clustering still works)
+(()=>{const S=window._mixed3dState;const sw=S.swoopCam;const pts=[];for(let i=0;i<10;i++){const p=sw.curve.getPointAt(i/10);pts.push(+Math.hypot(p.x,p.z).toFixed(1));}return {pathRadii:pts};})()
 ```
-
-## User-stated visual targets (carry into next session)
-
-- Tier 2 cells should be "as visually crisp as the decorative cells are now" — #138
-- "Tower city always looks full at all times" — landed via decorative tier
-- Real cells the camera is approaching should be "as usefully relevant and recent as possible" — landed via recency-bias retier
-- "Bright text on basically transparent glass (behind which is a dark background)" — landed via alphaTest on decoratives
-- "Old-school terminal with characters appearing and lines dropping by a newline" — landed via canvas line-jump animation
 
 ## What I should NOT redo without checking with user
 
-- Don't switch decoratives back to FrontSide — user accepted mirrored back as feature
-- Don't switch back to UV-scroll animation — partial rows looked sloppy
-- Don't re-run perf_fill.py against cells.json — already culled
-- Don't bump tower glass opacity above 0.025 — kills canyon depth
-- Don't change rotY on N/S/E/W faces — recently fixed, verified correct via probe
-- Don't add transparent:true to tier-1/2 cell substrates without thinking — the alphaTest+depthWrite path on decoratives is what gave crisp text
+- Don't darken decoratives (user vetoed)
+- Don't reduce tower count (user vetoed)
+- Don't rotate tier-1 titles vertically (user vetoed)
+- Don't bring back html2canvas for snapshot pipeline (mermaid SVG path works fine)
+- Don't change `#notebook` from `display:none` in mixed3d mode (eats boot perf)
+- Don't redo path-clustering math — `c7562c0` is verified correct (path radius 37-50, threshold 14u from curve)
