@@ -5921,6 +5921,18 @@ function _mixed3dSyncCells() {
     _mixed3dState.mountDraining = true;
     _mixed3dState.mountDrainStart = performance.now();
     _mixed3dState.mountDrainTotal = 0;
+    _mixed3dScheduleDrain();
+  }
+}
+
+// rAF is throttled to 0Hz on hidden tabs (Chrome backgrounding), so the
+// queue stalls indefinitely if the user navigates away or — more often
+// — if MCP/automation probes the page without focusing the tab. Fall
+// back to setTimeout when hidden so drain keeps making progress.
+function _mixed3dScheduleDrain() {
+  if (document.hidden) {
+    setTimeout(_mixed3dDrainMountQueue, 16);
+  } else {
     requestAnimationFrame(_mixed3dDrainMountQueue);
   }
 }
@@ -6134,7 +6146,7 @@ function _mixed3dDrainMountQueue() {
 
   S.mountDrainTotal = (S.mountDrainTotal || 0) + mounted;
   if (S.mountQueue.length > 0) {
-    requestAnimationFrame(_mixed3dDrainMountQueue);
+    _mixed3dScheduleDrain();
   } else {
     S.mountDraining = false;
     const wall = performance.now() - (S.mountDrainStart || start);
