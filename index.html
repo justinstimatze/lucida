@@ -5677,8 +5677,12 @@ let _mixed3dSnapInterval = null;
 // while a render is in flight without blocking the rest of the queue —
 // each tick can kick BATCH_SIZE new renders in parallel.
 const _mixed3dSnapInflight = new Set();
-const _MIXED3D_SNAP_MAX_INFLIGHT = 8;
-const _MIXED3D_SNAP_BATCH = 4;
+// Tighter caps after OOM 2026-05-20: 8/4 saturated GPU+JS heap on a hot
+// reload. Each in-flight render holds a ~440KB transient canvas; cap of
+// 3 keeps peak transient at ~1.3MB instead of ~3.5MB, with negligible
+// throughput cost (mermaid is wall-bound at ~150-300ms anyway).
+const _MIXED3D_SNAP_MAX_INFLIGHT = 3;
+const _MIXED3D_SNAP_BATCH = 2;
 
 // Dispatch table: substrate type → render function. Returns Promise<canvas|null>.
 // Note: html renderer takes (cellData, w, h) — uses caption/title from cells.json,
@@ -6043,12 +6047,12 @@ function _mixed3dDrainMountQueue() {
   // Live operation (1–2 cells/minute) lands in one frame either way,
   // so the cap is invisible after boot.
   const BUDGET_MS = 9;
-  // Hidden tabs throttle setTimeout to ~1Hz, so a 3-cell cap means 3
-  // cells/sec — a 1248-cell boot would take 7+ minutes. Bump the cap
-  // hard when hidden (we're not competing with rAF rendering anyway,
-  // since the WebGL frame loop is also throttled). Visible tabs keep
-  // the smooth 3 cells/frame trickle the user signed off on.
-  const PER_FRAME_CAP = document.hidden ? 60 : 3;
+  // Hidden tabs throttle setTimeout to ~1Hz, so cap 3 means 3 cells/sec.
+  // Bump the cap when hidden to keep boot time bearable for MCP probing,
+  // but NOT so high it floods Mesh/CanvasTexture allocations in a single
+  // tick. 60 OOM'd a session on 2026-05-20; 12 is a 4× speedup over the
+  // visible-tab default with bounded burst.
+  const PER_FRAME_CAP = document.hidden ? 12 : 3;
 
   // Hoist style lookups out of the per-cell paint loop. Theme changes
   // teardown the layout (rebuild path), so this is stable across one
