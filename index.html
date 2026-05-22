@@ -6414,7 +6414,17 @@ function _mixed3dRunPathWarmup(S) {
   if (!sw || !sw.curve) return Promise.resolve();
   // Sample at finer resolution than the LOD radius so adjacent samples
   // overlap — no cell sits between two samples and gets missed.
-  const sampleStep = Math.sqrt(_MIXED3D_TIER1_DIST_SQ) * 0.7; // ~21u
+  // Wider radius than the actual LOD promote radius (22u) so cells
+  // just outside the immediate camera horizon get pre-rendered too.
+  // Without this, cells JUST beyond 22u of every curve sample get
+  // promoted ad-hoc as the camera approaches and show as stubs
+  // during the steady-state catch-up window (user reported clicking
+  // cells like cell-4212 and seeing cached:false). 35u catches cells
+  // ~13u beyond the LOD horizon — they'll be in cache by the time
+  // the camera moves close enough to promote them.
+  const WARMUP_R = 35;
+  const WARMUP_R_SQ = WARMUP_R * WARMUP_R;
+  const sampleStep = WARMUP_R * 0.7; // ~24u — adjacent samples overlap
   const sampleCount = Math.max(60, Math.ceil(sw.totalLen / sampleStep));
   const warmupSet = new Set();
   const sample = new T.Vector3();
@@ -6429,7 +6439,7 @@ function _mixed3dRunPathWarmup(S) {
       const dx = obj.position.x - sample.x;
       const dy = obj.position.y - sample.y;
       const dz = obj.position.z - sample.z;
-      if (dx * dx + dy * dy + dz * dz < _MIXED3D_TIER1_DIST_SQ) {
+      if (dx * dx + dy * dy + dz * dz < WARMUP_R_SQ) {
         warmupSet.add(id);
       }
     }
