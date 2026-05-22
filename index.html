@@ -5452,9 +5452,20 @@ function _mixed3dStyleMermaidSVG(svgString) {
         stroke: #00ddff !important;
         stroke-width: 2.5px !important;
       }
-      .node .label, .nodeLabel, .label foreignObject div, .label text, text.label {
+      .node .label, .nodeLabel, .label foreignObject div, .label text, text.label,
+      .label tspan, .nodeLabel tspan, text tspan {
         fill: #e8f8ff !important;
         color: #e8f8ff !important;
+        /* Lock font-family + font-size at render-time so they match
+           whatever mermaid measured against when computing rect widths.
+           Without these, the rasterized SVG inherits document
+           default (16px Eurostile @ ~7.27px/char) while mermaid had
+           measured against ~5.4px/char (likely 11px or a narrower font
+           system fallback). The QA scanner showed 345/351 nodes
+           overflowing by 1.4× as a result. 12px Eurostile gives
+           ~5.45px/char which fits the rects mermaid sized. */
+        font-family: "Eurostile", "trebuchet ms", sans-serif !important;
+        font-size: 12px !important;
       }
       .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
         stroke: #66e6ff !important;
