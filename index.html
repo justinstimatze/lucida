@@ -7306,10 +7306,13 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   fullCanvas.width = obj?.userData?.canvasW || (192 * cs);
   fullCanvas.height = canvasH || obj?.userData?.canvasH || 576;
   const ctx = fullCanvas.getContext("2d");
-  // Transparent backdrop — substrate content sits on the tower glass
-  // directly so the city aesthetic shows through. User 2026-05-22
-  // tested the dark fill, ruled it out as the empty-cell cause, asked
-  // to "switch back to transparent backgrounds now".
+  // Softer dark backdrop (alpha 0.5) — city aesthetic shows through
+  // but sparse substrate strokes (2-8% pixel coverage) have something
+  // to read against instead of drowning in cyan tower glass. User
+  // 2026-05-22 after dark-then-transparent A/B: "let's try a softer
+  // dark fill but I maintain that it is simply missing content".
+  ctx.fillStyle = "rgba(8, 18, 30, 0.50)";
+  ctx.fillRect(0, TITLE_H, fullCanvas.width, fullCanvas.height - TITLE_H);
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   if (!S._snapTexCache) S._snapTexCache = new Map();
