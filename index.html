@@ -5553,7 +5553,7 @@ function _mixed3dPaintTitleBlock(ctx, title, fullW) {
 // ~100-500ms later. ~3-5ms per call — cheap enough to run in the
 // retier-sweep budget without blowing PROMOTE_BUDGET.
 function _mixed3dPaintPromoteStub(id, cellData, colspan, canvasH) {
-  const cs = Math.max(1, Math.min(4, colspan || 1));
+  const cs = Math.max(1, Math.min(6, colspan || 1));
   const W = 192 * cs;
   const H = canvasH || 576;
   const canvas = document.createElement("canvas");
@@ -6512,7 +6512,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   if (S !== _mixed3dState) return;
   const TITLE_H = 72;
   const obj = S.cellObjects.get(targetId);
-  const cs = Math.max(1, Math.min(4, colspan || obj?.userData?.colspan || 1));
+  const cs = Math.max(1, Math.min(6, colspan || obj?.userData?.colspan || 1));
   const fullCanvas = document.createElement("canvas");
   fullCanvas.width = obj?.userData?.canvasW || (192 * cs);
   fullCanvas.height = canvasH || obj?.userData?.canvasH || 576;
@@ -6902,7 +6902,7 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
   // Per-cell canvas dimensions: width scales with colspan; height
   // passed in so canvas aspect matches mesh aspect (variable cell
   // heights post-#159). Fallback for legacy callers: 192*cs × 576.
-  const cs = Math.max(1, Math.min(4, colspan || 1));
+  const cs = Math.max(1, Math.min(6, colspan || 1));
   const W = isTop ? 384 : (192 * cs);
   const H = isTop ? 384 : (canvasH || 576);
   const canvas = document.createElement("canvas");
@@ -7942,11 +7942,11 @@ function _mixed3dColspanForCell(cell) {
   // truncates to "ab…" ellipses everywhere.
   if (ct === "html") {
     const hl = cell.dataset.htmlLayout || "";
-    // Tables with many columns need WAY more horizontal room than
-    // colspan=2 (384px) — an 8-column "concurrent processes" table
-    // gave ~48px per column = 6 chars max. Default html-table to
-    // colspan=4 to match wide-mermaid treatment.
-    if (hl === "table") return 4;
+    // 8-col tables at colspan=4 (768px) still unusably compressed
+    // (user 2026-05-21 "table is unusably compressed, maybe needs to
+    // be 6 cols wide"). Default html-table to colspan=6 = full face
+    // (1152px) so dense tables finally have room.
+    if (hl === "table") return 6;
     if (hl === "callouts" || hl === "dl" || hl === "kanban") return 2;
   }
   return 1;
@@ -7960,7 +7960,7 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
   // Allow up to colspan=4 — flowcharts and other wide mermaid types
   // benefit from 2/3 of the face. Face is 6 cols, so 4 leaves 2
   // remaining for narrower neighbours.
-  const colspan = Math.max(1, Math.min(4, desiredColspan || 1));
+  const colspan = Math.max(1, Math.min(6, desiredColspan || 1));
   let targetX = cam.position.x;
   let targetZ = cam.position.z;
   // Lookahead: pick towers about to enter view, not towers in the
