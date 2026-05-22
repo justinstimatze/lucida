@@ -5774,8 +5774,8 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   const dotR = Math.max(10, Math.round(h / 36));        // ~14 at h=504
   const activeR = Math.max(14, Math.round(h / 24));     // ~21 at h=504
   const haloR = Math.max(22, Math.round(h / 16));       // ~31
-  const labelFont = Math.max(15, Math.round(h / 22));   // ~22px
-  const labelOffset = Math.max(28, Math.round(h / 12)); // ~42 above/below
+  const labelFont = Math.max(18, Math.round(h / 18));   // ~28px at h=504
+  const labelOffset = Math.max(48, Math.round(h / 5));  // ~100 above/below — fills the body
   // Axis line
   ctx.strokeStyle = "#9966ff";
   ctx.globalAlpha = 0.6;
@@ -5818,10 +5818,42 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
     const isEdge = (i === 0 || i === n - 1);
     const slotW = isEdge ? (stepX / 2 + pad) : stepX;
     const charW = labelFont * 0.55;
-    const maxChars = Math.max(4, Math.floor(slotW / charW) - 1);
+    const maxCharsLine = Math.max(4, Math.floor(slotW / charW) - 1);
     const raw = String(st.label || "").toUpperCase();
-    const label = raw.length > maxChars ? raw.slice(0, maxChars - 1) + "…" : raw;
-    ctx.fillText(label, x, (i % 2 === 0) ? cy - labelOffset : cy + labelOffset);
+    // Two-line wrap when label exceeds slot width. Splits on space
+    // closest to midpoint so first and last stages stop truncating
+    // to "IDENT…" / "VERIF…" — user 2026-05-21: "text truncated on
+    // left and right edges".
+    const words = raw.split(/\s+/).filter(Boolean);
+    let lines;
+    if (raw.length <= maxCharsLine) {
+      lines = [raw];
+    } else if (words.length >= 2) {
+      // Find split point closest to the midpoint character.
+      const mid = Math.floor(raw.length / 2);
+      let bestSplit = 1, bestDist = Infinity;
+      let acc = 0;
+      for (let k = 0; k < words.length - 1; k++) {
+        acc += words[k].length + 1;
+        const d = Math.abs(acc - mid);
+        if (d < bestDist) { bestDist = d; bestSplit = k + 1; }
+      }
+      lines = [
+        words.slice(0, bestSplit).join(" "),
+        words.slice(bestSplit).join(" "),
+      ].map(l => l.length > maxCharsLine ? l.slice(0, maxCharsLine - 1) + "…" : l);
+    } else {
+      // Single very long word — truncate.
+      lines = [raw.slice(0, maxCharsLine - 1) + "…"];
+    }
+    const lineH = labelFont + 4;
+    const baseY = (i % 2 === 0) ? cy - labelOffset : cy + labelOffset;
+    for (let li = 0; li < lines.length; li++) {
+      const ly = (i % 2 === 0)
+        ? baseY - (lines.length - 1 - li) * lineH
+        : baseY + li * lineH;
+      ctx.fillText(lines[li], x, ly);
+    }
   }
   if (axisLabel) {
     ctx.fillStyle = "#9966ff";
