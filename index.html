@@ -7614,48 +7614,48 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
-  // Body area: render an OBVIOUS placeholder (diagonal hatch + "PENDING")
-  // until the snapshot driver replaces this texture with a real substrate
-  // render. User 2026-05-20: "abstract sketch should be more of an obvious
-  // placeholder so I can see those as placeholders instead of just shitty
-  // looking cells". The shippy substrate-sketch path (bar charts / scatter
-  // dots / text lines) was indistinguishable from a low-quality real cell.
+  // Body area: paint decorative-bed bands (same vocabulary as the
+  // tier-2 ambient cells) so a brief promote-before-cache-hit window
+  // reads as scene cohesion, not "broken cell". Was a "PENDING" stamp
+  // + diagonal hatch which the user 2026-05-22 flagged as visible
+  // after reload: "still a bunch of pending cells". The placeholder
+  // canvas is normally overwritten on the same tick when promote
+  // resolves from _snapTexCache, but if there's any gap the cell now
+  // reads as ambient rather than broken.
   const previewY0 = y + 17;
   const previewY1 = H - (isTop ? 44 : 34);
   if (previewY1 - previewY0 > 20) {
     const pw = W - padX * 2;
     const ph = previewY1 - previewY0;
-    // Diagonal-hatch background: dim purple stripes at 30°.
+    // Decorative-text bands at low alpha — mirrors the tier-2 html-cell
+    // preview style (cyan strokes, mono short tokens, random lengths).
     ctx.save();
     ctx.beginPath();
     ctx.rect(padX, previewY0, pw, ph);
     ctx.clip();
-    ctx.strokeStyle = "#9966ff";
-    ctx.globalAlpha = 0.18;
-    ctx.lineWidth = 2;
-    const step = 16;
-    for (let xOff = -ph; xOff < pw; xOff += step) {
-      ctx.beginPath();
-      ctx.moveTo(padX + xOff, previewY1);
-      ctx.lineTo(padX + xOff + ph, previewY0);
-      ctx.stroke();
+    ctx.font = '13px "Share Tech Mono", "Eurostile", monospace';
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    const shorts = ["RX", "TX", "OK", "FF", "00", "INIT", "RUN", "ACK", "NAK"];
+    const meds = ["STATUS", "READY", "BUFFER", "BIND", "WAIT", "STORE"];
+    const arrows = ["->", "=>", "<-", ">>"];
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const lineH = 16;
+    for (let ly = previewY0 + 6; ly < previewY1 - lineH; ly += lineH) {
+      const r = Math.random();
+      ctx.fillStyle = r < 0.10 ? "#9966ff" : "#00ddff";
+      ctx.globalAlpha = r < 0.10 ? 0.55 : 0.42;
+      const text = r < 0.30
+        ? `${pick(meds)} ${pick(arrows)} ${pick(meds)}`
+        : r < 0.55
+        ? `${pick(meds)}=${(Math.random() * 99 | 0).toString().padStart(2, "0")}`
+        : `${pick(shorts)} ${pick(shorts)} ${pick(shorts)} ${pick(arrows)} ${pick(shorts)}`;
+      ctx.fillText(text, padX + 4, ly);
     }
     ctx.restore();
-    // "PENDING" stamp centered.
-    ctx.fillStyle = "#9966ff";
-    ctx.globalAlpha = 0.85;
-    ctx.font = isTop ? "bold 28px 'Eurostile', 'Share Tech Mono', monospace" : "bold 22px 'Eurostile', 'Share Tech Mono', monospace";
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-    const midX = padX + pw / 2;
-    const midY = previewY0 + ph / 2;
-    ctx.fillText("PENDING", midX, midY - 14);
-    ctx.font = isTop ? "16px 'Eurostile', 'Share Tech Mono', monospace" : "12px 'Eurostile', 'Share Tech Mono', monospace";
-    ctx.fillStyle = "#00ddff";
-    ctx.fillText("substrate render queued", midX, midY + 14);
+    ctx.globalAlpha = 1;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.globalAlpha = 1;
   }
   const ctype = (cell.dataset.cellType || "").toUpperCase();
   if (ctype) {
