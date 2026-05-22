@@ -7934,21 +7934,26 @@ function _mixed3dHideDecorativeAtSlot(towerIdx, face, col, p) {
 function _mixed3dColspanForCell(cell) {
   if (!cell || !cell.dataset) return 1;
   const ct = cell.dataset.cellType || "";
-  if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon") return 2;
-  if (ct === "animated_svg") return 2; // typically 400×160 landscape; 1 col is too narrow
+  // User 2026-05-21: "at the required font sizes, any tier 1 cells need
+  // to be 4-6 columns wide / otherwise it's just uselessly unreadable
+  // / as long as we can pepper in enough decorative cells to continue
+  // to imply the 6 column visual default". Every content substrate gets
+  // colspan >= 4. Tier-2 decoratives (singleton procedural fill) remain
+  // at colspan=1 and pack the gaps left between tier-1 cells.
+  const SUBSTRATES_NEEDING_BREADTH = new Set([
+    "mermaid", "html", "vega", "force_graph", "timeline_ribbon",
+    "animated_svg", "treemap",
+  ]);
   if (ct === "mermaid") {
     const sub = cell.dataset.mermaidSubtype || "";
-    // Sub-types that get the widest treatment (4 cols / 2/3 of a face).
-    // Flowcharts + horizontal-flowing graphs benefit most from breadth;
-    // a colspan=2 mermaid flowchart with 6+ nodes ends up unreadably
-    // small. User 2026-05-21: "should be like 4 columns wide".
     if (sub === "flowchart" || sub === "gitGraph" || sub === "gantt"
         || sub === "sankey-beta" || sub === "erDiagram") {
-      return 4;
+      return 6;
     }
     if (sub === "timeline" || sub === "quadrantChart" || sub === "mindmap") {
-      return 3;
+      return 5;
     }
+    return 4; // stateDiagram-v2, sequenceDiagram, etc.
   }
   // All structured html layouts default to colspan=2. Single-column
   // tower-face slot (192px wide) is too narrow for any html layout
@@ -7956,13 +7961,17 @@ function _mixed3dColspanForCell(cell) {
   // truncates to "ab…" ellipses everywhere.
   if (ct === "html") {
     const hl = cell.dataset.htmlLayout || "";
-    // 8-col tables at colspan=4 (768px) still unusably compressed
-    // (user 2026-05-21 "table is unusably compressed, maybe needs to
-    // be 6 cols wide"). Default html-table to colspan=6 = full face
-    // (1152px) so dense tables finally have room.
     if (hl === "table") return 6;
-    if (hl === "callouts" || hl === "dl" || hl === "kanban") return 2;
+    if (hl === "callouts" || hl === "dl" || hl === "kanban") return 4;
+    return 4; // list / other
   }
+  if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon"
+      || ct === "animated_svg" || ct === "treemap") {
+    return 4;
+  }
+  // gauge + sparkline are intrinsically small (single value);
+  // colspan=2 keeps them legible without claiming a tier-1 width budget.
+  if (ct === "gauge" || ct === "sparkline") return 2;
   return 1;
 }
 
