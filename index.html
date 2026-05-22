@@ -5979,17 +5979,23 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
     ctx.strokeRect(curX, curY, rw, rh);
     // Label
     if (rw > 40 && rh > 24) {
-      ctx.fillStyle = "#ccf3ff";
+      // Label sized to tile area: bigger tiles get bigger labels.
+      // User 2026-05-21: "labels too small" on treemap.
+      const labelFont = Math.max(14, Math.min(28, Math.floor(Math.sqrt(rw * rh) / 8)));
+      ctx.fillStyle = "#ffffff";
       ctx.globalAlpha = 1;
-      ctx.font = "bold 14px 'Eurostile', 'Share Tech Mono', monospace";
+      ctx.font = `bold ${labelFont}px 'Eurostile', 'Share Tech Mono', monospace`;
       ctx.textBaseline = "top";
       ctx.textAlign = "left";
-      const name = String(it.label || it.name || it.title || "").slice(0, Math.floor(rw / 8));
-      ctx.fillText(name, curX + 4, curY + 4);
-      if (rh > 40) {
-        ctx.font = "12px 'Eurostile', 'Share Tech Mono', monospace";
+      const name = String(it.label || it.name || it.title || "")
+        .toUpperCase()
+        .slice(0, Math.floor(rw / (labelFont * 0.55)));
+      ctx.fillText(name, curX + 6, curY + 6);
+      if (rh > labelFont * 2 + 8) {
+        const valFont = Math.max(12, Math.floor(labelFont * 0.75));
+        ctx.font = `${valFont}px 'Eurostile', 'Share Tech Mono', monospace`;
         ctx.fillStyle = color;
-        ctx.fillText(String(v), curX + 4, curY + 20);
+        ctx.fillText(String(v), curX + 6, curY + labelFont + 10);
       }
     }
     if (horizontal) { curX += rw; remW -= rw; }
@@ -6112,8 +6118,19 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
         words.slice(bestSplit).join(" "),
       ].map(l => l.length > maxCharsLine ? l.slice(0, maxCharsLine - 1) + "…" : l);
     } else {
-      // Single very long word — truncate.
-      lines = [raw.slice(0, maxCharsLine - 1) + "…"];
+      // Single long word: instead of truncating ("EPISTEMIC" → "EPI…"
+      // user 2026-05-21 "still labels being truncated or abbreviated"),
+      // hard-wrap at maxCharsLine to keep all characters visible.
+      lines = [];
+      let remaining = raw;
+      while (remaining.length > maxCharsLine && lines.length < 3) {
+        lines.push(remaining.slice(0, maxCharsLine));
+        remaining = remaining.slice(maxCharsLine);
+      }
+      if (remaining) {
+        lines.push(remaining.length > maxCharsLine ? remaining.slice(0, maxCharsLine - 1) + "…" : remaining);
+      }
+      if (!lines.length) lines = [raw];
     }
     const lineH = labelFont + 4;
     const baseY = (i % 2 === 0) ? cy - labelOffset : cy + labelOffset;
@@ -6236,12 +6253,13 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
     ctx.strokeStyle = "#9966ff";
     ctx.lineWidth = 3;
     ctx.stroke();
-    // Label
-    ctx.fillStyle = "#ccf3ff";
-    ctx.font = "bold 11px 'Eurostile', 'Share Tech Mono', monospace";
+    // Label — bumped 11px → 16px bold + brighter (was #ccf3ff → #ffffff)
+    // per user 2026-05-21 "labels too hard to read too small".
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 16px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    const label = String(p.node.label || p.node.id || "").slice(0, 14);
+    const label = String(p.node.label || p.node.id || "").toUpperCase().slice(0, 14);
     ctx.fillText(label, p.x, p.y + 12);
   }
   return Promise.resolve(canvas);
@@ -7269,6 +7287,24 @@ function _mixed3dDrainMountQueue() {
       tz = tower.mesh.position.z + faceSpec.dz + faceSpec.hz * colOffset + dzNorm * outwardBoost;
       rotY = faceSpec.rotY;
       mountedH = cellH;
+      // Substrate-aware height cap. Gauges/sparklines are intrinsically
+      // square-ish single-value indicators; without a cap they inherit
+      // the column slot.h (~3.4u avg) which leaves huge dead space
+      // around the dial. Cap them to 2x planeW so the cell is roughly
+      // square — content fills it. User 2026-05-21: "I'm not sure the
+      // gauge needs to be bigger, it just has a lot of space around it".
+      const ct_for_h = cell.dataset.cellType || "";
+      if (ct_for_h === "gauge" || ct_for_h === "sparkline") {
+        const cap = G.cellW * cs * 2.0;
+        if (mountedH > cap) {
+          // Recenter the cell within its original slot so it sits
+          // at the same vertical anchor; reduces visual jumps if the
+          // user is comparing two adjacent cells (one capped, one not).
+          const yShift = (mountedH - cap) / 2;
+          ty -= yShift;
+          mountedH = cap;
+        }
+      }
     }
 
     const planeW = isTop ? G.towerW * 0.95 : (G.cellW * cs);
