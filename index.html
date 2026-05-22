@@ -5514,87 +5514,57 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
 // gray which disappears against the tower glass — user 2026-05-20
 // "diagrams are pretty thin and uninspiring".
 function _mixed3dStyleMermaidSVG(svgString) {
-  const css = `
-    <style>
-      /* Colors only. Font weight + size are left at mermaid's
-         layout-time defaults so the rectangles mermaid sized for
-         the text actually contain the text. Earlier overrides
-         (font-weight:800, stroke-width:6) made labels exceed the
-         pre-computed box bounds, causing visible overflow. */
-      /* Colors only. Font weight + size are left at mermaid's
-         layout-time defaults so the rectangles mermaid sized for
-         the text actually contain the text. */
-      svg, svg * { background: transparent !important; background-color: transparent !important; }
-      /* Anything mermaid filled with its default dark navy
-         rgba(8,18,30,...) gets transparent — applies to mindmap node
-         backgrounds, edgeLabel rect backgrounds, labelBkg, anywhere
-         else mermaid generates a "card" behind text. */
-      [fill^="rgba(8"], [style*="fill:rgba(8"], .labelBkg {
-        fill: transparent !important;
-      }
-      .node rect, .node polygon, .node circle, .node ellipse, .node path {
-        /* Outline-only — solid backdrops made cells feel heavy + opaque
-           against the tower glass. Visibility comes from the 2.5px
-           cyan stroke + the uppercased text weight, not from a filled
-           container. User 2026-05-21: "I don't like these solid
-           background cells". */
-        fill: transparent !important;
-        stroke: #00ddff !important;
-        stroke-width: 2.5px !important;
-      }
-      .node .label, .nodeLabel, .label foreignObject div, .label text, text.label,
-      .label tspan, .nodeLabel tspan, text tspan,
-      .mindmap-node text, .mindmap-node tspan,
-      g[class*="section-"] text, g[class*="section-"] tspan {
-        fill: #e8f8ff !important;
-        color: #e8f8ff !important;
-        /* CSS text-transform is unreliable on SVG <text>; the actual
-           uppercasing happens in JS via _mixed3dStyleMermaidSVG's
-           tspan content rewrite. Kept here as a hint for any user-
-           agent that does honor it. */
-        text-transform: uppercase !important;
-        /* Lock font-family + font-size at render-time so they match
-           whatever mermaid measured against when computing rect widths.
-           Without these, the rasterized SVG inherits document
-           default (16px Eurostile @ ~7.27px/char) while mermaid had
-           measured against ~5.4px/char (likely 11px or a narrower font
-           system fallback). The QA scanner showed 345/351 nodes
-           overflowing by 1.4x as a result. 12px Eurostile gives
-           ~5.45px/char which fits the rects mermaid sized. */
-        font-family: "Eurostile", "trebuchet ms", sans-serif !important;
-        font-size: 12px !important;
-      }
-      .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
-        stroke: #66e6ff !important;
-        stroke-width: 2px !important;
-        fill: none !important;
-      }
-      .marker, .arrowheadPath, marker path {
-        fill: #66e6ff !important;
-        stroke: #66e6ff !important;
-      }
-      .edgeLabel, .edgeLabel rect, .edgeLabel foreignObject div, .edgeLabel text {
-        background-color: transparent !important;
-        fill: #ccf3ff !important;
-        color: #ccf3ff !important;
-      }
-      .edgeLabel rect, g.edgeLabel > g > rect, foreignObject rect { fill: transparent !important; }
-      .cluster rect, .cluster path {
-        stroke: #9966ff !important;
-        stroke-width: 2px !important;
-        fill: rgba(153, 102, 255, 0.06) !important;
-      }
-      /* Mindmap nodes use .section-N + .section-edge-N classes. */
-      .section-root rect, .section-0 rect, .section-1 rect, .section-2 rect,
-      .section-3 rect, .section-4 rect, .section-5 rect, .section-6 rect,
-      .section-root circle, .section-0 circle, .section-1 circle,
-      .section-2 circle, .section-3 circle, .section-4 circle,
-      .mindmap-node rect, .mindmap-node circle {
-        fill: transparent !important;
-        stroke: #00ddff !important;
-      }
-    </style>
-  `;
+  // COMMENT-FREE — CSS comments inside an injected <style> block broke
+  // SVG-as-Image parsing on Chrome (94 "mermaid snap fail: Event"
+  // warnings traced to here). Likely an em-dash/smart-quote/elision
+  // (`...`) character in a comment that the SVG-CSS parser choked on.
+  // Bisect on 2026-05-22: stripping comments made the styled SVG load
+  // cleanly. Keep all CSS comment-free here; commentary belongs in JS
+  // comments above the function, not embedded in the CSS string.
+  const css = `<style>
+    svg, svg * { background: transparent !important; background-color: transparent !important; }
+    [fill^="rgba(8"], [style*="fill:rgba(8"], .labelBkg { fill: transparent !important; }
+    .node rect, .node polygon, .node circle, .node ellipse, .node path {
+      fill: transparent !important;
+      stroke: #00ddff !important;
+      stroke-width: 2.5px !important;
+    }
+    .node .label, .nodeLabel, .label foreignObject div, .label text, text.label,
+    .label tspan, .nodeLabel tspan, text tspan,
+    .mindmap-node text, .mindmap-node tspan,
+    g[class*="section-"] text, g[class*="section-"] tspan {
+      fill: #e8f8ff !important;
+      color: #e8f8ff !important;
+      text-transform: uppercase !important;
+      font-family: "Eurostile", "trebuchet ms", sans-serif !important;
+      font-size: 12px !important;
+    }
+    .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
+      stroke: #66e6ff !important;
+      stroke-width: 2px !important;
+      fill: none !important;
+    }
+    .marker, .arrowheadPath, marker path { fill: #66e6ff !important; stroke: #66e6ff !important; }
+    .edgeLabel, .edgeLabel rect, .edgeLabel foreignObject div, .edgeLabel text {
+      background-color: transparent !important;
+      fill: #ccf3ff !important;
+      color: #ccf3ff !important;
+    }
+    .edgeLabel rect, g.edgeLabel > g > rect, foreignObject rect { fill: transparent !important; }
+    .cluster rect, .cluster path {
+      stroke: #9966ff !important;
+      stroke-width: 2px !important;
+      fill: rgba(153, 102, 255, 0.06) !important;
+    }
+    .section-root rect, .section-0 rect, .section-1 rect, .section-2 rect,
+    .section-3 rect, .section-4 rect, .section-5 rect, .section-6 rect,
+    .section-root circle, .section-0 circle, .section-1 circle,
+    .section-2 circle, .section-3 circle, .section-4 circle,
+    .mindmap-node rect, .mindmap-node circle {
+      fill: transparent !important;
+      stroke: #00ddff !important;
+    }
+  </style>`;
   // Uppercase every visible text node (between <tspan> open + close).
   // CSS text-transform is unreliable across SVG renderers, so we
   // rewrite content. Only touches the inner-tspan text run; doesn't
