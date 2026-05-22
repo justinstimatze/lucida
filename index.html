@@ -5464,7 +5464,14 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // POST to snap_receiver:8767 so the next load hits the cache.
   const freshRender = () => {
     const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
-    return window.mermaid.parse(spec)
+    // Wait for Eurostile to load before measuring text. Without this,
+    // mermaid getBBox uses the fallback font (Share Tech Mono / monospace)
+    // for layout but the browser later displays in Eurostile (wider) →
+    // text spills past pre-computed box widths. Caching the
+    // result of fonts.ready promise is automatic — browser memoizes.
+    const fontsP = document.fonts?.ready || Promise.resolve();
+    return fontsP
+      .then(() => window.mermaid.parse(spec))
       .then(() => window.mermaid.render(id, spec))
       .then(({ svg }) => {
         const styledSvg = _mixed3dStyleMermaidSVG(svg);
@@ -5539,18 +5546,22 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const cx = w / 2;
-  // Dial scales with cell WIDTH; cell-portrait orientation gives
-  // plenty of vertical room so the half-circle isn't height-bound.
-  // Was capped by h*0.32 which left ~30% horizontal padding —
-  // user 2026-05-21: "gauges look a little horizontally squished".
-  const r = w * 0.42;
-  const cy = h * 0.40;
+  // 270° dial — starts at lower-left, sweeps clockwise through top
+  // to lower-right. Looks like a real gauge instead of the squashed
+  // half-circle (user 2026-05-21: "looks squeezed horizontally"). The
+  // 3/4 circle uses similar width AND height, fixing the 2:1 squat
+  // shape the half-moon read as.
+  const r = w * 0.36;
+  const cy = h * 0.42;
+  const ARC_START = Math.PI * 0.75;       // 135° (lower-left)
+  const ARC_END = Math.PI * 2.25;          // 405° == 45° (lower-right)
+  const ARC_SPAN = ARC_END - ARC_START;    // 1.5π = 270°
   // Track arc
   ctx.strokeStyle = "#9966ff";
   ctx.globalAlpha = 0.35;
   ctx.lineWidth = 12;
   ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI, 0, false);
+  ctx.arc(cx, cy, r, ARC_START, ARC_END, false);
   ctx.stroke();
   // Filled arc
   const norm = Math.max(0, Math.min(1, (value - min) / (max - min)));
@@ -5558,7 +5569,7 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   ctx.globalAlpha = 1;
   ctx.lineWidth = 12;
   ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI, Math.PI + norm * Math.PI, false);
+  ctx.arc(cx, cy, r, ARC_START, ARC_START + norm * ARC_SPAN, false);
   ctx.stroke();
   // Value
   ctx.fillStyle = "#ccf3ff";
@@ -5712,9 +5723,11 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  // Axis anchored in top third so caption can fill the rest — was h/2
-  // centered with ~140px dead space above and below.
-  const cy = Math.round(h * 0.28);
+  // Center the axis vertically — captions removed 2026-05-21 so the
+  // whole body is the ribbon's. Was at h*0.28 (anchored top) leaving
+  // ~70% of the cell empty below; user 2026-05-21: "too much
+  // vertical space above and below the diagram".
+  const cy = Math.round(h * 0.50);
   const pad = 24;
   const n = Math.min(stages.length, 6);
   const stepX = (w - pad * 2) / (n - 1 || 1);
@@ -6040,31 +6053,77 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     cy += 18;
   }
   const yMax = h - pad - 12;
-  // Render rows in decorative-text aesthetic. (Caption fallback was
-  // dropped 2026-05-21 — no prose in cells, Gibson aesthetic.)
+  // Render rows in decorative-text aesthetic. Layout-specific
+  // sizing: callouts get a big-number + label per row, table/dl/list
+  // get tighter mono-text rows. User 2026-05-21: "grey text
+  // unreadable" → bumped alpha 0.78 → 1.0 with a brighter fill.
   if (rows && rows.length) {
-    ctx.fillStyle = "#ccf3ff";
-    ctx.globalAlpha = 0.78;
-    ctx.font = "12px 'Eurostile', 'Share Tech Mono', monospace";
-    const charW = 7;
-    const cols = Math.max(...rows.map(r => r.length));
-    const colWidth = Math.floor((w - pad * 2) / Math.max(1, cols));
-    const maxCharsPerCol = Math.max(2, Math.floor(colWidth / charW) - 1);
-    for (let ri = 0; ri < rows.length; ri++) {
-      if (cy + 16 > yMax) break;
-      const r = rows[ri];
-      // Header row (ri==0 in tables) gets purple emphasis.
-      const isHeader = layout === "table" && ri === 0;
-      ctx.fillStyle = isHeader ? "#9966ff" : "#ccf3ff";
-      ctx.globalAlpha = isHeader ? 0.95 : 0.78;
-      let cx = pad;
-      for (let ci = 0; ci < cols; ci++) {
-        const raw = (r[ci] || "").replace(/[✓✗]/g, m => m === "✓" ? "+" : "-");
-        const txt = raw.length > maxCharsPerCol ? raw.slice(0, maxCharsPerCol - 1) + "…" : raw;
-        ctx.fillText(txt, cx, cy);
-        cx += colWidth;
+    if (layout === "callouts") {
+      // Two-column big-number + label layout. Each row fills ~85px
+      // tall so the "big" number reads as a glanceable stat.
+      const rowH = Math.max(64, Math.min(110, Math.floor((yMax - cy) / Math.max(1, rows.length))));
+      const numW = Math.floor(w * 0.35);
+      for (let ri = 0; ri < rows.length; ri++) {
+        if (cy + 28 > yMax) break;
+        const [big, label] = rows[ri];
+        // Big number — purple, large, left-aligned within numW
+        ctx.fillStyle = "#9966ff";
+        ctx.globalAlpha = 1.0;
+        ctx.font = "bold 30px 'Eurostile', 'Share Tech Mono', monospace";
+        const bigText = (big || "").slice(0, 6);
+        ctx.fillText(bigText, pad, cy + 6);
+        // Label — cyan-white, smaller, wraps in the remaining width
+        ctx.fillStyle = "#e8f8ff";
+        ctx.globalAlpha = 0.95;
+        ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
+        const labelMaxW = w - pad - numW;
+        const labelCharsPerLine = Math.max(10, Math.floor(labelMaxW / 7));
+        const labelWords = (label || "").split(/\s+/);
+        const labelLines = [];
+        let lcur = "";
+        for (const word of labelWords) {
+          const next = lcur ? lcur + " " + word : word;
+          if (next.length > labelCharsPerLine) {
+            if (lcur) labelLines.push(lcur);
+            lcur = word.length > labelCharsPerLine ? word.slice(0, labelCharsPerLine - 1) + "…" : word;
+          } else lcur = next;
+          if (labelLines.length >= 4) break;
+        }
+        if (lcur && labelLines.length < 4) labelLines.push(lcur);
+        let ly = cy + 4;
+        for (const ll of labelLines) {
+          ctx.fillText(ll, pad + numW, ly);
+          ly += 16;
+        }
+        cy += rowH;
       }
-      cy += 15;
+    } else {
+      // Default mono-row layout for table / dl / list / kanban.
+      ctx.fillStyle = "#e8f8ff";
+      ctx.globalAlpha = 1.0;
+      ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
+      const charW = 7;
+      const cols = Math.max(...rows.map(r => r.length));
+      const colWidth = Math.floor((w - pad * 2) / Math.max(1, cols));
+      const maxCharsPerCol = Math.max(2, Math.floor(colWidth / charW) - 1);
+      // Pick row height so the rows distribute across the available body.
+      const bodyAvail = yMax - cy;
+      const rowH = Math.max(18, Math.min(38, Math.floor(bodyAvail / Math.max(1, rows.length))));
+      for (let ri = 0; ri < rows.length; ri++) {
+        if (cy + 16 > yMax) break;
+        const r = rows[ri];
+        const isHeader = layout === "table" && ri === 0;
+        ctx.fillStyle = isHeader ? "#b48aff" : "#e8f8ff";
+        ctx.globalAlpha = 1.0;
+        let cx = pad;
+        for (let ci = 0; ci < cols; ci++) {
+          const raw = (r[ci] || "").replace(/[✓✗]/g, m => m === "✓" ? "+" : "-");
+          const txt = raw.length > maxCharsPerCol ? raw.slice(0, maxCharsPerCol - 1) + "…" : raw;
+          ctx.fillText(txt, cx, cy);
+          cx += colWidth;
+        }
+        cy += rowH;
+      }
     }
   }
   return Promise.resolve(canvas);
@@ -7437,13 +7496,26 @@ function _mixed3dHideDecorativeAtSlot(towerIdx, face, col, p) {
 function _mixed3dColspanForCell(cell) {
   if (!cell || !cell.dataset) return 1;
   const ct = cell.dataset.cellType || "";
-  if (ct === "vega" || ct === "force_graph") return 2;
+  if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon") return 2;
   if (ct === "mermaid") {
     const sub = cell.dataset.mermaidSubtype || "";
-    if (sub === "flowchart" || sub === "timeline" || sub === "quadrantChart" || sub === "sankey-beta") {
+    // Wide-aspect subtypes — anything that spreads horizontally or
+    // benefits from extra room. Sequence + state diagrams stay
+    // colspan=1 (often tall) unless they have many participants.
+    if (sub === "flowchart"
+        || sub === "timeline"
+        || sub === "quadrantChart"
+        || sub === "sankey-beta"
+        || sub === "mindmap"
+        || sub === "gitGraph"
+        || sub === "gantt"
+        || sub === "erDiagram") {
       return 2;
     }
   }
+  // Callouts grid renders best at colspan=2 — needs room for the
+  // big-number + label-text pair per cell row.
+  if (ct === "html" && cell.dataset.htmlLayout === "callouts") return 2;
   return 1;
 }
 
