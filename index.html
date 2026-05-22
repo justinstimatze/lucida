@@ -4921,7 +4921,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     obj.material.dispose();
   }
   if (newTier === 1) {
-    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, obj.userData?.colspan || 1);
+    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, obj.userData?.colspan || 1, obj.userData?.canvasH);
     // Re-apply cached snap if available — see _mixed3dPromoteInstanceToTier1.
     const cachedSnap = S._snapTexCache?.get(id);
     if (cachedSnap) {
@@ -4974,7 +4974,7 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   _mixed3dRemoveTier2Instance(S, handle);
   const isTop = !!handle.mountIsTop;
   const cs = handle.userData?.colspan || 1;
-  const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs);
+  const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs, handle.userData?.canvasH);
   // Re-apply cached snap if we've rendered this cell before. Without
   // this the snap driver skips (cache.has(id)=true) and the cell stays
   // on the placeholder texture forever after demote→promote cycles.
@@ -4986,7 +4986,7 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
     // Synchronous title+caption stub so the cell is legible the
     // instant it crosses the LOD boundary. Snap driver overwrites
     // with the substrate render when its turn comes up.
-    const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id), handle?.userData?.colspan || 1);
+    const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id), handle?.userData?.colspan || 1, handle?.userData?.canvasH);
     if (stub) { tex.image = stub; tex.needsUpdate = true; }
   }
   const mat = new T.MeshBasicMaterial({
@@ -5004,6 +5004,8 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   obj.userData.cellEl = cell;
   obj.userData.tier = 1;
   obj.userData.colspan = cs;
+  obj.userData.canvasW = handle.userData?.canvasW;
+  obj.userData.canvasH = handle.userData?.canvasH;
   S.scene.add(obj);
   S.cellObjects.set(id, obj);
   S.cellTier.set(id, 1);
@@ -5514,15 +5516,16 @@ function _mixed3dPaintTitleBlock(ctx, title, fullW) {
 // replaces this with the proper substrate render (mermaid/vega/etc)
 // ~100-500ms later. ~3-5ms per call — cheap enough to run in the
 // retier-sweep budget without blowing PROMOTE_BUDGET.
-function _mixed3dPaintPromoteStub(id, cellData, colspan) {
+function _mixed3dPaintPromoteStub(id, cellData, colspan, canvasH) {
   const cs = Math.max(1, Math.min(3, colspan || 1));
   const W = 192 * cs;
+  const H = canvasH || 576;
   const canvas = document.createElement("canvas");
   canvas.width = W;
-  canvas.height = 576;
+  canvas.height = H;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#000814";
-  ctx.fillRect(0, 0, W, 576);
+  ctx.fillRect(0, 0, W, H);
   _mixed3dPaintTitleBlock(ctx, cellData?.title || id, W);
   // No caption — Gibson aesthetic is terse labels, not explanatory
   // prose. Pending stubs show title-only; substrate renderers fill
@@ -5604,9 +5607,10 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   const cs = Math.max(1, Math.min(3, extras?.colspan || 1));
   // Style version baked into the cache filename — bump when
   // _mixed3dStyleMermaidSVG changes so stale renders don't haunt
-  // future sessions. v2 = post-2026-05-21 cyan-dominant + no
-  // font-weight overrides (the overrides were causing label overflow).
-  const STYLE_V = "v2";
+  // future sessions. v3 = post-#159 variable-height cells (canvas
+  // aspect now matches mesh aspect; old v2 SVGs were sized for a
+  // fixed 3:1 canvas and would letterbox wrong on variable cells).
+  const STYLE_V = "v3";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
@@ -6426,17 +6430,18 @@ const _MIXED3D_RENDERERS = {
   html: _mixed3dRenderHtmlToCanvas,
 };
 
-function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspan) {
+function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspan, canvasH) {
   if (!bodyCanvas) return;
   // Bail if teardown happened mid-render — S is stale, _mixed3dState has
   // moved on (or gone null). Without this we'd write into a defunct
   // _snapTexCache and try to mutate a disposed material.
   if (S !== _mixed3dState) return;
   const TITLE_H = 72;
-  const cs = Math.max(1, Math.min(3, colspan || S.cellObjects.get(targetId)?.userData?.colspan || 1));
+  const obj = S.cellObjects.get(targetId);
+  const cs = Math.max(1, Math.min(3, colspan || obj?.userData?.colspan || 1));
   const fullCanvas = document.createElement("canvas");
-  fullCanvas.width = 192 * cs;
-  fullCanvas.height = 576;
+  fullCanvas.width = obj?.userData?.canvasW || (192 * cs);
+  fullCanvas.height = canvasH || obj?.userData?.canvasH || 576;
   const ctx = fullCanvas.getContext("2d");
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
@@ -6516,17 +6521,19 @@ function _mixed3dStartSnapshotDriver() {
       const targetCellData = cellData;
       const targetCt = ct;
       const renderer = _MIXED3D_RENDERERS[ct];
-      // Read colspan stored at mount time; default to 1 for legacy paths.
+      // Read colspan + per-cell canvas dimensions stored at mount time.
       const obj = S.cellObjects.get(id);
       const colspan = obj?.userData?.colspan || 1;
-      const W_full = 192 * colspan;
+      const W_full = obj?.userData?.canvasW || (192 * colspan);
+      const H_full = obj?.userData?.canvasH || 576;
+      const H_body = H_full - TITLE_H;
       // 10s per-render timeout — earlier debugging found cells stuck at
       // 28% after 30 min, consistent with renderers hanging without
       // rejecting (e.g. mermaid Image.onload never firing on a malformed
       // SVG). Without a timeout, hung promises eat the 3 inflight slots
       // permanently and the driver appears alive but makes no progress.
       const t0 = performance.now();
-      const renderP = renderer(arg, W_full, BODY_H, { id: id, colspan, caption: cellData?.caption, title: cellData?.title });
+      const renderP = renderer(arg, W_full, H_body, { id: id, colspan, canvasH: H_full, caption: cellData?.caption, title: cellData?.title });
       const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("snap-render-timeout-10s")), 10000));
       Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
         _mixed3dSnapInflight.delete(targetId);
@@ -6541,7 +6548,7 @@ function _mixed3dStartSnapshotDriver() {
           // redundant treemap renders before this fix. Cache the
           // promote-time stub so the driver skips on next tick.
           if (!S._snapTexCache) S._snapTexCache = new Map();
-          const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan);
+          const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan, H_full);
           if (stub) {
             S._snapTexCache.set(targetId, stub);
             const curObj = S.cellObjects.get(targetId);
@@ -6552,7 +6559,7 @@ function _mixed3dStartSnapshotDriver() {
           }
           return;
         }
-        _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, targetCellData, colspan);
+        _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, targetCellData, colspan, H_full);
       }).catch((e) => {
         _mixed3dSnapInflight.delete(targetId);
         console.warn("[mixed3d] snap fail", targetCt, targetId, e?.message || e);
@@ -6560,7 +6567,7 @@ function _mixed3dStartSnapshotDriver() {
         // same broken cell every tick. (Mirrors the null-bodyCanvas
         // branch above — keep them in sync.)
         if (!S._snapTexCache) S._snapTexCache = new Map();
-        const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan);
+        const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan, H_full);
         if (stub) S._snapTexCache.set(targetId, stub);
       });
     }
@@ -6686,25 +6693,27 @@ function _mixed3dRunPathWarmup(S) {
         if (S._snapTexCache?.has(id)) { _advance(); continue; }
         inflight.add(id);
         const colspan = obj?.userData?.colspan || 1;
-        const W_full = 192 * colspan;
-        const renderP = renderer(arg, W_full, BODY_H, { id: id, colspan, caption: cellData?.caption, title: cellData?.title });
+        const W_full = obj?.userData?.canvasW || (192 * colspan);
+        const H_full = obj?.userData?.canvasH || 576;
+        const H_body = H_full - 72;  // TITLE_H
+        const renderP = renderer(arg, W_full, H_body, { id: id, colspan, canvasH: H_full, caption: cellData?.caption, title: cellData?.title });
         const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("warmup-render-timeout-10s")), 10000));
         Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
           inflight.delete(id);
           if (!bodyCanvas) {
             // Null-render stub-cache (mirrors steady-state driver).
             if (!S._snapTexCache) S._snapTexCache = new Map();
-            const stub = _mixed3dPaintPromoteStub(id, cellData, colspan);
+            const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
             if (stub) S._snapTexCache.set(id, stub);
           } else {
-            _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData, colspan);
+            _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData, colspan, H_full);
           }
           _advance();
         }).catch((e) => {
           inflight.delete(id);
           console.warn("[mixed3d] warmup fail", ct, id, e?.message || e);
           if (!S._snapTexCache) S._snapTexCache = new Map();
-          const stub = _mixed3dPaintPromoteStub(id, cellData, colspan);
+          const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
           if (stub) S._snapTexCache.set(id, stub);
           _advance();
         });
@@ -6785,15 +6794,14 @@ window._mixed3dSnapDebug = function() {
 };
 window._mixed3dStartSnapshotDriver = _mixed3dStartSnapshotDriver;
 
-function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan) {
+function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
   const T = window.THREE;
-  // Side cells: 192×576 base, scaled horizontally by colspan (#157)
-  // so wide cells (mermaid flowchart / vega / force_graph) carry a
-  // proportionally wider canvas — no horizontal stretching of the
-  // substrate render. colspan=1 → 192 wide, colspan=2 → 384, etc.
+  // Per-cell canvas dimensions: width scales with colspan; height
+  // passed in so canvas aspect matches mesh aspect (variable cell
+  // heights post-#159). Fallback for legacy callers: 192*cs × 576.
   const cs = Math.max(1, Math.min(3, colspan || 1));
   const W = isTop ? 384 : (192 * cs);
-  const H = isTop ? 384 : 576;
+  const H = isTop ? 384 : (canvasH || 576);
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -7128,6 +7136,23 @@ function _mixed3dDrainMountQueue() {
 
     const planeW = isTop ? G.towerW * 0.95 : (G.cellW * cs);
     const planeH = mountedH;
+    // Per-cell canvas dimensions sized to match the mesh aspect, so
+    // pixel-to-world scale is uniform on both axes (no horizontal
+    // squeeze or vertical stretch when the texture samples to the
+    // plane). Was hardcoded 192*cs × 576 → mismatched mesh aspect
+    // when slot heights varied. canvasH stays a multiple of 64 for
+    // GPU mipmap friendliness.
+    const canvasW = 192 * cs;
+    const meshAspect = planeH / planeW;
+    let canvasH;
+    if (isTop) {
+      canvasH = 384;
+    } else {
+      // h:w ratio of canvas matches mesh. Clamp to [192, 1152] so
+      // very small or very tall cells don't blow GPU memory or
+      // generate pixelated tiny textures.
+      canvasH = Math.max(192, Math.min(1152, Math.round(canvasW * meshAspect)));
+    }
     // Geometry sharing: cells with similar dimensions reuse one
     // PlaneGeometry instance instead of allocating a fresh one per
     // cell. Bucket dims to 0.05u — cells that were 2.30u and 2.32u
@@ -7189,6 +7214,8 @@ function _mixed3dDrainMountQueue() {
             mountIsTop: isTop,
           };
           handle.userData.colspan = cs;
+          handle.userData.canvasW = canvasW;
+          handle.userData.canvasH = canvasH;
           map.set(cell.id, handle);
           S.cellTier.set(cell.id, 2);
           S.cellSlotKeys.set(cell.id, key);
@@ -7233,6 +7260,8 @@ function _mixed3dDrainMountQueue() {
     obj.userData.cellEl = cell;
     obj.userData.tier = tier;
     obj.userData.colspan = cs;
+    obj.userData.canvasW = canvasW;
+    obj.userData.canvasH = canvasH;
     S.scene.add(obj);
     map.set(cell.id, obj);
     S.cellTier.set(cell.id, tier);
@@ -7280,17 +7309,12 @@ function _mixed3dGetFaceSharedPlan(S, towerIdx, face) {
 // no whitespace at top or bottom (user 2026-05-03 "first/last cell
 // crisply flush ... pretty dense ... variation in heights").
 function _mixed3dPlanColumn(towerH, targetCount, cellW) {
-  // Cells are clamped to a 1:3 aspect (cellW × 3*cellW = ~1.86u tall)
-  // to MATCH THE CANVAS aspect. Without this clamp slot heights
-  // averaged 3.4u (5 slots / 17u tower), giving a 6:1 mesh aspect
-  // while the canvas is 3:1 → texture stretched vertically by 2x,
-  // gauges read as "squeezed horseshoes", circles became ovals,
-  // mermaid SVGs looked tall-and-narrow. Setting the cap matches
-  // texture-to-mesh pixel scale in both axes.
-  // User 2026-05-21: "looks like a squeezed horseshoe, taller than
-  // it is wide" — that's the texture stretching this clamp prevents.
-  const MAX_ASPECT = 3.0; // canvasH / canvasW
-  const MAX_H = cellW ? cellW * MAX_ASPECT : Infinity;
+  // Variable heights — clamp removed 2026-05-21 per
+  // "abandon the idea of a fixed vertical height cell + muuri six
+  // column layout on each tower face". Per-cell canvas dims now
+  // match the cell's mesh aspect at mount time so texture sampling
+  // stays uniform regardless of slot.h variance.
+  const MAX_H = Infinity;
   const N = targetCount;
   // User 2026-05-19: 'the top and bottom of each face need some
   // padding too'. Inset 0.5u from both tower base and top so cells
