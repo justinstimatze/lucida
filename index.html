@@ -6897,18 +6897,26 @@ function _mixed3dRunPathWarmup(S) {
   // Cost: ~250-300 substrate-having cells × ~50ms avg = 12-15s of
   // warmup time (run at concurrency=4). Disk-cache hits drop later
   // sessions back to ~3-5s.
+  // Enumerate from state.rendering.cellsById, NOT S.cellObjects — at
+  // boot time cellObjects is mostly empty (mount drain populates it
+  // gradually over seconds), so iterating it gives a tiny warmupSet
+  // that completes in ~26ms with nothing actually rendered. cellsById
+  // is populated synchronously the moment cells.json loads.
+  // User 2026-05-21: "they're all empty or saying pending still" — root
+  // cause was this enumeration source.
   const warmupSet = new Set();
-  for (const [id, obj] of S.cellObjects) {
-    if (obj.isInstanceHandle) continue;  // tier-2 instanced cells share a material
-    const el = obj.userData?.cellEl;
-    if (!el) continue;
-    const ct = el.dataset.cellType || "";
-    if (ct === "scene3d") continue;  // skip-substrate set is scoped to applyMixed3DLayout
-    // Skip cells that have no substrate content to render (decoratives
-    // that survive promote handle different paths).
-    const cellData = S.rendering?.cellsById?.get(id);
-    if (!cellData) continue;
-    warmupSet.add(id);
+  const cbi = state?.rendering?.cellsById;
+  if (cbi) {
+    for (const [id, cellData] of cbi) {
+      const ct = cellData?.cell_type || "";
+      if (!ct) continue;
+      if (ct === "scene3d" || ct === "text") continue;
+      // Need a renderer for this substrate type.
+      if (!_MIXED3D_RENDERERS[ct]) continue;
+      // Need spec or html to render against.
+      if (!cellData.spec && !cellData.html) continue;
+      warmupSet.add(id);
+    }
   }
   if (warmupSet.size === 0) return Promise.resolve();
   S._warmupActive = true;
@@ -6940,15 +6948,11 @@ function _mixed3dRunPathWarmup(S) {
       }
       while (inflight.size < CONCURRENCY && nextIdx < todo.length) {
         const id = todo[nextIdx++];
-        const obj = S.cellObjects.get(id);
-        if (!obj || obj.isInstanceHandle) { _advance(); continue; }
-        const el = obj.userData?.cellEl;
-        if (!el) { _advance(); continue; }
-        const ct = el.dataset?.cellType || "";
-        const renderer = _MIXED3D_RENDERERS[ct];
-        if (!renderer) { _advance(); continue; }
         const cellData = state.rendering.cellsById?.get(id);
         if (!cellData) { _advance(); continue; }
+        const ct = cellData.cell_type || "";
+        const renderer = _MIXED3D_RENDERERS[ct];
+        if (!renderer) { _advance(); continue; }
         let arg;
         if (ct === "html") {
           if (!cellData.title && !cellData.caption) { _advance(); continue; }
@@ -6958,8 +6962,30 @@ function _mixed3dRunPathWarmup(S) {
           arg = cellData.spec;
         }
         if (S._snapTexCache?.has(id)) { _advance(); continue; }
+        // Derive colspan from cellData when obj isn't mounted yet
+        // (cellObjects is sparse during boot). Mirrors the heuristic in
+        // _mixed3dColspanForCell but reads from cell_type / mermaid_subtype /
+        // html_layout off the data object.
+        const obj = S.cellObjects.get(id);
+        let colspan;
+        if (obj && !obj.isInstanceHandle && obj.userData?.colspan) {
+          colspan = obj.userData.colspan;
+        } else {
+          const sub = cellData.mermaid_subtype || "";
+          const hl = cellData.html_layout || "";
+          if (ct === "mermaid") {
+            colspan = (sub === "flowchart" || sub === "gitGraph" || sub === "gantt"
+                       || sub === "sankey-beta" || sub === "erDiagram") ? 3
+                    : (sub === "timeline" || sub === "quadrantChart" || sub === "mindmap") ? 3
+                    : 2;
+          } else if (ct === "html") {
+            colspan = (hl === "table") ? 3 : 2;
+          } else if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon"
+                     || ct === "animated_svg" || ct === "treemap") {
+            colspan = 2;
+          } else { colspan = 1; }
+        }
         inflight.add(id);
-        const colspan = obj?.userData?.colspan || 1;
         const W_full = obj?.userData?.canvasW || (192 * colspan);
         const H_full = obj?.userData?.canvasH || 576;
         const H_body = H_full - 72;  // TITLE_H
@@ -7516,6 +7542,17 @@ function _mixed3dDrainMountQueue() {
     let mat;
     if (tier === 1) {
       const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs);
+      // Pick up warmup-cached canvas if we have one — without this,
+      // direct-mount-to-tier-1 cells start with the empty tex and
+      // only get the cached canvas applied when the snap driver next
+      // touches them, leaving a visible "blank → content" pop. Mirrors
+      // the same lookup in _mixed3dSwapCellTier (line ~5037) which
+      // already does the right thing for tier-2→tier-1 promotes.
+      const cachedSnap = S._snapTexCache?.get(cell.id);
+      if (cachedSnap) {
+        tex.image = cachedSnap;
+        tex.needsUpdate = true;
+      }
       mat = new T.MeshBasicMaterial({
         map: tex,
         transparent: true,
