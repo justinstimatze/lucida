@@ -5996,10 +5996,16 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   // font too big". Was forcing min(font, 28) which made even small
   // slots use 24-28px and then truncate text to 4-6 chars. Now font
   // shrinks to whatever fits the longest label, down to 10px.
+  // Size for the WRAPPED two-line label (chars/2), since
+  // labels longer than the slot get split across lines anyway.
+  // User 2026-05-21: "labels still a little small here, should be more
+  // like the mermaid diagrams". Mermaid is ~12-16px; bump timeline
+  // floor to match.
   const labelLens = (Array.isArray(stages) ? stages : []).map(st => String(st?.label || "").length || 4);
-  const longestLabel = Math.max(8, ...labelLens);
-  const fontFromSlot = Math.max(13, Math.min(28, Math.floor(slotMin / 0.55 / longestLabel)));
-  const fontFromH = Math.max(16, Math.round(h / 18));
+  const longestLabel = Math.max(6, ...labelLens);
+  const perLineBudget = Math.max(5, Math.ceil(longestLabel / 2));
+  const fontFromSlot = Math.max(16, Math.min(32, Math.floor(slotMin / 0.55 / perLineBudget)));
+  const fontFromH = Math.max(18, Math.round(h / 16));
   const labelFont = Math.min(fontFromSlot, fontFromH);
   const labelOffset = Math.max(48, Math.round(h / 5));
   // Axis line
