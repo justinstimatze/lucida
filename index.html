@@ -7849,14 +7849,14 @@ function _mixed3dColspanForCell(cell) {
       return 2;
     }
   }
-  // Callouts grid renders best at colspan=2 — needs room for the
-  // big-number + label-text pair per cell row.
-  if (ct === "html" && cell.dataset.htmlLayout === "callouts") return 2;
-  // Wide tables (lots of columns) need horizontal room or every
-  // column gets truncated to "ab…" ellipses. Default html table to
-  // colspan=2 — single tower-face column truncated everything past
-  // the third column.
-  if (ct === "html" && cell.dataset.htmlLayout === "table") return 2;
+  // All structured html layouts default to colspan=2. Single-column
+  // tower-face slot (192px wide) is too narrow for any html layout
+  // with definitions / labels / cards / data columns — text
+  // truncates to "ab…" ellipses everywhere.
+  if (ct === "html") {
+    const hl = cell.dataset.htmlLayout || "";
+    if (hl === "callouts" || hl === "table" || hl === "dl" || hl === "kanban") return 2;
+  }
   return 1;
 }
 
