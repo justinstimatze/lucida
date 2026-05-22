@@ -4016,8 +4016,11 @@ function _mixed3dDriveFreeFlight(t) {
   // Yaw/pitch from arrow keys.
   if (keys.has("ArrowLeft")) S._ffYaw = (S._ffYaw || 0) + lookSpeed;
   if (keys.has("ArrowRight")) S._ffYaw = (S._ffYaw || 0) - lookSpeed;
-  if (keys.has("ArrowUp")) S._ffPitch = Math.min(1.3, (S._ffPitch || 0) + lookSpeed);
-  if (keys.has("ArrowDown")) S._ffPitch = Math.max(-1.3, (S._ffPitch || 0) - lookSpeed);
+  // Flight-sim inversion: pushing Up pitches the nose DOWN (forward).
+  // User 2026-05-22 "invert my arrow keys up down so it's more like
+  // a flight sim too".
+  if (keys.has("ArrowUp")) S._ffPitch = Math.max(-1.3, (S._ffPitch || 0) - lookSpeed);
+  if (keys.has("ArrowDown")) S._ffPitch = Math.min(1.3, (S._ffPitch || 0) + lookSpeed);
   // Forward vector from yaw + pitch.
   const yaw = S._ffYaw || 0;
   const pitch = S._ffPitch || 0;
@@ -5742,6 +5745,20 @@ function _mixed3dStyleMermaidSVG(svgString) {
       fill: transparent !important;
       stroke: #00ddff !important;
     }
+    /* Mindmap node-bkg (the rect/path behind each label) defaults to a
+       dark gray that clashes with the hackers cyan/dark scheme. Force
+       transparent so only the stroke shows. User 2026-05-22. */
+    .node-bkg, .node-no-border, .node-circle, .node-bkg.node-no-border,
+    g.mindmap-node > rect, g.mindmap-node > path, g.mindmap-node > circle,
+    .mindmap-node > .label > rect, .mindmap-node foreignObject {
+      fill: transparent !important;
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+    .node-line-0, .node-line-1, .node-line-2, .node-line-3, .node-line-4 {
+      stroke: #00ddff !important;
+      stroke-width: 1.5px !important;
+    }
   </style>`;
   // Uppercase every visible text node (between <tspan> open + close).
   // CSS text-transform is unreliable across SVG renderers, so we
@@ -6069,9 +6086,24 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
       document.fonts.load("bold 16px Eurostile"),
       document.fonts.load("14px Eurostile"),
     ]).then(() => document.fonts.ready) : Promise.resolve();
+    // Aspect-aware spec: inject mermaid init-block tuning so the graph
+    // packs into the cell shape it actually has. Tall cells get tight
+    // nodeSpacing + loose rankSpacing (graph stretches vertically);
+    // wide cells get the opposite. Only flowchart/graph honors these.
+    // User 2026-05-22 "chase them both yeah" (substrate-fit pass).
+    const aspect = w / h;
+    let specForRender = spec;
+    if (/^\s*(flowchart|graph)\b/m.test(spec) && !/%%\{init:/.test(spec)) {
+      let nodeSp, rankSp;
+      if (aspect < 0.8) { nodeSp = 25; rankSp = 70; }      // tall: pack vertically
+      else if (aspect > 1.4) { nodeSp = 60; rankSp = 25; } // wide: pack horizontally
+      else { nodeSp = 40; rankSp = 45; }                    // squareish: balanced
+      const initBlock = `%%{init: {'flowchart':{'nodeSpacing':${nodeSp},'rankSpacing':${rankSp},'useMaxWidth':false}}}%%\n`;
+      specForRender = initBlock + spec;
+    }
     return fontsP
-      .then(() => window.mermaid.parse(spec))
-      .then(() => window.mermaid.render(id, spec))
+      .then(() => window.mermaid.parse(specForRender))
+      .then(() => window.mermaid.render(id, specForRender))
       .then(({ svg }) => {
         // Aspect-fit two-pass: if graph aspect fights the cell, rewrite
         // direction and re-render. Costs an extra mermaid.render for
