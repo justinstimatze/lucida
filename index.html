@@ -5219,8 +5219,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     // snap-driver render+cache it. The next retier sweep will then
     // see the cache and complete the promotion. User 2026-05-22:
     // "i just want the rendered cells to be rendered before they're
-    // on camera period... whether at prerender boot or during swoopy
-    // tour."
+    // on camera period."
     const cachedSnap = S._snapTexCache?.get(id);
     if (!cachedSnap) {
       // Cache miss: don't promote. Stays tier-2 (visually the
@@ -5228,9 +5227,16 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
       // search below (modified to include in-range tier-2 cells).
       return;
     }
-    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, obj.userData?.colspan || 1, obj.userData?.canvasH);
-    tex.image = cachedSnap;
-    tex.needsUpdate = true;
+    // Build CanvasTexture directly from the cached canvas — don't go
+    // through _mixed3dCellTexture which constructs a placeholder
+    // canvas at potentially mismatched dimensions, then reassigns
+    // image. Mismatched constructor dimensions vs cached canvas
+    // dimensions caused only the top region (title) to upload to
+    // GPU; body region was sampling outside the original placeholder
+    // bounds → blank. User 2026-05-22 "blank" on cell-4271 etc.
+    const tex = new T.CanvasTexture(cachedSnap);
+    tex.minFilter = T.LinearFilter;
+    tex.magFilter = T.LinearFilter;
     obj.material = new T.MeshBasicMaterial({
       map: tex,
       transparent: true,
