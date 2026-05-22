@@ -5453,7 +5453,9 @@ function _mixed3dStyleMermaidSVG(svgString) {
         stroke-width: 2.5px !important;
       }
       .node .label, .nodeLabel, .label foreignObject div, .label text, text.label,
-      .label tspan, .nodeLabel tspan, text tspan {
+      .label tspan, .nodeLabel tspan, text tspan,
+      .mindmap-node text, .mindmap-node tspan,
+      g[class*="section-"] text, g[class*="section-"] tspan {
         fill: #e8f8ff !important;
         color: #e8f8ff !important;
         /* Lock font-family + font-size at render-time so they match
@@ -5462,7 +5464,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
            default (16px Eurostile @ ~7.27px/char) while mermaid had
            measured against ~5.4px/char (likely 11px or a narrower font
            system fallback). The QA scanner showed 345/351 nodes
-           overflowing by 1.4× as a result. 12px Eurostile gives
+           overflowing by 1.4x as a result. 12px Eurostile gives
            ~5.45px/char which fits the rects mermaid sized. */
         font-family: "Eurostile", "trebuchet ms", sans-serif !important;
         font-size: 12px !important;
@@ -6730,7 +6732,13 @@ function _mixed3dRunPathWarmup(S) {
   // cells like cell-4212 and seeing cached:false). 35u catches cells
   // ~13u beyond the LOD horizon — they'll be in cache by the time
   // the camera moves close enough to promote them.
-  const WARMUP_R = 35;
+  // Bumped from 35 to 60 (user 2026-05-21: "still so many pending cells
+  // on launch on hard reload"). 60u catches cells well outside the
+  // immediate LOD horizon — most cells the camera will reach during
+  // the swoopy-tour land in cache by the time the boot overlay
+  // dismisses. First-fill session is longer (more cells in warmupSet)
+  // but subsequent reloads hit the disk cache fast.
+  const WARMUP_R = 60;
   const WARMUP_R_SQ = WARMUP_R * WARMUP_R;
   const sampleStep = WARMUP_R * 0.7; // ~24u — adjacent samples overlap
   const sampleCount = Math.max(60, Math.ceil(sw.totalLen / sampleStep));
