@@ -77,12 +77,22 @@
             document.body.classList.add("booted");
           });
         }
-        // Safety fallback: force-hide after 20 seconds no matter what,
-        // so a buggy layout init never strands users behind the splash.
-        // Bumped from 6s — mixed3d at saturation (~7000 cells) takes
-        // ~12s to drain the mount queue, and we want the loader to
-        // stay up through that whole spawn phase.
-        setTimeout(function () { document.body.classList.add("booted"); }, 20000);
+        // Safety fallback: force-hide after 90 seconds if the warmup
+        // path never even begins (e.g. mount drain stuck). Healthy boot
+        // dismisses MUCH earlier via the boot-ready promise that warmup
+        // resolves once a quota of camera-visible cells are warm.
+        // Sized for: 1248-cell mount drain (~37s) + stable-frame wait
+        // (~25s) + warmup-quota (~5-10s) ≈ 70s typical; 90s gives slack
+        // before declaring init broken. Cancelled when warmup starts.
+        window._mixed3dSafetyBootId = setTimeout(function () {
+          document.body.classList.add("booted");
+        }, 90000);
+        window._mixed3dCancelSafetyBoot = function () {
+          if (window._mixed3dSafetyBootId) {
+            clearTimeout(window._mixed3dSafetyBootId);
+            window._mixed3dSafetyBootId = null;
+          }
+        };
       });
     } catch (e) { /* swallow */ }
   })();
@@ -3684,16 +3694,28 @@ function applyMixed3DLayout(opts) {
       // see, so stub→body pop never occurs in view. Camera is held
       // (gated in _mixed3dDriveCamera) until the warmup promise
       // settles. ?nowarmup=1 skips for fast iteration.
+      //
+      // Boot dismissal split from camera-release: bootReadyP resolves
+      // as soon as the first viewport-quota of camera-distance-sorted
+      // cells are warm (~5-10s after warmup start). Camera still holds
+      // for the full warmup. This lets users see the scene without
+      // waiting for all 1244 cells — the snap driver fills off-camera
+      // cells while the user looks around.
       const skipWarmup = new URLSearchParams(window.location.search).get("nowarmup") === "1";
       const warmupP = skipWarmup
         ? Promise.resolve()
         : _mixed3dRunPathWarmup(_mixed3dState);
-      warmupP.finally(() => {
-        // Reset camera timer here as a fallback — the warmup's own
-        // finish() also resets, but if warmup was skipped or hit the
-        // 30s cap we still want a clean u=0 start.
-        _mixed3dResetCameraTimer();
+      const bootReadyP = skipWarmup
+        ? Promise.resolve()
+        : (_mixed3dState._warmupBootReadyP || warmupP);
+      bootReadyP.finally(() => {
         requestAnimationFrame(() => document.body.classList.add("booted"));
+      });
+      warmupP.finally(() => {
+        // Reset camera timer here — the warmup's own finish() also
+        // resets, but if warmup was skipped or hit the 30s cap we
+        // still want a clean u=0 start.
+        _mixed3dResetCameraTimer();
       });
     }
   };
@@ -3820,10 +3842,32 @@ function _mixed3dToggleDebugOverlay() {
       _mixed3dPaintDebugOverlay(c, id, obj);
       if (obj?.material?.map) { obj.material.map.needsUpdate = true; }
     }
+    console.log("[mixed3d] debug overlay: ON");
+  } else {
+    // Off: wipe the snap cache so the driver re-renders every cell
+    // without the badge. Visible cells repaint within ~10-20s as the
+    // driver works through the camera-priority queue. While the driver
+    // catches up, fall back to the promote-stub so cells don't show the
+    // stale badge texture. User 2026-05-22: "if I toggle debug mode off
+    // and on the debug labels on the cells don't disappear again".
+    const cache = S._snapTexCache;
+    if (cache) {
+      for (const [id, _c] of cache) {
+        const obj = S.cellObjects.get(id);
+        if (!obj || obj.isInstanceHandle || !obj.material?.map) continue;
+        const cellData = state.rendering.cellsById?.get(id);
+        const colspan = obj.userData?.colspan || 1;
+        const H_full = obj.userData?.canvasH || 576;
+        const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
+        if (stub) {
+          obj.material.map.image = stub;
+          obj.material.map.needsUpdate = true;
+        }
+      }
+      cache.clear();
+    }
+    console.log("[mixed3d] debug overlay: OFF (cache wiped; cells repaint via snap driver)");
   }
-  // Off path: easiest is just to wipe cache + let snap driver re-render.
-  // For now signal that the user should hard-reload to drop the badges.
-  console.log("[mixed3d] debug overlay:", _mixed3dDebugOverlayOn ? "ON (badges baked into cached canvases; reload to clear)" : "OFF (reload required)");
 }
 async function _mixed3dDumpContactSheet() {
   const S = _mixed3dState;
@@ -5753,6 +5797,50 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
   });
 }
 
+// Two-pass aspect check: after mermaid renders once, inspect the SVG's
+// natural aspect against the cell's aspect. If they fight (wide graph
+// in a tall cell, or vice versa), rewrite the `flowchart`/`graph`
+// direction and re-render. Only meaningful for flowchart-family
+// subtypes; sequence/gantt/pie are axis-fixed.
+// User 2026-05-22: "two-pass is what I had in mind" — graph rerouted
+// to match the slot it has to live in.
+function _mixed3dMaybeFlipMermaidDirection(spec, svg, cellW, cellH) {
+  // Only flowchart/graph have a flippable direction.
+  if (!/^\s*(flowchart|graph)\b/m.test(spec)) return null;
+  // Parse SVG viewBox to get the graph's natural aspect.
+  const m = svg.match(/viewBox="[\d.\-]+\s+[\d.\-]+\s+([\d.\-]+)\s+([\d.\-]+)"/);
+  if (!m) return null;
+  const svgW = parseFloat(m[1]);
+  const svgH = parseFloat(m[2]);
+  if (!(svgW > 0) || !(svgH > 0)) return null;
+  const svgAspect = svgW / svgH;
+  const cellAspect = cellW / cellH;
+  // Categorize each: <0.8 = tall, 0.8-1.2 = squareish, >1.2 = wide.
+  const svgIsTall = svgAspect < 0.8;
+  const svgIsWide = svgAspect > 1.2;
+  const cellIsTall = cellAspect < 0.8;
+  const cellIsWide = cellAspect > 1.2;
+  // Compatible: both tall, both wide, or either squareish.
+  if (svgIsTall && cellIsTall) return null;
+  if (svgIsWide && cellIsWide) return null;
+  if (!svgIsTall && !svgIsWide) return null;  // graph squareish — no flip helps
+  if (!cellIsTall && !cellIsWide) return null;  // cell squareish — no flip needed
+  // Mismatch confirmed. Cell-tall + graph-wide → force TD; cell-wide +
+  // graph-tall → force LR.
+  const newDir = cellIsTall ? "TD" : "LR";
+  const lines = spec.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const fm = lines[i].match(/^(\s*)(flowchart|graph)(\s+(TD|TB|BT|LR|RL))?(\s.*|\s*$)/);
+    if (fm) {
+      const currentDir = fm[4];
+      if (currentDir === newDir) return null;  // already correct (shouldn't happen given mismatch, but defensive)
+      lines[i] = `${fm[1]}${fm[2]} ${newDir}${fm[5] || ""}`;
+      return lines.join("\n");
+    }
+  }
+  return null;
+}
+
 function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   if (!spec || typeof window.mermaid !== "object") return Promise.resolve(null);
   const cellId = extras?.id;
@@ -5800,7 +5888,26 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
       .then(() => window.mermaid.parse(spec))
       .then(() => window.mermaid.render(id, spec))
       .then(({ svg }) => {
-        const styledSvg = _mixed3dStyleMermaidSVG(svg);
+        // Aspect-fit two-pass: if graph aspect fights the cell, rewrite
+        // direction and re-render. Costs an extra mermaid.render for
+        // mismatched cells but cache absorbs the cost from second load on.
+        const flipped = _mixed3dMaybeFlipMermaidDirection(spec, svg, w, h);
+        if (flipped) {
+          const id2 = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
+          return window.mermaid.parse(flipped)
+            .then(() => window.mermaid.render(id2, flipped))
+            .then(({ svg: svg2 }) => ({ chosen: svg2, source: "flipped" }))
+            .catch((e) => {
+              // Re-render failed (mermaid parse error on flipped spec).
+              // Fall back to the original.
+              console.warn("[mixed3d] aspect-flip render failed, using original:", e?.message || e);
+              return { chosen: svg, source: "original-fallback" };
+            });
+        }
+        return { chosen: svg, source: "original" };
+      })
+      .then(({ chosen }) => {
+        const styledSvg = _mixed3dStyleMermaidSVG(chosen);
         if (cellId) {
           fetch(`http://127.0.0.1:8767/cells/${encodeURIComponent(cellId)}.${cacheKey}.svg`, {
             method: "POST",
@@ -6087,139 +6194,166 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  // Visual scale derived from cell height — bigger dots, thicker
-  // axis, larger labels for taller cells so the timeline genuinely
-  // fills its column. User 2026-05-21: "too much whitespace above and
-  // below actual timeline viz" — was using fixed 3px line + 7-10px
-  // dots + 13px font regardless of cell h=504.
-  const cy = Math.round(h * 0.50);
-  const pad = 24;
-  const n = Math.min(stages.length, 6);
-  const stepX = (w - pad * 2) / (n - 1 || 1);
-  const lineW = Math.max(4, Math.round(h / 80));        // ~6 at h=504
-  const dotR = Math.max(10, Math.round(h / 36));        // ~14 at h=504
-  const activeR = Math.max(14, Math.round(h / 24));     // ~21 at h=504
-  const haloR = Math.max(22, Math.round(h / 16));       // ~31
-  // Label font sized BY SLOT WIDTH first, h second — so 5-6 stages on
-  // a colspan=2 cell (stepX ~ 67-84px) don't squeeze labels down to
-  // "AN…" / "SKI…". Aim for ~6 chars at ~0.55 charW.
-  const slotMin = Math.min(stepX, (w - pad * 2));
-  // Compute label-budget chars based on AVERAGE stage label length so
-  // font matches actual data, not a fixed 6-char target. User
-  // 2026-05-21: "clearly truncated with label limits too short for
-  // font too big". Was forcing min(font, 28) which made even small
-  // slots use 24-28px and then truncate text to 4-6 chars. Now font
-  // shrinks to whatever fits the longest label, down to 10px.
-  // Size for the WRAPPED two-line label (chars/2), since
-  // labels longer than the slot get split across lines anyway.
-  // User 2026-05-21: "labels still a little small here, should be more
-  // like the mermaid diagrams". Mermaid is ~12-16px; bump timeline
-  // floor to match.
-  const labelLens = (Array.isArray(stages) ? stages : []).map(st => String(st?.label || "").length || 4);
-  const longestLabel = Math.max(6, ...labelLens);
-  const perLineBudget = Math.max(5, Math.ceil(longestLabel / 2));
-  const fontFromSlot = Math.max(16, Math.min(32, Math.floor(slotMin / 0.55 / perLineBudget)));
-  const fontFromH = Math.max(18, Math.round(h / 16));
-  const labelFont = Math.min(fontFromSlot, fontFromH);
-  const labelOffset = Math.max(48, Math.round(h / 5));
-  // Axis line
+  // VERTICAL layout: tower cells are tall-and-narrow (W:H ≈ 1:2). The
+  // old horizontal axis crammed 5+ stage labels into 60-80px slots and
+  // truncated everything. Vertical gives each stage a full-width row
+  // for label + detail. User 2026-05-22: "maybe the timeline ribbon
+  // should be vertical".
+  return Promise.resolve(_mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLabel));
+}
+
+function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLabel) {
+  const n = Math.min(stages.length, 8);
+  const axisX = 56;            // x of axis line + dots; leaves halo room on left
+  const padTop = axisLabel ? 36 : 16;
+  const padBot = 16;
+  const stepY = (h - padTop - padBot) / (n - 1 || 1);
+  const lineW = 3;
+  const dotR = Math.min(12, Math.max(8, Math.round(stepY / 14)));
+  const activeR = Math.round(dotR * 1.4);
+  const haloR = Math.round(dotR * 2.6);
+  const labelFontSize = Math.min(22, Math.max(16, Math.round(stepY / 7)));
+  const detailFontSize = Math.max(12, Math.round(labelFontSize * 0.65));
+  const labelX = axisX + haloR + 12;
+  const availW = w - labelX - 12;
+  // Vertical axis line.
   ctx.strokeStyle = "#9966ff";
-  ctx.globalAlpha = 0.6;
+  ctx.globalAlpha = 0.55;
   ctx.lineWidth = lineW;
   ctx.beginPath();
-  ctx.moveTo(pad, cy);
-  ctx.lineTo(w - pad, cy);
+  ctx.moveTo(axisX, padTop);
+  ctx.lineTo(axisX, h - padBot);
   ctx.stroke();
   ctx.globalAlpha = 1;
+  // Axis label across the top.
+  if (axisLabel) {
+    ctx.fillStyle = "#9966ff";
+    ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(String(axisLabel).toUpperCase(), 12, 10);
+  }
+  // Helper: measure-based wrap that splits on spaces and falls back to
+  // hard-wrap for over-long single words. Returns array of lines.
+  const wrapToWidth = (text, maxPx, font) => {
+    ctx.font = font;
+    const raw = String(text || "");
+    if (!raw) return [];
+    if (ctx.measureText(raw).width <= maxPx) return [raw];
+    const words = raw.split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = "";
+    for (const word of words) {
+      const next = cur ? cur + " " + word : word;
+      if (ctx.measureText(next).width <= maxPx) {
+        cur = next;
+      } else if (cur) {
+        lines.push(cur);
+        cur = word;
+      } else {
+        // single word longer than width: hard-wrap
+        let rem = word;
+        while (rem && ctx.measureText(rem).width > maxPx) {
+          let k = rem.length;
+          while (k > 1 && ctx.measureText(rem.slice(0, k)).width > maxPx) k--;
+          lines.push(rem.slice(0, k));
+          rem = rem.slice(k);
+        }
+        cur = rem;
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  };
   for (let i = 0; i < n; i++) {
-    const x = pad + i * stepX;
-    const st = stages[i];
-    const isActive = (st.status || "") === "active";
-    const isDone = (st.status || "") === "complete" || (st.status || "") === "done";
-    const color = isActive ? "#00ddff" : (isDone ? "#9966ff" : "rgba(153,102,255,0.4)");
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, cy, isActive ? activeR : dotR, 0, Math.PI * 2);
-    ctx.fill();
+    const y = Math.round(padTop + i * stepY);
+    const st = stages[i] || {};
+    const status = String(st.status || "");
+    const isActive = status === "active";
+    const isDone = status === "complete" || status === "done";
+    const isFailed = status === "failed";
+    const isSkipped = status === "skipped";
+    const isPending = status === "pending";
+    const baseColor = isActive ? "#00ddff"
+                    : isFailed ? "#f87171"
+                    : isDone ? "#9966ff"
+                    : isSkipped ? "rgba(153,102,255,0.4)"
+                    : isPending ? "rgba(153,102,255,0.5)"
+                    : "rgba(153,102,255,0.6)";
+    // Active halo.
     if (isActive) {
       ctx.strokeStyle = "#00ddff";
-      ctx.globalAlpha = 0.5;
-      ctx.lineWidth = Math.max(2, Math.round(lineW * 0.6));
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = Math.max(2, Math.round(lineW * 0.8));
       ctx.beginPath();
-      ctx.arc(x, cy, haloR, 0, Math.PI * 2);
+      ctx.arc(axisX, y, haloR, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    // Label above or below depending on i parity. Font + offset
-    // scale with cell h so cells fill more vertical space instead
-    // of leaving the timeline as a thin band in the middle.
-    // Label CHAR limit derives from available horizontal slot so
-    // edge labels (i=0, i=n-1) don't truncate beyond pad. The
-    // first and last positions get half a slot each side of pad;
-    // middle positions get a full slot worth.
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `bold ${labelFont}px 'Eurostile', 'Share Tech Mono', monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = (i % 2 === 0) ? "bottom" : "top";
-    const isEdge = (i === 0 || i === n - 1);
-    const slotW = isEdge ? (stepX / 2 + pad) : stepX;
-    const charW = labelFont * 0.55;
-    const maxCharsLine = Math.max(4, Math.floor(slotW / charW) - 1);
-    const raw = String(st.label || "").toUpperCase();
-    // Two-line wrap when label exceeds slot width. Splits on space
-    // closest to midpoint so first and last stages stop truncating
-    // to "IDENT…" / "VERIF…" — user 2026-05-21: "text truncated on
-    // left and right edges".
-    const words = raw.split(/\s+/).filter(Boolean);
-    let lines;
-    if (raw.length <= maxCharsLine) {
-      lines = [raw];
-    } else if (words.length >= 2) {
-      // Find split point closest to the midpoint character.
-      const mid = Math.floor(raw.length / 2);
-      let bestSplit = 1, bestDist = Infinity;
-      let acc = 0;
-      for (let k = 0; k < words.length - 1; k++) {
-        acc += words[k].length + 1;
-        const d = Math.abs(acc - mid);
-        if (d < bestDist) { bestDist = d; bestSplit = k + 1; }
-      }
-      lines = [
-        words.slice(0, bestSplit).join(" "),
-        words.slice(bestSplit).join(" "),
-      ].map(l => l.length > maxCharsLine ? l.slice(0, maxCharsLine - 1) + "…" : l);
+    // Dot — solid for done/active/failed, ring for pending, X for skipped.
+    if (isSkipped) {
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      const r = dotR;
+      ctx.beginPath();
+      ctx.moveTo(axisX - r, y - r); ctx.lineTo(axisX + r, y + r);
+      ctx.moveTo(axisX - r, y + r); ctx.lineTo(axisX + r, y - r);
+      ctx.stroke();
+    } else if (isPending) {
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc(axisX, y, dotR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
     } else {
-      // Single long word: instead of truncating ("EPISTEMIC" → "EPI…"
-      // user 2026-05-21 "still labels being truncated or abbreviated"),
-      // hard-wrap at maxCharsLine to keep all characters visible.
-      lines = [];
-      let remaining = raw;
-      while (remaining.length > maxCharsLine && lines.length < 3) {
-        lines.push(remaining.slice(0, maxCharsLine));
-        remaining = remaining.slice(maxCharsLine);
+      ctx.fillStyle = baseColor;
+      ctx.beginPath();
+      ctx.arc(axisX, y, isActive ? activeR : dotR, 0, Math.PI * 2);
+      ctx.fill();
+      if (isFailed) {
+        ctx.strokeStyle = "rgba(255,255,255,0.7)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       }
-      if (remaining) {
-        lines.push(remaining.length > maxCharsLine ? remaining.slice(0, maxCharsLine - 1) + "…" : remaining);
-      }
-      if (!lines.length) lines = [raw];
     }
-    const lineH = labelFont + 4;
-    const baseY = (i % 2 === 0) ? cy - labelOffset : cy + labelOffset;
-    for (let li = 0; li < lines.length; li++) {
-      const ly = (i % 2 === 0)
-        ? baseY - (lines.length - 1 - li) * lineH
-        : baseY + li * lineH;
-      ctx.fillText(lines[li], x, ly);
-    }
-  }
-  if (axisLabel) {
-    ctx.fillStyle = "#9966ff";
-    ctx.font = "bold 14px 'Eurostile', 'Share Tech Mono', monospace";
+    // Label (bold, right of dot).
+    const labelFont = `bold ${labelFontSize}px 'Eurostile', 'Share Tech Mono', monospace`;
+    const detailFont = `${detailFontSize}px 'Eurostile', 'Share Tech Mono', monospace`;
+    const rawLabel = String(st.label || "").toUpperCase();
+    const labelLines = wrapToWidth(rawLabel, availW, labelFont);
+    const detailLines = st.detail ? wrapToWidth(String(st.detail), availW, detailFont) : [];
+    const labelLineH = labelFontSize + 2;
+    const detailLineH = detailFontSize + 2;
+    const totalRowH = labelLines.length * labelLineH + (detailLines.length ? 4 + detailLines.length * detailLineH : 0);
+    const rowTop = y - Math.round(totalRowH / 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = labelFont;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText(String(axisLabel).toUpperCase(), pad, 8);
+    for (let li = 0; li < labelLines.length; li++) {
+      ctx.fillText(labelLines[li], labelX, rowTop + li * labelLineH);
+    }
+    if (detailLines.length) {
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.font = detailFont;
+      const detailTop = rowTop + labelLines.length * labelLineH + 4;
+      for (let di = 0; di < detailLines.length; di++) {
+        ctx.fillText(detailLines[di], labelX, detailTop + di * detailLineH);
+      }
+    }
+    // Status chip — right-aligned, small, only for non-done/non-complete.
+    if (status && !isDone) {
+      ctx.fillStyle = baseColor;
+      ctx.font = `bold ${Math.max(10, detailFontSize - 2)}px 'Eurostile', 'Share Tech Mono', monospace`;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillText(status.toUpperCase(), w - 10, y);
+    }
   }
-  return Promise.resolve(canvas);
+  return canvas;
 }
 
 function _mixed3dRenderVegaToCanvas(spec, w, h, extras) {
@@ -6894,19 +7028,80 @@ function _mixed3dRunPathWarmup(S) {
   S._warmupTotal = warmupSet.size;
   S._warmupCount = 0;
   S._warmupStart = performance.now();
+  // Warmup has its own HARD_CAP_MS=30s safety; cancel the page-level
+  // 45s safety fallback so it doesn't race warmupP.finally and dismiss
+  // boot mid-warmup. Worst case both fire — body.classList.add is
+  // idempotent — but typically warmup's natural finish wins.
+  if (typeof window._mixed3dCancelSafetyBoot === "function") {
+    window._mixed3dCancelSafetyBoot();
+  }
   console.log(`[mixed3d] path warmup: ${warmupSet.size} cells to pre-render`);
   _mixed3dUpdateWarmupProgress(S);
-  const todo = Array.from(warmupSet);
+  // Sort by camera-distance — render visible cells first so when boot
+  // dismisses (or HARD_CAP_MS trips) the cells the camera can see are
+  // warm, distant cells fill via the snap driver as the camera moves.
+  // Without this, todo iterates in cellsById insertion order, which is
+  // grid-spatial but uncorrelated with the camera's spawn pose.
+  const todoIds = Array.from(warmupSet);
+  const camPos = S.camera?.position;
+  const distEntries = todoIds.map((id) => {
+    const obj = S.cellObjects.get(id);
+    let distSq = 0;
+    if (camPos && obj && !obj.isInstanceHandle && obj.position) {
+      const dx = obj.position.x - camPos.x;
+      const dy = obj.position.y - camPos.y;
+      const dz = obj.position.z - camPos.z;
+      distSq = dx * dx + dy * dy + dz * dz;
+    } else {
+      // No mounted obj yet — push to the back, snap driver will catch them.
+      distSq = Number.POSITIVE_INFINITY;
+    }
+    return { id, distSq };
+  });
+  distEntries.sort((a, b) => a.distSq - b.distSq);
+  const todo = distEntries.map((e) => e.id);
   const BODY_H = 576 - 72;
   const CONCURRENCY = 4;
   const HARD_CAP_MS = 30000;
+  // Boot-ready quota: dismiss boot overlay once the first N
+  // camera-distance-sorted cells are warm. Sized for "enough to fill
+  // the visible viewport at u=0" — Gibson tower face shows ~30-50
+  // cells at spawn distance. 40 gives a calm reveal without making
+  // users wait for all 1244.
+  const BOOT_READY_QUOTA = Math.min(40, todo.length);
   let nextIdx = 0;
-  return new Promise((resolve) => {
-    const finish = () => {
+  // Diagnostics (#warmup-shortresolve): track who calls finish() and
+  // what state was when it fired. Cleared after the resolve.
+  S._warmupFinishReason = null;
+  S._warmupSkipCounts = { no_cellData: 0, no_renderer: 0, no_arg: 0, already_cached: 0, render_ok: 0, render_null: 0, render_throw: 0, sync_renderer_throw: 0 };
+  // Boot-ready promise: resolves at the BOOT_READY_QUOTA milestone OR
+  // when the full warmup settles, whichever first. Boot dismissal
+  // listens to this; camera-release listens to the full warmup.
+  let _bootReadyResolve = null;
+  S._warmupBootReadyP = new Promise((r) => { _bootReadyResolve = r; });
+  S._warmupBootReady = false;
+  const _maybeBootReady = () => {
+    if (!S._warmupBootReady && S._warmupCount >= BOOT_READY_QUOTA) {
+      S._warmupBootReady = true;
       const wall = performance.now() - S._warmupStart;
-      console.log(`[mixed3d] path warmup done: ${S._warmupCount}/${S._warmupTotal} in ${wall.toFixed(0)}ms`);
+      console.log(`[mixed3d] boot-ready: ${S._warmupCount}/${S._warmupTotal} cells warm in ${wall.toFixed(0)}ms (quota=${BOOT_READY_QUOTA})`);
+      if (_bootReadyResolve) _bootReadyResolve();
+    }
+  };
+  return new Promise((resolve) => {
+    const finish = (reason) => {
+      const wall = performance.now() - S._warmupStart;
+      S._warmupFinishReason = reason || "natural";
+      console.log(`[mixed3d] path warmup done: ${S._warmupCount}/${S._warmupTotal} in ${wall.toFixed(0)}ms (reason=${S._warmupFinishReason}, inflight=${inflight.size}, nextIdx=${nextIdx}/${todo.length}, skips=${JSON.stringify(S._warmupSkipCounts)})`);
       S._warmupActive = false;
       S._warmupComplete = true;
+      // If we got here without crossing the boot-ready quota (e.g.
+      // small dashboard, hard-cap fired early), resolve bootReadyP
+      // so the splash still dismisses.
+      if (!S._warmupBootReady) {
+        S._warmupBootReady = true;
+        if (_bootReadyResolve) _bootReadyResolve();
+      }
       _mixed3dResetCameraTimer();
       resolve();
     };
@@ -6914,25 +7109,25 @@ function _mixed3dRunPathWarmup(S) {
     const kick = () => {
       if (performance.now() - S._warmupStart > HARD_CAP_MS) {
         console.warn("[mixed3d] path warmup hit 30s cap, releasing camera");
-        if (inflight.size === 0) finish();
+        if (inflight.size === 0) finish("hard_cap");
         return;
       }
       while (inflight.size < CONCURRENCY && nextIdx < todo.length) {
         const id = todo[nextIdx++];
         const cellData = state.rendering.cellsById?.get(id);
-        if (!cellData) { _advance(); continue; }
+        if (!cellData) { S._warmupSkipCounts.no_cellData++; _advance(); continue; }
         const ct = cellData.cell_type || "";
         const renderer = _MIXED3D_RENDERERS[ct];
-        if (!renderer) { _advance(); continue; }
+        if (!renderer) { S._warmupSkipCounts.no_renderer++; _advance(); continue; }
         let arg;
         if (ct === "html") {
-          if (!cellData.title && !cellData.caption) { _advance(); continue; }
+          if (!cellData.title && !cellData.caption) { S._warmupSkipCounts.no_arg++; _advance(); continue; }
           arg = cellData;
         } else {
-          if (!cellData.spec || cellData.spec === "None") { _advance(); continue; }
+          if (!cellData.spec || cellData.spec === "None") { S._warmupSkipCounts.no_arg++; _advance(); continue; }
           arg = cellData.spec;
         }
-        if (S._snapTexCache?.has(id)) { _advance(); continue; }
+        if (S._snapTexCache?.has(id)) { S._warmupSkipCounts.already_cached++; _advance(); continue; }
         // Derive colspan from cellData when obj isn't mounted yet
         // (cellObjects is sparse during boot). Mirrors the heuristic in
         // _mixed3dColspanForCell but reads from cell_type / mermaid_subtype /
@@ -6960,7 +7155,30 @@ function _mixed3dRunPathWarmup(S) {
         const W_full = obj?.userData?.canvasW || (192 * colspan);
         const H_full = obj?.userData?.canvasH || 576;
         const H_body = H_full - 72;  // TITLE_H
-        const renderP = renderer(arg, W_full, H_body, { id: id, colspan, canvasH: H_full, caption: cellData?.caption, title: cellData?.title });
+        // Wrap the renderer() call: any substrate that throws synchronously
+        // (before returning a Promise) would otherwise strand the inflight
+        // slot AND propagate up through the kick() recursion, rejecting the
+        // warmupP executor. That's the #warmup-shortresolve symptom: boot
+        // dismisses at ~10s with warmupCount well below total, no
+        // "warmup done" log, no "warmup fail" log.
+        let renderP;
+        try {
+          renderP = renderer(arg, W_full, H_body, { id: id, colspan, canvasH: H_full, caption: cellData?.caption, title: cellData?.title });
+        } catch (syncErr) {
+          inflight.delete(id);
+          S._warmupSkipCounts.sync_renderer_throw++;
+          console.warn("[mixed3d] warmup sync-throw", ct, id, syncErr?.message || syncErr);
+          if (!S._snapTexCache) S._snapTexCache = new Map();
+          const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
+          if (stub) S._snapTexCache.set(id, stub);
+          _advance();
+          continue;
+        }
+        // Belt-and-suspenders: if renderer returned something that isn't
+        // thenable, coerce to Promise.resolve so the .then chain still wires.
+        if (!renderP || typeof renderP.then !== "function") {
+          renderP = Promise.resolve(renderP);
+        }
         const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error("warmup-render-timeout-10s")), 10000));
         Promise.race([renderP, timeoutP]).then((bodyCanvas) => {
           inflight.delete(id);
@@ -6969,12 +7187,15 @@ function _mixed3dRunPathWarmup(S) {
             if (!S._snapTexCache) S._snapTexCache = new Map();
             const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
             if (stub) S._snapTexCache.set(id, stub);
+            S._warmupSkipCounts.render_null++;
           } else {
             _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData, colspan, H_full);
+            S._warmupSkipCounts.render_ok++;
           }
           _advance();
         }).catch((e) => {
           inflight.delete(id);
+          S._warmupSkipCounts.render_throw++;
           console.warn("[mixed3d] warmup fail", ct, id, e?.message || e);
           if (!S._snapTexCache) S._snapTexCache = new Map();
           const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
@@ -6982,14 +7203,38 @@ function _mixed3dRunPathWarmup(S) {
           _advance();
         });
       }
-      if (inflight.size === 0 && nextIdx >= todo.length) finish();
+      if (inflight.size === 0 && nextIdx >= todo.length) finish("natural");
     };
     const _advance = () => {
       S._warmupCount++;
-      if (S._warmupCount % 8 === 0) _mixed3dUpdateWarmupProgress(S);
-      kick();
+      if (S._warmupCount % 8 === 0) {
+        try { _mixed3dUpdateWarmupProgress(S); }
+        catch (e) { console.warn("[mixed3d] warmup progress-update throw", e?.message || e); }
+      }
+      // Boot-ready milestone: first BOOT_READY_QUOTA cells warm. Boot
+      // overlay dismisses here; full warmup keeps running.
+      _maybeBootReady();
+      // Defensive: kick() could throw via a sync-renderer escape we
+      // haven't covered. Catch here so the warmup chain self-heals
+      // instead of bubbling up to the Promise executor / unhandled
+      // rejection. If kick throws, we still want to keep advancing.
+      try { kick(); }
+      catch (e) {
+        console.error("[mixed3d] warmup kick-throw (caught in _advance)", e?.stack || e?.message || e);
+        // Don't call kick() again — we'd re-enter the same throw.
+        // Just declare done so boot proceeds.
+        if (!S._warmupComplete) finish("kick_throw_in_advance");
+      }
     };
-    kick();
+    // Outer kick() runs synchronously in the Promise executor; a throw
+    // here would silently reject warmupP. Catch it explicitly and
+    // resolve via finish() so boot still proceeds, AND we log a
+    // diagnostic instead of dropping the error on the floor.
+    try { kick(); }
+    catch (e) {
+      console.error("[mixed3d] warmup outer-kick throw", e?.stack || e?.message || e);
+      if (!S._warmupComplete) finish("outer_kick_throw");
+    }
   });
 }
 
