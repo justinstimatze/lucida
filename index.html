@@ -3788,6 +3788,95 @@ function _mixed3dStepDanger(t) {
 // Camera path. opts.camera selects the policy:
 //   "weave-grid"   — low altitude, walks grid lanes, 90° turns
 //   "dolly-canyon" — ping-pong sweep along canyon (legacy)
+// Debug helpers — overlay tier-1 cell metadata onto each cached
+// canvas (D key) and dump a contact sheet of currently-cached cells
+// (Q key). Both are dev-time tools, no production impact.
+let _mixed3dDebugOverlayOn = false;
+function _mixed3dPaintDebugOverlay(canvas, id, obj) {
+  const ctx = canvas.getContext("2d");
+  const cs = obj?.userData?.colspan || 1;
+  const ct = obj?.userData?.cellEl?.dataset?.cellType || "?";
+  // Lower-right corner badge so it doesn't cover substrate content.
+  ctx.save();
+  ctx.font = "bold 14px 'Eurostile', 'Share Tech Mono', monospace";
+  const label = `${id} cs=${cs} ${ct}`;
+  const w = ctx.measureText(label).width + 12;
+  const x = canvas.width - w - 4;
+  const y = canvas.height - 22;
+  ctx.fillStyle = "rgba(255, 100, 200, 0.85)";
+  ctx.fillRect(x, y, w, 18);
+  ctx.fillStyle = "#000";
+  ctx.textBaseline = "top";
+  ctx.fillText(label, x + 6, y + 2);
+  ctx.restore();
+}
+function _mixed3dToggleDebugOverlay() {
+  const S = _mixed3dState;
+  if (!S) return;
+  _mixed3dDebugOverlayOn = !_mixed3dDebugOverlayOn;
+  if (_mixed3dDebugOverlayOn) {
+    for (const [id, c] of (S._snapTexCache || new Map())) {
+      const obj = S.cellObjects.get(id);
+      _mixed3dPaintDebugOverlay(c, id, obj);
+      if (obj?.material?.map) { obj.material.map.needsUpdate = true; }
+    }
+  }
+  // Off path: easiest is just to wipe cache + let snap driver re-render.
+  // For now signal that the user should hard-reload to drop the badges.
+  console.log("[mixed3d] debug overlay:", _mixed3dDebugOverlayOn ? "ON (badges baked into cached canvases; reload to clear)" : "OFF (reload required)");
+}
+async function _mixed3dDumpContactSheet() {
+  const S = _mixed3dState;
+  if (!S || !S._snapTexCache) return;
+  const entries = [...S._snapTexCache.entries()].slice(0, 16);
+  if (!entries.length) { console.warn("[mixed3d] contact sheet: cache empty"); return; }
+  const cols = 4;
+  const rows = Math.ceil(entries.length / cols);
+  // Normalize each cell to a fixed-size thumbnail.
+  const TW = 240, TH = 320, PAD = 10;
+  const sheet = document.createElement("canvas");
+  sheet.width = cols * (TW + PAD) + PAD;
+  sheet.height = rows * (TH + PAD) + PAD;
+  const sctx = sheet.getContext("2d");
+  sctx.fillStyle = "#000814";
+  sctx.fillRect(0, 0, sheet.width, sheet.height);
+  for (let i = 0; i < entries.length; i++) {
+    const [id, c] = entries[i];
+    const obj = S.cellObjects.get(id);
+    const r = Math.floor(i / cols);
+    const col = i % cols;
+    const x = PAD + col * (TW + PAD);
+    const y = PAD + r * (TH + PAD);
+    sctx.drawImage(c, x, y, TW, TH);
+    sctx.strokeStyle = "#00ddff";
+    sctx.lineWidth = 1;
+    sctx.strokeRect(x, y, TW, TH);
+    sctx.fillStyle = "#ff64c8";
+    sctx.font = "bold 14px monospace";
+    sctx.fillText(`${id}  cs=${obj?.userData?.colspan || "?"}  ${obj?.userData?.cellEl?.dataset?.cellType || "?"}`, x + 4, y + TH - 4);
+  }
+  const blob = await new Promise(res => sheet.toBlob(res, "image/png"));
+  const arr = new Uint8Array(await blob.arrayBuffer());
+  const ts = Date.now();
+  const name = `qa-contact-sheet-${ts}.png`;
+  try {
+    const r = await fetch("http://127.0.0.1:8767/" + name, {
+      method: "POST", body: arr, headers: { "content-type": "image/png" }
+    });
+    console.log(`[mixed3d] contact sheet -> refs/gibson/live-shots/${name}`, r.ok ? "OK" : "FAIL");
+  } catch (e) {
+    console.warn("[mixed3d] contact sheet upload failed:", e);
+  }
+}
+if (typeof window !== "undefined" && !window._mixed3dDebugKeysWired) {
+  window._mixed3dDebugKeysWired = true;
+  window.addEventListener("keydown", (e) => {
+    if (e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA") return;
+    if (e.key === "d" || e.key === "D") _mixed3dToggleDebugOverlay();
+    if (e.key === "q" || e.key === "Q") _mixed3dDumpContactSheet();
+  });
+}
+
 function _mixed3dDriveCamera(t) {
   if (!_mixed3dState) return;
   // Hold camera at the initial pose while path warmup is filling the
