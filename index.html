@@ -3129,6 +3129,79 @@ function applyMixed3DLayout(opts) {
     scene.add(particleSystem);
   }
 
+  // Fast light pulses — bright tiny dots zooming along the floor
+  // circuit and through the air between towers, like Hackers/Gibson
+  // flying cars in the city. Additive blending so they glow. Two
+  // independent layers:
+  //   ground pulses: y ≈ 0.05 (just above floor), constant axis-aligned
+  //                  velocity, ~6 u/s. Mimic data zipping along PCB
+  //                  traces.
+  //   air pulses:    y ∈ [2, towerH-1], 3D random direction, ~9 u/s.
+  //                  Read as flying cars / inter-tower traffic.
+  // Respawn at field edges so the count stays constant. No per-pulse
+  // pathfinding — just straight lines. Cheap.
+  let pulseGround = null, pulseAir = null;
+  {
+    const halfField = fieldSize * 0.5;
+    const N_GROUND = 80;
+    const N_AIR = 60;
+    const groundPos = new Float32Array(N_GROUND * 3);
+    const groundVel = new Float32Array(N_GROUND * 3);
+    for (let i = 0; i < N_GROUND; i++) {
+      // 4-direction axis-aligned travel so they read like traces.
+      const dir = Math.floor(Math.random() * 4);
+      groundPos[i * 3] = (Math.random() - 0.5) * fieldSize;
+      groundPos[i * 3 + 1] = 0.04 + Math.random() * 0.06;
+      groundPos[i * 3 + 2] = (Math.random() - 0.5) * fieldSize;
+      const speed = 4 + Math.random() * 4;
+      groundVel[i * 3] = dir === 0 ? speed : dir === 1 ? -speed : 0;
+      groundVel[i * 3 + 1] = 0;
+      groundVel[i * 3 + 2] = dir === 2 ? speed : dir === 3 ? -speed : 0;
+    }
+    const groundGeo = new T.BufferGeometry();
+    groundGeo.setAttribute("position", new T.BufferAttribute(groundPos, 3));
+    const groundMat = new T.PointsMaterial({
+      color: new T.Color("#66e6ff"),
+      size: 0.22,
+      transparent: true,
+      opacity: 0.95,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: T.AdditiveBlending,
+    });
+    pulseGround = new T.Points(groundGeo, groundMat);
+    pulseGround.userData = { velocities: groundVel, halfField };
+    scene.add(pulseGround);
+
+    const airPos = new Float32Array(N_AIR * 3);
+    const airVel = new Float32Array(N_AIR * 3);
+    for (let i = 0; i < N_AIR; i++) {
+      airPos[i * 3] = (Math.random() - 0.5) * fieldSize;
+      airPos[i * 3 + 1] = 2 + Math.random() * 14;
+      airPos[i * 3 + 2] = (Math.random() - 0.5) * fieldSize;
+      // Mostly horizontal motion with slight vertical drift.
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 6 + Math.random() * 5;
+      airVel[i * 3] = Math.cos(angle) * speed;
+      airVel[i * 3 + 1] = (Math.random() - 0.5) * 1.0;
+      airVel[i * 3 + 2] = Math.sin(angle) * speed;
+    }
+    const airGeo = new T.BufferGeometry();
+    airGeo.setAttribute("position", new T.BufferAttribute(airPos, 3));
+    const airMat = new T.PointsMaterial({
+      color: new T.Color("#b48aff"),
+      size: 0.18,
+      transparent: true,
+      opacity: 0.85,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: T.AdditiveBlending,
+    });
+    pulseAir = new T.Points(airGeo, airMat);
+    pulseAir.userData = { velocities: airVel, halfField };
+    scene.add(pulseAir);
+  }
+
   document.body.classList.add("layout-mixed3d");
 
   _mixed3dState = {
@@ -3144,6 +3217,8 @@ function applyMixed3DLayout(opts) {
     cssSceneFar,
     towerMeshes,
     particleSystem,
+    pulseGround,
+    pulseAir,
     cellObjects: new Map(), // cell-id → CSS3DObject
     cellTier: new Map(), // cell-id → 1 (close) or 2 (far)
     cellSlotKeys: new Map(), // cell-id → "tower:face:col:i" key
@@ -3356,6 +3431,47 @@ function applyMixed3DLayout(opts) {
     _mixed3dDriveCamera(t);
     if (_mixed3dState.particleSystem) {
       _mixed3dState.particleSystem.rotation.y = t * 0.015;
+    }
+    // Pulse animation — advance each point by its velocity, wrap at
+    // field edges. Single dt per frame (no per-pulse rAF).
+    {
+      const dt = Math.min(0.1, (now - (_mixed3dState._pulseLastT || now)) / 1000);
+      _mixed3dState._pulseLastT = now;
+      const groundPS = _mixed3dState.pulseGround;
+      if (groundPS && dt > 0) {
+        const posAttr = groundPS.geometry.attributes.position;
+        const pos = posAttr.array;
+        const vel = groundPS.userData.velocities;
+        const half = groundPS.userData.halfField;
+        for (let i = 0; i < pos.length; i += 3) {
+          pos[i] += vel[i] * dt;
+          pos[i + 2] += vel[i + 2] * dt;
+          if (pos[i] > half) pos[i] = -half;
+          else if (pos[i] < -half) pos[i] = half;
+          if (pos[i + 2] > half) pos[i + 2] = -half;
+          else if (pos[i + 2] < -half) pos[i + 2] = half;
+        }
+        posAttr.needsUpdate = true;
+      }
+      const airPS = _mixed3dState.pulseAir;
+      if (airPS && dt > 0) {
+        const posAttr = airPS.geometry.attributes.position;
+        const pos = posAttr.array;
+        const vel = airPS.userData.velocities;
+        const half = airPS.userData.halfField;
+        for (let i = 0; i < pos.length; i += 3) {
+          pos[i] += vel[i] * dt;
+          pos[i + 1] += vel[i + 1] * dt;
+          pos[i + 2] += vel[i + 2] * dt;
+          if (pos[i] > half) pos[i] = -half;
+          else if (pos[i] < -half) pos[i] = half;
+          if (pos[i + 1] > 17) pos[i + 1] = 2;
+          else if (pos[i + 1] < 2) pos[i + 1] = 17;
+          if (pos[i + 2] > half) pos[i + 2] = -half;
+          else if (pos[i + 2] < -half) pos[i + 2] = half;
+        }
+        posAttr.needsUpdate = true;
+      }
     }
     // Frustum + distance cull: cells outside camera view OR farther
     // than 55 units get obj.visible=false → CSS3DRenderer sets their
