@@ -5862,11 +5862,26 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // and Chrome devtools logged it as an error — 70+ red lines per
   // session even though the fallback was clean.
   const haveCache = filename && window._mixed3dSvgManifest?.has(filename);
-  // Cache hit path: fetch only when manifest says it exists.
+  // Cache hit path: fetch only when manifest says it exists. Also
+  // retroactively check the cached SVG's aspect against the cell —
+  // if it's mismatched, reject the cache and fall through to fresh
+  // render (which goes through two-pass direction-flip). Without
+  // this, cells minted before the two-pass landed keep their wrong-
+  // direction graphs forever. User 2026-05-22 on cell-4398: "this
+  // one probably should have been vertical or something".
   const tryCache = haveCache
     ? fetch(`/cells/${encodeURIComponent(cellId)}.${cacheKey}.svg`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("cache-miss"))))
-        .then((svg) => _mixed3dRasterizeSvgToCanvas(svg, w, h, extras))
+        .then((svg) => {
+          const flipped = _mixed3dMaybeFlipMermaidDirection(spec, svg, w, h);
+          if (flipped) {
+            // Cache says wrong direction — bust manifest entry so we
+            // don't re-check next time, and force a fresh render.
+            window._mixed3dSvgManifest?.delete(filename);
+            return Promise.reject(new Error("cache-aspect-mismatch"));
+          }
+          return _mixed3dRasterizeSvgToCanvas(svg, w, h, extras);
+        })
     : Promise.reject(new Error("no-cache-or-id"));
   // Fresh render path: parse + render + style, then fire-and-forget
   // POST to snap_receiver:8767 so the next load hits the cache.
@@ -6148,9 +6163,9 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
     }
     if (i === items.length - 1 || i === 11) { rw = remW; rh = remH; }
     const color = colors[i % colors.length];
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.18;
-    ctx.fillRect(curX, curY, rw, rh);
+    // Outlines only — user 2026-05-22: "treemap cells should also not
+    // have their backgrounds filled, just lines like the bar charts".
+    // Drops the 0.18-alpha fill that competed with the cyan label.
     ctx.globalAlpha = 0.9;
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
@@ -6910,11 +6925,14 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
           ctx.globalAlpha = 1.0;
           cy += rowVPad;
         }
-        // Data rows.
+        // Pre-pass: compute each row's intrinsic line count + wrap.
+        // Then distribute leftover vertical space evenly across rows so
+        // the table fills the canvas without trailing whitespace.
+        // User 2026-05-22: "looks better denser but now there's a bunch
+        // of whitespace below it in the cell".
+        const rowMeta = [];
         for (let ri = dataStart; ri < rows.length; ri++) {
-          if (cy + lineH > yMax) break;
           const r = rows[ri];
-          // Compute this row's height: max wrap-line count across cols.
           const cellLines = new Array(cols);
           let rowLineCt = 1;
           for (let ci = 0; ci < cols; ci++) {
@@ -6925,8 +6943,26 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
             cellLines[ci] = wrapped;
             if (wrapped.length > rowLineCt) rowLineCt = wrapped.length;
           }
-          const rowH = rowLineCt * lineH + rowVPad;
-          // Draw cells.
+          rowMeta.push({ cellLines, baseH: rowLineCt * lineH + rowVPad });
+        }
+        const totalBaseH = rowMeta.reduce((a, b) => a + b.baseH, 0);
+        const bodyAvail = yMax - cy;
+        const extraPerRow = rowMeta.length > 0
+          ? Math.max(0, Math.floor((bodyAvail - totalBaseH) / rowMeta.length))
+          : 0;
+        // Cap stretch so 1 row in a 1000px body doesn't read as one
+        // floating line of text in a sea of nothing. ~3x base height is
+        // a defensible "tall row but still a row".
+        const cappedExtra = Math.min(extraPerRow, lineH * 2 + 12);
+        // Data rows — draw with the stretched row height.
+        for (let mi = 0; mi < rowMeta.length; mi++) {
+          const ri = dataStart + mi;
+          if (cy + lineH > yMax) break;
+          const r = rows[ri];
+          const { cellLines, baseH } = rowMeta[mi];
+          const rowH = baseH + cappedExtra;
+          // Vertically center the content within the stretched row.
+          const contentTop = cy + Math.floor((rowH - baseH) / 2);
           for (let ci = 0; ci < cols; ci++) {
             if (isLevelCol[ci]) {
               const lv = parseLevel(r[ci]) || 0;
@@ -6938,7 +6974,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
               ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
               const lines = cellLines[ci] || [""];
               for (let li = 0; li < lines.length; li++) {
-                ctx.fillText(lines[li], colXs[ci], cy + li * lineH);
+                ctx.fillText(lines[li], colXs[ci], contentTop + li * lineH);
               }
             }
           }
