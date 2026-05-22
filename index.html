@@ -7888,49 +7888,13 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
-  // Body area: paint decorative-bed bands (same vocabulary as the
-  // tier-2 ambient cells) so a brief promote-before-cache-hit window
-  // reads as scene cohesion, not "broken cell". Was a "PENDING" stamp
-  // + diagonal hatch which the user 2026-05-22 flagged as visible
-  // after reload: "still a bunch of pending cells". The placeholder
-  // canvas is normally overwritten on the same tick when promote
-  // resolves from _snapTexCache, but if there's any gap the cell now
-  // reads as ambient rather than broken.
-  const previewY0 = y + 17;
-  const previewY1 = H - (isTop ? 44 : 34);
-  if (previewY1 - previewY0 > 20) {
-    const pw = W - padX * 2;
-    const ph = previewY1 - previewY0;
-    // Decorative-text bands at low alpha — mirrors the tier-2 html-cell
-    // preview style (cyan strokes, mono short tokens, random lengths).
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(padX, previewY0, pw, ph);
-    ctx.clip();
-    ctx.font = '13px "Share Tech Mono", "Eurostile", monospace';
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
-    const shorts = ["RX", "TX", "OK", "FF", "00", "INIT", "RUN", "ACK", "NAK"];
-    const meds = ["STATUS", "READY", "BUFFER", "BIND", "WAIT", "STORE"];
-    const arrows = ["->", "=>", "<-", ">>"];
-    const pick = (a) => a[Math.floor(Math.random() * a.length)];
-    const lineH = 16;
-    for (let ly = previewY0 + 6; ly < previewY1 - lineH; ly += lineH) {
-      const r = Math.random();
-      ctx.fillStyle = r < 0.10 ? "#9966ff" : "#00ddff";
-      ctx.globalAlpha = r < 0.10 ? 0.55 : 0.42;
-      const text = r < 0.30
-        ? `${pick(meds)} ${pick(arrows)} ${pick(meds)}`
-        : r < 0.55
-        ? `${pick(meds)}=${(Math.random() * 99 | 0).toString().padStart(2, "0")}`
-        : `${pick(shorts)} ${pick(shorts)} ${pick(shorts)} ${pick(arrows)} ${pick(shorts)}`;
-      ctx.fillText(text, padX + 4, ly);
-    }
-    ctx.restore();
-    ctx.globalAlpha = 1;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-  }
+  // Body area intentionally blank: dropped the decorative-bands
+  // placeholder (user 2026-05-22 "drop the faded decorative cell
+  // content"). Tier-1 cells should show real substrate content or
+  // nothing — the title block + dark fill alone read more cleanly
+  // than a stand-in that competes with real content visually. The
+  // placeholder canvas is overwritten the same tick when promote
+  // resolves the cached snap, so the empty body is rarely seen.
   const ctype = (cell.dataset.cellType || "").toUpperCase();
   if (ctype) {
     ctx.fillStyle = cyan;
