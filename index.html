@@ -5967,8 +5967,16 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   // a colspan=2 cell (stepX ~ 67-84px) don't squeeze labels down to
   // "AN…" / "SKI…". Aim for ~6 chars at ~0.55 charW.
   const slotMin = Math.min(stepX, (w - pad * 2));
-  const fontFromSlot = Math.max(13, Math.min(28, Math.floor(slotMin / 0.55 / 6)));
-  const fontFromH = Math.max(18, Math.round(h / 18));
+  // Compute label-budget chars based on AVERAGE stage label length so
+  // font matches actual data, not a fixed 6-char target. User
+  // 2026-05-21: "clearly truncated with label limits too short for
+  // font too big". Was forcing min(font, 28) which made even small
+  // slots use 24-28px and then truncate text to 4-6 chars. Now font
+  // shrinks to whatever fits the longest label, down to 10px.
+  const labelLens = (Array.isArray(stages) ? stages : []).map(st => String(st?.label || "").length || 4);
+  const longestLabel = Math.max(8, ...labelLens);
+  const fontFromSlot = Math.max(10, Math.min(28, Math.floor(slotMin / 0.55 / longestLabel)));
+  const fontFromH = Math.max(14, Math.round(h / 18));
   const labelFont = Math.min(fontFromSlot, fontFromH);
   const labelOffset = Math.max(48, Math.round(h / 5));
   // Axis line
@@ -7904,7 +7912,12 @@ function _mixed3dColspanForCell(cell) {
   // truncates to "ab…" ellipses everywhere.
   if (ct === "html") {
     const hl = cell.dataset.htmlLayout || "";
-    if (hl === "callouts" || hl === "table" || hl === "dl" || hl === "kanban") return 2;
+    // Tables with many columns need WAY more horizontal room than
+    // colspan=2 (384px) — an 8-column "concurrent processes" table
+    // gave ~48px per column = 6 chars max. Default html-table to
+    // colspan=4 to match wide-mermaid treatment.
+    if (hl === "table") return 4;
+    if (hl === "callouts" || hl === "dl" || hl === "kanban") return 2;
   }
   return 1;
 }
