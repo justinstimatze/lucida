@@ -3145,18 +3145,29 @@ function applyMixed3DLayout(opts) {
     const halfField = fieldSize * 0.5;
     const N_GROUND = 80;
     const N_AIR = 60;
+    // Build corridor-line positions for city-block routing. Towers
+    // sit at (i - gridHalf) * spacing (i = 0..towerCount-1). Corridors
+    // run between adjacent tower rows, so corridor X-positions are
+    // (i + 0.5 - gridHalf) * spacing for i = 0..towerCount-2.
+    const corridorLines = [];
+    for (let i = 0; i < towerCount - 1; i++) {
+      corridorLines.push((i + 0.5 - gridHalf) * spacing);
+    }
+    const pickCorridor = () => corridorLines[Math.floor(Math.random() * corridorLines.length)];
     const groundPos = new Float32Array(N_GROUND * 3);
     const groundVel = new Float32Array(N_GROUND * 3);
     for (let i = 0; i < N_GROUND; i++) {
-      // 4-direction axis-aligned travel so they read like traces.
-      const dir = Math.floor(Math.random() * 4);
-      groundPos[i * 3] = (Math.random() - 0.5) * fieldSize;
-      groundPos[i * 3 + 1] = 0.04 + Math.random() * 0.06;
-      groundPos[i * 3 + 2] = (Math.random() - 0.5) * fieldSize;
+      // Spawn on a random corridor line. Direction is along the OTHER
+      // axis so the pulse travels down a street, not across towers.
+      const onX = Math.random() < 0.5;
       const speed = 10 + Math.random() * 8;
-      groundVel[i * 3] = dir === 0 ? speed : dir === 1 ? -speed : 0;
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      groundPos[i * 3] = onX ? (Math.random() - 0.5) * fieldSize : pickCorridor();
+      groundPos[i * 3 + 1] = 0.04 + Math.random() * 0.06;
+      groundPos[i * 3 + 2] = onX ? pickCorridor() : (Math.random() - 0.5) * fieldSize;
+      groundVel[i * 3] = onX ? dir * speed : 0;
       groundVel[i * 3 + 1] = 0;
-      groundVel[i * 3 + 2] = dir === 2 ? speed : dir === 3 ? -speed : 0;
+      groundVel[i * 3 + 2] = onX ? 0 : dir * speed;
     }
     const groundGeo = new T.BufferGeometry();
     groundGeo.setAttribute("position", new T.BufferAttribute(groundPos, 3));
@@ -3176,15 +3187,19 @@ function applyMixed3DLayout(opts) {
     const airPos = new Float32Array(N_AIR * 3);
     const airVel = new Float32Array(N_AIR * 3);
     for (let i = 0; i < N_AIR; i++) {
-      airPos[i * 3] = (Math.random() - 0.5) * fieldSize;
-      airPos[i * 3 + 1] = 2 + Math.random() * 14;
-      airPos[i * 3 + 2] = (Math.random() - 0.5) * fieldSize;
-      // Mostly horizontal motion with slight vertical drift.
-      const angle = Math.random() * Math.PI * 2;
+      // City-block routing: spawn on a corridor line, travel along
+      // the OTHER axis. Same idea as ground pulses but at altitude
+      // 2–16u. Y stays constant per pulse (no vertical drift) so
+      // each flying car stays in its altitude lane.
+      const onX = Math.random() < 0.5;
       const speed = 14 + Math.random() * 8;
-      airVel[i * 3] = Math.cos(angle) * speed;
-      airVel[i * 3 + 1] = (Math.random() - 0.5) * 1.5;
-      airVel[i * 3 + 2] = Math.sin(angle) * speed;
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      airPos[i * 3] = onX ? (Math.random() - 0.5) * fieldSize : pickCorridor();
+      airPos[i * 3 + 1] = 2 + Math.random() * 14;
+      airPos[i * 3 + 2] = onX ? pickCorridor() : (Math.random() - 0.5) * fieldSize;
+      airVel[i * 3] = onX ? dir * speed : 0;
+      airVel[i * 3 + 1] = 0;
+      airVel[i * 3 + 2] = onX ? 0 : dir * speed;
     }
     const airGeo = new T.BufferGeometry();
     airGeo.setAttribute("position", new T.BufferAttribute(airPos, 3));
@@ -6383,7 +6398,12 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
       const colXs = [pad];
       for (let ci = 1; ci < cols; ci++) colXs.push(colXs[ci - 1] + colWidths[ci - 1]);
       const bodyAvail = yMax - cy;
-      const rowH = Math.max(18, Math.min(38, Math.floor(bodyAvail / Math.max(1, rows.length))));
+      // Row height fills available body — variable-canvas cells
+      // (post-#159) can be 800+ px tall and clustered short rows at
+      // the top looked sparse. Scale font with row height too.
+      const rowH = Math.max(20, Math.min(96, Math.floor(bodyAvail / Math.max(1, rows.length))));
+      const dynamicFontPx = Math.max(13, Math.min(22, Math.floor(rowH * 0.32)));
+      ctx.font = `${dynamicFontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
       for (let ri = 0; ri < rows.length; ri++) {
         if (cy + 16 > yMax) break;
         const r = rows[ri];
@@ -6392,9 +6412,9 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         ctx.globalAlpha = 1.0;
         for (let ci = 0; ci < cols; ci++) {
           const raw = (r[ci] || "").replace(/[✓✗]/g, m => m === "✓" ? "+" : "-");
-          const maxChars = Math.max(2, Math.floor(colWidths[ci] / charW) - 1);
+          const maxChars = Math.max(2, Math.floor(colWidths[ci] / (dynamicFontPx * 0.55)) - 1);
           const txt = raw.length > maxChars ? raw.slice(0, maxChars - 1) + "…" : raw;
-          ctx.fillText(txt, colXs[ci], cy);
+          ctx.fillText(txt, colXs[ci], cy + (rowH - dynamicFontPx) / 2);
         }
         cy += rowH;
       }
