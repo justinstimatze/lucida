@@ -5213,21 +5213,24 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     obj.material.dispose();
   }
   if (newTier === 1) {
-    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, obj.userData?.colspan || 1, obj.userData?.canvasH);
-    // Re-apply cached snap if available — see _mixed3dPromoteInstanceToTier1.
+    // Gate promotion on cache presence — never show a tier-1 cell
+    // without its real rendered content. Without a cache hit we leave
+    // the cell as tier-2 (shared decorative material) and let the
+    // snap-driver render+cache it. The next retier sweep will then
+    // see the cache and complete the promotion. User 2026-05-22:
+    // "i just want the rendered cells to be rendered before they're
+    // on camera period... whether at prerender boot or during swoopy
+    // tour."
     const cachedSnap = S._snapTexCache?.get(id);
-    if (cachedSnap) {
-      tex.image = cachedSnap;
-      tex.needsUpdate = true;
-    } else {
-      // Synchronous title+caption stub so the cell is legible the
-      // instant it crosses the LOD boundary. Snap driver overwrites
-      // with the proper substrate render when its turn comes up. We
-      // deliberately do NOT cache the stub — the snap driver checks
-      // cache.has(id) to skip, and we want it to render this cell.
-      const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id), obj.userData?.colspan || 1);
-      if (stub) { tex.image = stub; tex.needsUpdate = true; }
+    if (!cachedSnap) {
+      // Cache miss: don't promote. Stays tier-2 (visually the
+      // decorative bed); snap-driver picks it up via the cache-miss
+      // search below (modified to include in-range tier-2 cells).
+      return;
     }
+    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, obj.userData?.colspan || 1, obj.userData?.canvasH);
+    tex.image = cachedSnap;
+    tex.needsUpdate = true;
     obj.material = new T.MeshBasicMaterial({
       map: tex,
       transparent: true,
@@ -7377,9 +7380,28 @@ function _mixed3dStartSnapshotDriver() {
     const candidates = [];
     if (!window._snapSkipReasons) window._snapSkipReasons = {};
     const _sr = window._snapSkipReasons;
+    // Eligibility: cell must be cache-miss AND in tier-1 distance OR
+    // already tier-1. Including in-range tier-2 cells lets the driver
+    // PRE-RENDER cells before they actually promote, so the retier
+    // sweep never sees a tier-2 cell crossing the boundary without a
+    // ready cache entry. User 2026-05-22: "rendered cells to be
+    // rendered before they're on camera period". Instance handles
+    // (decorative bed) still skipped — they don't have an obj.position
+    // and aren't promoted via this path.
     for (const [id, obj] of S.cellObjects) {
       if (obj.isInstanceHandle) continue;
-      if (obj.userData?.tier !== 1) continue;
+      const tier = obj.userData?.tier;
+      // Distance gate for tier-2: only pre-render cells within tier-1
+      // range. Don't render every distant tier-2 cell — would never
+      // finish.
+      let distSq = 0;
+      if (camPos) {
+        const dx = obj.position.x - camPos.x;
+        const dy = obj.position.y - camPos.y;
+        const dz = obj.position.z - camPos.z;
+        distSq = dx * dx + dy * dy + dz * dz;
+      }
+      if (tier === 2 && distSq > _MIXED3D_TIER1_DIST_SQ * 1.4) continue;  // small lead time
       if (S._snapTexCache?.has(id)) continue;
       if (_mixed3dSnapInflight.has(id)) { _sr.inflight = (_sr.inflight||0)+1; continue; }
       const el = obj.userData?.cellEl;
@@ -7396,13 +7418,6 @@ function _mixed3dStartSnapshotDriver() {
       } else {
         if (!cellData.spec || cellData.spec === "None") { _sr.no_spec = (_sr.no_spec||0)+1; continue; }
         arg = cellData.spec;
-      }
-      let distSq = 0;
-      if (camPos) {
-        const dx = obj.position.x - camPos.x;
-        const dy = obj.position.y - camPos.y;
-        const dz = obj.position.z - camPos.z;
-        distSq = dx * dx + dy * dy + dz * dz;
       }
       candidates.push({ id, ct, cellData, arg, distSq });
     }
