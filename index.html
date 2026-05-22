@@ -5577,12 +5577,34 @@ function _mixed3dPaintPromoteStub(id, cellData, colspan, canvasH) {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#000814";
-  ctx.fillRect(0, 0, W, H);
+  // No background fill — transparent backdrop is intentional.
   _mixed3dPaintTitleBlock(ctx, cellData?.title || id, W);
-  // No caption — Gibson aesthetic is terse labels, not explanatory
-  // prose. Pending stubs show title-only; substrate renderers fill
-  // the body when their snap lands.
+  // "RENDERING" + dot indicator in the body so the user sees a
+  // labeled state instead of an unexplained empty body. User
+  // 2026-05-21: "maybe instead of pending it should say rendering
+  // and have a little pulse or spinner". CanvasTexture is static
+  // per snap (no per-frame redraw budget at 200 tier-1 cells), so
+  // the "pulse" is a single bright dot rendered at one phase —
+  // recognizable as a status indicator even without motion.
+  const bodyMidY = 72 + (H - 72) / 2;
+  ctx.fillStyle = "#9966ff";
+  ctx.font = "bold 18px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("RENDERING", W / 2, bodyMidY);
+  // Bright cyan dot to the right of the text.
+  ctx.fillStyle = "#66e6ff";
+  ctx.beginPath();
+  ctx.arc(W / 2 + 70, bodyMidY, 5, 0, Math.PI * 2);
+  ctx.fill();
+  // Faint halo for the "pulse" suggestion
+  ctx.strokeStyle = "#66e6ff";
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(W / 2 + 70, bodyMidY, 11, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
   return canvas;
 }
 
