@@ -5535,7 +5535,7 @@ function _mixed3dPaintTitleBlock(ctx, title, fullW) {
 // ~100-500ms later. ~3-5ms per call — cheap enough to run in the
 // retier-sweep budget without blowing PROMOTE_BUDGET.
 function _mixed3dPaintPromoteStub(id, cellData, colspan, canvasH) {
-  const cs = Math.max(1, Math.min(3, colspan || 1));
+  const cs = Math.max(1, Math.min(4, colspan || 1));
   const W = 192 * cs;
   const H = canvasH || 576;
   const canvas = document.createElement("canvas");
@@ -6467,7 +6467,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   if (S !== _mixed3dState) return;
   const TITLE_H = 72;
   const obj = S.cellObjects.get(targetId);
-  const cs = Math.max(1, Math.min(3, colspan || obj?.userData?.colspan || 1));
+  const cs = Math.max(1, Math.min(4, colspan || obj?.userData?.colspan || 1));
   const fullCanvas = document.createElement("canvas");
   fullCanvas.width = obj?.userData?.canvasW || (192 * cs);
   fullCanvas.height = canvasH || obj?.userData?.canvasH || 576;
@@ -6857,7 +6857,7 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
   // Per-cell canvas dimensions: width scales with colspan; height
   // passed in so canvas aspect matches mesh aspect (variable cell
   // heights post-#159). Fallback for legacy callers: 192*cs × 576.
-  const cs = Math.max(1, Math.min(3, colspan || 1));
+  const cs = Math.max(1, Math.min(4, colspan || 1));
   const W = isTop ? 384 : (192 * cs);
   const H = isTop ? 384 : (canvasH || 576);
   const canvas = document.createElement("canvas");
@@ -7755,8 +7755,13 @@ function _mixed3dStepDecoratives(t) {
   const ROW_H = 24;
   const CAN_W = 256, CAN_H = 768;
   if (!S._decoScrollState) {
+    // First-scroll fires within ~80ms of init across all meshes so the
+    // dashboard starts moving as soon as the boot overlay clears,
+    // instead of staying static for 0.2–1.4s of staring at frozen
+    // text. User 2026-05-21: "the decorative tiles don't start
+    // scrolling for a while".
     S._decoScrollState = meshes.map((_, i) => ({
-      nextT: t + 0.2 + Math.random() * 1.2,
+      nextT: t + 0.02 + (i * 0.005),
       period: 0.8 + (i * 0.13) % 1.2,
     }));
     // Shared scratch canvas so canvas-to-self drawImage with
@@ -7873,18 +7878,16 @@ function _mixed3dColspanForCell(cell) {
   if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon") return 2;
   if (ct === "mermaid") {
     const sub = cell.dataset.mermaidSubtype || "";
-    // Wide-aspect subtypes — anything that spreads horizontally or
-    // benefits from extra room. Sequence + state diagrams stay
-    // colspan=1 (often tall) unless they have many participants.
-    if (sub === "flowchart"
-        || sub === "timeline"
-        || sub === "quadrantChart"
-        || sub === "sankey-beta"
-        || sub === "mindmap"
-        || sub === "gitGraph"
-        || sub === "gantt"
-        || sub === "erDiagram") {
-      return 2;
+    // Sub-types that get the widest treatment (4 cols / 2/3 of a face).
+    // Flowcharts + horizontal-flowing graphs benefit most from breadth;
+    // a colspan=2 mermaid flowchart with 6+ nodes ends up unreadably
+    // small. User 2026-05-21: "should be like 4 columns wide".
+    if (sub === "flowchart" || sub === "gitGraph" || sub === "gantt"
+        || sub === "sankey-beta" || sub === "erDiagram") {
+      return 4;
+    }
+    if (sub === "timeline" || sub === "quadrantChart" || sub === "mindmap") {
+      return 3;
     }
   }
   // All structured html layouts default to colspan=2. Single-column
@@ -7903,7 +7906,10 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
   if (!S) return null;
   const G = S.geometry;
   const cam = S.camera;
-  const colspan = Math.max(1, Math.min(3, desiredColspan || 1));
+  // Allow up to colspan=4 — flowcharts and other wide mermaid types
+  // benefit from 2/3 of the face. Face is 6 cols, so 4 leaves 2
+  // remaining for narrower neighbours.
+  const colspan = Math.max(1, Math.min(4, desiredColspan || 1));
   let targetX = cam.position.x;
   let targetZ = cam.position.z;
   // Lookahead: pick towers about to enter view, not towers in the
