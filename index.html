@@ -6492,7 +6492,11 @@ function _mixed3dUpdateRenderHud(S) {
   const cell = document.getElementById("hud-render-cell");
   const val = document.getElementById("hud-render-val");
   if (!cell || !val) return;
-  if (pending > 0) {
+  // Threshold of 5: ambient LOD-boundary churn typically keeps 0-3
+  // cells in flight at any moment as the camera moves. Showing
+  // "1/197" forever for those transient cycles reads as "stuck".
+  // Only surface the chip when there's actual catch-up work.
+  if (pending > 5) {
     cell.hidden = false;
     val.textContent = `${pending}/${total}`;
   } else {
