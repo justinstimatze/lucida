@@ -5441,7 +5441,14 @@ function _mixed3dStyleMermaidSVG(svgString) {
         fill: transparent !important;
       }
       .node rect, .node polygon, .node circle, .node ellipse, .node path {
-        fill: rgba(0, 221, 255, 0.18) !important;
+        /* Bumped fill from 0.18 to a near-opaque dark navy with cyan
+           tint so node boxes actually delineate against the transparent
+           cell backdrop. Was reading as text floating without
+           containers when the tower-glass cyan behind the cell sat
+           behind the lightly-tinted boxes (user 2026-05-21 "text still
+           overflowing in mermaid"). The actual mermaid layout sizes
+           rects correctly for the text — visibility was the issue. */
+        fill: rgba(8, 22, 40, 0.92) !important;
         stroke: #00ddff !important;
         stroke-width: 2.5px !important;
       }
@@ -7876,6 +7883,7 @@ function _mixed3dColspanForCell(cell) {
   if (!cell || !cell.dataset) return 1;
   const ct = cell.dataset.cellType || "";
   if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon") return 2;
+  if (ct === "animated_svg") return 2; // typically 400×160 landscape; 1 col is too narrow
   if (ct === "mermaid") {
     const sub = cell.dataset.mermaidSubtype || "";
     // Sub-types that get the widest treatment (4 cols / 2/3 of a face).
