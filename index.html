@@ -8027,12 +8027,12 @@ function _mixed3dColspanForCell(cell) {
     const sub = cell.dataset.mermaidSubtype || "";
     if (sub === "flowchart" || sub === "gitGraph" || sub === "gantt"
         || sub === "sankey-beta" || sub === "erDiagram") {
-      return 6;
+      return 3;
     }
     if (sub === "timeline" || sub === "quadrantChart" || sub === "mindmap") {
-      return 5;
+      return 3;
     }
-    return 4; // stateDiagram-v2, sequenceDiagram, etc.
+    return 2;
   }
   // All structured html layouts default to colspan=2. Single-column
   // tower-face slot (192px wide) is too narrow for any html layout
@@ -8040,17 +8040,14 @@ function _mixed3dColspanForCell(cell) {
   // truncates to "ab…" ellipses everywhere.
   if (ct === "html") {
     const hl = cell.dataset.htmlLayout || "";
-    if (hl === "table") return 6;
-    if (hl === "callouts" || hl === "dl" || hl === "kanban") return 4;
-    return 4; // list / other
+    if (hl === "table") return 3;
+    return 2;
   }
   if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon"
       || ct === "animated_svg" || ct === "treemap") {
-    return 4;
+    return 2;
   }
-  // gauge + sparkline are intrinsically small (single value);
-  // colspan=2 keeps them legible without claiming a tier-1 width budget.
-  if (ct === "gauge" || ct === "sparkline") return 2;
+  if (ct === "gauge" || ct === "sparkline") return 1;
   return 1;
 }
 
