@@ -6814,7 +6814,7 @@ function _mixed3dRunPathWarmup(S) {
     const el = obj.userData?.cellEl;
     if (!el) continue;
     const ct = el.dataset.cellType || "";
-    if (_MIXED3D_SKIP_SUBSTRATES.has(ct)) continue;
+    if (ct === "scene3d") continue;  // skip-substrate set is scoped to applyMixed3DLayout
     // Skip cells that have no substrate content to render (decoratives
     // that survive promote handle different paths).
     const cellData = S.rendering?.cellsById?.get(id);
