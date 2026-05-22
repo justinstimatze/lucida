@@ -5577,32 +5577,40 @@ function _mixed3dPaintPromoteStub(id, cellData, colspan, canvasH) {
   const ctx = canvas.getContext("2d");
   // No background fill — transparent backdrop is intentional.
   _mixed3dPaintTitleBlock(ctx, cellData?.title || id, W);
-  // "RENDERING" + dot indicator in the body so the user sees a
-  // labeled state instead of an unexplained empty body. User
-  // 2026-05-21: "maybe instead of pending it should say rendering
-  // and have a little pulse or spinner". CanvasTexture is static
-  // per snap (no per-frame redraw budget at 200 tier-1 cells), so
-  // the "pulse" is a single bright dot rendered at one phase —
-  // recognizable as a status indicator even without motion.
-  const bodyMidY = 72 + (H - 72) / 2;
-  ctx.fillStyle = "#9966ff";
-  ctx.font = "bold 18px 'Eurostile', 'Share Tech Mono', monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("RENDERING", W / 2, bodyMidY);
-  // Bright cyan dot to the right of the text.
-  ctx.fillStyle = "#66e6ff";
-  ctx.beginPath();
-  ctx.arc(W / 2 + 70, bodyMidY, 5, 0, Math.PI * 2);
-  ctx.fill();
-  // Faint halo for the "pulse" suggestion
-  ctx.strokeStyle = "#66e6ff";
-  ctx.globalAlpha = 0.35;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(W / 2 + 70, bodyMidY, 11, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  // Body region: render decorative-style scrolling text bands instead
+  // of "RENDERING". User 2026-05-21: cells whose content never arrives
+  // (no spec/html in cellsById) should look like ambient tower content
+  // rather than a failure state. Same vocabulary as tier-2 decoratives:
+  // mono shorts/meds/arrows with occasional purple highlight. Static
+  // (no scroll, no per-frame redraw — CanvasTexture budget).
+  const TITLE_H = 72;
+  ctx.font = '14px "Share Tech Mono", "Eurostile", monospace';
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  const shorts = ["RX", "TX", "OK", "FF", "00", "FAIL", "INIT", "RUN", "EXEC", "HLT", "JMP", "RET", "MOV", "POP", "PUSH", "ACK", "NAK"];
+  const meds = ["STATUS", "READY", "BUFFER", "PASS", "CALL", "RESP", "BIND", "STORE", "LOAD", "DUMP", "WAIT", "INVOICE", "FREIGHT"];
+  const arrows = ["->", "=>", "<-", ">>", "::"];
+  const longs = ["INSTRUCTION_PIPELINE", "COMPANY_STATUS", "WAREHOUSE_LOCATIONS", "MEMORY_FENCE_TABLE", "SHIPPING_FORECASTS"];
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const lineGen = () => {
+    const r = Math.random();
+    if (r < 0.10) return pick(longs);
+    if (r < 0.30) return `${pick(meds)} ${pick(arrows)} ${pick(meds)}`;
+    if (r < 0.50) return `${pick(meds)}=${(Math.random()*99|0).toString().padStart(2,"0")}.${(Math.random()*999|0)}`;
+    if (r < 0.65) return `${pick(shorts)} ${pick(shorts)} ${pick(shorts)}`;
+    if (r < 0.75) return `+-- ${pick(meds)}`;
+    if (r < 0.85) return ".".repeat(6 + Math.floor(Math.random() * 14));
+    return pick(meds);
+  };
+  const rowH = 20;
+  for (let y = TITLE_H + 8; y < H - 8; y += rowH) {
+    if (Math.random() < 0.04) {
+      ctx.fillStyle = `rgba(153, 102, 255, ${(0.7 + Math.random() * 0.3).toFixed(2)})`;
+    } else {
+      ctx.fillStyle = `rgba(0, 221, 255, ${(0.55 + Math.random() * 0.25).toFixed(2)})`;
+    }
+    ctx.fillText(lineGen(), 8, y);
+  }
   return canvas;
 }
 
