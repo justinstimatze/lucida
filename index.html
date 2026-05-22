@@ -7303,13 +7303,10 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   fullCanvas.width = obj?.userData?.canvasW || (192 * cs);
   fullCanvas.height = canvasH || obj?.userData?.canvasH || 576;
   const ctx = fullCanvas.getContext("2d");
-  // Dark body fill under tier-1 content (user 2026-05-22). Pre-fix
-  // the body was fully transparent and sparse substrate strokes
-  // (~5% pixel coverage for mermaid) drowned in the cyan tower
-  // glass showing through. Testing whether this is the empty-cell
-  // cause; if not, revert. Title block paints over this on top.
-  ctx.fillStyle = "rgba(8, 18, 30, 0.92)";
-  ctx.fillRect(0, TITLE_H, fullCanvas.width, fullCanvas.height - TITLE_H);
+  // Transparent backdrop — substrate content sits on the tower glass
+  // directly so the city aesthetic shows through. User 2026-05-22
+  // tested the dark fill, ruled it out as the empty-cell cause, asked
+  // to "switch back to transparent backgrounds now".
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   if (!S._snapTexCache) S._snapTexCache = new Map();
