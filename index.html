@@ -5589,12 +5589,23 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
 }
 
 function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
-  // Sparkline spec: { data: [...], label? } or just [...]
+  // Sparkline spec, accept all common shapes (matches treemap renderer
+  // multi-key tolerance pattern):
+  //   { data: [...], label? }
+  //   { series: [...], label? }
+  //   { values: [...], label? }
+  //   [...]
+  // The ambient/synthetic cells (e.g. cell-amb-NNNN) use `series`
+  // because that's the gen_ambient.py output shape; previously they
+  // all returned null → stub-cached.
   let data, label;
   try {
     const s = typeof spec === "string" ? JSON.parse(spec) : spec;
     if (Array.isArray(s)) { data = s; }
-    else { data = s.data; label = s.label; }
+    else {
+      data = s.data || s.series || s.values;
+      label = s.label;
+    }
   } catch (e) { return Promise.resolve(null); }
   if (!Array.isArray(data) || data.length < 2) return Promise.resolve(null);
   const canvas = document.createElement("canvas");
@@ -5723,18 +5734,25 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  // Center the axis vertically — captions removed 2026-05-21 so the
-  // whole body is the ribbon's. Was at h*0.28 (anchored top) leaving
-  // ~70% of the cell empty below; user 2026-05-21: "too much
-  // vertical space above and below the diagram".
+  // Visual scale derived from cell height — bigger dots, thicker
+  // axis, larger labels for taller cells so the timeline genuinely
+  // fills its column. User 2026-05-21: "too much whitespace above and
+  // below actual timeline viz" — was using fixed 3px line + 7-10px
+  // dots + 13px font regardless of cell h=504.
   const cy = Math.round(h * 0.50);
   const pad = 24;
   const n = Math.min(stages.length, 6);
   const stepX = (w - pad * 2) / (n - 1 || 1);
+  const lineW = Math.max(4, Math.round(h / 80));        // ~6 at h=504
+  const dotR = Math.max(10, Math.round(h / 36));        // ~14 at h=504
+  const activeR = Math.max(14, Math.round(h / 24));     // ~21 at h=504
+  const haloR = Math.max(22, Math.round(h / 16));       // ~31
+  const labelFont = Math.max(15, Math.round(h / 22));   // ~22px
+  const labelOffset = Math.max(28, Math.round(h / 12)); // ~42 above/below
   // Axis line
   ctx.strokeStyle = "#9966ff";
   ctx.globalAlpha = 0.6;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = lineW;
   ctx.beginPath();
   ctx.moveTo(pad, cy);
   ctx.lineTo(w - pad, cy);
@@ -5748,24 +5766,26 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
     const color = isActive ? "#00ddff" : (isDone ? "#9966ff" : "rgba(153,102,255,0.4)");
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(x, cy, isActive ? 10 : 7, 0, Math.PI * 2);
+    ctx.arc(x, cy, isActive ? activeR : dotR, 0, Math.PI * 2);
     ctx.fill();
     if (isActive) {
       ctx.strokeStyle = "#00ddff";
       ctx.globalAlpha = 0.5;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = Math.max(2, Math.round(lineW * 0.6));
       ctx.beginPath();
-      ctx.arc(x, cy, 16, 0, Math.PI * 2);
+      ctx.arc(x, cy, haloR, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    // Label above or below depending on i parity
+    // Label above or below depending on i parity. Font + offset
+    // scale with cell h so cells fill more vertical space instead
+    // of leaving the timeline as a thin band in the middle.
     ctx.fillStyle = "#ccf3ff";
-    ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.font = `bold ${labelFont}px 'Eurostile', 'Share Tech Mono', monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = (i % 2 === 0) ? "bottom" : "top";
     const label = String(st.label || "").toUpperCase().slice(0, 14);
-    ctx.fillText(label, x, (i % 2 === 0) ? cy - 22 : cy + 24);
+    ctx.fillText(label, x, (i % 2 === 0) ? cy - labelOffset : cy + labelOffset);
   }
   if (axisLabel) {
     ctx.fillStyle = "#9966ff";
@@ -7516,6 +7536,11 @@ function _mixed3dColspanForCell(cell) {
   // Callouts grid renders best at colspan=2 — needs room for the
   // big-number + label-text pair per cell row.
   if (ct === "html" && cell.dataset.htmlLayout === "callouts") return 2;
+  // Wide tables (lots of columns) need horizontal room or every
+  // column gets truncated to "ab…" ellipses. Default html table to
+  // colspan=2 — single tower-face column truncated everything past
+  // the third column.
+  if (ct === "html" && cell.dataset.htmlLayout === "table") return 2;
   return 1;
 }
 
