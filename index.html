@@ -5622,9 +5622,21 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
       canvas.height = h;
       const ctx = canvas.getContext("2d");
       const aspectImg = img.naturalWidth / img.naturalHeight;
-      const graphW = w;
-      const graphH = Math.min(h * 0.95, w / aspectImg);
-      ctx.drawImage(img, 0, 0, graphW, graphH);
+      // Fit to canvas preserving aspect, then center vertically so the
+      // leftover space splits above/below the diagram instead of all
+      // sitting below it. User 2026-05-21: "lot of whitespace below
+      // the diagram although I think the width is good overall".
+      let graphW, graphH;
+      if (aspectImg > w / h) {
+        graphW = w;
+        graphH = w / aspectImg;
+      } else {
+        graphH = h * 0.95;
+        graphW = h * 0.95 * aspectImg;
+      }
+      const dx = (w - graphW) / 2;
+      const dy = (h - graphH) / 2;
+      ctx.drawImage(img, dx, dy, graphW, graphH);
       URL.revokeObjectURL(url);
       resolve(canvas);
     };
@@ -5986,8 +5998,8 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   // shrinks to whatever fits the longest label, down to 10px.
   const labelLens = (Array.isArray(stages) ? stages : []).map(st => String(st?.label || "").length || 4);
   const longestLabel = Math.max(8, ...labelLens);
-  const fontFromSlot = Math.max(10, Math.min(28, Math.floor(slotMin / 0.55 / longestLabel)));
-  const fontFromH = Math.max(14, Math.round(h / 18));
+  const fontFromSlot = Math.max(13, Math.min(28, Math.floor(slotMin / 0.55 / longestLabel)));
+  const fontFromH = Math.max(16, Math.round(h / 18));
   const labelFont = Math.min(fontFromSlot, fontFromH);
   const labelOffset = Math.max(48, Math.round(h / 5));
   // Axis line
@@ -6025,7 +6037,7 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
     // edge labels (i=0, i=n-1) don't truncate beyond pad. The
     // first and last positions get half a slot each side of pad;
     // middle positions get a full slot worth.
-    ctx.fillStyle = "#ccf3ff";
+    ctx.fillStyle = "#ffffff";
     ctx.font = `bold ${labelFont}px 'Eurostile', 'Share Tech Mono', monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = (i % 2 === 0) ? "bottom" : "top";
@@ -6446,7 +6458,14 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         ctx.fillStyle = isHeader ? "#b48aff" : "#e8f8ff";
         ctx.globalAlpha = 1.0;
         for (let ci = 0; ci < cols; ci++) {
-          const raw = (r[ci] || "").replace(/[✓✗]/g, m => m === "✓" ? "+" : "-");
+          // Uppercase all html text — matches the Gibson/hackers theme
+          // aesthetic (titles, decoratives, timeline labels all caps).
+          // User 2026-05-21: "maybe we need to just force all text to
+          // uppercase for this theme?". This also reduces per-character
+          // ambiguity at small sizes (Eurostile caps read more cleanly).
+          const raw = (r[ci] || "")
+            .replace(/[✓✗]/g, m => m === "✓" ? "+" : "-")
+            .toUpperCase();
           const maxChars = Math.max(2, Math.floor(colWidths[ci] / (dynamicFontPx * 0.55)) - 1);
           const txt = raw.length > maxChars ? raw.slice(0, maxChars - 1) + "…" : raw;
           ctx.fillText(txt, colXs[ci], cy + (rowH - dynamicFontPx) / 2);
