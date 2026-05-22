@@ -5458,6 +5458,11 @@ function _mixed3dStyleMermaidSVG(svgString) {
       g[class*="section-"] text, g[class*="section-"] tspan {
         fill: #e8f8ff !important;
         color: #e8f8ff !important;
+        /* CSS text-transform is unreliable on SVG <text>; the actual
+           uppercasing happens in JS via _mixed3dStyleMermaidSVG's
+           tspan content rewrite. Kept here as a hint for any user-
+           agent that does honor it. */
+        text-transform: uppercase !important;
         /* Lock font-family + font-size at render-time so they match
            whatever mermaid measured against when computing rect widths.
            Without these, the rasterized SVG inherits document
@@ -5500,8 +5505,18 @@ function _mixed3dStyleMermaidSVG(svgString) {
       }
     </style>
   `;
+  // Uppercase every visible text node (between <tspan> open + close).
+  // CSS text-transform is unreliable across SVG renderers, so we
+  // rewrite content. Only touches the inner-tspan text run; doesn't
+  // affect attribute values, ids, etc. Matches the rest of the
+  // theme's caps-everywhere convention (titles, decoratives, html
+  // cells, timeline labels). User 2026-05-21.
+  const upcased = svgString.replace(
+    /(<tspan[^>]*>)([^<]+)(<\/tspan>)/g,
+    (_m, open, txt, close) => open + txt.toUpperCase() + close,
+  );
   // Inject right after the opening <svg ...> tag.
-  return svgString.replace(/(<svg[^>]*>)/, "$1" + css);
+  return upcased.replace(/(<svg[^>]*>)/, "$1" + css);
 }
 
 // Paint the cell's caption into the body region below whatever the
