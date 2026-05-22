@@ -5497,35 +5497,34 @@ function _mixed3dPaintTitleBlock(ctx, title, fullW) {
   const TITLE_H = 72;
   const padX = 8;
   const W = fullW || 192;
-  // Char width scales with W so colspan=2 cells fit ~36 chars per line
-  // instead of just 18.
-  const charsPerLine = Math.max(18, Math.floor(18 * (W / 192)));
-  const lineH = 20;
+  // Char width scales with W so colspan=2 cells fit ~32 chars per line
+  // (was ~36 at smaller font).
+  const fontPx = 22;
+  const lineH = 26;
+  const charsPerLine = Math.max(14, Math.floor(W / (fontPx * 0.55)));
   ctx.save();
-  ctx.fillStyle = "#9966ff";
-  ctx.font = "bold 17px 'Eurostile', 'Share Tech Mono', monospace";
+  ctx.fillStyle = "#d8c0ff"; // brighter than the previous #9966ff
+  ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
   const text = String(title || "").toUpperCase();
   const words = text.split(/\s+/);
-  let y = 8, cur = "";
+  let y = 6, cur = "";
   for (const w of words) {
     const next = cur ? cur + " " + w : w;
     if (next.length > charsPerLine) {
       if (cur) ctx.fillText(cur, padX, y);
       y += lineH;
-      if (y + lineH > TITLE_H - 4) { cur = ""; break; }
+      if (y + lineH > TITLE_H - 2) { cur = ""; break; }
       cur = w.length > charsPerLine ? w.slice(0, charsPerLine - 1) + "…" : w;
     } else cur = next;
   }
-  if (cur && y + lineH <= TITLE_H - 4) ctx.fillText(cur, padX, y);
-  ctx.strokeStyle = "#00ddff";
-  ctx.globalAlpha = 0.4;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padX, TITLE_H - 2);
-  ctx.lineTo(W - padX, TITLE_H - 2);
-  ctx.stroke();
+  if (cur && y + lineH <= TITLE_H - 2) ctx.fillText(cur, padX, y);
+  // Divider removed — when the cell backdrop is transparent the line
+  // sat on the tower-glass scanlines behind, reading as a "dotted
+  // line above the cell" (user 2026-05-21). The title→body break
+  // is already clear from the typographic difference; no need for
+  // a visible rule.
   ctx.restore();
 }
 
