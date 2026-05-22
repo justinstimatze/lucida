@@ -266,6 +266,9 @@ const state = {
     rafPending: false,            // redraw rAF throttle
   },
 };
+// Debug expose — dev-only probe path so closures aren't opaque
+// when investigating cellsById coverage from the browser console.
+if (typeof window !== "undefined") window._debugState = state;
 function matchesActiveSession(cell) {
   if (state.sessions.active.size === 0) return true;
   if (state.sessions.active.has("untagged") && !cell.session_id) return true;
