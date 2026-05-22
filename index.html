@@ -3928,7 +3928,7 @@ if (typeof window !== "undefined" && !window._mixed3dDebugKeysWired) {
     if (e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA") return;
     // Capture movement keys (any key press here also seeds yaw/pitch
     // from the current camera if this is the first input this session).
-    const movementCodes = ["KeyW","KeyA","KeyS","KeyD","KeyQ","KeyE","ArrowLeft","ArrowRight","ArrowUp","ArrowDown"];
+    const movementCodes = ["KeyW","KeyA","KeyS","KeyD","KeyQ","KeyZ","ArrowLeft","ArrowRight","ArrowUp","ArrowDown"];
     if (movementCodes.includes(e.code)) {
       const S = _mixed3dState;
       if (S) {
@@ -3988,7 +3988,7 @@ function _mixed3dToggleHotkeyLegend() {
       <div style="font-weight:bold;color:#9966ff;margin-bottom:8px;letter-spacing:0.12em;">> HOTKEYS</div>
       <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
         <span style="color:#00ddff">W A S D</span><span>translate</span>
-        <span style="color:#00ddff">Q · E</span><span>down · up</span>
+        <span style="color:#00ddff">Q · Z</span><span>up · down</span>
         <span style="color:#00ddff">← → ↑ ↓</span><span>yaw · pitch</span>
         <span style="color:#00ddff">Shift</span><span>boost (3×)</span>
         <span style="color:#00ddff">click cell</span><span>park camera</span>
@@ -4022,15 +4022,18 @@ function _mixed3dDriveFreeFlight(t) {
   const yaw = S._ffYaw || 0;
   const pitch = S._ffPitch || 0;
   const fwd = new T.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
-  // Right vector (yaw + 90°, no pitch — strafe stays horizontal).
-  const right = new T.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+  // Right vector = cross(fwd, up). With up=(0,1,0) and fwd above,
+  // right = (-fwd.z, 0, fwd.x). Strafe stays horizontal (pitch
+  // ignored). Earlier formula (cos, 0, -sin) was reversed — A and D
+  // swapped per user 2026-05-22.
+  const right = new T.Vector3(-Math.cos(yaw), 0, Math.sin(yaw));
   const cam = S.camera;
   if (keys.has("KeyW")) cam.position.addScaledVector(fwd, speed);
   if (keys.has("KeyS")) cam.position.addScaledVector(fwd, -speed);
   if (keys.has("KeyA")) cam.position.addScaledVector(right, -speed);
   if (keys.has("KeyD")) cam.position.addScaledVector(right, speed);
-  if (keys.has("KeyE")) cam.position.y += speed;
-  if (keys.has("KeyQ")) cam.position.y -= speed;
+  if (keys.has("KeyQ")) cam.position.y += speed;
+  if (keys.has("KeyZ")) cam.position.y -= speed;
   // Look in the direction we're facing.
   cam.lookAt(cam.position.x + fwd.x, cam.position.y + fwd.y, cam.position.z + fwd.z);
   cam.up.set(0, 1, 0);
@@ -4042,29 +4045,30 @@ function _mixed3dDriveCamera(t) {
   // tier-1 snap cache. Without this the curve advances during the
   // 5-20s warmup and cells start popping in before they're prerendered.
   if (_mixed3dState._warmupActive) return;
-  // Free-flight: any movement key held → drive camera from keys; tour
-  // disabled once the user has ever pressed a movement key. The first
-  // touch sets _userTookCamera; tour stays off for the page session.
-  // User 2026-05-22.
-  const _ffKeys = window._mixed3dFreeFlightKeys;
-  const _hasMove = _ffKeys && (_ffKeys.has("KeyW") || _ffKeys.has("KeyA") || _ffKeys.has("KeyS") || _ffKeys.has("KeyD") || _ffKeys.has("KeyQ") || _ffKeys.has("KeyE") || _ffKeys.has("ArrowLeft") || _ffKeys.has("ArrowRight") || _ffKeys.has("ArrowUp") || _ffKeys.has("ArrowDown"));
-  if (_hasMove) _mixed3dState._userTookCamera = true;
-  if (_hasMove) {
-    _mixed3dDriveFreeFlight(t);
-    return;
-  }
-  if (_mixed3dState._userTookCamera) {
-    // User has flown — camera holds position; no tour, no park.
-    return;
-  }
-  // Park-at-cell mode: lerp toward the parked pose, ignore the tour.
-  // Used for cell inspection / screenshotting via _mixed3dParkAt(id).
+  // Park-at-cell takes priority — click-park works even after the user
+  // has flown around (else click-to-park stops working post-flight,
+  // user 2026-05-22). Park flag is set by _mixed3dParkAt.
   if (_mixed3dState._park) {
     const T = window.THREE;
     if (T) {
       _mixed3dState.camera.position.lerp(_mixed3dState._park.target, 0.08);
       _mixed3dState.camera.lookAt(_mixed3dState._park.lookAt);
     }
+    return;
+  }
+  // Free-flight: any movement key held → drive camera from keys; tour
+  // disabled once the user has ever pressed a movement key. The first
+  // touch sets _userTookCamera; tour stays off for the page session.
+  // User 2026-05-22.
+  const _ffKeys = window._mixed3dFreeFlightKeys;
+  const _hasMove = _ffKeys && (_ffKeys.has("KeyW") || _ffKeys.has("KeyA") || _ffKeys.has("KeyS") || _ffKeys.has("KeyD") || _ffKeys.has("KeyQ") || _ffKeys.has("KeyZ") || _ffKeys.has("ArrowLeft") || _ffKeys.has("ArrowRight") || _ffKeys.has("ArrowUp") || _ffKeys.has("ArrowDown"));
+  if (_hasMove) _mixed3dState._userTookCamera = true;
+  if (_hasMove) {
+    _mixed3dDriveFreeFlight(t);
+    return;
+  }
+  if (_mixed3dState._userTookCamera) {
+    // User has flown — camera holds position; no tour.
     return;
   }
   const policy = _mixed3dState.opts.camera;
@@ -6309,6 +6313,63 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
+  // Small-n branch: ≤3 items in a treemap renders as 99%-vs-1% slivers
+  // (cell-3682 case) — outline-only treemap reads as an empty cell with
+  // labels in a corner. User 2026-05-22 picked "swap to a different
+  // substrate" — we render as stacked big-number+label rows instead.
+  if (items.length <= 3) {
+    const pad = 12;
+    const usableH = h - pad * 2;
+    const rowH = Math.floor(usableH / items.length);
+    const colors = ["#00ddff", "#9966ff", "#cceeff"];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const label = String(it.label || it.name || it.title || "").toUpperCase();
+      const value = Math.max(0, +(it.value ?? it.size ?? 1));
+      const ry = pad + i * rowH;
+      const color = colors[i % colors.length];
+      // Big number — scaled to row height.
+      const numFont = Math.min(Math.floor(rowH * 0.55), 72);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.95;
+      ctx.font = `bold ${numFont}px 'Eurostile', 'Share Tech Mono', monospace`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.fillText(String(value), pad, ry + rowH * 0.45);
+      // Label — wraps under the number.
+      const labelFont = Math.max(14, Math.min(20, Math.floor(rowH * 0.13)));
+      ctx.fillStyle = "rgba(204,238,255,0.85)";
+      ctx.font = `${labelFont}px 'Eurostile', 'Share Tech Mono', monospace`;
+      const charW = labelFont * 0.55;
+      const maxChars = Math.floor((w - pad * 2) / charW);
+      const words = label.split(/\s+/);
+      const lines = [];
+      let cur = "";
+      for (const wrd of words) {
+        const next = cur ? cur + " " + wrd : wrd;
+        if (next.length > maxChars) { if (cur) lines.push(cur); cur = wrd; }
+        else cur = next;
+        if (lines.length >= 2) break;
+      }
+      if (cur && lines.length < 2) lines.push(cur);
+      const lineH = labelFont + 4;
+      for (let li = 0; li < lines.length; li++) {
+        ctx.fillText(lines[li], pad, ry + rowH * 0.75 + li * lineH);
+      }
+      // Divider between rows.
+      if (i < items.length - 1) {
+        ctx.strokeStyle = "#00ddff";
+        ctx.globalAlpha = 0.18;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, ry + rowH);
+        ctx.lineTo(w - pad, ry + rowH);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    return Promise.resolve(canvas);
+  }
   const pad = 8;
   const x0 = pad, y0 = pad, x1 = w - pad, y1 = h - pad;
   const total = items.reduce((a, it) => a + Math.max(0, +(it.value ?? it.size ?? 1)), 0) || 1;
