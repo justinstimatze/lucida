@@ -4781,7 +4781,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     obj.material.dispose();
   }
   if (newTier === 1) {
-    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
+    const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, obj.userData?.colspan || 1);
     // Re-apply cached snap if available — see _mixed3dPromoteInstanceToTier1.
     const cachedSnap = S._snapTexCache?.get(id);
     if (cachedSnap) {
@@ -4833,7 +4833,8 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   if (handle.mountTx == null) return null;
   _mixed3dRemoveTier2Instance(S, handle);
   const isTop = !!handle.mountIsTop;
-  const tex = _mixed3dCellTexture(cell, isTop, cyan, pink);
+  const cs = handle.userData?.colspan || 1;
+  const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs);
   // Re-apply cached snap if we've rendered this cell before. Without
   // this the snap driver skips (cache.has(id)=true) and the cell stays
   // on the placeholder texture forever after demote→promote cycles.
@@ -4862,6 +4863,7 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   obj.frustumCulled = true;
   obj.userData.cellEl = cell;
   obj.userData.tier = 1;
+  obj.userData.colspan = cs;
   S.scene.add(obj);
   S.cellObjects.set(id, obj);
   S.cellTier.set(id, 1);
