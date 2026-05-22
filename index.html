@@ -6038,17 +6038,23 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   const cs = Math.max(1, Math.min(3, extras?.colspan || 1));
   // Style version baked into the cache filename — bump when
   // _mixed3dStyleMermaidSVG changes so stale renders don't haunt
-  // future sessions. v3 = post-#159 variable-height cells (canvas
-  // aspect now matches mesh aspect; old v2 SVGs were sized for a
-  // fixed 3:1 canvas and would letterbox wrong on variable cells).
-  const STYLE_V = "v3";
+  // future sessions. v4 = aspect-fit init-block + mindmap node-bkg
+  // transparent + entity-safe tspan upper (2026-05-22).
+  const STYLE_V = "v4";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
   // this check, every cache-miss render fired a fetch that 404'd
   // and Chrome devtools logged it as an error — 70+ red lines per
   // session even though the fallback was clean.
-  const haveCache = filename && window._mixed3dSvgManifest?.has(filename);
+  // Dev escape hatch: ?nocache=1 disables the manifest lookup so every
+  // mermaid render goes through freshRender. Useful during styling
+  // changes so old cached SVGs aren't mistaken for unfixed bugs.
+  // User 2026-05-22: "always clear cache so I'm not mistaking old
+  // cache entries for unfixed".
+  const _nocache = window._mixed3dNoCache
+    || new URLSearchParams(window.location.search).get("nocache") === "1";
+  const haveCache = !_nocache && filename && window._mixed3dSvgManifest?.has(filename);
   // Cache hit path: fetch only when manifest says it exists. Also
   // retroactively check the cached SVG's aspect against the cell —
   // if it's mismatched, reject the cache and fall through to fresh
