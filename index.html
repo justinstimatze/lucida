@@ -6617,8 +6617,6 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  const title = String(cellData.title || "").toUpperCase();
-  const caption = String(cellData.caption || "");
   const html = cellData.html || "";
   const layout = cellData.html_layout || "";
   let rows = _mixed3dExtractHtmlRows(html, layout);
@@ -6648,18 +6646,11 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   ctx.restore();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
+  // No body-level title: _mixed3dCompositeAndCacheSnap already paints
+  // a 72px title block at the top of the final canvas. The old "> ..."
+  // purple line here duplicated that title. User 2026-05-22 cell-3356:
+  // "duplicating titles now, one purple one white".
   let cy = pad;
-  // Subtle prompt-prefix glyph + title. Dim purple at 0.65 alpha so
-  // the title doesn't outshout the body text, matching the decorative
-  // bed's muted accent usage. User 2026-05-22.
-  if (title) {
-    ctx.fillStyle = "rgba(153,102,255,0.65)";
-    ctx.globalAlpha = 1.0;
-    ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
-    const titleLine = "> " + (title.length > Math.floor(w / 7) ? title.slice(0, Math.floor(w / 7) - 1) + "…" : title);
-    ctx.fillText(titleLine, pad, cy);
-    cy += 18;
-  }
   const yMax = h - pad - 12;
   // Render rows in decorative-text aesthetic. Layout-specific
   // sizing: callouts get a big-number + label per row, table/dl/list
@@ -7314,13 +7305,18 @@ function _mixed3dRunPathWarmup(S) {
   const todo = distEntries.map((e) => e.id);
   const BODY_H = 576 - 72;
   const CONCURRENCY = 4;
-  const HARD_CAP_MS = 30000;
-  // Boot-ready quota: dismiss boot overlay once the first N
-  // camera-distance-sorted cells are warm. Sized for "enough to fill
-  // the visible viewport at u=0" — Gibson tower face shows ~30-50
-  // cells at spawn distance. 40 gives a calm reveal without making
-  // users wait for all 1244.
-  const BOOT_READY_QUOTA = Math.min(40, todo.length);
+  // Hard cap bumped 30s -> 90s so warmup actually finishes 1244 cells
+  // on cold cache (~30 cells/sec observed = ~42s for full set, with
+  // slack). User 2026-05-22 prefers a longer splash to seeing pending
+  // stubs after dismissal.
+  const HARD_CAP_MS = 90000;
+  // Boot-ready quota: previously 40 (dismiss boot once viewport-quota
+  // warm). User 2026-05-22 reversed direction after seeing pending
+  // cells: "I'd much rather have a longer loading bar than have half
+  // the column faces just full of pending cells." Quota now == total,
+  // so bootReadyP only resolves when warmupP does. Splash carries
+  // the load with its progress counter; users wait but see no stubs.
+  const BOOT_READY_QUOTA = todo.length;
   let nextIdx = 0;
   // Diagnostics (#warmup-shortresolve): track who calls finish() and
   // what state was when it fired. Cleared after the resolve.
