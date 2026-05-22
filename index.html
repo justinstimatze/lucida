@@ -6689,66 +6689,264 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         cy += rowH;
       }
     } else {
-      // Default mono-row layout for table / dl / list / kanban.
-      // Column widths sized proportionally to content length — was
-      // dividing equally, which gave a 2-col table with "Grade" /
-      // "Meaning" the same 50/50 split even though "Meaning" needed
-      // ~5x the room. Per-column max-len drives a soft weight.
-      ctx.fillStyle = "#e8f8ff";
-      ctx.globalAlpha = 1.0;
-      ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
-      const charW = 7;
-      // Cap visible columns at 5 — tables with 6-10 columns squeeze
-      // every cell to "ab…" ellipses even at colspan=6. Excess cols
-      // get dropped; the visible 5 retain their semantic weight.
-      // User 2026-05-21: "maybe we need to limit tables to 2 or 3
-      // columns or something".
+      // Terminal-grid layout for table / dl / list / kanban. Two modes:
+      // - WIDE (w >= 480): full grid with header rule + per-column cells
+      //   + auto-detected severity columns rendered as block bars.
+      //   Text wraps to up to 2 lines instead of "AUTHENTIC…" truncation.
+      // - NARROW (w < 480): console-readout — each row collapses to
+      //   "label :: value" lines, severity still rendered as blocks.
+      // Both modes match the Gibson tower-label aesthetic (cyan-dominant
+      // mono caps + light cyan rules). User 2026-05-22: "how can we
+      // make html tables not look bad and also aligned with the
+      // hackers gibson aesthetic".
       const MAX_COLS = 5;
       const rawCols = Math.max(...rows.map(r => r.length));
       const cols = Math.min(MAX_COLS, rawCols);
-      const trimmedRows = rows.map(r => r.slice(0, cols));
-      rows = trimmedRows;
-      const colMaxLen = new Array(cols).fill(0);
-      for (const r of rows) {
-        for (let ci = 0; ci < cols; ci++) {
-          const len = (r[ci] || "").length;
-          if (len > colMaxLen[ci]) colMaxLen[ci] = len;
+      rows = rows.map(r => r.slice(0, cols));
+      // Detect severity / level columns. A column is "level-like" when
+      // >= 60% of non-empty values match a severity pattern.
+      const SEVERITY_MAX = 5;
+      const parseLevel = (raw) => {
+        if (!raw) return null;
+        const s = String(raw).trim();
+        if (!s) return null;
+        // Multi-char "+++"/"---" / "•••" / "✓✓✓" patterns: count the symbols.
+        const symMatch = s.match(/^([+\-•·✓●\*])\1*$/);
+        if (symMatch) return Math.min(SEVERITY_MAX, s.length);
+        // Words.
+        const lower = s.toLowerCase();
+        const wordMap = { "none":0, "low":1, "l":1, "lo":1, "med":3, "medium":3, "m":3, "mid":3, "high":5, "h":5, "hi":5, "max":5, "critical":5 };
+        if (wordMap[lower] !== undefined) return wordMap[lower];
+        // STRICT numeric — whole-string match only. parseFloat alone
+        // happily returned 1 for "1. Beliefs become less accurate",
+        // letting the text dimension column flip to a level column.
+        const numMatch = s.match(/^-?\d+(?:\.\d+)?(%?)$/);
+        if (numMatch) {
+          const num = parseFloat(s.replace(/%/g, ""));
+          if (numMatch[1] === "%") return Math.round(Math.max(0, Math.min(100, num)) / 20);
+          if (num >= 0 && num <= 5) return Math.round(num);
+        }
+        return null;
+      };
+      const isLevelCol = new Array(cols).fill(false);
+      const dataStartRi = layout === "table" ? 1 : 0;  // skip header row
+      for (let ci = 0; ci < cols; ci++) {
+        let nNonEmpty = 0, nMatches = 0;
+        for (let ri = dataStartRi; ri < rows.length; ri++) {
+          const v = rows[ri][ci];
+          if (!v || !String(v).trim()) continue;
+          nNonEmpty++;
+          if (parseLevel(v) !== null) nMatches++;
+        }
+        if (nNonEmpty >= 2 && nMatches / nNonEmpty >= 0.6) {
+          isLevelCol[ci] = true;
         }
       }
-      const totalLen = colMaxLen.reduce((a, b) => a + Math.max(3, b), 0);
-      const totalW = w - pad * 2;
-      // Convert per-column max length to a fractional width with a
-      // minimum floor so 1-char columns still get readable space.
-      const colWidths = colMaxLen.map(l => Math.floor(totalW * Math.max(3, l) / totalLen));
-      const colXs = [pad];
-      for (let ci = 1; ci < cols; ci++) colXs.push(colXs[ci - 1] + colWidths[ci - 1]);
-      const bodyAvail = yMax - cy;
-      // Row height fills available body — variable-canvas cells
-      // (post-#159) can be 800+ px tall and clustered short rows at
-      // the top looked sparse. Scale font with row height too.
-      const rowH = Math.max(20, Math.min(96, Math.floor(bodyAvail / Math.max(1, rows.length))));
-      const dynamicFontPx = Math.max(13, Math.min(22, Math.floor(rowH * 0.32)));
-      ctx.font = `${dynamicFontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-      for (let ri = 0; ri < rows.length; ri++) {
-        if (cy + 16 > yMax) break;
-        const r = rows[ri];
-        const isHeader = layout === "table" && ri === 0;
-        ctx.fillStyle = isHeader ? "#b48aff" : "#e8f8ff";
-        ctx.globalAlpha = 1.0;
-        for (let ci = 0; ci < cols; ci++) {
-          // Uppercase all html text — matches the Gibson/hackers theme
-          // aesthetic (titles, decoratives, timeline labels all caps).
-          // User 2026-05-21: "maybe we need to just force all text to
-          // uppercase for this theme?". This also reduces per-character
-          // ambiguity at small sizes (Eurostile caps read more cleanly).
-          const raw = (r[ci] || "")
-            .replace(/[✓✗]/g, m => m === "✓" ? "+" : "-")
-            .toUpperCase();
-          const maxChars = Math.max(2, Math.floor(colWidths[ci] / (dynamicFontPx * 0.55)) - 1);
-          const txt = raw.length > maxChars ? raw.slice(0, maxChars - 1) + "…" : raw;
-          ctx.fillText(txt, colXs[ci], cy + (rowH - dynamicFontPx) / 2);
+      const NARROW = w < 480;
+      const drawSeverityBar = (x, y, barW, level, isHeader) => {
+        const lv = Math.max(0, Math.min(SEVERITY_MAX, level || 0));
+        const blockGap = 2;
+        const blockW = Math.max(4, Math.floor((barW - blockGap * (SEVERITY_MAX - 1)) / SEVERITY_MAX));
+        const blockH = Math.max(6, Math.min(12, blockW + 2));
+        const total = blockW * SEVERITY_MAX + blockGap * (SEVERITY_MAX - 1);
+        const x0 = x + Math.max(0, Math.floor((barW - total) / 2));
+        for (let b = 0; b < SEVERITY_MAX; b++) {
+          ctx.fillStyle = b < lv ? "#00ddff" : "rgba(0,221,255,0.18)";
+          ctx.globalAlpha = 1.0;
+          ctx.fillRect(x0 + b * (blockW + blockGap), y, blockW, blockH);
         }
-        cy += rowH;
+      };
+      const cleanCell = (raw) => String(raw || "")
+        .replace(/[✓✗]/g, m => m === "✓" ? "+" : "-")
+        .toUpperCase();
+      // Two-line wrap that splits on word boundaries; preserves all
+      // chars up to maxChars * 2. Returns 1-2 lines.
+      const wrapTwoLines = (text, maxCharsPerLine) => {
+        if (text.length <= maxCharsPerLine) return [text];
+        const words = text.split(/\s+/).filter(Boolean);
+        if (words.length === 1) {
+          // Single long word — hard-split.
+          return [text.slice(0, maxCharsPerLine), text.slice(maxCharsPerLine, maxCharsPerLine * 2)];
+        }
+        // Find split closest to mid that keeps line ≤ maxCharsPerLine.
+        let bestSplit = 1, bestDist = Infinity;
+        const mid = Math.floor(text.length / 2);
+        let acc = 0;
+        for (let k = 0; k < words.length - 1; k++) {
+          acc += words[k].length + 1;
+          if (acc > maxCharsPerLine) break;
+          const d = Math.abs(acc - mid);
+          if (d < bestDist) { bestDist = d; bestSplit = k + 1; }
+        }
+        const line1 = words.slice(0, bestSplit).join(" ");
+        const line2 = words.slice(bestSplit).join(" ");
+        return [
+          line1.length > maxCharsPerLine ? line1.slice(0, maxCharsPerLine - 1) + "…" : line1,
+          line2.length > maxCharsPerLine ? line2.slice(0, maxCharsPerLine - 1) + "…" : line2,
+        ];
+      };
+      if (NARROW) {
+        // Console-readout: stack rows as " > [hdr] :: value" lines.
+        // Header row (if layout=table) becomes column-label glossary.
+        const fontPx = 13;
+        const lineH = fontPx + 4;
+        ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
+        const charW = fontPx * 0.55;
+        const innerW = w - pad * 2;
+        const maxCharsPerLine = Math.max(8, Math.floor(innerW / charW) - 2);
+        const header = (layout === "table" && rows[0]) ? rows[0].map(cleanCell) : [];
+        const dataRows = layout === "table" ? rows.slice(1) : rows;
+        for (let ri = 0; ri < dataRows.length; ri++) {
+          if (cy + lineH * 2 > yMax) break;
+          const r = dataRows[ri];
+          // Row index gutter — "01" / "02" — in dim cyan, hackers style.
+          ctx.fillStyle = "rgba(0,221,255,0.55)";
+          ctx.globalAlpha = 1.0;
+          ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
+          ctx.fillText(String(ri + 1).padStart(2, "0"), pad, cy);
+          let lineX = pad + (fontPx * 0.55 * 3);  // after "NN  "
+          let lineY = cy;
+          for (let ci = 0; ci < r.length; ci++) {
+            const label = header[ci] || "";
+            const raw = cleanCell(r[ci]);
+            if (isLevelCol[ci]) {
+              const lv = parseLevel(r[ci]) || 0;
+              if (label) {
+                ctx.fillStyle = "rgba(153,102,255,0.85)";
+                ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
+                ctx.fillText(label + ":", lineX, lineY);
+                lineX += (label.length + 2) * charW;
+              }
+              drawSeverityBar(lineX, lineY + 2, 80, lv, false);
+              lineY += lineH;
+              lineX = pad + (fontPx * 0.55 * 3);
+            } else {
+              const lines = wrapTwoLines(raw, maxCharsPerLine - 4);
+              for (let li = 0; li < lines.length; li++) {
+                if (li === 0 && label) {
+                  ctx.fillStyle = "rgba(153,102,255,0.85)";
+                  ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
+                  ctx.fillText(label + ":", lineX, lineY);
+                  lineX += (label.length + 2) * charW;
+                }
+                ctx.fillStyle = "#e8f8ff";
+                ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
+                ctx.fillText(lines[li], lineX, lineY);
+                lineY += lineH;
+                lineX = pad + (fontPx * 0.55 * 3);
+              }
+            }
+          }
+          // Row separator — faint cyan rule, very low alpha.
+          if (ri < dataRows.length - 1) {
+            ctx.strokeStyle = "#00ddff";
+            ctx.globalAlpha = 0.10;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pad, lineY + 2);
+            ctx.lineTo(w - pad, lineY + 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+          }
+          cy = lineY + 8;
+        }
+      } else {
+        // Grid mode: column widths weighted by content length, with a
+        // floor for level columns (just need bar room) and minimum
+        // for text columns. Level cols cap at ~70px.
+        const colMaxLen = new Array(cols).fill(0);
+        for (const r of rows) {
+          for (let ci = 0; ci < cols; ci++) {
+            const len = (r[ci] || "").length;
+            if (len > colMaxLen[ci]) colMaxLen[ci] = len;
+          }
+        }
+        // Allocate fixed 70px for each level col; share remainder by content.
+        const LEVEL_COL_W = 76;
+        const innerW = w - pad * 2;
+        let levelTotal = 0;
+        for (let ci = 0; ci < cols; ci++) if (isLevelCol[ci]) levelTotal += LEVEL_COL_W;
+        const flowAvail = Math.max(120, innerW - levelTotal);
+        const flowTotal = colMaxLen
+          .map((l, ci) => isLevelCol[ci] ? 0 : Math.max(6, l))
+          .reduce((a, b) => a + b, 0) || 1;
+        const colWidths = colMaxLen.map((l, ci) =>
+          isLevelCol[ci] ? LEVEL_COL_W
+          : Math.floor(flowAvail * Math.max(6, l) / flowTotal));
+        const colXs = [pad];
+        for (let ci = 1; ci < cols; ci++) colXs.push(colXs[ci - 1] + colWidths[ci - 1]);
+        const fontPx = 14;
+        const lineH = fontPx + 4;
+        const rowVPad = 8;
+        ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
+        // Header row.
+        const dataStart = (layout === "table" && rows.length > 1) ? 1 : 0;
+        if (layout === "table" && rows.length > 0) {
+          ctx.fillStyle = "rgba(153,102,255,0.90)";
+          ctx.globalAlpha = 1.0;
+          for (let ci = 0; ci < cols; ci++) {
+            const txt = cleanCell(rows[0][ci]);
+            const maxChars = Math.max(4, Math.floor(colWidths[ci] / (fontPx * 0.55)) - 1);
+            const printed = txt.length > maxChars ? txt.slice(0, maxChars - 1) + "…" : txt;
+            ctx.fillText(printed, colXs[ci], cy);
+          }
+          cy += lineH;
+          // Header rule.
+          ctx.strokeStyle = "#00ddff";
+          ctx.globalAlpha = 0.55;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(pad, cy);
+          ctx.lineTo(w - pad, cy);
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+          cy += rowVPad;
+        }
+        // Data rows.
+        for (let ri = dataStart; ri < rows.length; ri++) {
+          if (cy + lineH > yMax) break;
+          const r = rows[ri];
+          // Compute this row's height: max wrap-line count across cols.
+          const cellLines = new Array(cols);
+          let rowLineCt = 1;
+          for (let ci = 0; ci < cols; ci++) {
+            if (isLevelCol[ci]) { cellLines[ci] = null; continue; }
+            const txt = cleanCell(r[ci]);
+            const maxChars = Math.max(6, Math.floor(colWidths[ci] / (fontPx * 0.55)) - 1);
+            const wrapped = wrapTwoLines(txt, maxChars);
+            cellLines[ci] = wrapped;
+            if (wrapped.length > rowLineCt) rowLineCt = wrapped.length;
+          }
+          const rowH = rowLineCt * lineH + rowVPad;
+          // Draw cells.
+          for (let ci = 0; ci < cols; ci++) {
+            if (isLevelCol[ci]) {
+              const lv = parseLevel(r[ci]) || 0;
+              const barY = cy + Math.floor((rowH - 10) / 2);
+              drawSeverityBar(colXs[ci], barY, colWidths[ci] - 6, lv, false);
+            } else {
+              ctx.fillStyle = "#e8f8ff";
+              ctx.globalAlpha = 1.0;
+              ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
+              const lines = cellLines[ci] || [""];
+              for (let li = 0; li < lines.length; li++) {
+                ctx.fillText(lines[li], colXs[ci], cy + li * lineH);
+              }
+            }
+          }
+          cy += rowH;
+          // Inter-row faint rule.
+          if (ri < rows.length - 1) {
+            ctx.strokeStyle = "#00ddff";
+            ctx.globalAlpha = 0.08;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pad, cy - rowVPad / 2);
+            ctx.lineTo(w - pad, cy - rowVPad / 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+          }
+        }
       }
     }
   }
