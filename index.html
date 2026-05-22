@@ -125,6 +125,10 @@
         <span class="hud-value" id="hud-cells-val">—</span>
         <svg class="hud-cells-bar" id="hud-cells-bar" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true"></svg>
       </span>
+      <span class="hud-cell hud-render-cell" id="hud-render-cell" hidden>
+        <span class="hud-label">RENDER</span>
+        <span class="hud-value" id="hud-render-val">—</span>
+      </span>
       <span class="hud-cell hud-session-trigger" id="hud-session-cell"
             role="button" tabindex="0" aria-haspopup="true"
             aria-controls="session-dropdown"
@@ -6476,12 +6480,34 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   }
 }
 
+function _mixed3dUpdateRenderHud(S) {
+  if (!S || !S.cellObjects) return;
+  let pending = 0, total = 0;
+  for (const [id, obj] of S.cellObjects) {
+    if (obj.isInstanceHandle) continue;
+    if (obj.userData?.tier !== 1) continue;
+    total++;
+    if (!S._snapTexCache?.has(id)) pending++;
+  }
+  const cell = document.getElementById("hud-render-cell");
+  const val = document.getElementById("hud-render-val");
+  if (!cell || !val) return;
+  if (pending > 0) {
+    cell.hidden = false;
+    val.textContent = `${pending}/${total}`;
+  } else {
+    cell.hidden = true;
+  }
+}
+
 function _mixed3dStartSnapshotDriver() {
   if (_mixed3dSnapInterval) return;
   console.log("[mixed3d] tier-1 snapshot driver started (substrates: " + Object.keys(_MIXED3D_RENDERERS).join(",") + ")");
   _mixed3dSnapInterval = setInterval(() => {
     const S = _mixed3dState;
     if (!S || !S.cellObjects) return;
+    // Update RENDER chip every snap tick — cheap (1 pass over cellObjects).
+    _mixed3dUpdateRenderHud(S);
     // Persistent tier-2 suppression: re-apply each tick since cells demote
     // between tier-1 and tier-2 dynamically, creating fresh visible Meshes.
     if (_mixed3dTier2Suppressed) _mixed3dApplyTier2Visibility(false);
