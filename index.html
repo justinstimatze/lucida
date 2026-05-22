@@ -3153,7 +3153,7 @@ function applyMixed3DLayout(opts) {
       groundPos[i * 3] = (Math.random() - 0.5) * fieldSize;
       groundPos[i * 3 + 1] = 0.04 + Math.random() * 0.06;
       groundPos[i * 3 + 2] = (Math.random() - 0.5) * fieldSize;
-      const speed = 4 + Math.random() * 4;
+      const speed = 10 + Math.random() * 8;
       groundVel[i * 3] = dir === 0 ? speed : dir === 1 ? -speed : 0;
       groundVel[i * 3 + 1] = 0;
       groundVel[i * 3 + 2] = dir === 2 ? speed : dir === 3 ? -speed : 0;
@@ -3161,10 +3161,10 @@ function applyMixed3DLayout(opts) {
     const groundGeo = new T.BufferGeometry();
     groundGeo.setAttribute("position", new T.BufferAttribute(groundPos, 3));
     const groundMat = new T.PointsMaterial({
-      color: new T.Color("#66e6ff"),
-      size: 0.22,
+      color: new T.Color("#b48aff"),
+      size: 0.32,
       transparent: true,
-      opacity: 0.95,
+      opacity: 1.0,
       sizeAttenuation: true,
       depthWrite: false,
       blending: T.AdditiveBlending,
@@ -3181,18 +3181,18 @@ function applyMixed3DLayout(opts) {
       airPos[i * 3 + 2] = (Math.random() - 0.5) * fieldSize;
       // Mostly horizontal motion with slight vertical drift.
       const angle = Math.random() * Math.PI * 2;
-      const speed = 6 + Math.random() * 5;
+      const speed = 14 + Math.random() * 8;
       airVel[i * 3] = Math.cos(angle) * speed;
-      airVel[i * 3 + 1] = (Math.random() - 0.5) * 1.0;
+      airVel[i * 3 + 1] = (Math.random() - 0.5) * 1.5;
       airVel[i * 3 + 2] = Math.sin(angle) * speed;
     }
     const airGeo = new T.BufferGeometry();
     airGeo.setAttribute("position", new T.BufferAttribute(airPos, 3));
     const airMat = new T.PointsMaterial({
-      color: new T.Color("#b48aff"),
-      size: 0.18,
+      color: new T.Color("#ffffff"),
+      size: 0.28,
       transparent: true,
-      opacity: 0.85,
+      opacity: 1.0,
       sizeAttenuation: true,
       depthWrite: false,
       blending: T.AdditiveBlending,
@@ -3434,9 +3434,15 @@ function applyMixed3DLayout(opts) {
     }
     // Pulse animation — advance each point by its velocity, wrap at
     // field edges. Single dt per frame (no per-pulse rAF).
+    // Camera-cull: any pulse that gets within CULL_R of the camera
+    // gets teleported to the opposite side of the field. Prevents
+    // bright dots flying right through the viewport up close, which
+    // reads as visual noise rather than ambient depth.
     {
       const dt = Math.min(0.1, (now - (_mixed3dState._pulseLastT || now)) / 1000);
       _mixed3dState._pulseLastT = now;
+      const camP = _mixed3dState.camera.position;
+      const CULL_R_SQ = 4 * 4; // 4u no-fly bubble around camera
       const groundPS = _mixed3dState.pulseGround;
       if (groundPS && dt > 0) {
         const posAttr = groundPS.geometry.attributes.position;
@@ -3450,6 +3456,15 @@ function applyMixed3DLayout(opts) {
           else if (pos[i] < -half) pos[i] = half;
           if (pos[i + 2] > half) pos[i + 2] = -half;
           else if (pos[i + 2] < -half) pos[i + 2] = half;
+          const dx = pos[i] - camP.x, dz = pos[i + 2] - camP.z;
+          if (dx * dx + dz * dz < CULL_R_SQ) {
+            // Teleport to opposite side of camera, preserving direction.
+            pos[i] = camP.x - dx * (half / Math.max(1, Math.abs(dx)));
+            pos[i + 2] = camP.z - dz * (half / Math.max(1, Math.abs(dz)));
+            // Clamp to field bounds
+            pos[i] = Math.max(-half, Math.min(half, pos[i]));
+            pos[i + 2] = Math.max(-half, Math.min(half, pos[i + 2]));
+          }
         }
         posAttr.needsUpdate = true;
       }
@@ -3469,6 +3484,15 @@ function applyMixed3DLayout(opts) {
           else if (pos[i + 1] < 2) pos[i + 1] = 17;
           if (pos[i + 2] > half) pos[i + 2] = -half;
           else if (pos[i + 2] < -half) pos[i + 2] = half;
+          const dx = pos[i] - camP.x;
+          const dy = pos[i + 1] - camP.y;
+          const dz = pos[i + 2] - camP.z;
+          if (dx * dx + dy * dy + dz * dz < CULL_R_SQ) {
+            pos[i] = camP.x - dx * (half / Math.max(1, Math.abs(dx)));
+            pos[i + 2] = camP.z - dz * (half / Math.max(1, Math.abs(dz)));
+            pos[i] = Math.max(-half, Math.min(half, pos[i]));
+            pos[i + 2] = Math.max(-half, Math.min(half, pos[i + 2]));
+          }
         }
         posAttr.needsUpdate = true;
       }
