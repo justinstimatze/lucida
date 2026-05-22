@@ -5957,8 +5957,14 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   const dotR = Math.max(10, Math.round(h / 36));        // ~14 at h=504
   const activeR = Math.max(14, Math.round(h / 24));     // ~21 at h=504
   const haloR = Math.max(22, Math.round(h / 16));       // ~31
-  const labelFont = Math.max(18, Math.round(h / 18));   // ~28px at h=504
-  const labelOffset = Math.max(48, Math.round(h / 5));  // ~100 above/below — fills the body
+  // Label font sized BY SLOT WIDTH first, h second — so 5-6 stages on
+  // a colspan=2 cell (stepX ~ 67-84px) don't squeeze labels down to
+  // "AN…" / "SKI…". Aim for ~6 chars at ~0.55 charW.
+  const slotMin = Math.min(stepX, (w - pad * 2));
+  const fontFromSlot = Math.max(13, Math.min(28, Math.floor(slotMin / 0.55 / 6)));
+  const fontFromH = Math.max(18, Math.round(h / 18));
+  const labelFont = Math.min(fontFromSlot, fontFromH);
+  const labelOffset = Math.max(48, Math.round(h / 5));
   // Axis line
   ctx.strokeStyle = "#9966ff";
   ctx.globalAlpha = 0.6;
