@@ -6649,11 +6649,12 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   let cy = pad;
-  // Subtle prompt-prefix glyph + title. Purple, smaller than substrate
-  // titles so the cell reads as ambient rather than headline.
+  // Subtle prompt-prefix glyph + title. Dim purple at 0.65 alpha so
+  // the title doesn't outshout the body text, matching the decorative
+  // bed's muted accent usage. User 2026-05-22.
   if (title) {
-    ctx.fillStyle = "#9966ff";
-    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "rgba(153,102,255,0.65)";
+    ctx.globalAlpha = 1.0;
     ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
     const titleLine = "> " + (title.length > Math.floor(w / 7) ? title.slice(0, Math.floor(w / 7) - 1) + "…" : title);
     ctx.fillText(titleLine, pad, cy);
@@ -6773,8 +6774,11 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         const blockH = Math.max(6, Math.min(12, blockW + 2));
         const total = blockW * SEVERITY_MAX + blockGap * (SEVERITY_MAX - 1);
         const x0 = x + Math.max(0, Math.floor((barW - total) / 2));
+        // Dim cyan tinting to match the decorative bed (user 2026-05-22):
+        // filled = 0.75 alpha (matches the tier-2 stroke alpha), unfilled
+        // = 0.10 alpha (almost-invisible ghost). Was 1.0 / 0.18.
         for (let b = 0; b < SEVERITY_MAX; b++) {
-          ctx.fillStyle = b < lv ? "#00ddff" : "rgba(0,221,255,0.18)";
+          ctx.fillStyle = b < lv ? "rgba(0,221,255,0.78)" : "rgba(0,221,255,0.10)";
           ctx.globalAlpha = 1.0;
           ctx.fillRect(x0 + b * (blockW + blockGap), y, blockW, blockH);
         }
@@ -6905,7 +6909,9 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         // Header row.
         const dataStart = (layout === "table" && rows.length > 1) ? 1 : 0;
         if (layout === "table" && rows.length > 0) {
-          ctx.fillStyle = "rgba(153,102,255,0.90)";
+          // Header in dim purple — closer to the decorative bed's
+          // muted accent than the previous near-opaque label color.
+          ctx.fillStyle = "rgba(153,102,255,0.65)";
           ctx.globalAlpha = 1.0;
           for (let ci = 0; ci < cols; ci++) {
             const txt = cleanCell(rows[0][ci]);
@@ -6914,10 +6920,11 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
             ctx.fillText(printed, colXs[ci], cy);
           }
           cy += lineH;
-          // Header rule.
+          // Header rule — soft cyan, alpha 0.22 (was 0.55). Was reading
+          // as a hard chrome border that broke the ambient-bed feel.
           ctx.strokeStyle = "#00ddff";
-          ctx.globalAlpha = 0.55;
-          ctx.lineWidth = 1.5;
+          ctx.globalAlpha = 0.22;
+          ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(pad, cy);
           ctx.lineTo(w - pad, cy);
@@ -6969,7 +6976,10 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
               const barY = cy + Math.floor((rowH - 10) / 2);
               drawSeverityBar(colXs[ci], barY, colWidths[ci] - 6, lv, false);
             } else {
-              ctx.fillStyle = "#e8f8ff";
+              // Body text: dim cyan-tinted (~0.85 alpha cyan) instead
+              // of bright #e8f8ff white. Matches the tier-2 decorative
+              // stroke palette and stops the cell from shouting.
+              ctx.fillStyle = "rgba(0,221,255,0.85)";
               ctx.globalAlpha = 1.0;
               ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
               const lines = cellLines[ci] || [""];
@@ -6979,10 +6989,10 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
             }
           }
           cy += rowH;
-          // Inter-row faint rule.
+          // Inter-row rule — barely-there. Was 0.08, now 0.05.
           if (ri < rows.length - 1) {
             ctx.strokeStyle = "#00ddff";
-            ctx.globalAlpha = 0.08;
+            ctx.globalAlpha = 0.05;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(pad, cy - rowVPad / 2);
