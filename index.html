@@ -5464,12 +5464,18 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // POST to snap_receiver:8767 so the next load hits the cache.
   const freshRender = () => {
     const id = "_m3d_snap_" + Math.random().toString(36).slice(2, 10);
-    // Wait for Eurostile to load before measuring text. Without this,
-    // mermaid getBBox uses the fallback font (Share Tech Mono / monospace)
-    // for layout but the browser later displays in Eurostile (wider) →
-    // text spills past pre-computed box widths. Caching the
-    // result of fonts.ready promise is automatic — browser memoizes.
-    const fontsP = document.fonts?.ready || Promise.resolve();
+    // Explicitly load Eurostile (the font mermaid will render text in)
+    // BEFORE measuring. document.fonts.ready only awaits already-loading
+    // fonts; @font-face fonts are lazy-loaded on first use. mermaid's
+    // hidden render div might not trigger that load in time, so its
+    // getBBox uses fallback (Share Tech Mono / monospace, narrower)
+    // widths — then the real render shows Eurostile (wider) and
+    // text exceeds rect bounds. Triple-load the sizes mermaid uses.
+    const fontsP = document.fonts ? Promise.all([
+      document.fonts.load("16px Eurostile"),
+      document.fonts.load("bold 16px Eurostile"),
+      document.fonts.load("14px Eurostile"),
+    ]).then(() => document.fonts.ready) : Promise.resolve();
     return fontsP
       .then(() => window.mermaid.parse(spec))
       .then(() => window.mermaid.render(id, spec))
@@ -5823,16 +5829,17 @@ function _mixed3dRenderVegaToCanvas(spec, w, h, extras) {
     const it = items[i];
     const bx = pad + i * (bw + 4);
     const bh = (py1 - py0) * (it.value / maxV);
-    ctx.fillStyle = "#00ddff";
-    ctx.globalAlpha = 0.7;
-    ctx.fillRect(bx, py1 - bh, bw, bh);
-    ctx.strokeStyle = "#9966ff";
+    // Bars as outlines only — user 2026-05-21: "numbers hard to
+    // read, maybe bars should just be outlines instead of filled".
+    // Filled cyan rectangles competed with the cyan value labels
+    // sitting above each bar.
+    ctx.strokeStyle = "#00ddff";
     ctx.lineWidth = 2;
     ctx.globalAlpha = 1;
     ctx.strokeRect(bx, py1 - bh, bw, bh);
     // Value
-    ctx.fillStyle = "#ccf3ff";
-    ctx.font = "bold 12px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.fillStyle = "#e8f8ff";
+    ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.fillText(String(Math.round(it.value)), bx + bw / 2, py1 - bh - 4);
@@ -6079,19 +6086,26 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   // unreadable" → bumped alpha 0.78 → 1.0 with a brighter fill.
   if (rows && rows.length) {
     if (layout === "callouts") {
-      // Two-column big-number + label layout. Each row fills ~85px
-      // tall so the "big" number reads as a glanceable stat.
+      // Two-column big + label layout. The "big" value isn't always
+      // a short number (mints often produce phrases like "frozen" /
+      // "⚠ invalidates all"), so don't truncate; just shrink font
+      // as length grows. Each row fills ~85px tall.
       const rowH = Math.max(64, Math.min(110, Math.floor((yMax - cy) / Math.max(1, rows.length))));
       const numW = Math.floor(w * 0.35);
       for (let ri = 0; ri < rows.length; ri++) {
         if (cy + 28 > yMax) break;
         const [big, label] = rows[ri];
-        // Big number — purple, large, left-aligned within numW
+        // Big value — purple, font scales to fit numW (single line).
+        // 30px for ≤4 chars; 22px ≤8 chars; 16px ≤16 chars; 12px else.
+        const bigText = (big || "").replace(/[ -⁯]/g, "").trim();
+        const bigLen = bigText.length;
+        const bigFont = bigLen <= 4 ? 30 : bigLen <= 8 ? 22 : bigLen <= 16 ? 16 : 12;
         ctx.fillStyle = "#9966ff";
         ctx.globalAlpha = 1.0;
-        ctx.font = "bold 30px 'Eurostile', 'Share Tech Mono', monospace";
-        const bigText = (big || "").slice(0, 6);
-        ctx.fillText(bigText, pad, cy + 6);
+        ctx.font = `bold ${bigFont}px 'Eurostile', 'Share Tech Mono', monospace`;
+        ctx.textBaseline = "middle";
+        ctx.fillText(bigText, pad, cy + Math.min(rowH, 50) / 2 + 4);
+        ctx.textBaseline = "top";
         // Label — cyan-white, smaller, wraps in the remaining width
         ctx.fillStyle = "#e8f8ff";
         ctx.globalAlpha = 0.95;
