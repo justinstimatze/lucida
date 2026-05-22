@@ -6207,7 +6207,15 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
   const axisX = 56;            // x of axis line + dots; leaves halo room on left
   const padTop = axisLabel ? 36 : 16;
   const padBot = 16;
-  const stepY = (h - padTop - padBot) / (n - 1 || 1);
+  // Cap stepY so 3-stage timelines on a 1080px canvas don't spread the
+  // dots 500px apart and read as "visually sparse" (user 2026-05-22 on
+  // cell-3909). Rows anchor to the top; axis continues to bottom edge
+  // as a "scaffold awaiting more events" — fits the Gibson terminal
+  // aesthetic. Even-spread still wins when stage count exceeds what
+  // MAX_STEP_Y can pack.
+  const MAX_STEP_Y = 180;
+  const evenSpreadStepY = (h - padTop - padBot) / (n - 1 || 1);
+  const stepY = Math.min(evenSpreadStepY, MAX_STEP_Y);
   const lineW = 3;
   const dotR = Math.min(12, Math.max(8, Math.round(stepY / 14)));
   const activeR = Math.round(dotR * 1.4);
