@@ -5615,9 +5615,23 @@ function _mixed3dStyleMermaidSVG(svgString) {
   // affect attribute values, ids, etc. Matches the rest of the
   // theme's caps-everywhere convention (titles, decoratives, html
   // cells, timeline labels). User 2026-05-21.
+  //
+  // Entity-safe: XML entities are case-sensitive (`&amp;` valid,
+  // `&AMP;` invalid). Naïve toUpperCase() on text containing `&lt;`
+  // turned it into `&AMP;LT;` (mermaid double-escapes `&` → `&amp;`),
+  // which strict SVG-as-Image parsing in Chrome rejected → blob
+  // Image.onerror → rasterize fail → stub-cached cell. Symptom:
+  // user 2026-05-22 cell-4513 "no real content, just title + faded
+  // bands" — node label was `claude --resume <sid>` (escaped
+  // `&lt;sid&gt;`). Skip the uppercase pass on tspans containing
+  // entities — they're rare enough that mixed-case text in those
+  // cells is acceptable.
   const upcased = svgString.replace(
     /(<tspan[^>]*>)([^<]+)(<\/tspan>)/g,
-    (_m, open, txt, close) => open + txt.toUpperCase() + close,
+    (_m, open, txt, close) => {
+      if (/&[#a-zA-Z]/.test(txt)) return open + txt + close;
+      return open + txt.toUpperCase() + close;
+    },
   );
   // Inject right after the opening <svg ...> tag.
   return upcased.replace(/(<svg[^>]*>)/, "$1" + css);
@@ -5792,7 +5806,29 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
       URL.revokeObjectURL(url);
       resolve(canvas);
     };
-    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      const id = extras?.id || "unknown";
+      // Track failures on _mixed3dState so we can surface them in HUD
+      // and debug. Without this the rasterize-fail-then-stub path was
+      // invisible — cells silently stayed as decorative stubs.
+      // User 2026-05-22: "instrument this so it doesn't happen,
+      // I think it's been a long standing issue".
+      const S = _mixed3dState;
+      if (S) {
+        if (!S._rasterizeFails) S._rasterizeFails = new Map();
+        const prev = S._rasterizeFails.get(id) || 0;
+        S._rasterizeFails.set(id, prev + 1);
+        if (prev === 0) {
+          const head = svgString.slice(0, 200).replace(/\s+/g, " ");
+          console.warn(`[mixed3d] rasterize fail cell=${id} svgLen=${svgString.length} head="${head}"`);
+        }
+      }
+      const err = new Error(`rasterize-fail cell=${id} svgLen=${svgString.length}`);
+      err.cellId = id;
+      err.svgHead = svgString.slice(0, 200);
+      reject(err);
+    };
     img.src = url;
   });
 }
@@ -7063,16 +7099,21 @@ function _mixed3dUpdateRenderHud(S) {
     total++;
     if (!S._snapTexCache?.has(id)) pending++;
   }
+  const fails = S._rasterizeFails?.size || 0;
   const cell = document.getElementById("hud-render-cell");
   const val = document.getElementById("hud-render-val");
   if (!cell || !val) return;
   // Threshold of 5: ambient LOD-boundary churn typically keeps 0-3
   // cells in flight at any moment as the camera moves. Showing
   // "1/197" forever for those transient cycles reads as "stuck".
-  // Only surface the chip when there's actual catch-up work.
-  if (pending > 5) {
+  // Only surface the chip when there's actual catch-up work OR any
+  // rasterize fails (those persist as stub-cached cells — surface
+  // them so they don't hide silently).
+  if (pending > 5 || fails > 0) {
     cell.hidden = false;
-    val.textContent = `${pending}/${total}`;
+    val.textContent = fails > 0
+      ? `${pending}/${total} · ${fails}✕`
+      : `${pending}/${total}`;
   } else {
     cell.hidden = true;
   }
