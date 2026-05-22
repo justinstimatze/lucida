@@ -5913,9 +5913,16 @@ function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
 // cell's content as readable text vs the abstract sketch placeholder.
 // Extract rows of plain text from a cell's html field per html_layout.
 // Returns an array of arrays — each inner array is one display row's
-// columns. Tables → header-then-rows. Lists → one item per row.
-// Key-value / definition lists → ["key", "value"] pairs.
-// Returns null if the html doesn't yield anything renderable.
+// columns. Returns null if the html doesn't yield anything renderable.
+//
+// Layout coverage (counts from cells.json 2026-05-21):
+//   callouts (271): <div class="callout"> with .big + .label per item
+//   table    (246): <table> header + body rows
+//   dl       (210): <dl> with <dt>/<dd> pairs
+//   kanban    (10): <div class="kanban-column"> with cards
+// Earlier version only handled table + a misnamed "definitions"
+// matching layout==="definitions" (cells.json uses "dl") — most
+// callouts+dl cells fell through to null and got stub-cached.
 function _mixed3dExtractHtmlRows(html, layout) {
   if (!html || typeof html !== "string") return null;
   const tpl = document.createElement("template");
@@ -5924,6 +5931,8 @@ function _mixed3dExtractHtmlRows(html, layout) {
   const tableEl = root.querySelector("table");
   const ulEl = root.querySelector("ul, ol");
   const dlEl = root.querySelector("dl");
+  const calloutEls = root.querySelectorAll(".callout");
+  const kanbanEls = root.querySelectorAll(".kanban-column, .column");
   if (layout === "table" || tableEl) {
     if (!tableEl) return null;
     const rows = [];
@@ -5936,6 +5945,39 @@ function _mixed3dExtractHtmlRows(html, layout) {
     }
     return rows.length ? rows : null;
   }
+  if ((layout === "dl" || layout === "definitions") || dlEl) {
+    if (!dlEl) return null;
+    const pairs = [];
+    const kids = [...dlEl.children];
+    for (let i = 0; i < kids.length; i++) {
+      if (kids[i].tagName !== "DT") continue;
+      const key = (kids[i].textContent || "").replace(/\s+/g, " ").trim();
+      const dd = kids[i + 1]?.tagName === "DD" ? kids[i + 1] : null;
+      const val = dd ? (dd.textContent || "").replace(/\s+/g, " ").trim() : "";
+      pairs.push([key, val]);
+    }
+    return pairs.length ? pairs : null;
+  }
+  if (layout === "callouts" || calloutEls.length) {
+    const rows = [];
+    for (const cEl of calloutEls) {
+      const big = (cEl.querySelector(".big")?.textContent || "").replace(/\s+/g, " ").trim();
+      const label = (cEl.querySelector(".label")?.textContent || "").replace(/\s+/g, " ").trim();
+      if (big || label) rows.push([big, label]);
+    }
+    return rows.length ? rows : null;
+  }
+  if (layout === "kanban" || kanbanEls.length) {
+    const rows = [];
+    for (const col of kanbanEls) {
+      const head = (col.querySelector(".column-title, .kanban-title, h3, h4")?.textContent || "").replace(/\s+/g, " ").trim();
+      const cards = col.querySelectorAll(".card, .kanban-card, li");
+      const summary = head || "column";
+      const cardText = [...cards].map(c => (c.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" / ");
+      rows.push([summary, cardText.slice(0, 80)]);
+    }
+    return rows.length ? rows : null;
+  }
   if (layout === "list" || ulEl) {
     if (!ulEl) return null;
     const items = [];
@@ -5944,19 +5986,6 @@ function _mixed3dExtractHtmlRows(html, layout) {
       if (t) items.push([t]);
     }
     return items.length ? items : null;
-  }
-  if (layout === "definitions" || dlEl) {
-    if (!dlEl) return null;
-    const pairs = [];
-    const kids = [...dlEl.children];
-    for (let i = 0; i < kids.length; i++) {
-      if (kids[i].tagName !== "DT") continue;
-      const key = (kids[i].textContent || "").trim();
-      const dd = kids[i + 1]?.tagName === "DD" ? kids[i + 1] : null;
-      const val = dd ? (dd.textContent || "").trim() : "";
-      pairs.push([key, val]);
-    }
-    return pairs.length ? pairs : null;
   }
   return null;
 }
