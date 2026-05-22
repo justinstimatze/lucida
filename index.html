@@ -5608,6 +5608,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
   // Inject right after the opening <svg ...> tag.
   return upcased.replace(/(<svg[^>]*>)/, "$1" + css);
 }
+if (typeof window !== "undefined") window._mixed3dStyleMermaidSVG = _mixed3dStyleMermaidSVG;
 
 // Paint the cell's caption into the body region below whatever the
 // substrate renderer drew. Caller provides the y-band that's free; this
