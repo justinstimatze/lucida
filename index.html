@@ -7311,7 +7311,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   // to read against instead of drowning in cyan tower glass. User
   // 2026-05-22 after dark-then-transparent A/B: "let's try a softer
   // dark fill but I maintain that it is simply missing content".
-  ctx.fillStyle = "rgba(8, 18, 30, 0.50)";
+  ctx.fillStyle = "rgba(8, 18, 30, 0.85)";
   ctx.fillRect(0, TITLE_H, fullCanvas.width, fullCanvas.height - TITLE_H);
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
