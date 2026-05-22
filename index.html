@@ -5613,7 +5613,28 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
       label = s.label;
     }
   } catch (e) { return Promise.resolve(null); }
-  if (!Array.isArray(data) || data.length < 2) return Promise.resolve(null);
+  if (!Array.isArray(data) || data.length < 1) return Promise.resolve(null);
+  // Single-value path: render the current value as a big number with
+  // a label below — gen_ambient.py emits series=[N] for fresh-day
+  // sparklines (only one day's data).
+  if (data.length === 1) {
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#00ddff";
+    ctx.font = "bold 56px 'Eurostile', 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const v = data[0];
+    const vs = Number.isInteger(v) ? v.toString() : v.toFixed(2);
+    ctx.fillText(vs, w / 2, h * 0.45);
+    if (label) {
+      ctx.fillStyle = "#9966ff";
+      ctx.font = "14px 'Eurostile', 'Share Tech Mono', monospace";
+      ctx.fillText(String(label).toUpperCase().slice(0, 22), w / 2, h * 0.45 + 40);
+    }
+    return Promise.resolve(canvas);
+  }
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
@@ -5786,11 +5807,20 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
     // Label above or below depending on i parity. Font + offset
     // scale with cell h so cells fill more vertical space instead
     // of leaving the timeline as a thin band in the middle.
+    // Label CHAR limit derives from available horizontal slot so
+    // edge labels (i=0, i=n-1) don't truncate beyond pad. The
+    // first and last positions get half a slot each side of pad;
+    // middle positions get a full slot worth.
     ctx.fillStyle = "#ccf3ff";
     ctx.font = `bold ${labelFont}px 'Eurostile', 'Share Tech Mono', monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = (i % 2 === 0) ? "bottom" : "top";
-    const label = String(st.label || "").toUpperCase().slice(0, 14);
+    const isEdge = (i === 0 || i === n - 1);
+    const slotW = isEdge ? (stepX / 2 + pad) : stepX;
+    const charW = labelFont * 0.55;
+    const maxChars = Math.max(4, Math.floor(slotW / charW) - 1);
+    const raw = String(st.label || "").toUpperCase();
+    const label = raw.length > maxChars ? raw.slice(0, maxChars - 1) + "…" : raw;
     ctx.fillText(label, x, (i % 2 === 0) ? cy - labelOffset : cy + labelOffset);
   }
   if (axisLabel) {
@@ -5883,9 +5913,9 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
   // Edges (only edges between visible nodes).
   const idToIdx = new Map();
   for (let i = 0; i < positions.length; i++) idToIdx.set(positions[i].node.id, i);
-  ctx.strokeStyle = "#9966ff";
-  ctx.globalAlpha = 0.5;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#66e6ff";
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = 4;
   for (const e of edges.slice(0, 30)) {
     const a = idToIdx.get(e.source || e.from);
     const b = idToIdx.get(e.target || e.to);
@@ -5900,10 +5930,10 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
   for (const p of positions) {
     ctx.fillStyle = "#00ddff";
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = "#9966ff";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.stroke();
     // Label
     ctx.fillStyle = "#ccf3ff";
@@ -6133,14 +6163,29 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
       }
     } else {
       // Default mono-row layout for table / dl / list / kanban.
+      // Column widths sized proportionally to content length — was
+      // dividing equally, which gave a 2-col table with "Grade" /
+      // "Meaning" the same 50/50 split even though "Meaning" needed
+      // ~5x the room. Per-column max-len drives a soft weight.
       ctx.fillStyle = "#e8f8ff";
       ctx.globalAlpha = 1.0;
       ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
       const charW = 7;
       const cols = Math.max(...rows.map(r => r.length));
-      const colWidth = Math.floor((w - pad * 2) / Math.max(1, cols));
-      const maxCharsPerCol = Math.max(2, Math.floor(colWidth / charW) - 1);
-      // Pick row height so the rows distribute across the available body.
+      const colMaxLen = new Array(cols).fill(0);
+      for (const r of rows) {
+        for (let ci = 0; ci < cols; ci++) {
+          const len = (r[ci] || "").length;
+          if (len > colMaxLen[ci]) colMaxLen[ci] = len;
+        }
+      }
+      const totalLen = colMaxLen.reduce((a, b) => a + Math.max(3, b), 0);
+      const totalW = w - pad * 2;
+      // Convert per-column max length to a fractional width with a
+      // minimum floor so 1-char columns still get readable space.
+      const colWidths = colMaxLen.map(l => Math.floor(totalW * Math.max(3, l) / totalLen));
+      const colXs = [pad];
+      for (let ci = 1; ci < cols; ci++) colXs.push(colXs[ci - 1] + colWidths[ci - 1]);
       const bodyAvail = yMax - cy;
       const rowH = Math.max(18, Math.min(38, Math.floor(bodyAvail / Math.max(1, rows.length))));
       for (let ri = 0; ri < rows.length; ri++) {
@@ -6149,12 +6194,11 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         const isHeader = layout === "table" && ri === 0;
         ctx.fillStyle = isHeader ? "#b48aff" : "#e8f8ff";
         ctx.globalAlpha = 1.0;
-        let cx = pad;
         for (let ci = 0; ci < cols; ci++) {
           const raw = (r[ci] || "").replace(/[✓✗]/g, m => m === "✓" ? "+" : "-");
-          const txt = raw.length > maxCharsPerCol ? raw.slice(0, maxCharsPerCol - 1) + "…" : raw;
-          ctx.fillText(txt, cx, cy);
-          cx += colWidth;
+          const maxChars = Math.max(2, Math.floor(colWidths[ci] / charW) - 1);
+          const txt = raw.length > maxChars ? raw.slice(0, maxChars - 1) + "…" : raw;
+          ctx.fillText(txt, colXs[ci], cy);
         }
         cy += rowH;
       }
@@ -7033,18 +7077,18 @@ function _mixed3dGetFaceSharedPlan(S, towerIdx, face) {
 // cell sits flush at y=0 and the last cell ends flush at y=towerH —
 // no whitespace at top or bottom (user 2026-05-03 "first/last cell
 // crisply flush ... pretty dense ... variation in heights").
-function _mixed3dPlanColumn(towerH, targetCount) {
-  // Deterministic cell count per column (N=targetCount, currently 5).
-  // Random N variance produced 1-3 missing cells at the corners of
-  // each tower because per-tower plan totals didn't match the
-  // round-robin cell budget. With deterministic N every column fills.
-  // HEIGHTS still vary per cell within a column — random fractional
-  // weights normalize so the heights sum exactly equals the available
-  // column space, so the column stays flush at top and bottom but
-  // each cell has a different size. This handles the general case
-  // where production cells have substrate-derived variable heights
-  // (user 2026-05-03 "happens that cells are equally sized right
-  // now but that won't be true in general").
+function _mixed3dPlanColumn(towerH, targetCount, cellW) {
+  // Cells are clamped to a 1:3 aspect (cellW × 3*cellW = ~1.86u tall)
+  // to MATCH THE CANVAS aspect. Without this clamp slot heights
+  // averaged 3.4u (5 slots / 17u tower), giving a 6:1 mesh aspect
+  // while the canvas is 3:1 → texture stretched vertically by 2x,
+  // gauges read as "squeezed horseshoes", circles became ovals,
+  // mermaid SVGs looked tall-and-narrow. Setting the cap matches
+  // texture-to-mesh pixel scale in both axes.
+  // User 2026-05-21: "looks like a squeezed horseshoe, taller than
+  // it is wide" — that's the texture stretching this clamp prevents.
+  const MAX_ASPECT = 3.0; // canvasH / canvasW
+  const MAX_H = cellW ? cellW * MAX_ASPECT : Infinity;
   const N = targetCount;
   // User 2026-05-19: 'the top and bottom of each face need some
   // padding too'. Inset 0.5u from both tower base and top so cells
@@ -7073,7 +7117,19 @@ function _mixed3dPlanColumn(towerH, targetCount) {
   const fractions = [];
   for (let i = 0; i < N; i++) fractions.push(0.55 + Math.random() * 1.05);
   const sumF = fractions.reduce((a, b) => a + b, 0);
-  const heights = fractions.map(f => f * cellTotal / sumF);
+  let heights = fractions.map(f => f * cellTotal / sumF);
+  // Apply the 3:1 max-aspect clamp. Any pixels above the cap become
+  // additional inter-cell padding so the column still fills towerH.
+  if (MAX_H !== Infinity) {
+    const clamped = heights.map(h => Math.min(h, MAX_H));
+    const extra = heights.reduce((a, b) => a + b, 0) - clamped.reduce((a, b) => a + b, 0);
+    if (extra > 0 && N > 1) {
+      const perGap = extra / (N - 1);
+      for (let i = 0; i < pads.length; i++) pads[i] += perGap;
+      sumPad += extra;
+    }
+    heights = clamped;
+  }
   const positions = [];
   let y = baseY;
   for (let i = 0; i < N; i++) {
@@ -7327,7 +7383,7 @@ function _mixed3dBuildDecorativeLayer() {
           const facePlan = _mixed3dGetFaceSharedPlan(S, towerIdx, face);
           const positions = facePlan
             ? facePlan.positions
-            : _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY).positions;
+            : _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY, G.cellW).positions;
           plan = { positions, nextIdx: 0 };
           S.columnPlans.set(planKey, plan);
         }
@@ -7670,7 +7726,7 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
             const facePlan = _mixed3dGetFaceSharedPlan(S, idx, face);
             const positions = facePlan
               ? facePlan.positions
-              : _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY).positions;
+              : _mixed3dPlanColumn(G.towerH, G.slotsPerFaceY, G.cellW).positions;
             plan = { positions, nextIdx: 0 };
             S.columnPlans.set(ck, plan);
           }
