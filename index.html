@@ -6220,9 +6220,12 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
   // top portion — was h/2 centered which left big empty regions above and
   // below in tall narrow cells. Radius scales with w so the graph still
   // fills the width.
+  // Fit circle to min(w, h) so nodes never overflow off-cell when the
+  // canvas is short (post-#159 variable heights). User 2026-05-21:
+  // "truncated on the bottom of the cell".
   const cx = w / 2;
-  const r = w * 0.38;
-  const cy = r + 30;
+  const r = Math.min(w * 0.38, (h - 40) * 0.38);
+  const cy = h / 2;
   const positions = [];
   for (let i = 0; i < N; i++) {
     const a = (i / N) * Math.PI * 2 - Math.PI / 2;
@@ -6390,7 +6393,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   const caption = String(cellData.caption || "");
   const html = cellData.html || "";
   const layout = cellData.html_layout || "";
-  const rows = _mixed3dExtractHtmlRows(html, layout);
+  let rows = _mixed3dExtractHtmlRows(html, layout);
   // No structured content → return null. Substrate driver will keep
   // the title-only stub. Matches [[feedback_text_cells_uninteresting]]:
   // silence > caption-prose for html cells that aren't actually tables/
@@ -6490,7 +6493,16 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
       ctx.globalAlpha = 1.0;
       ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
       const charW = 7;
-      const cols = Math.max(...rows.map(r => r.length));
+      // Cap visible columns at 5 — tables with 6-10 columns squeeze
+      // every cell to "ab…" ellipses even at colspan=6. Excess cols
+      // get dropped; the visible 5 retain their semantic weight.
+      // User 2026-05-21: "maybe we need to limit tables to 2 or 3
+      // columns or something".
+      const MAX_COLS = 5;
+      const rawCols = Math.max(...rows.map(r => r.length));
+      const cols = Math.min(MAX_COLS, rawCols);
+      const trimmedRows = rows.map(r => r.slice(0, cols));
+      rows = trimmedRows;
       const colMaxLen = new Array(cols).fill(0);
       for (const r of rows) {
         for (let ci = 0; ci < cols; ci++) {
