@@ -6467,6 +6467,16 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   fullCanvas.width = obj?.userData?.canvasW || (192 * cs);
   fullCanvas.height = canvasH || obj?.userData?.canvasH || 576;
   const ctx = fullCanvas.getContext("2d");
+  // Fill the full background BEFORE compositing. Substrate renderers
+  // draw on transparent canvases (no per-canvas fillRect — kept that
+  // way so they can be composited into any backdrop), so without
+  // this fill the gaps between drawn elements were fully transparent
+  // RGBA(0,0,0,0). Three.CanvasTexture on a MeshBasicMaterial bled
+  // the WebGL clear color through those gaps, which the user reads
+  // as "text overflowing the cell" — actually it was the cell
+  // backdrop disappearing around its content.
+  ctx.fillStyle = "#000814";
+  ctx.fillRect(0, 0, fullCanvas.width, fullCanvas.height);
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   if (!S._snapTexCache) S._snapTexCache = new Map();
