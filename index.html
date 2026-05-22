@@ -5441,14 +5441,12 @@ function _mixed3dStyleMermaidSVG(svgString) {
         fill: transparent !important;
       }
       .node rect, .node polygon, .node circle, .node ellipse, .node path {
-        /* Bumped fill from 0.18 to a near-opaque dark navy with cyan
-           tint so node boxes actually delineate against the transparent
-           cell backdrop. Was reading as text floating without
-           containers when the tower-glass cyan behind the cell sat
-           behind the lightly-tinted boxes (user 2026-05-21 "text still
-           overflowing in mermaid"). The actual mermaid layout sizes
-           rects correctly for the text — visibility was the issue. */
-        fill: rgba(8, 22, 40, 0.92) !important;
+        /* Outline-only — solid backdrops made cells feel heavy + opaque
+           against the tower glass. Visibility comes from the 2.5px
+           cyan stroke + the uppercased text weight, not from a filled
+           container. User 2026-05-21: "I don't like these solid
+           background cells". */
+        fill: transparent !important;
         stroke: #00ddff !important;
         stroke-width: 2.5px !important;
       }
@@ -5500,7 +5498,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
       .section-root circle, .section-0 circle, .section-1 circle,
       .section-2 circle, .section-3 circle, .section-4 circle,
       .mindmap-node rect, .mindmap-node circle {
-        fill: rgba(0, 221, 255, 0.18) !important;
+        fill: transparent !important;
         stroke: #00ddff !important;
       }
     </style>
