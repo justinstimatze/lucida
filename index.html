@@ -2766,6 +2766,10 @@ function applyMixed3DLayout(opts) {
   window.addEventListener("click", (e) => {
     const S = _mixed3dState;
     if (!S || S._warmupActive) return;
+    // (Earlier boot-ease-in guard removed 2026-05-23: it broke
+    // legitimate left-click-to-lerp interactions. The actual stuck-
+    // state was free-flight _userTookCamera, not click-during-boot;
+    // R / Escape reset paths cover that.)
     // Ignore clicks on HUD chrome (dropdowns, dialogs, etc).
     if (e.target?.closest?.("#hud, #notebook-dialog, .dropdown, button, a")) return;
     const T2 = window.THREE;
@@ -2817,8 +2821,79 @@ function applyMixed3DLayout(opts) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
   }, true);
+  // Mouselook on left-drag: distinguish click (≤6px movement) from
+  // drag (>6px) so a stationary click still fires the click-to-park
+  // raycaster above. On drag, suspend swoopy (set _userTookCamera +
+  // seed _ffYaw/_ffPitch from current camera dir), accumulate
+  // movementX/Y deltas. On mouseup if dragged, swallow the next
+  // click so park doesn't fire. Reset via R / Escape per the
+  // free-flight exit hatch added 2026-05-23. Trackpad-friendly
+  // (no need for a right mouse button).
+  const _mlState = { down: null, dragging: false, suppressNextClick: false };
+  // 10px (was 6px) so trackpad-click jitter doesn't enter mouselook
+  // accidentally. User 2026-05-23 reports a stationary trackpad click
+  // can register a small motion delta.
+  const DRAG_THRESHOLD_PX = 10;
+  const MOUSELOOK_SENS = 0.003;
+  window.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    const S = _mixed3dState;
+    if (!S || S._warmupActive) return;
+    if (e.target?.closest?.("#hud, #notebook-dialog, .dropdown, button, a")) return;
+    _mlState.down = { x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY };
+    _mlState.dragging = false;
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!_mlState.down) return;
+    const dx = e.clientX - _mlState.down.x;
+    const dy = e.clientY - _mlState.down.y;
+    if (!_mlState.dragging && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
+      const S = _mixed3dState;
+      if (!S || !S.camera) return;
+      const T = window.THREE;
+      const dir = new T.Vector3();
+      S.camera.getWorldDirection(dir);
+      S._ffYaw = Math.atan2(dir.x, dir.z);
+      S._ffPitch = Math.asin(Math.max(-1, Math.min(1, dir.y)));
+      S._userTookCamera = true;
+      _mlState.dragging = true;
+    }
+    if (_mlState.dragging) {
+      const S = _mixed3dState;
+      if (!S) return;
+      const movX = e.clientX - _mlState.down.lastX;
+      const movY = e.clientY - _mlState.down.lastY;
+      S._ffYaw = (S._ffYaw || 0) - movX * MOUSELOOK_SENS;
+      S._ffPitch = Math.max(-1.3, Math.min(1.3, (S._ffPitch || 0) + movY * MOUSELOOK_SENS));
+      _mlState.down.lastX = e.clientX;
+      _mlState.down.lastY = e.clientY;
+    }
+  });
+  window.addEventListener("mouseup", (e) => {
+    if (e.button !== 0) return;
+    if (!_mlState.down) return;
+    if (_mlState.dragging) _mlState.suppressNextClick = true;
+    _mlState.down = null;
+    _mlState.dragging = false;
+  });
+  // Suppress the click event that fires after a drag-release so the
+  // click-to-park raycaster doesn't fire on the mouseup of a drag.
+  window.addEventListener("click", (e) => {
+    if (_mlState.suppressNextClick) {
+      _mlState.suppressNextClick = false;
+      e.stopPropagation();
+    }
+  }, true);
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && _mixed3dState?._park) window._mixed3dUnpark();
+    if (e.key === "Escape") {
+      // Escape clears parked OR free-flight state. Without the latter
+      // branch, pressing WASD/arrows then Escape left _userTookCamera
+      // true and the swoopy never re-engaged (reported 2026-05-23).
+      if (_mixed3dState?._park) window._mixed3dUnpark();
+      if (_mixed3dState?._userTookCamera && typeof window._mixed3dResetSwoopy === "function") {
+        window._mixed3dResetSwoopy();
+      }
+    }
   });
 
   const css3dRenderer = new T.CSS3DRenderer();
@@ -4004,6 +4079,15 @@ if (typeof window !== "undefined" && !window._mixed3dDebugKeysWired) {
     if (e.key === "p" || e.key === "P") { _mixed3dDumpContactSheet(); e.preventDefault(); return; }
     // ? — toggle keybinding legend.
     if (e.key === "?") { _mixed3dToggleHotkeyLegend(); e.preventDefault(); return; }
+    // R — reset to swoopy tour. Exit point from free-flight (WASD/arrow)
+    // AND from any state where the camera is stuck (e.g. clicked
+    // during boot ease-in left arcAccum=null). Mirrors window
+    // _mixed3dResetSwoopy below so callers can fire it from JS too.
+    if (e.key === "r" || e.key === "R") {
+      if (typeof window._mixed3dResetSwoopy === "function") window._mixed3dResetSwoopy();
+      e.preventDefault();
+      return;
+    }
   });
   window.addEventListener("keyup", (e) => {
     window._mixed3dFreeFlightKeys.delete(e.code);
@@ -4582,15 +4666,18 @@ function _mixed3dDriveSwoopyTour(t) {
     if (sw.scanNextStart == null) sw.scanNextStart = t + 6 + Math.random() * 4;
     if (t >= sw.scanNextStart) {
       const dts = t - sw.scanNextStart;
-      // 2.5s ramp in, 12s hold, 2.5s ramp out → 17s total scan window.
-      // User 2026-05-22: "more slow passes across tower faces so cells
-      // are more clearly visible as temporarily a 2D viz". Longer hold
+      // 5s ramp in, 12s hold, 5s ramp out → 22s total scan window.
+      // Was 2.5/12/2.5 (17s) but the 2.5s ramp swung the lookAt ~90°
+      // in 2.5s = peak 36°/s visible yaw, which read as a fast
+      // direction change. Doubling the ramp to 5s drops peak yaw to
+      // ~18°/s, "impressively slow and intentional" (user 2026-05-23).
+      // Longer hold
       // + lower scanMult floor below = camera glides past more cells
       // per scan, not just parks-and-vertical-pans on one slot.
       let f;
-      if (dts < 2.5) f = dts / 2.5;
-      else if (dts < 14.5) f = 1;
-      else if (dts < 17.0) f = (17.0 - dts) / 2.5;
+      if (dts < 5.0) f = dts / 5.0;
+      else if (dts < 17.0) f = 1;
+      else if (dts < 22.0) f = (22.0 - dts) / 5.0;
       else {
         f = 0;
         // 6-10s forward fly between scans (was 8-14s) — more frequent
@@ -4678,8 +4765,8 @@ function _mixed3dDriveSwoopyTour(t) {
     // vertical pan is a secondary cue, not the primary reveal.
     const SCAN_Y_TOP = 11;
     const SCAN_Y_BOT = 5;
-    // panU stretched to match the 17s scan window (2.5 + 12 + 2.5).
-    const panU = Math.max(0, Math.min(1, dts / 17.0));
+    // panU stretched to match the 22s scan window (5 + 12 + 5).
+    const panU = Math.max(0, Math.min(1, dts / 22.0));
     const scanY = SCAN_Y_TOP - (SCAN_Y_TOP - SCAN_Y_BOT) * panU;
     desiredPos.y = desiredPos.y * (1 - sf) + scanY * sf;
   }
@@ -4723,11 +4810,22 @@ function _mixed3dDriveSwoopyTour(t) {
     cam.position.z + tan.z * fwdLookAhead * fwdMix + perpZ * scanSide * perpLookAhead * perpMix,
   );
   if (!sw.lookAtActual) sw.lookAtActual = lookAtTarget.clone();
-  sw.lookAtActual.lerp(lookAtTarget, Math.min(1, dt * 5.0));
+  // 2.5 (was 5.0): doubles the lookAt time constant from 0.2s to 0.4s.
+  // At Catmull-Rom corners the curve tangent rotates ~45° in <0.5s; a
+  // fast lookAt lerp turns that into a visible 225°/s yaw spike (user
+  // 2026-05-23 "still a fast yaw"). Slower catch-up smears the same
+  // angular change across more frames, dropping peak visible yaw rate.
+  sw.lookAtActual.lerp(lookAtTarget, Math.min(1, dt * 2.5));
   // Banking: sliding heading-rate window. Smooths C² discontinuities
   // at curve control points.
   sw.headingHistory.push({ time: t, heading: Math.atan2(tan.z, tan.x) });
-  const HEADING_WIN = 1.5;
+  // Window must be SHORTER than a corner-pass duration for cornerMult
+  // (line 4645) to actually engage. A 1.5s window smoothed spikes across
+  // an entire corner transit (~0.3s) so avgRate read ~0.03 at peak yaw
+  // and the brake never fired — verified via 1176-sample chrome MCP
+  // probe 2026-05-23 (9% of samples > 30°/s yaw with lastAvgRate ≈ 0).
+  // 0.3s lets avgRate spike at the actual corner timescale.
+  const HEADING_WIN = 0.3;
   while (sw.headingHistory.length > 0 && t - sw.headingHistory[0].time > HEADING_WIN) {
     sw.headingHistory.shift();
   }
@@ -5024,6 +5122,25 @@ function _mixed3dResetCameraTimer() {
     _mixed3dState.swoopCam.arcAccum = null;
   }
 }
+
+// Public reset: clears free-flight + park + mouselook state so the
+// swoopy tour reclaims control. Without this, _userTookCamera stays
+// true for the page session and the swoopy never re-engages — exactly
+// the trap reported 2026-05-23 ("entered free-flying mode, can't
+// exit"). Bound to R key, Escape, and exposed on window for JS callers.
+window._mixed3dResetSwoopy = function () {
+  const S = _mixed3dState;
+  if (!S) return;
+  S._userTookCamera = false;
+  S._ffYaw = undefined;
+  S._ffPitch = undefined;
+  S._mouselookActive = false;
+  if (window._mixed3dFreeFlightKeys) window._mixed3dFreeFlightKeys.clear();
+  if (S._park && typeof window._mixed3dUnpark === "function") {
+    window._mixed3dUnpark();
+  }
+  _mixed3dResetCameraTimer();
+};
 
 // bfcache restore: when the user navigates back via the browser back
 // button, pageshow fires with persisted=true and the JS state is
@@ -5625,6 +5742,21 @@ function _mixed3dStyleMermaidSVG(svgString) {
       font-family: "Eurostile", "trebuchet ms", sans-serif !important;
       font-size: 12px !important;
     }
+    /* Mindmaps have more breathing room than flowcharts — labels can
+       be bigger without overflowing nodes. cell-3221 (TRIZ mindmap)
+       was 12px at colspan=3 and read as too small (user 2026-05-23).
+       Bump mindmap to 14px, root node to 17px+bold. Flowcharts still
+       use the validated 12px text-fit pin (memory:
+       feedback_mermaid_text_fit_validated). */
+    g.mindmap-node text, g.mindmap-node tspan,
+    g.mindmap-nodes text, g.mindmap-nodes tspan {
+      font-size: 14px !important;
+    }
+    g.mindmap-node.section-root text, g.mindmap-node.section-root tspan,
+    .section-root text, .section-root tspan {
+      font-size: 17px !important;
+      font-weight: 700 !important;
+    }
     .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
       stroke: #66e6ff !important;
       stroke-width: 2px !important;
@@ -5955,7 +6087,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // _mixed3dStyleMermaidSVG changes so stale renders don't haunt
   // future sessions. v4 = aspect-fit init-block + mindmap node-bkg
   // transparent + entity-safe tspan upper (2026-05-22).
-  const STYLE_V = "v5";
+  const STYLE_V = "v6";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
@@ -10767,6 +10899,111 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       svg.setAttribute("viewBox", "0 0 100 100");
       svg.setAttribute("class", "gauge-svg gauge-state-" + state);
       svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+      // Hackers theme: rectilinear horizontal-bar readout instead of
+      // the analog dial. The Gibson canon (Hackers 1995, NERV, Tron
+      // Legacy) is militantly rectilinear — a needle-on-dial reads
+      // as "analog instrument from a different system". User
+      // 2026-05-23: round viz should be more square/blocky in
+      // hackers since text and towers are all square and blocky.
+      if (document.documentElement.classList.contains("theme-hackers")) {
+        svg.setAttribute("class", "gauge-svg gauge-bar gauge-state-" + state);
+        const BAR_X0 = 8, BAR_X1 = 92, BAR_Y = 60, BAR_H = 7;
+        const xAt = (r) => BAR_X0 + (BAR_X1 - BAR_X0) * r;
+        // Track
+        const track = document.createElementNS(ns, "rect");
+        track.setAttribute("x", BAR_X0); track.setAttribute("y", BAR_Y - BAR_H / 2);
+        track.setAttribute("width", BAR_X1 - BAR_X0); track.setAttribute("height", BAR_H);
+        track.setAttribute("class", "gauge-track");
+        svg.appendChild(track);
+        // Warn / danger zones — colored bg strips inside the track.
+        if (warnRatio !== null) {
+          const warnZone = document.createElementNS(ns, "rect");
+          let zx0, zx1;
+          if (dir === "higher_is_worse") {
+            zx0 = xAt(warnRatio);
+            zx1 = xAt(dangerRatio !== null ? dangerRatio : 1);
+          } else {
+            zx0 = xAt(dangerRatio !== null ? dangerRatio : 0);
+            zx1 = xAt(warnRatio);
+          }
+          warnZone.setAttribute("x", zx0); warnZone.setAttribute("y", BAR_Y - BAR_H / 2);
+          warnZone.setAttribute("width", Math.max(0, zx1 - zx0)); warnZone.setAttribute("height", BAR_H);
+          warnZone.setAttribute("class", "gauge-zone-warn");
+          svg.appendChild(warnZone);
+        }
+        if (dangerRatio !== null) {
+          const dangerZone = document.createElementNS(ns, "rect");
+          let zx0, zx1;
+          if (dir === "higher_is_worse") {
+            zx0 = xAt(dangerRatio);
+            zx1 = xAt(1);
+          } else {
+            zx0 = xAt(0);
+            zx1 = xAt(dangerRatio);
+          }
+          dangerZone.setAttribute("x", zx0); dangerZone.setAttribute("y", BAR_Y - BAR_H / 2);
+          dangerZone.setAttribute("width", Math.max(0, zx1 - zx0)); dangerZone.setAttribute("height", BAR_H);
+          dangerZone.setAttribute("class", "gauge-zone-danger");
+          svg.appendChild(dangerZone);
+        }
+        // Value fill — the live "needle equivalent" — a notch+rail.
+        const valueFill = document.createElementNS(ns, "rect");
+        valueFill.setAttribute("x", BAR_X0); valueFill.setAttribute("y", BAR_Y - BAR_H / 2);
+        valueFill.setAttribute("width", (BAR_X1 - BAR_X0) * ratio);
+        valueFill.setAttribute("height", BAR_H);
+        valueFill.setAttribute("class", "gauge-value-arc");
+        svg.appendChild(valueFill);
+        // Value notch — vertical tick at the current value position,
+        // taller than the bar so it reads as an indicator marker.
+        const notch = document.createElementNS(ns, "line");
+        const nx = xAt(ratio);
+        notch.setAttribute("x1", nx); notch.setAttribute("y1", BAR_Y - BAR_H / 2 - 4);
+        notch.setAttribute("x2", nx); notch.setAttribute("y2", BAR_Y + BAR_H / 2 + 4);
+        notch.setAttribute("class", "gauge-notch");
+        svg.appendChild(notch);
+        // Ticks at 0/25/50/75/100 under the bar.
+        for (const tr of [0, 0.25, 0.5, 0.75, 1]) {
+          const tx = xAt(tr);
+          const tick = document.createElementNS(ns, "line");
+          tick.setAttribute("x1", tx); tick.setAttribute("y1", BAR_Y + BAR_H / 2 + 1);
+          tick.setAttribute("x2", tx); tick.setAttribute("y2", BAR_Y + BAR_H / 2 + 5);
+          tick.setAttribute("class", "gauge-tick");
+          svg.appendChild(tick);
+        }
+        // Value text — large, above the bar.
+        const valText = document.createElementNS(ns, "text");
+        valText.setAttribute("x", "50"); valText.setAttribute("y", "42");
+        valText.setAttribute("text-anchor", "middle");
+        valText.setAttribute("class", "gauge-value");
+        const valFmt = Number.isInteger(value) ? String(value) : value.toFixed(1);
+        valText.textContent = valFmt + (spec.unit || "");
+        svg.appendChild(valText);
+        // Label above value.
+        if (spec.label) {
+          const lbl = document.createElementNS(ns, "text");
+          lbl.setAttribute("x", "50"); lbl.setAttribute("y", "20");
+          lbl.setAttribute("text-anchor", "middle");
+          lbl.setAttribute("class", "gauge-label");
+          lbl.textContent = String(spec.label).slice(0, 24);
+          svg.appendChild(lbl);
+        }
+        // Min / max at bar ends.
+        const minTxt = document.createElementNS(ns, "text");
+        minTxt.setAttribute("x", BAR_X0); minTxt.setAttribute("y", BAR_Y + BAR_H / 2 + 13);
+        minTxt.setAttribute("text-anchor", "start");
+        minTxt.setAttribute("class", "gauge-range-tick");
+        minTxt.textContent = String(min);
+        svg.appendChild(minTxt);
+        const maxTxt = document.createElementNS(ns, "text");
+        maxTxt.setAttribute("x", BAR_X1); maxTxt.setAttribute("y", BAR_Y + BAR_H / 2 + 13);
+        maxTxt.setAttribute("text-anchor", "end");
+        maxTxt.setAttribute("class", "gauge-range-tick");
+        maxTxt.textContent = String(max);
+        svg.appendChild(maxTxt);
+        target.replaceChildren(svg);
+        return;
+      }
       // Background track (full sweep).
       const track = document.createElementNS(ns, "path");
       track.setAttribute("d", arcD(RING_R, 0, 1));

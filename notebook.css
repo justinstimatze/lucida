@@ -5151,6 +5151,42 @@ body {
   font-size: 3.5px;
 }
 
+/* Bar-gauge variant (used by hackers theme): horizontal readout
+   instead of analog dial. SVG elements are <rect>s (not arc paths),
+   so we override stroke-based defaults with fill-based equivalents. */
+.gauge-bar .gauge-track {
+  fill: color-mix(in srgb, var(--accent-primary, #00ddff) 12%, transparent);
+  stroke: color-mix(in srgb, var(--accent-primary, #00ddff) 35%, transparent);
+  stroke-width: 0.6;
+}
+.gauge-bar .gauge-zone-warn {
+  fill: color-mix(in srgb, var(--vis-warn, #f0b500) 35%, transparent);
+  stroke: none;
+}
+.gauge-bar .gauge-zone-danger {
+  fill: color-mix(in srgb, var(--vis-tripped, #d44) 38%, transparent);
+  stroke: none;
+}
+.gauge-bar .gauge-value-arc {
+  fill: var(--accent-primary, #00ddff);
+  stroke: none;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent-primary, #00ddff) 55%, transparent));
+}
+.gauge-bar.gauge-state-warn .gauge-value-arc { fill: var(--vis-warn, #f0b500); }
+.gauge-bar.gauge-state-danger .gauge-value-arc { fill: var(--vis-tripped, #d44); }
+.gauge-bar .gauge-notch {
+  stroke: #ffffff;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.8));
+}
+.gauge-bar .gauge-tick {
+  stroke: color-mix(in srgb, var(--accent-primary, #00ddff) 55%, transparent);
+  stroke-width: 0.5;
+}
+.gauge-bar .gauge-value { font-size: 13px; }
+.gauge-bar .gauge-label { font-size: 5px; }
+.gauge-bar .gauge-range-tick { font-size: 4.2px; }
+
 /* Theme-specific gauge styling — gastown reads as a brass pressure
    gauge, conclave/magi reads as NERV terminal, etc. Most themes can
    piggyback on the default tokens. */
@@ -5365,4 +5401,36 @@ body.layout-mixed3d .cell-head {
   color: #ff3a8c !important;
   border-bottom-color: color-mix(in srgb, #ff3a8c 60%, transparent);
   text-shadow: 0 0 4px color-mix(in srgb, #ff3a8c 40%, transparent);
+}
+
+/* Tier-1 text density boost: tier-2 decorative cells render text as
+   bold 14px Eurostile in saturated cyan with a subtle CRT glow (see
+   _mixed3dBuildDecorativeLayer in index.html). Default tier-1 text
+   fell back to --text-fg=#cceeff (muted) with no font-weight, so
+   tier-1 cells visually receded next to their decorative neighbors.
+   This rule lifts tier-1 to the same density tier. (User
+   2026-05-23: "tier 1 cel text could be bolder and brighter ...
+   should basically be in that same tier of bold and bright" as the
+   decorative.) */
+.theme-hackers .cell .cell-title,
+.theme-hackers .cell .cell-caption,
+.theme-hackers .cell .cell-body,
+.theme-hackers .cell .cell-callout,
+.theme-hackers .cell .cell-callout .big,
+.theme-hackers .cell .cell-callout .label {
+  font-weight: 600 !important;
+  color: #d4f5ff !important;
+  text-shadow: 0 0 3px color-mix(in srgb, #00ddff 35%, transparent);
+}
+.theme-hackers .cell .cell-title {
+  color: #00ddff !important;
+}
+/* Body prose / table cells / list items inherit the brighter fg as
+   well — anywhere text lands inside .theme-hackers .cell. */
+.theme-hackers .cell p,
+.theme-hackers .cell td,
+.theme-hackers .cell li,
+.theme-hackers .cell span,
+.theme-hackers .cell div:not(.cell-body):not(.cell-callout) {
+  color: #d4f5ff;
 }
