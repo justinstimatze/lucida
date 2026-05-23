@@ -3612,13 +3612,23 @@ function applyMixed3DLayout(opts) {
       upZ: c.up.z.toFixed(1),
     };
   };
+  // Diagnostic console output (frame-stalls, state-change deltas)
+  // is useful when debugging but reads as noise in a freshly-opened
+  // DevTools console (~50 lines in the first 10s of boot). Gate
+  // behind ?debug=1 / ?perf=1 so the share-ready default page is
+  // quiet. One-shot info logs (boot, mount drain done, snap driver
+  // started) stay unconditional — they're informative without
+  // being noisy.
+  const _mixed3dDebug =
+    new URLSearchParams(window.location.search).get("debug") === "1" ||
+    new URLSearchParams(window.location.search).get("perf") === "1";
   const tick = () => {
     if (!_mixed3dState || !_mixed3dState.animation.running) return;
     requestAnimationFrame(tick);
     const now = performance.now();
     if (_lastFrameTs > 0) {
       const dt = now - _lastFrameTs;
-      if (dt > 50) {
+      if (dt > 50 && _mixed3dDebug) {
         // log (not warn) so devtools doesn't append a stack trace per stall.
         console.log(`[mixed3d] frame stall: ${dt.toFixed(0)}ms gap @ ${now.toFixed(0)}ms`);
       }
@@ -3645,8 +3655,9 @@ function applyMixed3DLayout(opts) {
     }
     _lastFrameTs = now;
     // Sample state every 10 frames; log on change. Catches the binary
-    // tower-vanish symptom in real time.
-    if ((++_diagFrameI) % 10 === 0) {
+    // tower-vanish symptom in real time. Gated behind ?debug=1 —
+    // useful when actively investigating, noisy in the default view.
+    if (_mixed3dDebug && (++_diagFrameI) % 10 === 0) {
       const snap = _diagSnapshot();
       if (snap && _diagLast) {
         for (const k of Object.keys(snap)) {
