@@ -4185,8 +4185,22 @@ function _mixed3dDriveCamera(t) {
   if (_mixed3dState._park) {
     const T = window.THREE;
     if (T) {
-      _mixed3dState.camera.position.lerp(_mixed3dState._park.target, 0.08);
-      _mixed3dState.camera.lookAt(_mixed3dState._park.lookAt);
+      const park = _mixed3dState._park;
+      // Seed lookAtActual from the camera's CURRENT forward vector so
+      // the look direction lerps smoothly from wherever the camera was
+      // pointing (mid-swoopy / mid-mouselook) to the cell — instead
+      // of snapping. User 2026-05-23 "smooth transition away from
+      // current camera position instead of just snapping to zoom".
+      if (!park.lookAtActual) {
+        const dir = new T.Vector3();
+        _mixed3dState.camera.getWorldDirection(dir);
+        park.lookAtActual = _mixed3dState.camera.position
+          .clone()
+          .add(dir.multiplyScalar(8));
+      }
+      _mixed3dState.camera.position.lerp(park.target, 0.08);
+      park.lookAtActual.lerp(park.lookAt, 0.08);
+      _mixed3dState.camera.lookAt(park.lookAtActual);
     }
     return;
   }
