@@ -239,7 +239,26 @@ def evaluate_image_cell(
         raise EvaluatorError("anthropic SDK not installed") from e
 
     client = anthropic.Anthropic(api_key=api_key)
-    image_b64 = base64.standard_b64encode(image_path.read_bytes()).decode("utf-8")
+    # Resize the image to a 512-px bounding box before sending. Vision
+    # token cost scales with input image size; generated cell PNGs are
+    # often 1024x1024 ≈ 1500 vision tokens. 512x512 ≈ 425 tokens — same
+    # eval quality (these are stylized FUI cells, not photographs), ~70%
+    # token savings per call ≈ ~$0.015/cell on retriggered cells.
+    # PIL is an optional dep (Pillow in [image] extras); fall back to
+    # raw bytes if not installed.
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            img.thumbnail((512, 512), Image.LANCZOS)
+            buf = BytesIO()
+            img.save(buf, format="PNG", optimize=True)
+            image_bytes = buf.getvalue()
+    except ImportError:
+        image_bytes = image_path.read_bytes()
+    image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
     user_content = [
         {
