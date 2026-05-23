@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=10" />
+<link rel="stylesheet" href="notebook.css?v=11" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -11454,6 +11454,57 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       strip.appendChild(label);
       strip.appendChild(renderCell(prev, snippetGroups, cellsById, { compact: true }));
       card.appendChild(strip);
+    }
+  }
+
+  // Archetype backdrop — paint substrate's themed-ambient archetype
+  // (graph / bars / lines / series / bar-meter / blocks; same dispatch
+  // as _mixed3dDrawCellPreview) at low alpha behind the cell body.
+  // Substrate-content sits on top via z-index 1. Empty cell space
+  // shows the archetype pattern, so a sparse cell reads "data
+  // archetype lives here" instead of "blank rectangle." User
+  // 2026-05-23: "post render fill cells with decorative content ...
+  // fills empty space with our decorative primitives". Task #183
+  // (B-path; A-path was the static SVG glyph fill in 8b59df3, now
+  // composes with this archetype layer underneath).
+  if (!opts.compact && typeof _mixed3dDrawCellPreview === "function") {
+    const bg = el("canvas", "cell-archetype-bg");
+    card.appendChild(bg);
+    const paint = () => {
+      const rect = card.getBoundingClientRect();
+      if (rect.width < 10 || rect.height < 10) return;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = Math.max(2, Math.floor(rect.width * dpr));
+      const h = Math.max(2, Math.floor(rect.height * dpr));
+      if (bg.width !== w) bg.width = w;
+      if (bg.height !== h) bg.height = h;
+      bg.style.width = rect.width + "px";
+      bg.style.height = rect.height + "px";
+      const ctx = bg.getContext("2d");
+      ctx.clearRect(0, 0, w, h);
+      ctx.globalAlpha = 0.18;
+      try {
+        _mixed3dDrawCellPreview(ctx, card, 0, 0, w, h, "#00ddff", "#ff3a8c");
+      } catch (e) {
+        /* preview throws on degenerate inputs; ignore */
+      }
+    };
+    // Defer first paint until layout has sized the cell.
+    requestAnimationFrame(() => requestAnimationFrame(paint));
+    if (typeof ResizeObserver !== "undefined") {
+      // Debounced re-paint on size changes (cell-body lazy substrates
+      // mount asynchronously, growing the cell). Single rAF debounce
+      // is enough; ResizeObserver coalesces internally.
+      let rafId = 0;
+      const ro = new ResizeObserver(() => {
+        if (rafId) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = 0;
+          paint();
+        });
+      });
+      ro.observe(card);
+      card._archetypeBgRO = ro;
     }
   }
 
