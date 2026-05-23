@@ -56,8 +56,19 @@ cp .env.example .env
 Start the renderer — open this on your second monitor and leave it there:
 
 ```bash
-python3 -m http.server 8766
+python3 serve.py
 # http://localhost:8766/
+```
+
+`serve.py` bundles the static server and the snap receiver (which
+persists Mermaid SVG renders into `cells/` so heavy substrates don't
+re-render every session). `python3 -m http.server 8766` works too but
+skips the cache.
+
+For the Tron/Hackers (1995) Gibson canyon look on first run, try:
+
+```
+http://localhost:8766/?theme=hackers&layout=mixed3d
 ```
 
 Start watching your Claude Code session:
@@ -73,6 +84,10 @@ That's it. New cells appear as the conversation progresses.
 The display starts blank — cells mint as new content appears in the
 transcript. Start a conversation in Claude Code and within a few exchanges
 you'll see the first cells land. You'll immediately feel cooler.
+
+Prefer one command? `./scripts/start.sh` launches `serve.py` and `watcher.py`
+side-by-side with labeled output. Edit the script to point at your own
+transcript path.
 
 ---
 
@@ -150,11 +165,36 @@ The `SESSION` chip opens a dropdown listing every session in the corpus.
 Full URL param reference:
 
 ```
-?theme=<name>               theme
-?layout=<name>              layout (pack / organic / scatter / tactical / terminal)
+?theme=<name>               theme (lab / vigil / ops / circuit / noir / terminus /
+                            renegade / mainframe / conclave / minimal / gastown /
+                            hackers)
+?layout=<name>              layout (pack / grid / treemap / scatter / tactical /
+                            terminal / mixed3d)
 ?session=<id>               scope to one session
 ?session=<a>,<b>,<c>        N-column mission-control view
+?nocache=1                  bypass the persistent SVG cache (force fresh mermaid
+                            renders this load)
+?perf=1                     dev: enable per-frame perf logging
+?debug=1                    dev: enable mixed3d debug logging
 ```
+
+In `?layout=mixed3d`, dev keys: `D` toggles the debug overlay (camera path
++ tower bounds), `Q` dumps a contact sheet of all rendered tier-1 cells
+into `refs/gibson/live-shots/`.
+
+---
+
+## Related projects
+
+- [agentic-city](https://github.com/mrf/agentic-city) by Mark Ferree —
+  kindred local-only FUI dashboard for AI sessions, but framed from the
+  opposite angle: it renders the codebase as an isometric SimCity with
+  active Claude/Codex/Gemini agents flying overhead as UFOs. Where
+  lucida centers the *transcript content* as visual cells, agentic-city
+  centers the *codebase* as terrain. The companion library
+  [agentwatch](https://github.com/mrf/agentwatch) is a Go transcript-
+  watcher that normalizes Claude/Codex/Gemini session state into one
+  feed — worth a look if you want multi-vendor session ingest.
 
 ---
 
