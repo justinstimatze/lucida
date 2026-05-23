@@ -315,30 +315,60 @@ def merge_cells(out_cells: list[dict], existing: list[dict]) -> list[dict]:
     return kept + out_cells
 
 
+CELLS_LOCK_PATH = CELLS_PATH.with_suffix(".json.lock")
+
+
+def _cells_lock():
+    """Acquire the same fcntl lock orchestrator.cells_lock() uses, so a
+    --watch loop here can't race the watcher's mint cycle."""
+    try:
+        import fcntl
+    except ImportError:
+        return None
+    fp = open(CELLS_LOCK_PATH, "a+")  # noqa: SIM115 — flock'd, released by caller
+    fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
+    return fp
+
+
+def _cells_unlock(fp) -> None:
+    if fp is None:
+        return
+    try:
+        import fcntl
+
+        fcntl.flock(fp.fileno(), fcntl.LOCK_UN)
+    finally:
+        fp.close()
+
+
 def write_cells(out_cells: list[dict], make_backup: bool = True) -> None:
-    if CELLS_PATH.exists():
-        with CELLS_PATH.open() as f:
-            data = json.load(f)
-        existing = data["cells"] if isinstance(data, dict) and "cells" in data else data
-        wrap = data if isinstance(data, dict) and "cells" in data else None
-        if make_backup:
-            backup = CELLS_PATH.with_suffix(f".json.before-sysmetric-{int(time.time())}")
-            shutil.copy2(CELLS_PATH, backup)
-        merged = merge_cells(out_cells, existing)
-    else:
-        merged = out_cells
-        wrap = None
+    lock = _cells_lock()
+    try:
+        if CELLS_PATH.exists():
+            with CELLS_PATH.open() as f:
+                data = json.load(f)
+            existing = data["cells"] if isinstance(data, dict) and "cells" in data else data
+            wrap = data if isinstance(data, dict) and "cells" in data else None
+            if make_backup:
+                backup = CELLS_PATH.with_suffix(f".json.before-sysmetric-{int(time.time())}")
+                shutil.copy2(CELLS_PATH, backup)
+            merged = merge_cells(out_cells, existing)
+        else:
+            merged = out_cells
+            wrap = None
 
-    if wrap is not None:
-        wrap["cells"] = merged
-        payload: Any = wrap
-    else:
-        payload = merged
+        if wrap is not None:
+            wrap["cells"] = merged
+            payload: Any = wrap
+        else:
+            payload = merged
 
-    tmp = CELLS_PATH.with_suffix(".json.tmp")
-    with tmp.open("w") as f:
-        json.dump(payload, f, indent=2)
-    tmp.replace(CELLS_PATH)
+        tmp = CELLS_PATH.with_suffix(".json.tmp")
+        with tmp.open("w") as f:
+            json.dump(payload, f, indent=2)
+        tmp.replace(CELLS_PATH)
+    finally:
+        _cells_unlock(lock)
 
 
 def run_once(state: dict[str, Any], window: int, dt_sec: float, write: bool, backup: bool) -> None:
