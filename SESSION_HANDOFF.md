@@ -1,4 +1,52 @@
-# Session handoff — 2026-05-22 (evening)
+# Session handoff — 2026-05-23 (foundation + hackers share-ready)
+
+Long day. Closed the foundation-firming pass on top of yesterday's blank-cell win, then iterated hard on hackers/mixed3d aesthetic, then a token-burn audit and small cleanup. Page is share-ready for friends on `?theme=hackers&layout=mixed3d`. Twenty-five+ commits.
+
+## Headline state
+
+- Foundation hardened: `cells.json` atomic write + fcntl flock, snap_receiver path-derived, 23 new tests on orchestrator/reflect/evaluator, `.env.example` documents all 15 env vars, README points at `serve.py` (was `http.server`), `scripts/start.sh` one-command bring-up, agentic-city polite-nod under Related projects.
+- Camera in mixed3d: HEADING_WIN 1.5s → 0.3s + scan ramp 2.5s → 5s + lookAt lerp dt*5 → dt*2.5. Sustained-fast-yaw events collapsed 200 → 7 over 35s of cruise. Click-to-park now lerps lookAt smoothly (no snap on entry). Camera bounds in free-flight (y ∈ [1.5, 28], x/z within field+spacing).
+- R key + Escape → `_mixed3dResetSwoopy` (clears `_userTookCamera` + ff state + park + swoopy timer). Closes the "entered free-flying, can't exit" trap.
+- Mouselook on left-drag (10px threshold so trackpad clicks still fire park). Released → auto-resume swoopy. Install-once guard so layout switches don't leak listeners.
+- Hackers theme: tier-1 text font-weight 900 + saturated cyan + double cyan glow + 14px titles + 32px callout `.big`. Gauge → horizontal bar (both tier-1 SVG and tier-2 procedural). Timeline_ribbon markers → squares for hackers (other themes keep circles). Hackers `--vis-tripped: #ff3a8c` so failed states are pink not coral. mermaid `flowchart.curve: "step"` (PCB-trace orthogonal edges).
+- Tier-2 procedural drawer locked: archetype dispatch with explicit "themed-ambient, NOT faithful preview" contract. Most substrates → decorative-text painter (Eurostile-bold cyan tokens, matches the canyon's decorative layer). Bars (vega/treemap) + bar-meter (gauge) kept. Closes the architectural drift that caused the gauge dial leak.
+- Cell-archetype-bg canvas behind every cell content (renderCell at the end). Per-cell backing canvas paints the substrate archetype at alpha 0.18 behind content. Empty cell regions reveal the pattern. ResizeObserver disconnects via a `#notebook` MutationObserver on cell-removal (closes audit-flagged RO leak).
+- Inter-tower data streaks (5 elongated additive-cyan box meshes sliding at ~2.5 u/s along corridors) match the canyon_flythrough ref's horizontal light streak.
+- Tier-1 animation: `animated_svg` cells re-snap every 1.5s. Snap driver overrides the cache-skip for animated_svg in tier-1, capping at the existing snap budget. Closes "wish there was more tier 1 cell animation."
+- Token-burn audit landed: evaluator vision 1024→512px, reflect 1024→384px (Pillow), start.sh -print0/xargs -0. Specialist shared-boilerplate refactor *deferred*: overlap is ~150 tokens not 700, regression risk on 10 prompts dwarfs ~$0.0003/cell savings.
+- Console hygiene: frame-stall + state-change diagnostics gated behind `?debug=1`/`?perf=1`. Default DevTools view ~8 info logs, no 404s, no warnings.
+
+## Tomorrow's #1
+
+User said the theme-vision pass through bemygeminis (`bmg_describe` on every theme + tower face captures) is the next thing. Specifically: each theme has !important sprawl in `notebook.css` (40+ rules in hackers alone) — a focused theme-token + specificity-cleanup pass is the natural next move, paired with bmg-driven aesthetic comparison against the Gibson refs. Also: theme-token the cell-archetype-bg colors (currently hardcoded cyan/pink) so non-hackers themes render their own archetype-bg palette.
+
+## Today's commit summary (top-of-stack first)
+
+```
+7d56249 mixed3d: gate frame-stall + state-change diagnostics behind ?debug=1
+a326c10 mermaid: flowchart.curve "basis" → "step" (orthogonal elbow lines)
+014fd6b mixed3d: RO-leak cleanup + animated_svg tier-1 re-snap
+6dfdbf1 token-burn: vision image resize + start.sh whitespace-safe find
+17a75a7 mixed3d: tier-2 → decorative-text + hackers vis tokens + listener install-once
+f43afa9 mermaid: padding 8 → 16 for node-internal text breathing room
+210a974 renderCell: archetype-pattern backdrop canvas per cell (path B)
+8b59df3 hackers: decorative glyph fill behind cell content (post-render space-fill)
+d1e39b6 mixed3d: timeline_ribbon squares (hackers) + html stretches to fill cell
+8d6f5c6 mixed3d: mouselook drive fix + camera bounds + hackers content brighter/squarer
+efd80a7 mixed3d: tier-2 procedural — archetype dispatch + explicit contract
+e8378bf hackers: tier-2 procedural gauge → bar; circles → rects; CSS cache-bust
+4731911 hackers: tier-1 text really committed — black weight, saturated cyan, layered glow
+1fb24e3 mixed3d: inter-tower data streaks (canyon_flythrough fidelity match)
+c963687 mixed3d: click-to-park lerps lookAt too — no snap on entry
+f4e94ed mixed3d: yaw smoothing + R-to-reset + mouselook drag + gauge-bar + tier-1 brighter
+92b42a3 mixed3d: gate boot-perf log behind ?debug=1 / ?perf=1
+ad0279e tests: 23 new tests on orchestrator + reflect + evaluator data layer
+6a8d004 hardening: atomic cells.json write + cross-process flock + snap_receiver path
+5351c22 scripts: one-command start.sh (serve + watcher in one terminal)
+6d5bd1b docs: serve.py + hackers/mixed3d marquee URL + .env knobs + agentic-city nod
+```
+
+
 
 Marathon session. Twenty-three commits. Headline win: nailed the "blank cells on tower face" plague — root cause was a Three.js `CanvasTexture` GPU-dimension-binding gotcha that masqueraded as transparency / contrast / sparse-content issues for hours.
 
