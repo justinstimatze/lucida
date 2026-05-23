@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css" />
+<link rel="stylesheet" href="notebook.css?v=7" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -5138,35 +5138,57 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
     }
     ctx.stroke();
   } else if (ctype === "gauge") {
-    const cx = x0 + w / 2;
-    const cy = y0 + h * 0.75;
-    const r = Math.min(w, h) * 0.42;
-    ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.8;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, Math.PI, 0, false);
-    ctx.stroke();
-    ctx.strokeStyle = pink;
-    ctx.globalAlpha = 1.0;
+    // Tier-2 decorative gauge: rectilinear bar+notch (matches the
+    // tier-1 hackers gauge variant added 2026-05-23). The earlier
+    // arc/needle dial read as "analog instrument from another
+    // system" against the bold square tower text. User
+    // 2026-05-23: "still see circular gauges and I thought we
+    // switched to square".
+    const bx0 = x0 + w * 0.1;
+    const bx1 = x0 + w * 0.9;
+    const by = y0 + h * 0.55;
+    const bh = Math.max(3, h * 0.08);
+    ctx.fillStyle = cyan;
+    ctx.globalAlpha = 0.18;
+    ctx.fillRect(bx0, by - bh / 2, bx1 - bx0, bh);
+    const fill = 0.25 + rng() * 0.65;
+    ctx.fillStyle = cyan;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(bx0, by - bh / 2, (bx1 - bx0) * fill, bh);
+    // Notch marker at the value position.
+    ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.95;
+    const nx = bx0 + (bx1 - bx0) * fill;
     ctx.beginPath();
-    const angle = Math.PI + (0.25 + rng() * 0.65) * Math.PI;
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    ctx.moveTo(nx, by - bh / 2 - 3);
+    ctx.lineTo(nx, by + bh / 2 + 3);
     ctx.stroke();
+    // Tick marks beneath.
+    ctx.strokeStyle = cyan;
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1;
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      const tx = bx0 + (bx1 - bx0) * f;
+      ctx.beginPath();
+      ctx.moveTo(tx, by + bh / 2 + 1);
+      ctx.lineTo(tx, by + bh / 2 + 4);
+      ctx.stroke();
+    }
   } else if (ctype === "animated_svg" || ctype === "image") {
+    // Rectilinear blocks instead of circles — matches the hackers
+    // square-and-blocky rule (user 2026-05-23). Outlined rectangles
+    // of varied sizes scattered across the cell.
     const N = 3 + Math.floor(rng() * 4);
     ctx.strokeStyle = cyan;
     ctx.globalAlpha = 0.85;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     for (let i = 0; i < N; i++) {
       const cx = x0 + (0.2 + rng() * 0.6) * w;
       const cy = y0 + (0.2 + rng() * 0.6) * h;
-      const r = 4 + rng() * 8;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
+      const bw = 8 + rng() * 14;
+      const bh = 6 + rng() * 10;
+      ctx.strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
     }
   } else {
     // Default (text and unknown): stippled-paragraph rows
