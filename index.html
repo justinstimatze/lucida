@@ -7317,13 +7317,12 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   fullCanvas.width = obj?.userData?.canvasW || (192 * cs);
   fullCanvas.height = canvasH || obj?.userData?.canvasH || 576;
   const ctx = fullCanvas.getContext("2d");
-  // Softer dark backdrop (alpha 0.5) — city aesthetic shows through
-  // but sparse substrate strokes (2-8% pixel coverage) have something
-  // to read against instead of drowning in cyan tower glass. User
-  // 2026-05-22 after dark-then-transparent A/B: "let's try a softer
-  // dark fill but I maintain that it is simply missing content".
-  ctx.fillStyle = "rgba(8, 18, 30, 0.85)";
-  ctx.fillRect(0, TITLE_H, fullCanvas.width, fullCanvas.height - TITLE_H);
+  // Transparent body backdrop — city aesthetic shows through. The
+  // dark fill was a red herring during the "blank cells" hunt; root
+  // cause was the WebGL texture dimension-binding bug (composite
+  // mutated .map.image inside the existing __webglTexture instead
+  // of recreating the CanvasTexture; old dimensions clipped re-
+  // uploads of larger cached canvases). User 2026-05-22.
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   if (!S._snapTexCache) S._snapTexCache = new Map();
