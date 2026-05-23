@@ -727,7 +727,11 @@ const TC = buildThemeConfig(TOKENS);
 // measure and render with the same font, so they size correctly.
 mermaid.initialize({
   startOnLoad: false,
-  flowchart: { htmlLabels: false },
+  // padding: 16 (default 8) gives node-internal breathing room so
+  // label text doesn't crash into the node border. User 2026-05-23
+  // cell-4271: "still some padding needed around text inside the
+  // mermaid boxes".
+  flowchart: { htmlLabels: false, padding: 16 },
   ...TC.mermaid,
 });
 
@@ -6265,7 +6269,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // _mixed3dStyleMermaidSVG changes so stale renders don't haunt
   // future sessions. v4 = aspect-fit init-block + mindmap node-bkg
   // transparent + entity-safe tspan upper (2026-05-22).
-  const STYLE_V = "v6";
+  const STYLE_V = "v7";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
@@ -6331,7 +6335,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
       else if (aspect > 2.5) { nodeSp = 110; rankSp = 18; }// extra-wide colspan=3: spread horizontally
       else if (aspect > 1.4) { nodeSp = 70; rankSp = 25; } // wide: pack horizontally
       else { nodeSp = 40; rankSp = 45; }                    // squareish: balanced
-      const initBlock = `%%{init: {'flowchart':{'nodeSpacing':${nodeSp},'rankSpacing':${rankSp},'useMaxWidth':false}}}%%\n`;
+      const initBlock = `%%{init: {'flowchart':{'nodeSpacing':${nodeSp},'rankSpacing':${rankSp},'padding':16,'useMaxWidth':false}}}%%\n`;
       specForRender = initBlock + spec;
     }
     return fontsP
