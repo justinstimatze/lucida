@@ -5403,34 +5403,70 @@ body.layout-mixed3d .cell-head {
   text-shadow: 0 0 4px color-mix(in srgb, #ff3a8c 40%, transparent);
 }
 
-/* Tier-1 text density boost: tier-2 decorative cells render text as
-   bold 14px Eurostile in saturated cyan with a subtle CRT glow (see
-   _mixed3dBuildDecorativeLayer in index.html). Default tier-1 text
-   fell back to --text-fg=#cceeff (muted) with no font-weight, so
-   tier-1 cells visually receded next to their decorative neighbors.
-   This rule lifts tier-1 to the same density tier. (User
-   2026-05-23: "tier 1 cel text could be bolder and brighter ...
-   should basically be in that same tier of bold and bright" as the
-   decorative.) */
+/* Tier-1 text density boost — really commit to it. (User 2026-05-23
+   "way too thin, dim, grey" on cell-4214 / "really commit to it".)
+   Tier-2 decorative renders text via Canvas2D fillStyle=cyan at
+   bold 14px Eurostile. Tier-1 CSS3D real-DOM cells must match that
+   saturation+weight to live in the same canyon. Previous attempt at
+   font-weight 600 + #d4f5ff was too tentative. This rule maxes
+   weight, saturates the cyan, layers a double-glow, and bumps body
+   font-size so cell text reads at decorative scale. */
+.theme-hackers .cell,
+.theme-hackers .cell *,
 .theme-hackers .cell .cell-title,
 .theme-hackers .cell .cell-caption,
 .theme-hackers .cell .cell-body,
 .theme-hackers .cell .cell-callout,
 .theme-hackers .cell .cell-callout .big,
-.theme-hackers .cell .cell-callout .label {
-  font-weight: 600 !important;
-  color: #d4f5ff !important;
-  text-shadow: 0 0 3px color-mix(in srgb, #00ddff 35%, transparent);
-}
-.theme-hackers .cell .cell-title {
-  color: #00ddff !important;
-}
-/* Body prose / table cells / list items inherit the brighter fg as
-   well — anywhere text lands inside .theme-hackers .cell. */
+.theme-hackers .cell .cell-callout .label,
 .theme-hackers .cell p,
 .theme-hackers .cell td,
 .theme-hackers .cell li,
 .theme-hackers .cell span,
-.theme-hackers .cell div:not(.cell-body):not(.cell-callout) {
-  color: #d4f5ff;
+.theme-hackers .cell div {
+  color: #66f7ff !important;
+  font-weight: 900 !important;
+  text-shadow:
+    0 0 2px #00ddff,
+    0 0 6px color-mix(in srgb, #00ddff 65%, transparent) !important;
+}
+.theme-hackers .cell .cell-title {
+  color: #88faff !important;
+  font-weight: 900 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.10em !important;
+  text-shadow:
+    0 0 3px #00ddff,
+    0 0 8px color-mix(in srgb, #00ddff 70%, transparent) !important;
+}
+.theme-hackers .cell .cell-body,
+.theme-hackers .cell .cell-caption,
+.theme-hackers .cell p,
+.theme-hackers .cell li {
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+}
+.theme-hackers .cell .cell-callout .big {
+  font-size: 32px !important;
+  font-weight: 900 !important;
+  color: #66f7ff !important;
+  letter-spacing: 0.04em !important;
+  text-shadow:
+    0 0 4px #00ddff,
+    0 0 12px color-mix(in srgb, #00ddff 70%, transparent) !important;
+}
+.theme-hackers .cell .cell-callout .label {
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.18em !important;
+  color: #88faff !important;
+}
+/* Pink override for rare-highlight cells stays — its text still pops
+   pink against the cyan-dominant default. */
+.theme-hackers .cell.cell-conf-high .cell-title,
+.theme-hackers .cell.cell-conf-high .cell-callout .big {
+  color: #ff3a8c !important;
+  text-shadow:
+    0 0 3px #ff3a8c,
+    0 0 8px color-mix(in srgb, #ff3a8c 60%, transparent) !important;
 }
