@@ -233,12 +233,34 @@ def reflect_on_recent_cells(
             "text": f"Below are the {len(recent)} most recent visible cells (out of {len(visible)} total). Read them, including the images, and reflect.",
         }
     )
+    # Resize image cells to a 384-px bounding box before embedding —
+    # vision tokens scale with input size, and a 5-cell reflect with
+    # all-image cells at 1024x1024 was ~7500 vision tokens (~$0.025
+    # per reflection). 384x384 ≈ 240 tokens each, same recognition
+    # quality for stylized FUI cells. Pillow is in [image] extras;
+    # fall back to raw bytes if unavailable.
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        _has_pil = True
+    except ImportError:
+        _has_pil = False
     for cell in recent:
         content.append({"type": "text", "text": _cell_summary_text(cell)})
         if cell.get("cell_type") == "image" and cell.get("image_path"):
             img_path = cells_path.parent / cell["image_path"]
             if img_path.exists() and img_path.suffix.lower() == ".png":
-                data = base64.standard_b64encode(img_path.read_bytes()).decode("utf-8")
+                if _has_pil:
+                    with Image.open(img_path) as img:
+                        img.thumbnail((384, 384), Image.LANCZOS)
+                        buf = BytesIO()
+                        img.save(buf, format="PNG", optimize=True)
+                        image_bytes = buf.getvalue()
+                else:
+                    image_bytes = img_path.read_bytes()
+                data = base64.standard_b64encode(image_bytes).decode("utf-8")
                 content.append(
                     {
                         "type": "image",

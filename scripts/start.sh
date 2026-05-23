@@ -13,8 +13,9 @@ cd "$LUCIDA_DIR"
 # Default to the most-recently-modified Claude Code transcript on this host.
 # Override by setting LUCIDA_TRANSCRIPT before running this script, or by
 # editing the line below to a fixed path.
-DEFAULT_TRANSCRIPT=$(find "${HOME}/.claude/projects" -name '*.jsonl' -type f 2>/dev/null \
-    | xargs -r ls -t 2>/dev/null \
+# -print0 / -0 handles filenames containing spaces or newlines safely.
+DEFAULT_TRANSCRIPT=$(find "${HOME}/.claude/projects" -name '*.jsonl' -type f -print0 2>/dev/null \
+    | xargs -0 -r ls -t 2>/dev/null \
     | head -n 1)
 TRANSCRIPT="${LUCIDA_TRANSCRIPT:-${DEFAULT_TRANSCRIPT}}"
 
