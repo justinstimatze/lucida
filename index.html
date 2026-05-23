@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=8" />
+<link rel="stylesheet" href="notebook.css?v=9" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -10459,6 +10459,9 @@ function renderCell(c, snippetGroups, cellsById, opts) {
     const renderRibbon = () => {
       try {
         const spec = c.spec || {};
+        // Hackers / rectilinear themes get square markers; other
+        // themes keep circular dots. User 2026-05-23 cell-3423.
+        const squareMarkers = document.documentElement.classList.contains("theme-hackers");
         const stages = Array.isArray(spec.stages) ? spec.stages : [];
         if (stages.length < 3) {
           target.textContent = "timeline_ribbon: needs ≥3 stages";
@@ -10538,9 +10541,18 @@ function renderCell(c, snippetGroups, cellsById, opts) {
             mk(cx - 5, cy - 5, cx + 5, cy + 5);
             mk(cx - 5, cy + 5, cx + 5, cy - 5);
           } else if (status === "pending") {
-            const ring = document.createElementNS(svgNS, "circle");
-            ring.setAttribute("cx", cx); ring.setAttribute("cy", cy);
-            ring.setAttribute("r", "5");
+            // Hackers/rectilinear themes get a square marker; other
+            // themes keep the circle. User 2026-05-23 cell-3423.
+            const ring = squareMarkers
+              ? document.createElementNS(svgNS, "rect")
+              : document.createElementNS(svgNS, "circle");
+            if (squareMarkers) {
+              ring.setAttribute("x", cx - 5); ring.setAttribute("y", cy - 5);
+              ring.setAttribute("width", 10); ring.setAttribute("height", 10);
+            } else {
+              ring.setAttribute("cx", cx); ring.setAttribute("cy", cy);
+              ring.setAttribute("r", "5");
+            }
             ring.setAttribute("fill", "var(--bg)");
             ring.setAttribute("stroke", color);
             ring.setAttribute("stroke-width", "1.5");
@@ -10548,19 +10560,31 @@ function renderCell(c, snippetGroups, cellsById, opts) {
             svg.appendChild(ring);
           } else if (status === "active") {
             // Outer pulsing ring + inner solid core. Pulse via SMIL so it
-            // works without requiring a JS timer.
-            const pulse = document.createElementNS(svgNS, "circle");
-            pulse.setAttribute("cx", cx); pulse.setAttribute("cy", cy);
-            pulse.setAttribute("r", "6");
+            // works without requiring a JS timer. For rectilinear
+            // themes the pulse is opacity-only (no size-grow) since
+            // animating size on a rect requires 4 animate elements;
+            // opacity alone still reads as "active".
+            const pulse = squareMarkers
+              ? document.createElementNS(svgNS, "rect")
+              : document.createElementNS(svgNS, "circle");
+            if (squareMarkers) {
+              pulse.setAttribute("x", cx - 6); pulse.setAttribute("y", cy - 6);
+              pulse.setAttribute("width", 12); pulse.setAttribute("height", 12);
+            } else {
+              pulse.setAttribute("cx", cx); pulse.setAttribute("cy", cy);
+              pulse.setAttribute("r", "6");
+            }
             pulse.setAttribute("fill", "none");
             pulse.setAttribute("stroke", color);
             pulse.setAttribute("stroke-width", "1.4");
-            const anim = document.createElementNS(svgNS, "animate");
-            anim.setAttribute("attributeName", "r");
-            anim.setAttribute("values", "5;10;5");
-            anim.setAttribute("dur", "1.6s");
-            anim.setAttribute("repeatCount", "indefinite");
-            pulse.appendChild(anim);
+            if (!squareMarkers) {
+              const anim = document.createElementNS(svgNS, "animate");
+              anim.setAttribute("attributeName", "r");
+              anim.setAttribute("values", "5;10;5");
+              anim.setAttribute("dur", "1.6s");
+              anim.setAttribute("repeatCount", "indefinite");
+              pulse.appendChild(anim);
+            }
             const animO = document.createElementNS(svgNS, "animate");
             animO.setAttribute("attributeName", "opacity");
             animO.setAttribute("values", "0.85;0.15;0.85");
@@ -10568,17 +10592,31 @@ function renderCell(c, snippetGroups, cellsById, opts) {
             animO.setAttribute("repeatCount", "indefinite");
             pulse.appendChild(animO);
             svg.appendChild(pulse);
-            const core = document.createElementNS(svgNS, "circle");
-            core.setAttribute("cx", cx); core.setAttribute("cy", cy);
-            core.setAttribute("r", "4");
+            const core = squareMarkers
+              ? document.createElementNS(svgNS, "rect")
+              : document.createElementNS(svgNS, "circle");
+            if (squareMarkers) {
+              core.setAttribute("x", cx - 4); core.setAttribute("y", cy - 4);
+              core.setAttribute("width", 8); core.setAttribute("height", 8);
+            } else {
+              core.setAttribute("cx", cx); core.setAttribute("cy", cy);
+              core.setAttribute("r", "4");
+            }
             core.setAttribute("fill", color);
             svg.appendChild(core);
           } else {
             // done OR failed — solid filled marker. Failed gets a thin
             // contrasting outline so it reads as "stopped here" not "ok".
-            const dot = document.createElementNS(svgNS, "circle");
-            dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
-            dot.setAttribute("r", "5");
+            const dot = squareMarkers
+              ? document.createElementNS(svgNS, "rect")
+              : document.createElementNS(svgNS, "circle");
+            if (squareMarkers) {
+              dot.setAttribute("x", cx - 5); dot.setAttribute("y", cy - 5);
+              dot.setAttribute("width", 10); dot.setAttribute("height", 10);
+            } else {
+              dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+              dot.setAttribute("r", "5");
+            }
             dot.setAttribute("fill", color);
             if (status === "failed") {
               dot.setAttribute("stroke", "var(--fg)");
