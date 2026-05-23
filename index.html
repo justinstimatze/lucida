@@ -4528,29 +4528,27 @@ function _mixed3dDriveSwoopyTour(t) {
     // (forward-fly), giving roughly 50/50 wall-facing to corridor-flying
     // ratio. User 2026-05-20: "swing the camera around to face the tower
     // walls more often ... like visually scanning across a 2d dashboard".
-    sw.scanNextStart = 8 + Math.random() * 6;
+    sw.scanNextStart = 6 + Math.random() * 4;
     sw.scanFactor = 0;
     sw.scanSide = 0;
   } else {
-    if (sw.scanNextStart == null) sw.scanNextStart = t + 8 + Math.random() * 6;
+    if (sw.scanNextStart == null) sw.scanNextStart = t + 6 + Math.random() * 4;
     if (t >= sw.scanNextStart) {
       const dts = t - sw.scanNextStart;
-      // 2.5s ramp in, 8s hold, 2.5s ramp out → 13s total scan window.
-      // Was 1.5/4/1.5=7s; user 2026-05-04 "the scan could rotate the
-      // camera a little more slowly, move a little more slowly, scan
-      // a little bit longer. let me really get a chance to glance over
-      // at the cells. right now the whole thing feels rushed both
-      // rotationally and durationally". Longer ramp slows rotation;
-      // longer hold gives reading time.
+      // 2.5s ramp in, 12s hold, 2.5s ramp out → 17s total scan window.
+      // User 2026-05-22: "more slow passes across tower faces so cells
+      // are more clearly visible as temporarily a 2D viz". Longer hold
+      // + lower scanMult floor below = camera glides past more cells
+      // per scan, not just parks-and-vertical-pans on one slot.
       let f;
       if (dts < 2.5) f = dts / 2.5;
-      else if (dts < 10.5) f = 1;
-      else if (dts < 13.0) f = (13.0 - dts) / 2.5;
+      else if (dts < 14.5) f = 1;
+      else if (dts < 17.0) f = (17.0 - dts) / 2.5;
       else {
         f = 0;
-        // 8-14s forward fly between scans (was 30-50s) — user 2026-05-20:
-        // wants 2D-dashboard-like wall scanning more often than corridor flight.
-        sw.scanNextStart = t + 8 + Math.random() * 6;
+        // 6-10s forward fly between scans (was 8-14s) — more frequent
+        // wall passes per user 2026-05-22.
+        sw.scanNextStart = t + 6 + Math.random() * 4;
         sw.scanSide = 0;
       }
       sw.scanFactor = Math.max(0, Math.min(1, f));
@@ -4584,7 +4582,12 @@ function _mixed3dDriveSwoopyTour(t) {
     }
     const dtReal = Math.max(0, Math.min(0.1, t - sw.lastT));
     sw.lastT = t;
-    const scanMult = 1 - sf; // 1.0 → 0 at full scan (parked on the wall)
+    // Don't fully park during scan — keep 40% arc speed so the camera
+    // glides PAST the tower face (more cells slide into view) instead
+    // of dollying vertically on one slot. User 2026-05-22 "do more
+    // slow passes across tower faces so cells more clearly visible
+    // as temporarily a 2D viz".
+    const scanMult = 1 - sf * 0.6;
     // Curvature-aware speed: at sharp curve corners the heading-rate
     // (avgRate, computed downstream from the heading-window) spikes,
     // and at full speed=4 these read as fast yaws. Use the previous
@@ -4623,11 +4626,13 @@ function _mixed3dDriveSwoopyTour(t) {
   // computed downstream from desiredPos.y so it tracks automatically.
   if (scanFactor > 0) {
     const dts = t - (sw.scanNextStart || t);
-    const SCAN_Y_TOP = 14;
-    const SCAN_Y_BOT = 2;
-    // panU stretched to match the 13s scan window (2.5 + 8 + 2.5).
-    // Was /7. Slower vertical pan = more dwell time per cell row.
-    const panU = Math.max(0, Math.min(1, dts / 13.0));
+    // Reduced Y range (was 14→2). The camera now also glides
+    // horizontally past the wall (scanMult floor=0.4 above), so the
+    // vertical pan is a secondary cue, not the primary reveal.
+    const SCAN_Y_TOP = 11;
+    const SCAN_Y_BOT = 5;
+    // panU stretched to match the 17s scan window (2.5 + 12 + 2.5).
+    const panU = Math.max(0, Math.min(1, dts / 17.0));
     const scanY = SCAN_Y_TOP - (SCAN_Y_TOP - SCAN_Y_BOT) * panU;
     desiredPos.y = desiredPos.y * (1 - sf) + scanY * sf;
   }
@@ -5768,6 +5773,16 @@ function _mixed3dStyleMermaidSVG(svgString) {
       stroke: #00ddff !important;
       stroke-width: 1.5px !important;
     }
+    .edge, g.edges path, .mindmap-edges path,
+    .edgePath, .edgePath path, g.edgePaths path,
+    path.section-edge {
+      stroke: #66e6ff !important;
+      fill: none !important;
+      stroke-width: 1.8px !important;
+    }
+    .nodeLabel, .edgeLabel, .label {
+      paint-order: stroke fill !important;
+    }
   </style>`;
   // Uppercase every visible text node (between <tspan> open + close).
   // CSS text-transform is unreliable across SVG renderers, so we
@@ -6049,7 +6064,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // _mixed3dStyleMermaidSVG changes so stale renders don't haunt
   // future sessions. v4 = aspect-fit init-block + mindmap node-bkg
   // transparent + entity-safe tspan upper (2026-05-22).
-  const STYLE_V = "v4";
+  const STYLE_V = "v5";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
@@ -6110,8 +6125,10 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
     let specForRender = spec;
     if (/^\s*(flowchart|graph)\b/m.test(spec) && !/%%\{init:/.test(spec)) {
       let nodeSp, rankSp;
-      if (aspect < 0.8) { nodeSp = 25; rankSp = 70; }      // tall: pack vertically
-      else if (aspect > 1.4) { nodeSp = 60; rankSp = 25; } // wide: pack horizontally
+      if (aspect < 0.6) { nodeSp = 20; rankSp = 90; }      // very tall: stretch vertically
+      else if (aspect < 0.8) { nodeSp = 25; rankSp = 70; } // tall: pack vertically
+      else if (aspect > 2.5) { nodeSp = 110; rankSp = 18; }// extra-wide colspan=3: spread horizontally
+      else if (aspect > 1.4) { nodeSp = 70; rankSp = 25; } // wide: pack horizontally
       else { nodeSp = 40; rankSp = 45; }                    // squareish: balanced
       const initBlock = `%%{init: {'flowchart':{'nodeSpacing':${nodeSp},'rankSpacing':${rankSp},'useMaxWidth':false}}}%%\n`;
       specForRender = initBlock + spec;
@@ -6298,12 +6315,12 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   const pad = 16;
-  // Plot fills most of body — captions removed 2026-05-21 so the
-  // full body height is available. Top margin for the label, bottom
-  // padding to keep the end-dot from sitting flush against the cell
-  // edge.
-  const py0 = h * 0.12;
-  const py1 = h * 0.92;
+  // Plot fills as much of body as possible. Label gets a fixed top
+  // band when present; without a label, the line starts near the top.
+  // User 2026-05-22 cell-3793: "good graph but doesn't take up all
+  // the vertical height of the cell".
+  const py0 = label ? 28 : 8;
+  const py1 = h - 12;
   const min = Math.min(...data), max = Math.max(...data);
   const range = max - min || 1;
   ctx.strokeStyle = "#00ddff";
@@ -6442,7 +6459,7 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
     // Drops the 0.18-alpha fill that competed with the cyan label.
     ctx.globalAlpha = 0.9;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3.5;
     ctx.strokeRect(curX, curY, rw, rh);
     // Label
     if (rw > 40 && rh > 24) {
@@ -6758,13 +6775,18 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
     ctx.strokeStyle = "#9966ff";
     ctx.lineWidth = 3;
     ctx.stroke();
-    // Label — bumped 11px → 16px bold + brighter (was #ccf3ff → #ffffff)
-    // per user 2026-05-21 "labels too hard to read too small".
-    ctx.fillStyle = "#ffffff";
+    // Label — dark halo via strokeText first, then fillText. Makes
+    // labels read cleanly over edge lines passing behind them. User
+    // 2026-05-22 cell-3744 "labels should draw over the graph lines".
     ctx.font = "bold 16px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     const label = String(p.node.label || p.node.id || "").toUpperCase().slice(0, 14);
+    ctx.lineWidth = 5;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0, 8, 20, 0.85)";
+    ctx.strokeText(label, p.x, p.y + 12);
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(label, p.x, p.y + 12);
   }
   return Promise.resolve(canvas);
@@ -6932,12 +6954,17 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   // unreadable" → bumped alpha 0.78 → 1.0 with a brighter fill.
   if (rows && rows.length) {
     if (layout === "callouts") {
-      // Two-column big + label layout. The "big" value isn't always
-      // a short number (mints often produce phrases like "frozen" /
-      // "⚠ invalidates all"), so don't truncate; just shrink font
-      // as length grows. Each row fills ~85px tall.
-      const rowH = Math.max(64, Math.min(110, Math.floor((yMax - cy) / Math.max(1, rows.length))));
-      const numW = Math.floor(w * 0.35);
+      // Two-column big + label layout. Few-rows expansion: when ≤3
+      // rows, claim the full body height so the cell doesn't read
+      // sparse (user 2026-05-22 cell-3356). For ≥4 rows, original
+      // tight 64-110px rowH.
+      const nRowsCO = rows.length;
+      const fewRowsCO = nRowsCO <= 3;
+      const usableHCO = yMax - cy;
+      const rowH = fewRowsCO
+        ? Math.floor(usableHCO / Math.max(1, nRowsCO))
+        : Math.max(64, Math.min(110, Math.floor(usableHCO / Math.max(1, nRowsCO))));
+      const numW = Math.floor(w * (fewRowsCO ? 0.42 : 0.35));
       for (let ri = 0; ri < rows.length; ri++) {
         if (cy + 28 > yMax) break;
         const [big, label] = rows[ri];
@@ -6945,19 +6972,31 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         // 30px for ≤4 chars; 22px ≤8 chars; 16px ≤16 chars; 12px else.
         const bigText = (big || "").replace(/[ -⁯]/g, "").trim();
         const bigLen = bigText.length;
-        const bigFont = bigLen <= 4 ? 30 : bigLen <= 8 ? 22 : bigLen <= 16 ? 16 : 12;
+        let bigFont;
+        if (fewRowsCO) {
+          bigFont = bigLen <= 4 ? Math.min(90, Math.floor(rowH * 0.62))
+                  : bigLen <= 8 ? Math.min(58, Math.floor(rowH * 0.40))
+                  : bigLen <= 16 ? 28 : 20;
+        } else {
+          bigFont = bigLen <= 4 ? 30 : bigLen <= 8 ? 22 : bigLen <= 16 ? 16 : 12;
+        }
         ctx.fillStyle = "#9966ff";
         ctx.globalAlpha = 1.0;
         ctx.font = `bold ${bigFont}px 'Eurostile', 'Share Tech Mono', monospace`;
         ctx.textBaseline = "middle";
-        ctx.fillText(bigText, pad, cy + Math.min(rowH, 50) / 2 + 4);
+        const bigY = fewRowsCO ? cy + rowH * 0.42 : cy + Math.min(rowH, 50) / 2 + 4;
+        ctx.fillText(bigText, pad, bigY);
         ctx.textBaseline = "top";
-        // Label — cyan-white, smaller, wraps in the remaining width
+        // Label — cyan-white. Few-rows mode bumps font 13→16 and uses
+        // full row height for wrap; default mode keeps tight 13px x 4 lines.
         ctx.fillStyle = "#e8f8ff";
         ctx.globalAlpha = 0.95;
-        ctx.font = "13px 'Eurostile', 'Share Tech Mono', monospace";
+        const labelFontSize = fewRowsCO ? 16 : 13;
+        const labelLineH = labelFontSize + 4;
+        ctx.font = `${labelFontSize}px 'Eurostile', 'Share Tech Mono', monospace`;
         const labelMaxW = w - pad - numW;
-        const labelCharsPerLine = Math.max(10, Math.floor(labelMaxW / 7));
+        const labelCharsPerLine = Math.max(10, Math.floor(labelMaxW / (labelFontSize * 0.55)));
+        const labelMaxLines = fewRowsCO ? Math.max(2, Math.floor((rowH - 8) / labelLineH)) : 4;
         const labelWords = (label || "").split(/\s+/);
         const labelLines = [];
         let lcur = "";
@@ -6967,13 +7006,24 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
             if (lcur) labelLines.push(lcur);
             lcur = word.length > labelCharsPerLine ? word.slice(0, labelCharsPerLine - 1) + "…" : word;
           } else lcur = next;
-          if (labelLines.length >= 4) break;
+          if (labelLines.length >= labelMaxLines) break;
         }
-        if (lcur && labelLines.length < 4) labelLines.push(lcur);
+        if (lcur && labelLines.length < labelMaxLines) labelLines.push(lcur);
         let ly = cy + 4;
         for (const ll of labelLines) {
           ctx.fillText(ll, pad + numW, ly);
-          ly += 16;
+          ly += labelLineH;
+        }
+        // Inter-row rule line in few-rows mode for visual structure.
+        if (fewRowsCO && ri < nRowsCO - 1) {
+          ctx.strokeStyle = "#00ddff";
+          ctx.globalAlpha = 0.22;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(pad, cy + rowH - 2);
+          ctx.lineTo(w - pad, cy + rowH - 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
         }
         cy += rowH;
       }
