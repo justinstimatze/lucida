@@ -20,7 +20,8 @@
     "muted": "#5a8aaa"
   },
   "data": {
-    "cat": ["#00ddff", "#ff3a8c", "#9966ff", "#33ff99", "#ffaa44", "#ff5566"]
+    "_comment": "Cyan-dominant order: #1/#2/#3 stay in the cyan/purple/lightcyan family so 2-3 category treemaps don't saturate to pink. Pink+red pushed to #5/#6 so they only fire when 5+ categories are present, matching the rare-highlight rule from feedback_hackers_cyan_dominant.",
+    "cat": ["#00ddff", "#9966ff", "#66e6ff", "#cceeff", "#ff3a8c", "#ff5566"]
   },
   "type": {
     "body": "\"Eurostile\", \"Share Tech Mono\", \"Courier New\", monospace",
