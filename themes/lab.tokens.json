@@ -21,7 +21,8 @@
     "muted": "#8a8a92"
   },
   "data": {
-    "cat": ["#66ccff", "#ff66dd", "#ffee66", "#00ffff", "#ff00ff", "#ffff00"]
+    "_comment": "cat[3..5] used to be #00ffff/#ff00ff/#ffff00 neon for opt-in saturation. 6-category treemaps surfaced the neon and made lab read as a rainbow that didn't match the 'clean dark cyan accent' identity. Replaced with muted variants of cat[0..2] so a 6-cat treemap stays inside lab's calmer trio palette.",
+    "cat": ["#66ccff", "#ff66dd", "#ffee66", "#4d99cc", "#c44ec4", "#ccba4d"]
   },
   "type": {
     "body": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
