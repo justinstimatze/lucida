@@ -2696,7 +2696,11 @@ function applyMixed3DLayout(opts) {
   // loading-screen-to-interactive gap (user 2026-05-04: "took like
   // 15 seconds after the loading screen disappeared to actually load").
   const _bootT0 = performance.now();
+  const _bootDebug =
+    new URLSearchParams(window.location.search).get("debug") === "1" ||
+    new URLSearchParams(window.location.search).get("perf") === "1";
   const _bootMark = (label) => {
+    if (!_bootDebug) return;
     const t = performance.now();
     const dt = (t - _bootT0).toFixed(0);
     console.log(`[mixed3d.boot] +${dt}ms ${label}`);
