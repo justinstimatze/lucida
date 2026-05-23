@@ -26,7 +26,9 @@ import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-LUCIDA_ROOT = "/home/gas6amus/Documents/lucida"
+LUCIDA_ROOT = os.environ.get(
+    "LUCIDA_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 SHOTS_DEST = os.path.join(LUCIDA_ROOT, "refs/gibson/live-shots")
 CELLS_DEST = os.path.join(LUCIDA_ROOT, "cells")
 os.makedirs(SHOTS_DEST, exist_ok=True)

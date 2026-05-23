@@ -9,6 +9,7 @@ nano_banana; non-image cells use the LLM specialist pipeline in specialists.py.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -298,18 +299,55 @@ def load_cells() -> dict:
     return json.loads(CELLS_PATH.read_text())  # type: ignore[no-any-return]
 
 
-def save_cells(data: dict) -> None:
-    """Write cells.json, enforcing the rolling cap.
+# Inter-process lock for the read-mint-write cycle. Sidecar file
+# (cells.json.lock) rather than locking cells.json itself so the lock
+# survives atomic-replace of cells.json. fcntl on Linux/macOS; quietly
+# no-ops on Windows. Wrap any code that does `data = load_cells();
+# ...; save_cells(data)` in `with cells_lock():` to make the cycle
+# atomic across processes — closes the inter-process ID race that the
+# max+1 fix only mitigated for single-process runs (collision incident
+# 2026-04-27 was minted by two concurrent watcher.py + orchestrator.py
+# runs).
+_CELLS_LOCK_PATH = CELLS_PATH.with_suffix(".json.lock")
 
-    Cells are ephemeral by default. LUCIDA_MAX_CELLS caps total cells in the
-    file (newest kept). Set to 0 or "all" to keep everything — for users who
-    want the file as a long-running work-summary archive.
+
+@contextlib.contextmanager
+def cells_lock():
+    """Acquire an exclusive flock on cells.json.lock for the duration of
+    the with-block. Hold across read-mint-write; release on exit."""
+    try:
+        import fcntl
+    except ImportError:
+        # Windows / sub-Linux: no fcntl, no inter-process protection.
+        # Single-process runs still rely on the max+1 next_id() guard.
+        yield
+        return
+    fp = open(_CELLS_LOCK_PATH, "a+")  # noqa: SIM115 — flock'd across the with-block
+    try:
+        fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fp.fileno(), fcntl.LOCK_UN)
+        finally:
+            fp.close()
+
+
+def save_cells(data: dict) -> None:
+    """Atomic write of cells.json, enforcing the rolling cap.
+
+    Writes to cells.json.tmp + os.replace() so a crash mid-write can't
+    corrupt the file. Cells are ephemeral by default — LUCIDA_MAX_CELLS
+    caps total cells (newest kept). Set to 0 or "all" to keep everything
+    for users who want the file as a long-running archive.
     """
     raw = os.environ.get("LUCIDA_MAX_CELLS", "200").strip().lower()
     cap = 0 if raw in ("0", "all", "none", "off") else max(1, int(raw))
     if cap and len(data.get("cells", [])) > cap:
         data["cells"] = data["cells"][-cap:]
-    CELLS_PATH.write_text(json.dumps(data, indent=2) + "\n")
+    tmp = CELLS_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n")
+    os.replace(tmp, CELLS_PATH)
 
 
 def closed_loop_stats(cells: list[dict]) -> dict:
@@ -364,19 +402,24 @@ def closed_loop_stats(cells: list[dict]) -> dict:
 def reflect_and_persist(
     n: int = 5, write: bool = True, session_id: str | None = None
 ) -> CellProposal:
+    """Thin wrapper: serialize the read-mint-write cycle across processes
+    via cells_lock(). Long LLM call happens BEFORE the lock so we don't
+    hold it during the inference."""
+    import reflect as _reflect
+
+    result = _reflect.reflect_on_recent_cells(n)
+    with cells_lock():
+        return _reflect_and_persist_locked(result, write, session_id)
+
+
+def _reflect_and_persist_locked(result, write: bool, session_id: str | None) -> CellProposal:
     """Run a reflection pass over the last n visible cells and persist the
     resulting reflection cell. Returns the CellProposal (returned even if
     write=False, for dry-run callers).
 
     Extracted from the --reflect CLI block so the watcher can drive
     reflection autonomously after a configurable cadence of mintings.
-    Raises whatever reflect.reflect_on_recent_cells raises (typically
-    ReflectError on missing key/SDK or no visible cells).
     """
-    import reflect as _reflect
-
-    result = _reflect.reflect_on_recent_cells(n)
-
     data = load_cells()
     cell_id = next_id(data["cells"])
     cache_info = (
@@ -731,7 +774,15 @@ def demote_if_trivial(proposal: CellProposal) -> str | None:
 def sweep_trivial(write: bool = False) -> list[str]:
     """Walk cells.json and demote any cell whose populated viz is trivial.
     Returns list of '<id>: <reason>' descriptions. With write=False this is
-    a dry-run report; with write=True it persists."""
+    a dry-run report; with write=True it persists. Locked when write=True
+    so the demote pass doesn't race with a concurrent watcher mint."""
+    if write:
+        with cells_lock():
+            return _sweep_trivial_inner(write=True)
+    return _sweep_trivial_inner(write=False)
+
+
+def _sweep_trivial_inner(write: bool) -> list[str]:
     data = load_cells()
     demoted = []
     for cell in data["cells"]:
@@ -760,6 +811,36 @@ def sweep_trivial(write: bool = False) -> list[str]:
 
 
 def append_proposal(
+    snippet: str,
+    context: str = "",
+    cell_type: str | None = None,
+    write: bool = False,
+    generate_image: bool = False,
+    use_llm: bool | None = None,
+    auto_retrigger: bool = True,
+    max_retriggers: int = 3,
+    session_id: str | None = None,
+) -> CellProposal:
+    """Public entry — serializes the read-mint-write across processes via
+    cells_lock(). Holds the lock for the full LLM call duration so two
+    concurrent watcher processes can't both mint the same cell-NNNN
+    (closes the inter-process race that the max+1 next_id() guard alone
+    didn't cover)."""
+    with cells_lock():
+        return _append_proposal_locked(
+            snippet=snippet,
+            context=context,
+            cell_type=cell_type,
+            write=write,
+            generate_image=generate_image,
+            use_llm=use_llm,
+            auto_retrigger=auto_retrigger,
+            max_retriggers=max_retriggers,
+            session_id=session_id,
+        )
+
+
+def _append_proposal_locked(
     snippet: str,
     context: str = "",
     cell_type: str | None = None,
