@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=7" />
+<link rel="stylesheet" href="notebook.css?v=8" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -2856,6 +2856,7 @@ function applyMixed3DLayout(opts) {
       S._ffYaw = Math.atan2(dir.x, dir.z);
       S._ffPitch = Math.asin(Math.max(-1, Math.min(1, dir.y)));
       S._userTookCamera = true;
+      S._mouselookActive = true;
       _mlState.dragging = true;
     }
     if (_mlState.dragging) {
@@ -2872,9 +2873,18 @@ function applyMixed3DLayout(opts) {
   window.addEventListener("mouseup", (e) => {
     if (e.button !== 0) return;
     if (!_mlState.down) return;
-    if (_mlState.dragging) _mlState.suppressNextClick = true;
+    const wasDragging = _mlState.dragging;
+    if (wasDragging) _mlState.suppressNextClick = true;
     _mlState.down = null;
     _mlState.dragging = false;
+    // Mouselook is a temporary peek — release → resume swoopy. User
+    // 2026-05-23: "left click to mouselook isn't working" was partly
+    // because _ffYaw/_ffPitch updates weren't being driven (fixed in
+    // _mixed3dDriveCamera) AND because release left the camera
+    // stranded in _userTookCamera state.
+    if (wasDragging && typeof window._mixed3dResetSwoopy === "function") {
+      window._mixed3dResetSwoopy();
+    }
   });
   // Suppress the click event that fires after a drag-release so the
   // click-to-park raycaster doesn't fire on the mouseup of a drag.
@@ -4243,6 +4253,19 @@ function _mixed3dDriveFreeFlight(t) {
   if (keys.has("KeyD")) cam.position.addScaledVector(right, speed);
   if (keys.has("KeyQ")) cam.position.y += speed;
   if (keys.has("KeyZ")) cam.position.y -= speed;
+  // Bounds: don't fly through the floor or too far out of the city.
+  // Half-field plus a small margin so the camera can graze edges but
+  // not escape into the void. Floor stop at y=1.5 (above the floor
+  // mesh + floor texture). User 2026-05-23 "probably shouldn't let
+  // me fly the camera through the floor or too far away from the
+  // city".
+  const G = S.geometry;
+  if (G) {
+    const halfField = ((G.towerCount - 1) / 2) * G.spacing + G.spacing;
+    cam.position.x = Math.max(-halfField, Math.min(halfField, cam.position.x));
+    cam.position.z = Math.max(-halfField, Math.min(halfField, cam.position.z));
+  }
+  cam.position.y = Math.max(1.5, Math.min(28, cam.position.y));
   // Look in the direction we're facing.
   cam.lookAt(cam.position.x + fwd.x, cam.position.y + fwd.y, cam.position.z + fwd.z);
   cam.up.set(0, 1, 0);
@@ -4286,12 +4309,17 @@ function _mixed3dDriveCamera(t) {
   const _ffKeys = window._mixed3dFreeFlightKeys;
   const _hasMove = _ffKeys && (_ffKeys.has("KeyW") || _ffKeys.has("KeyA") || _ffKeys.has("KeyS") || _ffKeys.has("KeyD") || _ffKeys.has("KeyQ") || _ffKeys.has("KeyZ") || _ffKeys.has("ArrowLeft") || _ffKeys.has("ArrowRight") || _ffKeys.has("ArrowUp") || _ffKeys.has("ArrowDown"));
   if (_hasMove) _mixed3dState._userTookCamera = true;
-  if (_hasMove) {
+  // Mouselook drag (left-click + motion) drives the camera via the
+  // same freeflight function — without it, _ffYaw/_ffPitch are
+  // updated by mousemove but never applied to the camera (bug
+  // reported 2026-05-23 "left click to mouselook isn't working").
+  if (_mixed3dState._mouselookActive || _hasMove) {
     _mixed3dDriveFreeFlight(t);
     return;
   }
   if (_mixed3dState._userTookCamera) {
-    // User has flown — camera holds position; no tour.
+    // User has flown via WASD/arrows — camera holds position; no tour.
+    // (Mouselook above auto-resets on release so it doesn't reach here.)
     return;
   }
   const policy = _mixed3dState.opts.camera;

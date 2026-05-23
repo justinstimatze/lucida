@@ -5470,3 +5470,96 @@ body.layout-mixed3d .cell-head {
     0 0 3px #ff3a8c,
     0 0 8px color-mix(in srgb, #ff3a8c 60%, transparent) !important;
 }
+
+/* --- HACKERS CELL CONTENT REINFORCEMENT 2026-05-23 ---
+   Higher-specificity overrides for substrate-specific render
+   targets that have their own brightness/weight rules
+   (.html-target .callout, .html-target table, .vega-embed,
+   .animated-svg-target svg, .mermaid-target svg). My earlier
+   .theme-hackers .cell rules were being beaten by these. */
+
+/* HTML callouts — beat .html-target .callout .big (font-size 1.45rem,
+   weight 700, var(--accent) color) with much brighter/bolder. User
+   flagged cells 3192 / 3792 / 3854 as "too small + dim". */
+.theme-hackers .html-target .callout {
+  border: 1px solid color-mix(in srgb, #00ddff 35%, transparent) !important;
+  background: color-mix(in srgb, #00ddff 8%, transparent) !important;
+  padding: 0.7rem 0.8rem !important;
+}
+.theme-hackers .html-target .callout .big {
+  font-family: "Eurostile", "Share Tech Mono", "Courier New", monospace !important;
+  font-size: 2.1rem !important;
+  font-weight: 900 !important;
+  color: #66f7ff !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1.05 !important;
+  text-shadow:
+    0 0 4px #00ddff,
+    0 0 12px color-mix(in srgb, #00ddff 70%, transparent) !important;
+}
+.theme-hackers .html-target .callout .label {
+  font-family: "Eurostile", "Share Tech Mono", "Courier New", monospace !important;
+  font-size: 0.8rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.18em !important;
+  color: #88faff !important;
+  text-shadow: 0 0 2px color-mix(in srgb, #00ddff 50%, transparent) !important;
+}
+
+/* HTML tables — same brightness/weight tier. User flagged
+   cells 3792 / 3854 (html_layout=table) as "too dim". */
+.theme-hackers .html-target table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+}
+.theme-hackers .html-target table th,
+.theme-hackers .html-target table td {
+  color: #88faff !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  font-family: "Eurostile", "Share Tech Mono", "Courier New", monospace !important;
+  border-bottom: 1px solid color-mix(in srgb, #00ddff 25%, transparent) !important;
+  padding: 4px 8px !important;
+  text-shadow: 0 0 2px color-mix(in srgb, #00ddff 50%, transparent) !important;
+}
+.theme-hackers .html-target table th {
+  font-weight: 900 !important;
+  color: #66f7ff !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  border-bottom: 1.5px solid #00ddff !important;
+}
+
+/* Vega bars — add cyan stroke + min stroke-width so thin bars read
+   as visually thicker. User flagged cell-3244 "bars could be
+   thicker". */
+.theme-hackers .vega-embed rect,
+.theme-hackers .cell-body svg rect.mark,
+.theme-hackers .cell-body .marks rect {
+  stroke: #00ddff !important;
+  stroke-width: 1.5 !important;
+  fill: #00ddff !important;
+  fill-opacity: 0.85 !important;
+}
+
+/* Animated_svg + svg-target — brightness filter. User flagged
+   cell-4404 as "too dim". CSS filter is a per-element instruction
+   the SVG renderer can't override, unlike fill/stroke. */
+.theme-hackers .animated-svg-target svg,
+.theme-hackers .svg-target svg,
+.theme-hackers .cell-body svg {
+  filter: brightness(1.45)
+    drop-shadow(0 0 4px color-mix(in srgb, #00ddff 50%, transparent)) !important;
+}
+.theme-hackers .animated-svg-target svg [stroke]:not([stroke="none"]) {
+  stroke-width: 2 !important;
+}
+
+/* Mermaid padding — user flagged cell-4462 "text in cells could use
+   a little more padding". Pad the cell-body so the mermaid SVG
+   doesn't crash into the cell border. */
+.theme-hackers .cell .mermaid-target,
+.theme-hackers .cell .cell-body {
+  padding: 6px 8px !important;
+  box-sizing: border-box !important;
+}
