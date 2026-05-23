@@ -7546,7 +7546,9 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   if (!S._snapTexCache) S._snapTexCache = new Map();
+  if (!S._snapLastAt) S._snapLastAt = new Map();
   S._snapTexCache.set(targetId, fullCanvas);
+  S._snapLastAt.set(targetId, performance.now());
   const curObj = S.cellObjects.get(targetId);
   if (curObj && !curObj.isInstanceHandle
       && curObj.userData?.tier === 1
@@ -7651,7 +7653,19 @@ function _mixed3dStartSnapshotDriver() {
         distSq = dx * dx + dy * dy + dz * dz;
       }
       if (tier === 2 && distSq > _MIXED3D_TIER1_DIST_SQ * 1.4) continue;  // small lead time
-      if (S._snapTexCache?.has(id)) continue;
+      // Cache check: cached cells skip re-snap, EXCEPT animated_svg
+      // cells that haven't been re-snapped in ANIMATED_RESNAP_MS.
+      // Gives animation back to tier-1 animated_svg cells (user
+      // 2026-05-23 "wish there was more tier 1 cell animation")
+      // at snap-rate. Only fires if cell is in tier-1 distance so
+      // it doesn't burn snap budget on far-tier cells.
+      if (S._snapTexCache?.has(id)) {
+        const ctRaw = state.rendering.cellsById?.get(id)?.cell_type;
+        if (ctRaw !== "animated_svg" || tier !== 1) continue;
+        const ANIMATED_RESNAP_MS = 1500;
+        const last = S._snapLastAt?.get(id) || 0;
+        if (performance.now() - last < ANIMATED_RESNAP_MS) continue;
+      }
       if (_mixed3dSnapInflight.has(id)) { _sr.inflight = (_sr.inflight||0)+1; continue; }
       const el = obj.userData?.cellEl;
       if (!el) { _sr.no_el = (_sr.no_el||0)+1; continue; }
@@ -9761,6 +9775,35 @@ function el(tag, cls, text) {
   return e;
 }
 
+// MutationObserver: when a cell is removed from #notebook (layout
+// clear, session switch, live-feed eviction, etc.), disconnect its
+// archetype-backdrop ResizeObserver so we don't leak. Audit
+// 2026-05-23 found that 1300 ROs (one per cell from renderCell)
+// were never disconnected on cell removal. Install once on first
+// renderCell call.
+function _ensureArchetypeBgCleanup() {
+  if (window._archetypeBgMO) return;
+  const root = document.getElementById("notebook");
+  if (!root) return;
+  const disconnectIn = (node) => {
+    if (!node || node.nodeType !== 1) return;
+    // The card itself, plus any descendants if a wrapper was removed.
+    const cards = node.classList?.contains("cell") ? [node] : Array.from(node.querySelectorAll?.(".cell") || []);
+    for (const card of cards) {
+      if (card._archetypeBgRO) {
+        try { card._archetypeBgRO.disconnect(); } catch (e) { /* ignore */ }
+        card._archetypeBgRO = null;
+      }
+    }
+  };
+  window._archetypeBgMO = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const removed of m.removedNodes) disconnectIn(removed);
+    }
+  });
+  window._archetypeBgMO.observe(root, { childList: true, subtree: true });
+}
+
 function renderCell(c, snippetGroups, cellsById, opts) {
   opts = opts || {};
   const card = el("article", "cell");
@@ -11437,6 +11480,14 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   // (B-path; A-path was the static SVG glyph fill in 8b59df3, now
   // composes with this archetype layer underneath).
   if (!opts.compact && typeof _mixed3dDrawCellPreview === "function") {
+    _ensureArchetypeBgCleanup();
+    // Defensive: if the card is being re-rendered (rare), disconnect
+    // the prior RO before attaching a new one. Without this, repeated
+    // renderCell on the same card would stack RO instances.
+    if (card._archetypeBgRO) {
+      try { card._archetypeBgRO.disconnect(); } catch (e) { /* ignore */ }
+      card._archetypeBgRO = null;
+    }
     const bg = el("canvas", "cell-archetype-bg");
     card.appendChild(bg);
     const paint = () => {
