@@ -5507,10 +5507,28 @@ body.layout-mixed3d .cell-head {
 }
 
 /* HTML tables — same brightness/weight tier. User flagged
-   cells 3792 / 3854 (html_layout=table) as "too dim". */
+   cells 3792 / 3854 (html_layout=table) as "too dim", and cell-4455
+   as "poor use of space" — table content bunched in part of a wide
+   colspan=3 cell. Stretch the table to fill the cell. */
+.theme-hackers .html-target {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
 .theme-hackers .html-target table {
   border-collapse: collapse !important;
   width: 100% !important;
+  height: 100% !important;
+  table-layout: auto !important;
+}
+.theme-hackers .html-target .callouts {
+  width: 100% !important;
+  height: 100% !important;
+  align-content: stretch !important;
+}
+.theme-hackers .html-target .callout {
+  height: 100% !important;
 }
 .theme-hackers .html-target table th,
 .theme-hackers .html-target table td {
