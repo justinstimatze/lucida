@@ -40,6 +40,21 @@ os.makedirs(CELLS_DEST, exist_ok=True)
 CELLS_CACHE_MAX = 2500
 _evict_counter = [0]
 
+# Per-POST body cap. Largest real bodies: contact-sheet PNG ~360KB,
+# heavy mermaid SVG ~25KB. 50MB is 50x headroom and bounds memory if a
+# misbehaving client (or a malicious one on this host) sends a huge
+# content-length. Localhost-only listener so attack surface is local
+# processes, not network.
+MAX_POST_BYTES = 50 * 1024 * 1024
+# Defense-in-depth: tighten CORS to the origins lucida actually uses in
+# dev. Older sessions might have used 8000/8001 — extend if needed.
+ALLOWED_ORIGINS = {
+    "http://localhost:8766",
+    "http://127.0.0.1:8766",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+}
+
 
 def _evict_if_over_cap():
     """LRU-evict cells/*.*.svg files when over CELLS_CACHE_MAX. Cheap to
@@ -90,9 +105,17 @@ def _safe_under(root: str, raw_name: str) -> str | None:
 
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
-        self.send_header("access-control-allow-origin", "*")
+        # Echo Origin only when it's on the allowlist; otherwise omit
+        # ACAO so the browser blocks. Wildcard '*' was overly permissive
+        # for a write-capable endpoint, even on localhost. DNS-rebinding
+        # against 127.0.0.1 listeners is a known class of bug; this is
+        # cheap defense-in-depth.
+        origin = self.headers.get("origin", "")
+        if origin in ALLOWED_ORIGINS:
+            self.send_header("access-control-allow-origin", origin)
+        self.send_header("vary", "origin")
         self.send_header("access-control-allow-methods", "POST, OPTIONS, GET")
-        self.send_header("access-control-allow-headers", "*")
+        self.send_header("access-control-allow-headers", "content-type")
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -131,7 +154,23 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(f"snap_receiver ok, shots={SHOTS_DEST}, cells={CELLS_DEST}\n".encode())
 
     def do_POST(self):
-        n = int(self.headers.get("content-length", 0))
+        # Body size guard. Malformed content-length → reject; over-cap →
+        # reject; missing → treat as 0. ValueError previously propagated
+        # and killed the request thread without a meaningful response.
+        try:
+            n = int(self.headers.get("content-length", 0))
+        except (TypeError, ValueError):
+            self.send_response(400)
+            self._cors()
+            self.end_headers()
+            self.wfile.write(b"invalid content-length\n")
+            return
+        if n < 0 or n > MAX_POST_BYTES:
+            self.send_response(413)
+            self._cors()
+            self.end_headers()
+            self.wfile.write(f"body too large ({n}); cap {MAX_POST_BYTES}\n".encode())
+            return
         body = self.rfile.read(n)
         raw_path = self.path.lstrip("/")
         # Cells-cache target: POST /cells/<id>.<substrate>.svg → save
@@ -159,16 +198,38 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(f"cached {target} ({len(body)} bytes)\n".encode())
             return
         # Legacy screenshot path: filename from URL, write under shots dest.
-        raw_name = raw_path.replace("..", "_") or "shot.png"
-        if "/" in raw_name:
-            raw_name = raw_name.replace("/", "_")
+        # Use _safe_under for proper realpath-based traversal protection
+        # instead of the previous ad-hoc replace("..", "_") which doesn't
+        # catch tricks like %2e%2e or absolute paths.
+        raw_name = raw_path or "shot.png"
+        # Strip any path components — only basenames land in shots dir.
+        raw_name = os.path.basename(raw_name) or "shot.png"
         if not raw_name.lower().endswith((".png", ".jpg", ".jpeg")):
             raw_name += ".png"
-        path = os.path.join(SHOTS_DEST, raw_name)
+        path = _safe_under(SHOTS_DEST, raw_name)
+        if path is None:
+            self.send_response(400)
+            self._cors()
+            self.end_headers()
+            self.wfile.write(b"refused: path escapes shots dir\n")
+            return
         data = body
         if body.startswith(b"data:"):
             comma = body.find(b",")
-            data = base64.b64decode(body[comma + 1 :])
+            if comma == -1:
+                self.send_response(400)
+                self._cors()
+                self.end_headers()
+                self.wfile.write(b"malformed data: URL (no comma)\n")
+                return
+            try:
+                data = base64.b64decode(body[comma + 1 :])
+            except (ValueError, base64.binascii.Error):
+                self.send_response(400)
+                self._cors()
+                self.end_headers()
+                self.wfile.write(b"invalid base64 payload\n")
+                return
         with open(path, "wb") as f:
             f.write(data)
         self.send_response(200)
