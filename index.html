@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=11" />
+<link rel="stylesheet" href="notebook.css?v=12" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -2825,21 +2825,27 @@ function applyMixed3DLayout(opts) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
   }, true);
-  // Mouselook on left-drag: distinguish click (≤6px movement) from
-  // drag (>6px) so a stationary click still fires the click-to-park
+  // Mouselook on left-drag: distinguish click (≤10px movement) from
+  // drag (>10px) so a stationary click still fires the click-to-park
   // raycaster above. On drag, suspend swoopy (set _userTookCamera +
   // seed _ffYaw/_ffPitch from current camera dir), accumulate
   // movementX/Y deltas. On mouseup if dragged, swallow the next
   // click so park doesn't fire. Reset via R / Escape per the
   // free-flight exit hatch added 2026-05-23. Trackpad-friendly
   // (no need for a right mouse button).
-  const _mlState = { down: null, dragging: false, suppressNextClick: false };
-  // 10px (was 6px) so trackpad-click jitter doesn't enter mouselook
-  // accidentally. User 2026-05-23 reports a stationary trackpad click
-  // can register a small motion delta.
-  const DRAG_THRESHOLD_PX = 10;
-  const MOUSELOOK_SENS = 0.003;
-  window.addEventListener("mousedown", (e) => {
+  //
+  // INSTALL-ONCE: applyMixed3DLayout can be called multiple times
+  // (layout switches, re-mounts). Without the guard, each call
+  // attached fresh global mousedown/move/up/click/keydown listeners
+  // — leaked N × switches handlers (audit 2026-05-23). State checks
+  // inside the handlers (`if (!_mixed3dState) return`) cover the
+  // case where the layout isn't mixed3d.
+  if (!window._lucidaMouselookInstalled) {
+    window._lucidaMouselookInstalled = true;
+    const _mlState = { down: null, dragging: false, suppressNextClick: false };
+    const DRAG_THRESHOLD_PX = 10;
+    const MOUSELOOK_SENS = 0.003;
+    window.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     const S = _mixed3dState;
     if (!S || S._warmupActive) return;
@@ -2898,17 +2904,18 @@ function applyMixed3DLayout(opts) {
       e.stopPropagation();
     }
   }, true);
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      // Escape clears parked OR free-flight state. Without the latter
-      // branch, pressing WASD/arrows then Escape left _userTookCamera
-      // true and the swoopy never re-engaged (reported 2026-05-23).
-      if (_mixed3dState?._park) window._mixed3dUnpark();
-      if (_mixed3dState?._userTookCamera && typeof window._mixed3dResetSwoopy === "function") {
-        window._mixed3dResetSwoopy();
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        // Escape clears parked OR free-flight state. Without the latter
+        // branch, pressing WASD/arrows then Escape left _userTookCamera
+        // true and the swoopy never re-engaged (reported 2026-05-23).
+        if (_mixed3dState?._park) window._mixed3dUnpark();
+        if (_mixed3dState?._userTookCamera && typeof window._mixed3dResetSwoopy === "function") {
+          window._mixed3dResetSwoopy();
+        }
       }
-    }
-  });
+    });
+  } // end install-once guard
 
   const css3dRenderer = new T.CSS3DRenderer();
   css3dRenderer.setSize(w, h);
@@ -5099,8 +5106,8 @@ function _mixed3dDriveDollyCanyon(t) {
 // ~2K cells = ~150MB worst case (most cells get evicted before
 // allocating). Replaces CSS3DObject for cells 2026-05-02 — DOM
 // matrix3d writes were the perf + jitter bottleneck.
-// Tier-2 procedural preview — THEMED AMBIENT ARCHETYPES, NOT FAITHFUL
-// PREVIEWS. Read this contract before editing:
+// Tier-2 procedural preview — THEMED AMBIENT ARCHETYPES. Read this
+// contract before editing:
 //
 //   1. The role of this function is "give the viewer a sense that
 //      something visual lives here" at corridor distance. Cells are
@@ -5108,16 +5115,17 @@ function _mixed3dDriveDollyCanyon(t) {
 //      the actual tier-1 visual once the camera approaches and tier-1
 //      renders. (See #4 snap path; this fills the gap before that.)
 //
-//   2. Each branch dispatches by SUBSTRATE ARCHETYPE, not specific
-//      substrate. Archetypes are intentionally generic:
+//   2. Most substrates render as DECORATIVE TEXT (Eurostile-bold cyan
+//      tokens, matching the canyon's decorative layer). User
+//      2026-05-23: "I'd rather they just be decorative cells which
+//      look really great" — explicit pivot away from substrate-shaped
+//      previews after the xy-plot / graph archetypes read as
+//      out-of-place. The two exceptions stayed because they read as
+//      "data instruments" and integrate with the canyon aesthetic:
 //
-//        graph    : nodes + connecting lines    (mermaid, force_graph)
 //        bars     : varied-height bars          (vega, treemap)
-//        lines    : horizontal line stack       (html)
-//        series   : single polyline             (sparkline, timeline_ribbon,
-//                                                trajectory, coord-plot)
 //        bar-meter: horizontal bar + notch      (gauge)
-//        blocks   : outlined rectangles         (animated_svg, image)
+//        TEXT     : decorative cyan tokens      (everything else)
 //
 //   3. NEVER add ctype-specific shapes here trying to mirror the
 //      tier-1 renderer. The gauge dial drift (2026-05-23, user
@@ -5133,6 +5141,39 @@ function _mixed3dDriveDollyCanyon(t) {
 //
 // Hash the cell id for deterministic randomness so the same cell
 // always paints the same.
+
+// Token pool for the TEXT archetype — mirrors the canyon's decorative
+// layer vocabulary (see _mixed3dBuildDecorativeLayer). Module-scope so
+// both the tier-2 preview and the cell backdrop pick from the same
+// pool — visual consistency.
+const _MIXED3D_DECO_TOKENS = [
+  "STATUS", "READY", "BUFFER", "TARGET", "PASS", "CALL", "RESP",
+  "COMPANY_STATUS", "TROPIC_REPORTS", "INSTRUMENTATION", "RECRUITMENT",
+  "DOMAIN_HEAD_BLOCK", "MEMORY_FENCE_TABLE", "COMPOSITE_PLANTS",
+  "SHIPPING_FORECASTS", "ANNUAL_BUDGETS", "GARBAGE", "PAYROLL",
+  "RX", "TX", "OK", "EXEC", "JMP", "RET", "MOV", "POP", "INIT", "RUN",
+  "0xABCD", "0x00FE", "0xFF", "$0042", "1.4e3", "12.4ms", "0/1",
+  "==", "->", "::", ">>", "+--",
+];
+
+function _mixed3dPaintDecorativeText(ctx, x0, y0, w, h, rng, cyan) {
+  // Eurostile-bold cyan token rows, ~4% purple highlight to match the
+  // canyon decoratives. Font size scales with cell height so small
+  // cells stay readable as glyphs, not blurred blocks.
+  const fontSize = Math.max(8, Math.min(14, Math.floor(h / 12)));
+  ctx.font = `bold ${fontSize}px "Eurostile", "Share Tech Mono", "Courier New", monospace`;
+  ctx.textBaseline = "top";
+  const rowH = fontSize * 1.3;
+  const xPad = 4;
+  for (let y = y0 + 2; y + fontSize < y0 + h; y += rowH) {
+    const txt = _MIXED3D_DECO_TOKENS[Math.floor(rng() * _MIXED3D_DECO_TOKENS.length)];
+    ctx.globalAlpha = 0.55 + rng() * 0.4;
+    ctx.fillStyle = rng() < 0.04 ? "#9966ff" : cyan;
+    ctx.fillText(txt, x0 + xPad, y);
+  }
+  ctx.globalAlpha = 1.0;
+}
+
 function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   if (h < 12 || w < 12) return;
   let seed = 0;
@@ -5140,38 +5181,19 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) | 0;
   const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   const ctype = cell.dataset.cellType || "";
-  // ARCHETYPE DISPATCH — substrate → archetype, NEVER substrate-specific.
+  // ARCHETYPE DISPATCH — only TWO substrate-shaped exceptions (bars,
+  // bar-meter); everything else → decorative-text. User 2026-05-23:
+  // "I'd rather they just be decorative cells which look really
+  // great. maybe the bar charts are ok but not the xy plots".
   let archetype;
-  if (ctype === "mermaid" || ctype === "force_graph") archetype = "graph";
-  else if (ctype === "vega" || ctype === "treemap") archetype = "bars";
-  else if (ctype === "html" || ctype === "code" || ctype === "ascii") archetype = "lines";
-  else if (
-    ctype === "timeline_ribbon" ||
-    ctype === "sparkline" ||
-    ctype === "trajectory" ||
-    ctype === "coord_plot"
-  )
-    archetype = "series";
+  if (ctype === "vega" || ctype === "treemap") archetype = "bars";
   else if (ctype === "gauge") archetype = "bar-meter";
-  else if (ctype === "animated_svg" || ctype === "image") archetype = "blocks";
-  else archetype = "lines"; // default for unknown substrates
+  else archetype = "text"; // mermaid, force_graph, html, code, ascii,
+                           // sparkline, timeline_ribbon, trajectory,
+                           // coord_plot, animated_svg, image, default
   ctx.save();
-  if (archetype === "graph") {
-    const N = 4 + Math.floor(rng() * 3);
-    const pts = [];
-    for (let i = 0; i < N; i++) pts.push({ x: x0 + rng() * w, y: y0 + rng() * h });
-    ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.75;
-    ctx.lineWidth = 1;
-    for (let i = 0; i < N - 1; i++) {
-      ctx.beginPath();
-      ctx.moveTo(pts[i].x, pts[i].y);
-      ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = pink;
-    for (const p of pts) ctx.fillRect(p.x - 3, p.y - 2.5, 6, 5);
+  if (archetype === "text") {
+    _mixed3dPaintDecorativeText(ctx, x0, y0, w, h, rng, cyan);
   } else if (archetype === "bars") {
     const N = 5 + Math.floor(rng() * 4);
     const bw = w / N - 1;
@@ -5181,33 +5203,6 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
       const bh = (0.25 + rng() * 0.7) * h;
       ctx.fillRect(x0 + i * (bw + 1), y0 + h - bh, bw, bh);
     }
-  } else if (archetype === "lines") {
-    const lineH = 5;
-    const rows = Math.floor(h / lineH);
-    ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.8;
-    ctx.lineWidth = 1;
-    for (let i = 0; i < rows; i++) {
-      const len = (0.35 + rng() * 0.6) * w;
-      const y = y0 + i * lineH + 1;
-      ctx.beginPath();
-      ctx.moveTo(x0, y);
-      ctx.lineTo(x0 + len, y);
-      ctx.stroke();
-    }
-  } else if (archetype === "series") {
-    ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.92;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    const segs = 8 + Math.floor(rng() * 6);
-    for (let i = 0; i <= segs; i++) {
-      const x = x0 + (i / segs) * w;
-      const y = y0 + (0.3 + rng() * 0.5) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
   } else if (archetype === "bar-meter") {
     // Tier-2 decorative gauge: rectilinear bar+notch (matches the
     // tier-1 hackers gauge variant added 2026-05-23). The earlier
@@ -5245,36 +5240,6 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
       ctx.moveTo(tx, by + bh / 2 + 1);
       ctx.lineTo(tx, by + bh / 2 + 4);
       ctx.stroke();
-    }
-  } else if (archetype === "blocks") {
-    // Rectilinear blocks instead of circles — matches the hackers
-    // square-and-blocky rule (user 2026-05-23). Outlined rectangles
-    // of varied sizes scattered across the cell.
-    const N = 3 + Math.floor(rng() * 4);
-    ctx.strokeStyle = cyan;
-    ctx.globalAlpha = 0.85;
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < N; i++) {
-      const cx = x0 + (0.2 + rng() * 0.6) * w;
-      const cy = y0 + (0.2 + rng() * 0.6) * h;
-      const bw = 8 + rng() * 14;
-      const bh = 6 + rng() * 10;
-      ctx.strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
-    }
-  } else {
-    // Default (text and unknown): stippled-paragraph rows
-    const lineH = 5;
-    const rows = Math.floor(h / lineH);
-    ctx.fillStyle = cyan;
-    ctx.globalAlpha = 0.4;
-    for (let i = 0; i < rows; i++) {
-      let x = x0;
-      const maxX = x0 + w * (0.5 + rng() * 0.45);
-      while (x < maxX) {
-        const wordW = 3 + rng() * 6;
-        ctx.fillRect(x, y0 + i * lineH + 1, wordW, 1.5);
-        x += wordW + 2;
-      }
     }
   }
   ctx.restore();
