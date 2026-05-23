@@ -7331,9 +7331,25 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   const curObj = S.cellObjects.get(targetId);
   if (curObj && !curObj.isInstanceHandle
       && curObj.userData?.tier === 1
-      && curObj.material?.map) {
-    curObj.material.map.image = fullCanvas;
-    curObj.material.map.needsUpdate = true;
+      && curObj.material) {
+    // Build a fresh CanvasTexture rather than mutating .map.image —
+    // mutating works ONLY if the new image has the same dimensions
+    // as the WebGL texture binding (created at first upload). When
+    // the promote-time placeholder canvas had different dimensions
+    // than the cached canvas, the WebGL texture was sized to the
+    // placeholder; subsequent uploads via gl.texImage2D inside the
+    // existing texture binding clipped to those original dimensions.
+    // Fresh CanvasTexture → fresh WebGLTexture → correct dimensions.
+    // User 2026-05-22: "the cell is blank" on the tower face.
+    const T = window.THREE;
+    if (T) {
+      if (curObj.material.map) curObj.material.map.dispose();
+      const tex = new T.CanvasTexture(fullCanvas);
+      tex.minFilter = T.LinearFilter;
+      tex.magFilter = T.LinearFilter;
+      curObj.material.map = tex;
+      curObj.material.needsUpdate = true;
+    }
   }
 }
 
