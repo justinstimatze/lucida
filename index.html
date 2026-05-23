@@ -6385,7 +6385,7 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
       ctx.fillText(String(value), pad, ry + rowH * 0.45);
       // Label — wraps under the number.
       const labelFont = Math.max(14, Math.min(20, Math.floor(rowH * 0.13)));
-      ctx.fillStyle = "rgba(204,238,255,0.85)";
+      ctx.fillStyle = "#e8f8ff";
       ctx.font = `${labelFont}px 'Eurostile', 'Share Tech Mono', monospace`;
       const charW = labelFont * 0.55;
       const maxChars = Math.floor((w - pad * 2) / charW);
@@ -7241,10 +7241,15 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
               const barY = cy + Math.floor((rowH - 10) / 2);
               drawSeverityBar(colXs[ci], barY, colWidths[ci] - 6, lv, false);
             } else {
-              // Body text: dim cyan-tinted (~0.85 alpha cyan) instead
-              // of bright #e8f8ff white. Matches the tier-2 decorative
-              // stroke palette and stops the cell from shouting.
-              ctx.fillStyle = "rgba(0,221,255,0.85)";
+              // Body text: bright #e8f8ff. Earlier tone-down to dim
+              // cyan made text unreadable at the cell's scene scale
+              // (user 2026-05-22 reported cells looking blank — the
+              // text WAS there but at 0.85-alpha cyan against the
+              // dark fill it didn't read from canyon distance). The
+              // "match the decorative bed" goal still holds at the
+              // composition level (dim header rule, soft separators);
+              // body content stays bright so it's readable.
+              ctx.fillStyle = "#e8f8ff";
               ctx.globalAlpha = 1.0;
               ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
               const lines = cellLines[ci] || [""];
