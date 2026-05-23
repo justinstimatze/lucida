@@ -2432,6 +2432,36 @@ function scheduleLiveLayoutRetries() {
     setTimeout(applyActiveLayout, 2000),
   ];
 }
+
+// ResizeObserver-driven re-pack: substrates hydrate over many seconds
+// (some mermaid renders take 3s+) and Muuri positions cells at their
+// initial offsetWidth. Once a cell grows past its old natural size, it
+// overlaps neighbors and stays overlapped until the next live-append
+// triggers the noop re-pack path. The 600ms/2000ms retries cover boot
+// but not the long tail. This watcher coalesces size changes through a
+// 250ms debounce, then asks Muuri to refresh + re-layout. User
+// 2026-05-22 cell-overlap audit on hackers/pack + conclave/pack.
+let _packResizeObserver = null;
+let _packResizeTimer = null;
+function _packScheduleRepack() {
+  if (_packResizeTimer) clearTimeout(_packResizeTimer);
+  _packResizeTimer = setTimeout(() => {
+    _packResizeTimer = null;
+    if (_muuriGrid) {
+      try {
+        _muuriGrid.refreshItems();
+        _muuriGrid.layout(false);
+      } catch (e) { /* best-effort */ }
+    }
+  }, 250);
+}
+function _packGetObserver() {
+  if (!_packResizeObserver && typeof ResizeObserver !== "undefined") {
+    _packResizeObserver = new ResizeObserver(_packScheduleRepack);
+  }
+  return _packResizeObserver;
+}
+
 function applyPackLayout() {
   const root = document.getElementById("notebook");
   window._lucidaPackDebug = window._lucidaPackDebug || { calls: [] };
@@ -2505,11 +2535,17 @@ function applyPackLayout() {
       // Muuri's getItems() honest so future fillGaps work doesn't
       // try to position phantom items.
       const stale = muuriItems.filter(i => !sizedSet.has(i.getElement()));
-      if (stale.length) _muuriGrid.remove(stale, { layout: false });
+      if (stale.length) {
+        const ro = _packGetObserver();
+        if (ro) stale.forEach(i => { try { ro.unobserve(i.getElement()); } catch (e) {} });
+        _muuriGrid.remove(stale, { layout: false });
+      }
       const fresh = sized.filter(el => !muuriEls.has(el));
       if (fresh.length) {
         fresh.forEach(el => { el.style.visibility = "hidden"; });
         _muuriGrid.add(fresh, { layout: false });
+        const ro = _packGetObserver();
+        if (ro) fresh.forEach(el => { try { ro.observe(el); } catch (e) {} });
       }
       if (stale.length || fresh.length) {
         // Refresh sizes too — fresh items just hydrated and their
@@ -2571,6 +2607,10 @@ function applyPackLayout() {
   _muuriGrid.layout(true, () => {
     sized.forEach(el => { el.style.visibility = ""; });
   });
+  // Observe each cell for size changes — substrates hydrate async and
+  // a late-growing cell would overlap neighbors without a re-pack.
+  const ro = _packGetObserver();
+  if (ro) sized.forEach(el => { try { ro.observe(el); } catch (e) {} });
   window._muuriGrid = _muuriGrid;
   window._lucidaPackDebug.calls.push(dbg);
 }
@@ -2582,8 +2622,10 @@ function teardownPackLayout() {
   if (!_muuriGrid) return;
   try {
     const items = _muuriGrid.getItems();
+    const ro = _packGetObserver();
     items.forEach(it => {
       const el = it.getElement();
+      if (ro) { try { ro.unobserve(el); } catch (e) {} }
       el.style.transform = "";
       el.style.position = "";
       el.style.left = "";
@@ -2592,6 +2634,7 @@ function teardownPackLayout() {
     _muuriGrid.destroy();
   } catch (e) { /* best-effort */ }
   _muuriGrid = null;
+  if (_packResizeTimer) { clearTimeout(_packResizeTimer); _packResizeTimer = null; }
 }
 
 // ----------------------------------------------------------------
@@ -4713,162 +4756,6 @@ function _mixed3dDriveSwoopyTour(t) {
   const bankTarget = avgRate * BANK_K * easeIn * (1 - sf);
   if (sw.bankActual == null) sw.bankActual = 0;
   sw.bankActual += (bankTarget - sw.bankActual) * 0.04;
-  const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
-  cam.up.copy(bankedUp);
-  cam.lookAt(sw.lookAtActual);
-}
-
-// (Old segment-queue swoopy-tour archived below — DEAD CODE, kept
-// briefly for reference; safe to delete in a follow-up cleanup.)
-function _mixed3dDriveSwoopyTour_OLD_UNUSED(t) {
-  const T = window.THREE;
-  const S = _mixed3dState;
-  const cam = S.camera;
-  if (!S.swoopCam) {
-    const center = { i: Math.floor((S.geometry.towerCount - 2) / 2), j: Math.floor((S.geometry.towerCount - 2) / 2) };
-    // Pick a random initial direction
-    const startDir = _LANE_DIRS[Math.floor(Math.random() * _LANE_DIRS.length)];
-    const second = { i: center.i + startDir.di, j: center.j + startDir.dj };
-    const third = _mixed3dPickNextLane(second, center);
-    const fourth = _mixed3dPickNextLane(third, second);
-    S.swoopCam = {
-      laneIdxQueue: [center, second, third, fourth],
-      worldQueue: [
-        _mixed3dLaneToWorld(center.i, center.j),
-        _mixed3dLaneToWorld(second.i, second.j),
-        _mixed3dLaneToWorld(third.i, third.j),
-        _mixed3dLaneToWorld(fourth.i, fourth.j),
-      ],
-      segStart: t,
-      // 8s per lane segment (length 12) → 1.5 units/sec. Slow,
-      // ponderous; combined with smoothstep ease the actual pace
-      // through the corner is even slower.
-      segDuration: 8.0,
-      lookAtActual: null,
-      posActual: null,
-      // Grazing pan: when set, segment perturbs camera laterally
-      // toward one tower face for a closer look at cells. Computed
-      // on segment advance (and at first-init below).
-      grazeSide: 0,
-      grazeAmount: 0,
-    };
-    if (_mixed3dSegmentIsStraight(...S.swoopCam.worldQueue) && Math.random() < 0.34) {
-      S.swoopCam.grazeSide = Math.random() < 0.5 ? -1 : 1;
-      S.swoopCam.grazeAmount = 2.4;
-    }
-  }
-  const sw = S.swoopCam;
-  let raw = (t - sw.segStart) / sw.segDuration;
-  if (raw >= 1) {
-    // Capture pre-shift state to measure desiredPos/tangent jump
-    // across the segment boundary. If pos delta or tangent delta is
-    // large, the lookAt snaps and the user sees a "blink".
-    const _pre_p = _catmullRom3(...sw.worldQueue, 1);
-    const _pre_t = _catmullRom3Tangent(...sw.worldQueue, 1); _pre_t.y = 0;
-    if (_pre_t.lengthSq() > 1e-6) _pre_t.normalize();
-    // Advance queue: drop oldest, generate one more ahead.
-    sw.laneIdxQueue.shift();
-    sw.worldQueue.shift();
-    const last = sw.laneIdxQueue[sw.laneIdxQueue.length - 1];
-    const prev = sw.laneIdxQueue[sw.laneIdxQueue.length - 2];
-    const nextIdx = _mixed3dPickNextLane(last, prev);
-    sw.laneIdxQueue.push(nextIdx);
-    sw.worldQueue.push(_mixed3dLaneToWorld(nextIdx.i, nextIdx.j));
-    sw.segStart = t;
-    raw = 0;
-    const _post_p = _catmullRom3(...sw.worldQueue, 0);
-    const _post_t = _catmullRom3Tangent(...sw.worldQueue, 0); _post_t.y = 0;
-    if (_post_t.lengthSq() > 1e-6) _post_t.normalize();
-    const dPos = Math.hypot(_post_p.x - _pre_p.x, _post_p.z - _pre_p.z);
-    const dot = Math.max(-1, Math.min(1, _pre_t.x * _post_t.x + _pre_t.z * _post_t.z));
-    const dTanDeg = Math.acos(dot) * 180 / Math.PI;
-    console.log(`[mixed3d] seg-boundary @ ${(t*1000).toFixed(0)}ms: dPos=${dPos.toFixed(3)}u, dTangent=${dTanDeg.toFixed(1)}°`);
-    // Re-decide grazing for the new segment. ~1 in 3 straight
-    // segments graze; turning segments never graze (would push
-    // camera toward inner-corner tower).
-    if (_mixed3dSegmentIsStraight(...sw.worldQueue) && Math.random() < 0.34) {
-      sw.grazeSide = Math.random() < 0.5 ? -1 : 1;
-      sw.grazeAmount = 2.4;
-    } else {
-      sw.grazeSide = 0;
-      sw.grazeAmount = 0;
-    }
-  }
-  const eased = _smoothstep01(raw);
-  const [p0, p1, p2, p3] = sw.worldQueue;
-  const desiredPos = _catmullRom3(p0, p1, p2, p3, eased);
-  // Constant low altitude + gentle bob.
-  desiredPos.y = 4.5 + Math.sin(t * 0.22) * 0.6;
-  // Tangent for look-ahead direction (also drives perpendicular for
-  // graze offset). Compute before applying lateral offset so the
-  // perpendicular comes from the unperturbed curve direction.
-  const tan = _catmullRom3Tangent(p0, p1, p2, p3, eased);
-  tan.y = 0;
-  if (tan.lengthSq() < 1e-6) tan.set(1, 0, 0);
-  else tan.normalize();
-  // Grazing-pan lateral offset: bell curve over the segment so the
-  // camera eases out toward a face mid-segment, then back. perp is
-  // 90° CCW (around +Y) of the tangent.
-  // Grazing offset — smoothed in two ways so segment boundaries are
-  // seamless: (1) grazeActual lerps toward grazeAmount*grazeSide so a
-  // flip between segments transitions over ~0.4s instead of instantly,
-  // and (2) sin²(πE) envelope has zero derivative at E=0 and E=1
-  // (sin(πE) was zero in value but had ±π slope — a lateral-velocity
-  // whip at every boundary).
-  const grazeTarget = sw.grazeAmount * sw.grazeSide;
-  if (sw.grazeActual == null) sw.grazeActual = 0;
-  sw.grazeActual += (grazeTarget - sw.grazeActual) * 0.04;
-  if (Math.abs(sw.grazeActual) > 1e-4) {
-    const env = Math.sin(Math.PI * eased);
-    const lateral = sw.grazeActual * env * env; // sin²(πE)
-    const perpX = tan.z;
-    const perpZ = -tan.x;
-    desiredPos.x += perpX * lateral;
-    desiredPos.z += perpZ * lateral;
-  }
-  if (!sw.posActual) sw.posActual = desiredPos.clone();
-  const dt = 1 / 60;
-  sw.posActual.lerp(desiredPos, Math.min(1, dt * 2.0));
-  cam.position.copy(sw.posActual);
-  const lookAhead = 12.0;
-  const lookAtTarget = new T.Vector3(
-    cam.position.x + tan.x * lookAhead,
-    cam.position.y, // level horizon
-    cam.position.z + tan.z * lookAhead,
-  );
-  if (!sw.lookAtActual) sw.lookAtActual = lookAtTarget.clone();
-  // dt*5 gives ~0.2s time constant; previously dt*1 (~1s) caused
-  // a multi-second look-direction lag through corners.
-  sw.lookAtActual.lerp(lookAtTarget, Math.min(1, dt * 5.0));
-  // Banking: average heading-rate over a sliding window. Catmull-Rom
-  // is C¹ but not C² so an instantaneous turn-rate has curvature jumps
-  // at every segment boundary; averaging over a window WIDER than the
-  // boundary makes bankTarget continuous at the boundary by construction
-  // (exit_bank ≈ entry_bank). headingHistory holds {time, heading}
-  // samples for the last HEADING_WIN seconds.
-  sw.headingHistory = sw.headingHistory || [];
-  const headingNow = Math.atan2(tan.z, tan.x);
-  sw.headingHistory.push({ time: t, heading: headingNow });
-  const HEADING_WIN = 1.5;
-  while (sw.headingHistory.length > 0 && t - sw.headingHistory[0].time > HEADING_WIN) {
-    sw.headingHistory.shift();
-  }
-  let avgRate = 0;
-  if (sw.headingHistory.length >= 2) {
-    const first = sw.headingHistory[0];
-    const last = sw.headingHistory[sw.headingHistory.length - 1];
-    let dH = last.heading - first.heading;
-    // Unwrap across the ±π atan2 boundary so bank doesn't flip when
-    // the camera crosses heading=π.
-    while (dH > Math.PI) dH -= 2 * Math.PI;
-    while (dH < -Math.PI) dH += 2 * Math.PI;
-    const dT = last.time - first.time;
-    if (dT > 0.05) avgRate = dH / dT;
-  }
-  const BANK_K = 4.0; // rad/s → bank radians (peak ~45° on 90° turns)
-  const bankTarget = avgRate * BANK_K;
-  if (sw.bankActual == null) sw.bankActual = 0;
-  sw.bankActual += (bankTarget - sw.bankActual) * 0.04; // ~0.4s τ
   const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
   cam.up.copy(bankedUp);
   cam.lookAt(sw.lookAtActual);
