@@ -15,6 +15,10 @@ build/
 cells/cell-*.png
 cells/cell-*.jpg
 cells/cell-*.webp
+# Persistent mermaid SVG cache (#152d). Regenerated on demand; bumping
+# STYLE_V invalidates a generation. ~400 files / ~30KB each, not source.
+cells/cell-*.mermaid.*.svg
+cells/*.mermaid.*.svg
 
 # transcript watcher state files
 .watcher_state_*.json
@@ -25,7 +29,16 @@ mint_log.jsonl
 # user cell data — each user generates their own from their own conversations
 cells.json
 cells.json.bak*
+cells.json.before-*
+cells.json.pre-*
+cells.json.corrupt-*
+cells.json.tmp
 cells_*_archive.json
+tools/.system_metrics_state.json
+tools/.system_metrics_state.tmp
+
+# scratch notes / drafts not for the repo
+VR.md
 
 # audit outputs are local — contain snippets from real conversations
 audits/
@@ -44,6 +57,12 @@ demo/demo_cells.json
 # Curated synthesis with bookmarks lives in design-references.md (committed);
 # raw per-entry tables and competitor URL surveys live here for local lookup.
 research/
+
+# Visual reference dumps — ephemeral QA outputs (live-shots) and
+# re-extractable video frames (hackers-video, from YouTube via ffmpeg).
+# Methodology lives in code + memory; the binaries themselves are local.
+refs/gibson/live-shots/
+refs/gibson/hackers-video/
 
 # memory dir leaked from auto-memory hook — actual store lives under
 # ~/.claude/projects/.../memory/, not in the project repo.
