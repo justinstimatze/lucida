@@ -115,9 +115,11 @@
   --glow-sm: 0 0 2px var(--vis-amber-glow);
   --glow-md: 0 0 4px var(--vis-amber-glow);
   --glow-lg: 0 0 8px var(--vis-amber-glow), 0 0 2px var(--vis-amber-glow);
-  --vis-ok: #4ade80;
-  --vis-warn: #fbbf24;
-  --vis-tripped: #f87171;
+  /* --vis-ok / --vis-warn / --vis-tripped intentionally NOT
+     redeclared here — see the earlier :root block (line ~94)
+     which aliases them to per-theme --accent-* tokens. A second
+     literal redeclaration here would beat the alias and lose the
+     theme's warn color (gauges turning gold across themes). */
 }
 
 /* Boot overlay: covers the page during the rough first seconds of
