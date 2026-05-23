@@ -11493,7 +11493,13 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   // fills empty space with our decorative primitives". Task #183
   // (B-path; A-path was the static SVG glyph fill in 8b59df3, now
   // composes with this archetype layer underneath).
-  if (!opts.compact && typeof _mixed3dDrawCellPreview === "function") {
+  //
+  // Gated to mixed3d layout only — the canyon's depth fog + tower-
+  // glass tint mask the low-alpha archetype perfectly, but in pack/
+  // grid 2D layouts the same alpha reads as visible bleed-through
+  // on the flat dark cell background (observed pack-2D 2026-05-23).
+  const _mixed3dActive = document.body?.classList?.contains("layout-mixed3d");
+  if (!opts.compact && _mixed3dActive && typeof _mixed3dDrawCellPreview === "function") {
     _ensureArchetypeBgCleanup();
     // Defensive: if the card is being re-rendered (rare), disconnect
     // the prior RO before attaching a new one. Without this, repeated
