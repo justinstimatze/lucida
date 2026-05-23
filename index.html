@@ -5275,21 +5275,21 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   _mixed3dRemoveTier2Instance(S, handle);
   const isTop = !!handle.mountIsTop;
   const cs = handle.userData?.colspan || 1;
-  const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs, handle.userData?.canvasH);
-  // Re-apply cached snap if we've rendered this cell before. Without
-  // this the snap driver skips (cache.has(id)=true) and the cell stays
-  // on the placeholder texture forever after demote→promote cycles.
+  // Same placeholder-dimension-mismatch bug fix as
+  // _mixed3dSwapCellTier (commit e317751) — build texture directly
+  // from cached canvas. Without cache hit, fall through to the stub
+  // (also has correct dimensions because _mixed3dPaintPromoteStub
+  // matches canvas size from cellData/colspan/canvasH).
   const cachedSnap = S._snapTexCache?.get(id);
+  let tex;
   if (cachedSnap) {
-    tex.image = cachedSnap;
-    tex.needsUpdate = true;
+    tex = new T.CanvasTexture(cachedSnap);
   } else {
-    // Synchronous title+caption stub so the cell is legible the
-    // instant it crosses the LOD boundary. Snap driver overwrites
-    // with the substrate render when its turn comes up.
     const stub = _mixed3dPaintPromoteStub(id, state.rendering.cellsById?.get(id), handle?.userData?.colspan || 1, handle?.userData?.canvasH);
-    if (stub) { tex.image = stub; tex.needsUpdate = true; }
+    tex = stub ? new T.CanvasTexture(stub) : _mixed3dCellTexture(cell, isTop, cyan, pink, cs, handle.userData?.canvasH);
   }
+  tex.minFilter = T.LinearFilter;
+  tex.magFilter = T.LinearFilter;
   const mat = new T.MeshBasicMaterial({
     map: tex,
     transparent: true,
@@ -8264,18 +8264,19 @@ function _mixed3dDrainMountQueue() {
 
     let mat;
     if (tier === 1) {
-      const tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs);
-      // Pick up warmup-cached canvas if we have one — without this,
-      // direct-mount-to-tier-1 cells start with the empty tex and
-      // only get the cached canvas applied when the snap driver next
-      // touches them, leaving a visible "blank → content" pop. Mirrors
-      // the same lookup in _mixed3dSwapCellTier (line ~5037) which
-      // already does the right thing for tier-2→tier-1 promotes.
+      // Build texture directly from cached canvas when available — see
+      // commit e317751 note in _mixed3dSwapCellTier: the placeholder-
+      // canvas-then-reassign-image pattern caused Three.js to bind the
+      // placeholder's smaller dimensions, clipping the body region.
       const cachedSnap = S._snapTexCache?.get(cell.id);
+      let tex;
       if (cachedSnap) {
-        tex.image = cachedSnap;
-        tex.needsUpdate = true;
+        tex = new T.CanvasTexture(cachedSnap);
+      } else {
+        tex = _mixed3dCellTexture(cell, isTop, cyan, pink, cs);
       }
+      tex.minFilter = T.LinearFilter;
+      tex.magFilter = T.LinearFilter;
       mat = new T.MeshBasicMaterial({
         map: tex,
         transparent: true,
