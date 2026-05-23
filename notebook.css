@@ -5358,6 +5358,22 @@ body.layout-mixed3d .cell-head {
   mix-blend-mode: screen;
   z-index: 0;
 }
+/* Decorative glyph fill — answers user 2026-05-23 "fill empty space
+   with our decorative primitives". Tiled SVG with cyan brackets,
+   ticks, digits at low alpha. Cells whose content doesn't fill the
+   body reveal this pattern in the empty regions, so the whole cell
+   reads as "data lives here" instead of "blank rectangle." */
+.theme-hackers .cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='110' height='84'><g fill='%2300ddff' fill-opacity='0.085' font-family='Eurostile,monospace' font-size='10' font-weight='700' letter-spacing='0.06em'><text x='6' y='12'>[</text><text x='98' y='12'>]</text><text x='30' y='12'>0x4F</text><text x='10' y='28'>+--</text><text x='62' y='28'>--+</text><text x='28' y='44'>= 1</text><text x='66' y='44'>:</text><text x='4' y='58'>--</text><text x='38' y='58'>0xA2</text><text x='84' y='58'>--</text><text x='14' y='74'>[*]</text><text x='66' y='74'>OK</text></g><g stroke='%2300ddff' stroke-opacity='0.12' stroke-width='1'><line x1='4' y1='18' x2='28' y2='18'/><line x1='84' y1='18' x2='106' y2='18'/><line x1='4' y1='66' x2='106' y2='66'/></g></svg>");
+  background-size: 110px 84px;
+  background-repeat: repeat;
+  mix-blend-mode: screen;
+  z-index: 0;
+}
 .theme-hackers .cell > * { position: relative; z-index: 1; }
 
 .theme-hackers .cell-title {
