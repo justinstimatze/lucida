@@ -5067,11 +5067,40 @@ function _mixed3dDriveDollyCanyon(t) {
 // ~2K cells = ~150MB worst case (most cells get evicted before
 // allocating). Replaces CSS3DObject for cells 2026-05-02 — DOM
 // matrix3d writes were the perf + jitter bottleneck.
-// Substrate-specific preview patterns. Cells aren't legible at
-// corridor distance anyway, so we don't need html2canvas — a stylized
-// sketch per substrate type makes cells READ as varied content
-// rather than identical placeholders. Hash the cell id for
-// deterministic randomness so the same cell always paints the same.
+// Tier-2 procedural preview — THEMED AMBIENT ARCHETYPES, NOT FAITHFUL
+// PREVIEWS. Read this contract before editing:
+//
+//   1. The role of this function is "give the viewer a sense that
+//      something visual lives here" at corridor distance. Cells are
+//      not legible from afar; the snap-driver paints over this with
+//      the actual tier-1 visual once the camera approaches and tier-1
+//      renders. (See #4 snap path; this fills the gap before that.)
+//
+//   2. Each branch dispatches by SUBSTRATE ARCHETYPE, not specific
+//      substrate. Archetypes are intentionally generic:
+//
+//        graph    : nodes + connecting lines    (mermaid, force_graph)
+//        bars     : varied-height bars          (vega, treemap)
+//        lines    : horizontal line stack       (html)
+//        series   : single polyline             (sparkline, timeline_ribbon,
+//                                                trajectory, coord-plot)
+//        bar-meter: horizontal bar + notch      (gauge)
+//        blocks   : outlined rectangles         (animated_svg, image)
+//
+//   3. NEVER add ctype-specific shapes here trying to mirror the
+//      tier-1 renderer. The gauge dial drift (2026-05-23, user
+//      "still see circular gauges and I thought we switched to
+//      square") happened exactly because tier-2 tried to be
+//      faithful to a tier-1 dial shape. Tier-1 changed; tier-2
+//      didn't. Hours lost.
+//
+//   4. If you change a tier-1 substrate shape, you should NOT have
+//      to update this file. If you find yourself wanting to, ask
+//      first: "does this break the archetype rule?" — usually the
+//      tier-2 archetype is fine as-is and the drift is illusory.
+//
+// Hash the cell id for deterministic randomness so the same cell
+// always paints the same.
 function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   if (h < 12 || w < 12) return;
   let seed = 0;
@@ -5079,13 +5108,23 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) | 0;
   const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   const ctype = cell.dataset.cellType || "";
+  // ARCHETYPE DISPATCH — substrate → archetype, NEVER substrate-specific.
+  let archetype;
+  if (ctype === "mermaid" || ctype === "force_graph") archetype = "graph";
+  else if (ctype === "vega" || ctype === "treemap") archetype = "bars";
+  else if (ctype === "html" || ctype === "code" || ctype === "ascii") archetype = "lines";
+  else if (
+    ctype === "timeline_ribbon" ||
+    ctype === "sparkline" ||
+    ctype === "trajectory" ||
+    ctype === "coord_plot"
+  )
+    archetype = "series";
+  else if (ctype === "gauge") archetype = "bar-meter";
+  else if (ctype === "animated_svg" || ctype === "image") archetype = "blocks";
+  else archetype = "lines"; // default for unknown substrates
   ctx.save();
-  // Alpha values bumped 2026-05-19 (#138) for crispness pass —
-  // 0.45→0.75 strokes, 0.5→0.8 lines, 0.55→0.85 bars, 0.7→0.92 ribbons,
-  // 0.85→1.0 needles. Matches the decoratives' opaque look that the
-  // user flagged as the target ("lines should be chunkier, text bolder,
-  // closer to the decorative cells").
-  if (ctype === "mermaid" || ctype === "force_graph") {
+  if (archetype === "graph") {
     const N = 4 + Math.floor(rng() * 3);
     const pts = [];
     for (let i = 0; i < N; i++) pts.push({ x: x0 + rng() * w, y: y0 + rng() * h });
@@ -5101,7 +5140,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
     ctx.globalAlpha = 0.92;
     ctx.fillStyle = pink;
     for (const p of pts) ctx.fillRect(p.x - 3, p.y - 2.5, 6, 5);
-  } else if (ctype === "vega" || ctype === "treemap") {
+  } else if (archetype === "bars") {
     const N = 5 + Math.floor(rng() * 4);
     const bw = w / N - 1;
     ctx.fillStyle = cyan;
@@ -5110,7 +5149,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
       const bh = (0.25 + rng() * 0.7) * h;
       ctx.fillRect(x0 + i * (bw + 1), y0 + h - bh, bw, bh);
     }
-  } else if (ctype === "html") {
+  } else if (archetype === "lines") {
     const lineH = 5;
     const rows = Math.floor(h / lineH);
     ctx.strokeStyle = cyan;
@@ -5124,7 +5163,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
       ctx.lineTo(x0 + len, y);
       ctx.stroke();
     }
-  } else if (ctype === "timeline_ribbon" || ctype === "sparkline") {
+  } else if (archetype === "series") {
     ctx.strokeStyle = cyan;
     ctx.globalAlpha = 0.92;
     ctx.lineWidth = 1.2;
@@ -5137,7 +5176,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
-  } else if (ctype === "gauge") {
+  } else if (archetype === "bar-meter") {
     // Tier-2 decorative gauge: rectilinear bar+notch (matches the
     // tier-1 hackers gauge variant added 2026-05-23). The earlier
     // arc/needle dial read as "analog instrument from another
@@ -5175,7 +5214,7 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
       ctx.lineTo(tx, by + bh / 2 + 4);
       ctx.stroke();
     }
-  } else if (ctype === "animated_svg" || ctype === "image") {
+  } else if (archetype === "blocks") {
     // Rectilinear blocks instead of circles — matches the hackers
     // square-and-blocky rule (user 2026-05-23). Outlined rectangles
     // of varied sizes scattered across the cell.
