@@ -5376,6 +5376,22 @@ body.layout-mixed3d .cell-head {
 }
 .theme-hackers .cell > * { position: relative; z-index: 1; }
 
+/* Archetype backdrop canvas — substrate-archetype pattern (graph /
+   bars / lines / series / bar-meter / blocks) painted at low alpha
+   behind cell content. Created by renderCell after layout sizes
+   the card; ResizeObserver re-paints when substrate lazy-mounts
+   grow the cell. User 2026-05-23 "post render fill cells with
+   decorative content." */
+.cell-archetype-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+.cell { position: relative; }
+
 .theme-hackers .cell-title {
   font-family: "Eurostile", "Share Tech Mono", "Courier New", monospace !important;
   letter-spacing: 0.08em !important;
