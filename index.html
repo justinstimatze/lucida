@@ -3356,6 +3356,55 @@ function applyMixed3DLayout(opts) {
     scene.add(pulseAir);
   }
 
+  // Inter-tower data streaks — elongated horizontal bars sliding
+  // slowly through the canyon at upper-mid altitude. Matches the
+  // prominent horizontal light streak in
+  // refs/gibson/canyon_flythrough.png that the point-pulses above
+  // (small fast dots) don't capture. 5 streaks, additive cyan, ~2.5
+  // u/s along corridors. (Task #112, user 2026-05-23 fidelity pass.)
+  const streaks = [];
+  {
+    const N_STREAKS = 5;
+    const STREAK_LEN = 4.5;
+    const half = fieldSize * 0.5;
+    const corridorLines = [];
+    for (let i = 0; i < towerCount - 1; i++) {
+      corridorLines.push((i + 0.5 - gridHalf) * spacing);
+    }
+    const pickCorridor = () =>
+      corridorLines[Math.floor(Math.random() * corridorLines.length)];
+    for (let i = 0; i < N_STREAKS; i++) {
+      const geo = new T.BoxGeometry(STREAK_LEN, 0.06, 0.06);
+      const mat = new T.MeshBasicMaterial({
+        color: new T.Color(0xb8f7ff),
+        transparent: true,
+        opacity: 0.75,
+        blending: T.AdditiveBlending,
+        depthWrite: false,
+      });
+      const mesh = new T.Mesh(geo, mat);
+      const onX = Math.random() < 0.5;
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const y = 5 + Math.random() * 8;
+      const corridor = pickCorridor();
+      if (onX) {
+        mesh.position.set(dir * -half, y, corridor);
+        mesh.rotation.set(0, 0, 0);
+      } else {
+        mesh.position.set(corridor, y, dir * -half);
+        mesh.rotation.set(0, Math.PI / 2, 0);
+      }
+      scene.add(mesh);
+      streaks.push({
+        mesh,
+        vx: onX ? dir * 2.5 : 0,
+        vz: onX ? 0 : dir * 2.5,
+        halfField: half,
+        pickCorridor,
+      });
+    }
+  }
+
   document.body.classList.add("layout-mixed3d");
 
   _mixed3dState = {
@@ -3373,6 +3422,7 @@ function applyMixed3DLayout(opts) {
     particleSystem,
     pulseGround,
     pulseAir,
+    streaks,
     cellObjects: new Map(), // cell-id → CSS3DObject
     cellTier: new Map(), // cell-id → 1 (close) or 2 (far)
     cellSlotKeys: new Map(), // cell-id → "tower:face:col:i" key
@@ -3623,6 +3673,31 @@ function applyMixed3DLayout(opts) {
           }
         }
         posAttr.needsUpdate = true;
+      }
+      // Inter-tower streaks: slide along their corridor, wrap at the
+      // far edge with a fresh altitude/corridor. Slow (~2.5 u/s) so
+      // they read as "data flowing" rather than motion blur.
+      const streakArr = _mixed3dState.streaks;
+      if (streakArr && dt > 0) {
+        for (const s of streakArr) {
+          s.mesh.position.x += s.vx * dt;
+          s.mesh.position.z += s.vz * dt;
+          const half = s.halfField;
+          if (
+            Math.abs(s.mesh.position.x) > half + 5 ||
+            Math.abs(s.mesh.position.z) > half + 5
+          ) {
+            // Wrap to opposite edge, new corridor + altitude.
+            if (s.vx !== 0) {
+              s.mesh.position.x = -Math.sign(s.vx) * (half + 4);
+              s.mesh.position.z = s.pickCorridor();
+            } else {
+              s.mesh.position.z = -Math.sign(s.vz) * (half + 4);
+              s.mesh.position.x = s.pickCorridor();
+            }
+            s.mesh.position.y = 5 + Math.random() * 8;
+          }
+        }
       }
       const airPS = _mixed3dState.pulseAir;
       if (airPS && dt > 0) {
