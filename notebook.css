@@ -90,6 +90,18 @@
   --code-bg: #15151a;
   --cell-bg: #131318;
   --header-bg: #15151a;
+  /* Status-role aliases: map the substrate-renderer-facing vis tokens
+     (--vis-ok / --vis-warn / --vis-tripped) to the per-theme accent
+     tokens that themes/*.tokens.json declare via setProperty
+     ("--accent-warning", "--accent-danger", "--accent-ok"). This way
+     a gauge / timeline / sparkline at warn-zone renders in the
+     theme's warn color, not the universal gold fallback. Before
+     2026-05-23 the gauge SATURDAY CORPUS at 80% (warn zone) rendered
+     gold across every theme — clashed terminus phosphor green,
+     mainframe teal, etc. (theme-polish audit). */
+  --vis-ok: var(--accent-ok, var(--accent-primary, #76d2c8));
+  --vis-warn: var(--accent-warning, #f0b500);
+  --vis-tripped: var(--accent-danger, #d94f5c);
   /* Phase 1 chrome demote (2026-05-01): moves static titles/labels/
      edges off --accent so it can be reserved for moments (new-mint
      pulse, kill-state, focus, completion). Per theme override these
