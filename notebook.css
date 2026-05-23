@@ -5333,6 +5333,17 @@ body.layout-mixed3d .cell-head {
      - subtle horizontal scanlines (CRT feel from
        refs/gibson/monitor_directory_listing.png)
    --------------------------------------------------------------------- */
+.theme-hackers {
+  /* Visualization-status colors (timeline_ribbon failed/skipped/etc.,
+     gauge warn/danger, etc.) inherit from these. Defaults in the
+     renderers are coral/yellow which read as orange in the canyon —
+     user 2026-05-23 cell-4598 "that orange doesn't match our theme".
+     Pinned to the hackers palette: pink for tripped (matches the
+     rare-highlight rule), dim cyan for warn, bright cyan for ok. */
+  --vis-tripped: #ff3a8c;
+  --vis-warn: #66e6ff;
+  --vis-ok: #00ddff;
+}
 .theme-hackers .cell {
   position: relative;
   border-left: 1px solid color-mix(in srgb, #00ddff 35%, transparent);
