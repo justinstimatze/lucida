@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=16" />
+<link rel="stylesheet" href="notebook.css?v=17" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -13047,23 +13047,29 @@ function _buildTransientBody(body, theme) {
   }
 }
 
-// Per-theme motion choice: "pack" (peer cell in Muuri grid) or "edge"
-// (slides in from a screen edge, hovers, slides out — overlay, doesn't
-// displace real cells). Iron-Man HUD has both vocabularies; the choice
-// per theme is mostly aesthetic. (conclave = magi/NERV theme — there's
-// no separate "magi" theme key, conclave IS that theme.)
+// Per-theme motion: all "pack" as of 2026-05-24. Edge-overlay was
+// originally per-theme aesthetic (LCARS-style frame slide-ins, surveillance
+// camera popups) but it covered real cells while flying over them — user
+// 2026-05-24: "I don't know if the ephemeral cells should overlap real
+// cells" + "more like tier-2 cells." Pack motion treats transients as
+// peer Muuri items (small footprint, slot into gaps) instead of overlays.
+// Real cells stay readable; transients still get their themed chrome and
+// entrance animation, just inline. Edge CSS retained for now in case we
+// want to bring it back behind a toggle.
 const _TRANSIENT_MOTION = {
-  conclave: "pack",  // NERV terminal feels grid-anchored
-  gastown:  "pack",  // steam pipes feel rooted in the schematic
-  lab:      "edge",  // medical readouts slide in from monitors
-  noir:     "edge",  // typewritten redacts swing in from the side
-  vigil:    "edge",  // surveillance camera popups
+  conclave: "pack",
+  gastown:  "pack",
+  lab:      "pack",
+  noir:     "pack",
+  vigil:    "pack",
   terminus: "pack",
-  ops:      "edge",  // LCARS panels slide in from the frame
+  ops:      "pack",
   circuit:  "pack",
   mainframe:"pack",
-  renegade: "edge",  // glitch-burst swings in
+  renegade: "pack",
   minimal:  "pack",
+  hailmary: "pack",
+  hackers:  "pack",
 };
 
 function spawnTransientCell(opts) {
