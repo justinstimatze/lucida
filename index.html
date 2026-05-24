@@ -7527,6 +7527,50 @@ const _mixed3dSnapInflight = new Set();
 // throughput cost (mermaid is wall-bound at ~150-300ms anyway).
 const _MIXED3D_SNAP_MAX_INFLIGHT = 3;
 const _MIXED3D_SNAP_BATCH = 2;
+// LRU cap on _snapTexCache. Each cached entry is a 384-576px wide
+// canvas, 446-1152px tall — averaging ~1.5MB. Over hours of camera
+// movement the cache grew unbounded to 1249 entries / 1.8GB before this
+// cap landed (user 2026-05-23). 300 entries × ~1.5MB ≈ 450MB ceiling.
+// Eviction priority: oldest-touched first. The current swoopy scan
+// target is exempted (see _mixed3dSnapCacheSet) so the cell the camera
+// is actively visiting can't be evicted mid-look.
+const _MIXED3D_SNAP_CACHE_CAP = 300;
+
+// Set a canvas into _snapTexCache with LRU semantics. Centralizes the
+// "lazy-init the Map, refresh insertion order, evict oldest over cap"
+// pattern across 6 call sites. JS Map preserves insertion order, so
+// delete+set bumps an existing key to the most-recent slot.
+//
+// Eviction: when evicting an entry whose cell is currently bound to a
+// GL CanvasTexture (tier-1 plane), dispose the texture so the canvas
+// can actually be GC'd — otherwise tex.image keeps it alive and the
+// cap is cosmetic. Cell stays in scene; the next snap-driver pass
+// re-renders it when back in tier-1 range.
+function _mixed3dSnapCacheSet(S, id, canvas) {
+  if (!S || !id || !canvas) return;
+  if (!S._snapTexCache) S._snapTexCache = new Map();
+  if (!S._snapLastAt) S._snapLastAt = new Map();
+  S._snapTexCache.delete(id);
+  S._snapTexCache.set(id, canvas);
+  S._snapLastAt.set(id, performance.now());
+  if (S._snapTexCache.size <= _MIXED3D_SNAP_CACHE_CAP) return;
+  const sticky = S.swoopCam?.scanTargetCell || null;
+  let evicted = 0;
+  const overage = S._snapTexCache.size - _MIXED3D_SNAP_CACHE_CAP;
+  for (const oldest of S._snapTexCache.keys()) {
+    if (evicted >= overage) break;
+    if (oldest === id || oldest === sticky) continue;
+    const obj = S.cellObjects?.get(oldest);
+    if (obj && !obj.isInstanceHandle && obj.userData?.tier === 1 && obj.material?.map) {
+      obj.material.map.dispose();
+      obj.material.map = null;
+      obj.material.needsUpdate = true;
+    }
+    S._snapTexCache.delete(oldest);
+    S._snapLastAt?.delete(oldest);
+    evicted++;
+  }
+}
 
 // Dispatch table: substrate type → render function. Returns Promise<canvas|null>.
 // Note: html renderer takes (cellData, w, h) — uses caption/title from cells.json,
@@ -7564,10 +7608,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   // uploads of larger cached canvases). User 2026-05-22.
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
-  if (!S._snapTexCache) S._snapTexCache = new Map();
-  if (!S._snapLastAt) S._snapLastAt = new Map();
-  S._snapTexCache.set(targetId, fullCanvas);
-  S._snapLastAt.set(targetId, performance.now());
+  _mixed3dSnapCacheSet(S, targetId, fullCanvas);
   const curObj = S.cellObjects.get(targetId);
   if (curObj && !curObj.isInstanceHandle
       && curObj.userData?.tier === 1
@@ -7739,10 +7780,9 @@ function _mixed3dStartSnapshotDriver() {
           // this same cell every 120ms forever — observed 22,891
           // redundant treemap renders before this fix. Cache the
           // promote-time stub so the driver skips on next tick.
-          if (!S._snapTexCache) S._snapTexCache = new Map();
           const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan, H_full);
           if (stub) {
-            S._snapTexCache.set(targetId, stub);
+            _mixed3dSnapCacheSet(S, targetId, stub);
             const curObj = S.cellObjects.get(targetId);
             if (curObj && !curObj.isInstanceHandle && curObj.userData?.tier === 1 && curObj.material?.map) {
               curObj.material.map.image = stub;
@@ -7758,9 +7798,8 @@ function _mixed3dStartSnapshotDriver() {
         // Cache a stub on persistent failure so we don't loop on the
         // same broken cell every tick. (Mirrors the null-bodyCanvas
         // branch above — keep them in sync.)
-        if (!S._snapTexCache) S._snapTexCache = new Map();
         const stub = _mixed3dPaintPromoteStub(targetId, targetCellData, colspan, H_full);
-        if (stub) S._snapTexCache.set(targetId, stub);
+        if (stub) _mixed3dSnapCacheSet(S, targetId, stub);
       });
     }
   }, 120);
@@ -7984,9 +8023,8 @@ function _mixed3dRunPathWarmup(S) {
           inflight.delete(id);
           S._warmupSkipCounts.sync_renderer_throw++;
           console.warn("[mixed3d] warmup sync-throw", ct, id, syncErr?.message || syncErr);
-          if (!S._snapTexCache) S._snapTexCache = new Map();
           const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
-          if (stub) S._snapTexCache.set(id, stub);
+          if (stub) _mixed3dSnapCacheSet(S, id, stub);
           _advance();
           continue;
         }
@@ -8000,9 +8038,8 @@ function _mixed3dRunPathWarmup(S) {
           inflight.delete(id);
           if (!bodyCanvas) {
             // Null-render stub-cache (mirrors steady-state driver).
-            if (!S._snapTexCache) S._snapTexCache = new Map();
             const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
-            if (stub) S._snapTexCache.set(id, stub);
+            if (stub) _mixed3dSnapCacheSet(S, id, stub);
             S._warmupSkipCounts.render_null++;
           } else {
             _mixed3dCompositeAndCacheSnap(S, id, bodyCanvas, cellData, colspan, H_full);
@@ -8013,9 +8050,8 @@ function _mixed3dRunPathWarmup(S) {
           inflight.delete(id);
           S._warmupSkipCounts.render_throw++;
           console.warn("[mixed3d] warmup fail", ct, id, e?.message || e);
-          if (!S._snapTexCache) S._snapTexCache = new Map();
           const stub = _mixed3dPaintPromoteStub(id, cellData, colspan, H_full);
-          if (stub) S._snapTexCache.set(id, stub);
+          if (stub) _mixed3dSnapCacheSet(S, id, stub);
           _advance();
         });
       }
