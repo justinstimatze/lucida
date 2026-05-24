@@ -568,6 +568,55 @@ Key projects worth lifting from:
   being designed; high-leverage for design-vocabulary extraction.
 
 Attribution: every theme we derive from System47 work cites Rob and links the
-specific video in `refs/<theme>/NOTES.md`. Currently `refs/hailmary/NOTES.md`.
+specific video in `refs/<theme>/NOTES.md`. Currently `refs/hailmary/NOTES.md`,
+`refs/ops/NOTES.md`.
 
 Support: <https://patreon.com/mewho> / <https://ko-fi.com/system47>.
+
+#### Full @system47 video index (snapshot 2026-05-24)
+
+| Duration | Title | ID |
+|---|---|---|
+| 1:00:01 | ▵Project Hail Mary • 1-Hour Loop in 2K | `9yoMXYTC9pA` |
+| 0:34 | How many turbolifts does the Enterprise-D have? / devLog • 2026-04 | `OM89kD9Dphk` |
+| 3:11 | Enterprise-D LCARS Asset Prep (timelapse) / devLog • 2026-03-30 | `gXnuG9dcpDo` |
+| 1:00:02 | Turbolift 1 • 1-Hour Loop in 4K "Fuel Ignition" theme | `x0skXFKlDEg` |
+| 8:00:01 | Turbolift 1 • 8-Hour Loop in 4K (default theme) | `BImAWx1I-pQ` |
+| 1:41 | Enterprise-D MSD Asset Prep / devLog • 2025-11-05 | `o16BhAEurBE` |
+| 1:00:01 | Titan.DS: MAP • 1-Hour Loop in 4K | `3b4r_6k-SQk` |
+| 4:01 | TURBOLIFT 1 • Interactive Site Demo / 2025-09 | `mTew8IURfew` |
+| 2:48 | Titan.DS • new MAP Module / Quick Demo | `mvQPTSMvbIY` |
+| 0:18 | Titan.DS Map Module / devLog • 2025-05-04 | `AxflA04p6XQ` |
+| 4:02 | Titan.DS • Auto Mode System • 2024-03-28 | `qIkKXNCor-A` |
+| 1:00:02 | Titan.DS: Warp Drive • 1-Hour Loop in 4K | `oUS5x_JJSt4` |
+| 5:13 | Titan.DS • Warp Drive Module Demo • 2024-11-18 | `5q07SS3wi9E` |
+| 4:02 | Titan.DS Warp Drive devLog • 2024-11 (Warp Coils & M/AM Injectors) | `eNacWdRtjgc` |
+| 8:00:01 | STARFIELD 47 • 8-Hour Loop in 2K | `V1ukxamRQig` |
+| 9:14 | Protostar.NX Demo • 2024-07-09 | `n8t5Ftvqh7M` |
+| 3:44 | Titan.DS • U.S.S. Discovery / NCC-1031 Module Demo • 2024-05-28 | `Bn5BoDdWRVg` |
+| 8:19 | APOD Stardate Demo • 2024-03-03 | `uwIH-w8usfU` |
+| 1:18 | Project E.D.E. devLog • 2024-01-23 | `mYQ1ntbao6I` |
+| 2:42 | Demo: simple LCARS in Figma / devLog • 2024-01-25 | `1-aLpWCZ3BE` |
+| 1:00:00 | Titan.DS: Holiday Jingles + Snowflakes • 1-Hour Loop | `7h5n7IjR08M` |
+| 1:36 | Titan.DS • 2023-12 Holiday Update | `9W5nojyCUHc` |
+| 1:00:01 | Titan.DS: Spacedock • 1-Hour Loop in 4K | `9XtYJmSu5oY` |
+| 8:17 | Titan.DS • Enterprise-G Module User Manual • 2023-10-31 | `TvBS_b8Si4s` |
+| 1:00:48 | Titan.DS: Enterprise-G / NCC-1701-G • 1-Hour Loop in 4K | `9nJlJQ5_o5E` |
+
+Re-list any time:
+```
+yt-dlp --flat-playlist --print "%(duration_string)s | %(title)s | %(id)s" \
+  "https://www.youtube.com/@system47/videos"
+```
+
+**Per-video extraction recipe** (used for hailmary + ops):
+```bash
+# Sample 90s for 1-hour loop videos (they repeat — any segment is representative)
+yt-dlp --download-sections "*0-90" -f 'best[ext=mp4][height<=720]' \
+  -o 'sample.%(ext)s' "https://www.youtube.com/watch?v=<ID>"
+# Full download for short videos (<5min)
+yt-dlp -f 'best[ext=mp4][height<=720]' -o 'sample.%(ext)s' "https://..."
+```
+Then `video_watch fps=0.5 view_sample=10-12` via claude-video-vision to pick
+best moments; `ffmpeg -y -ss MM:SS -i sample.mp4 -frames:v 1 -q:v 2 out.png`
+per extracted PNG; `bmg_describe` to cross-check design vocabulary.
