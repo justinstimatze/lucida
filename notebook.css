@@ -4765,55 +4765,53 @@ body {
   animation: mint-scrubber-leave 280ms ease-out forwards !important;
 }
 
-/* Vigil: surveillance radar — concentric rings, sweep wedge, blips. */
+/* Vigil: Jarvis-style static schematic — concentric rings + dotted
+   crosshair + measurement dots at intersections + slow-cycling corner
+   readouts. NO rotating sweep wedge (replaced 2026-05-23 — generic
+   sci-fi-computer trope, user-flagged "cringey"). Reads as "active
+   diagnostic" via the breathing dot pulse + readout refresh rather
+   than a literal radar sweep. */
 .transient-vigil {
   width: 100%; height: 100%;
-  background: radial-gradient(circle at center, #0a1f1a 0%, #02080a 80%);
+  background: radial-gradient(circle at center, #0a1820 0%, #02060a 82%);
   display: block;
+  font-family: var(--font-mono, "Courier New", monospace);
 }
 .transient-vigil-ring {
   fill: none;
-  stroke: color-mix(in srgb, #4dffaa 35%, transparent);
-  stroke-width: 0.4;
+  stroke: color-mix(in srgb, #00d8e8 32%, transparent);
+  stroke-width: 0.35;
 }
 .transient-vigil-cross {
-  stroke: color-mix(in srgb, #4dffaa 22%, transparent);
-  stroke-width: 0.3;
+  stroke: color-mix(in srgb, #00d8e8 20%, transparent);
+  stroke-width: 0.25;
   stroke-dasharray: 1 3;
 }
-.transient-vigil-sweep {
-  fill: color-mix(in srgb, #4dffaa 22%, transparent);
-  transform-origin: 50% 50%;
-  animation: transient-vigil-sweep-rot var(--vigil-sweep-dur, 2.4s) linear infinite;
+.transient-vigil-dot {
+  fill: color-mix(in srgb, #00d8e8 75%, transparent);
+  animation: transient-vigil-dot-pulse 3.6s ease-in-out infinite;
+  animation-delay: var(--vigil-dot-phase, 0s);
 }
-.transient-vigil-reverse .transient-vigil-sweep {
-  animation-direction: reverse;
-}
-.transient-vigil-amber .transient-vigil-sweep {
-  fill: color-mix(in srgb, #ffaa44 26%, transparent);
-}
-.transient-vigil-amber .transient-vigil-blip {
-  fill: #ffaa44;
-  filter: drop-shadow(0 0 3px #ffaa44);
+.transient-vigil-readout {
+  fill: color-mix(in srgb, #cceeff 70%, transparent);
+  font-size: 4.2px;
+  font-family: var(--font-mono, "Courier New", monospace);
+  letter-spacing: 0.04em;
 }
 .transient-vigil-amber .transient-vigil-ring {
-  stroke: color-mix(in srgb, #ffaa44 35%, transparent);
+  stroke: color-mix(in srgb, #ffaa44 32%, transparent);
 }
-@keyframes transient-vigil-sweep-rot {
-  from { transform: rotate(0); }
-  to   { transform: rotate(360deg); }
+.transient-vigil-amber .transient-vigil-dot {
+  fill: color-mix(in srgb, #ffaa44 75%, transparent);
 }
-.transient-vigil-blip {
-  fill: #4dffaa;
-  filter: drop-shadow(0 0 3px #4dffaa);
-  animation: transient-vigil-blip-fade 1.4s ease-out forwards;
+.transient-vigil-amber .transient-vigil-readout {
+  fill: color-mix(in srgb, #ffd9aa 70%, transparent);
 }
-@keyframes transient-vigil-blip-fade {
-  0%   { opacity: 0;    transform: scale(0.4); }
-  15%  { opacity: 1;    transform: scale(1.2); }
-  100% { opacity: 0;    transform: scale(0.6); }
+@keyframes transient-vigil-dot-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.95; }
 }
-.theme-vigil .cell.cell-transient .cell-transient-tag { color: #4dffaa; }
+.theme-vigil .cell.cell-transient .cell-transient-tag { color: #00d8e8; }
 
 /* Ops: LCARS pill rows — code, number, tone. */
 .transient-ops {
