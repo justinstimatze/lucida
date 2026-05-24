@@ -3915,8 +3915,6 @@ function applyMixed3DLayout(opts) {
         && !_mixed3dState.mountDraining
         && (document.hidden || (_mixed3dState._stableFrames || 0) >= 30)) {
       _mixed3dState._booted = true;
-      // Kick off tier-1 rich-substrate snapshot driver (#142).
-      _mixed3dStartSnapshotDriver();
       // URL toggle: ?notier2=1 suppresses tier-2 cell rendering so user can
       // A/B compare tier-1 + decorative against the full mix.
       if (new URLSearchParams(window.location.search).get("notier2") === "1") {
@@ -3927,7 +3925,11 @@ function applyMixed3DLayout(opts) {
       // Path warmup (#152c): pre-render every cell the camera will
       // see, so stub→body pop never occurs in view. Camera is held
       // (gated in _mixed3dDriveCamera) until the warmup promise
-      // settles. ?nowarmup=1 skips for fast iteration.
+      // settles. ?nowarmup=1 skips for fast iteration AND also skips
+      // the steady-state snapshot driver — without a warmup-bound boot
+      // path, no cells ever bind a tier-1 GL texture so snaps would
+      // just accumulate (1.8GB in `_snapTexCache` over hours, user
+      // 2026-05-23). Fast iteration shouldn't pay the leak tax.
       //
       // Boot dismissal split from camera-release: bootReadyP resolves
       // as soon as the first viewport-quota of camera-distance-sorted
@@ -3936,6 +3938,9 @@ function applyMixed3DLayout(opts) {
       // waiting for all 1244 cells — the snap driver fills off-camera
       // cells while the user looks around.
       const skipWarmup = new URLSearchParams(window.location.search).get("nowarmup") === "1";
+      // Kick off tier-1 rich-substrate snapshot driver (#142). Skip in
+      // ?nowarmup=1 mode (see comment above).
+      if (!skipWarmup) _mixed3dStartSnapshotDriver();
       const warmupP = skipWarmup
         ? Promise.resolve()
         : _mixed3dRunPathWarmup(_mixed3dState);
