@@ -660,3 +660,55 @@ since both share the named-slots-around-a-central-hero pattern.
 **Strict rule**: when working with eDEX-UI as reference, treat its demo
 video and screenshots the same way we treat film stills — observe, sketch,
 reimplement. Never copy CSS, JS, or asset files from the repo.
+
+### Refs serve BOTH 2D themes AND mixed3d variants
+
+**User 2026-05-24: "remember we'll need these visual refs not just for the 2d
+themes but the mixed3d versions we can make later."**
+
+Currently `mixed3d` = `hackers` (Gibson tower canyon). The plan is to build
+per-theme mixed3d variants over time — vigil-mixed3d, conclave-mixed3d,
+hailmary-mixed3d, etc. Each per-theme refs/ folder serves BOTH:
+
+1. **2D theme retune** (pack/tactical/organic/scatter/terminal layouts) —
+   palette tokens, chrome flourishes, substrate variants. Same shape as
+   the hackers retune already shipped.
+2. **mixed3d variant build** — scene composition (what does the 3D world
+   *look* like for this theme?), camera path, decorative-tier vocabulary,
+   per-theme tier-2 procedural draw rules. Same shape as the hackers
+   mixed3d already shipped (tower canyon, swoopy tour, magenta floor PCB,
+   etc.).
+
+The reference frames that capture **scene-level imagery** (Iron Man workshops
+with multi-panel orbital HUD, PHM ship in space against grid, NERV launch
+bay, Tron Legacy server room, eDEX-UI dome of code) are direct inputs to the
+3D scene composition for that theme, not just 2D card chrome.
+
+**How to apply when working with a refs/ folder:**
+
+- Read NOTES.md for the 2D theme retune scope (palette / typography /
+  iconic primitives).
+- ALSO read for the scene-level frames — those inform what to build when
+  the per-theme mixed3d arc lands.
+- For NEW themes being scoped: note both the 2D card vocabulary AND the
+  spatial/environmental vocabulary in the same NOTES.md. Don't force a
+  separate "mixed3d ref folder" — the SAME visual source informs both.
+
+**Concrete mixed3d-implication examples** (extracted from current refs):
+
+- `refs/vigil/00_01_25_im2_orbital_multi_panel_hud_center.png` — implies a
+  vigil-mixed3d "orbital panel-cluster" arrangement (cells docked in arc
+  around a central focal point), distinct from hackers' tower canyon.
+- `refs/hailmary/00_00_01_ship_wireframe_wide_chrome.png` — implies a
+  hailmary-mixed3d "cockpit cutaway" — central ship-hologram with
+  fixed-slot side panels (left readouts, right indicators).
+- `refs/conclave-nerv/00_01_06_magi_system_terminal_config.png` — implies
+  a conclave-mixed3d "Magi pyramid" arrangement (three towers in
+  triangular formation, vs. hackers' grid).
+- `refs/tron-legacy/00_02_56_server_room_encom_cabinets.png` — implies a
+  tron-legacy-mixed3d "datacenter rack walk" — cells as illuminated
+  server-cabinet panels in long parallel corridors.
+
+The mixed3d-implication line items aren't fully exhausted in each NOTES.md
+yet (early NOTES were 2D-tokens-focused). When time permits, revisit each
+NOTES.md with a "mixed3d implications" section noting the spatial vocabulary.
