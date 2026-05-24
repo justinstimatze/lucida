@@ -4831,14 +4831,17 @@ function _mixed3dDriveSwoopyTour(t) {
         // wall passes per user 2026-05-22.
         sw.scanNextStart = t + 6 + Math.random() * 4;
         sw.scanSide = 0;
+        sw.scanTargetCell = null;
+        sw.scanTargetPos = null;
       }
       sw.scanFactor = Math.max(0, Math.min(1, f));
-      if (!sw.scanSide && sw.scanFactor > 0) {
-        sw.scanSide = Math.random() < 0.5 ? -1 : 1;
-      }
+      // scanSide assignment moved below — deferred until perp is computed
+      // so the cell-aware picker can choose deterministically.
     } else {
       sw.scanFactor = 0;
       sw.scanSide = 0;
+      sw.scanTargetCell = null;
+      sw.scanTargetPos = null;
     }
   }
   const scanFactor = sw.scanFactor || 0;
@@ -4935,6 +4938,22 @@ function _mixed3dDriveSwoopyTour(t) {
   // there which is the point. to temporarily make it basically a 2d
   // dashboard again".
   const SCAN_LATERAL = 0;
+  // Deferred scan-side decision: now that perp is computed, pick a
+  // specific tier-1 cell with a cached snap to face this scan window.
+  // Falls back to a random side when no good candidate (e.g. corridor
+  // is empty, snaps not yet rendered).
+  if (sw.scanFactor > 0 && !sw.scanSide) {
+    const target = _mixed3dPickScanTarget(S, cam.position, tan, perpX, perpZ);
+    if (target) {
+      sw.scanSide = target.side;
+      sw.scanTargetCell = target.id;
+      sw.scanTargetPos = target.pos.clone();
+    } else {
+      sw.scanSide = Math.random() < 0.5 ? -1 : 1;
+      sw.scanTargetCell = null;
+      sw.scanTargetPos = null;
+    }
+  }
   desiredPos.x += perpX * scanSide * sf * SCAN_LATERAL;
   desiredPos.z += perpZ * scanSide * sf * SCAN_LATERAL;
   if (!sw.posActual) sw.posActual = desiredPos.clone();
@@ -4947,15 +4966,39 @@ function _mixed3dDriveSwoopyTour(t) {
   // focal point sits ON the cell wall rather than past it. Was 6.0
   // before — that put the focal point 2.5u INSIDE the tower, which
   // read as "looking past the cells" and fought the eye's depth cues.
+  //
+  // Cell-aware override: when scanTargetPos is set, the perp focal
+  // point is the cell's actual world position rather than a fixed
+  // distance offset. The camera literally looks at the cell we know
+  // has rendered content. The pos lerp + lookAt lerp keep the motion
+  // smooth; the existing scan-Y vertical pan still operates as the
+  // FUI scroll-down cue.
   const fwdLookAhead = 12.0;
   const perpLookAhead = 3.5;
   const fwdMix = 1 - sf;
   const perpMix = sf;
-  const lookAtTarget = new T.Vector3(
-    cam.position.x + tan.x * fwdLookAhead * fwdMix + perpX * scanSide * perpLookAhead * perpMix,
-    cam.position.y,
-    cam.position.z + tan.z * fwdLookAhead * fwdMix + perpZ * scanSide * perpLookAhead * perpMix,
-  );
+  // Refresh sw.scanTargetPos from the live cell each frame — cells
+  // can re-pack/move between scan-start and scan-end, and we want the
+  // lookAt to track the moving target rather than freeze on a stale
+  // clone from scan-start.
+  if (sw.scanTargetCell && S.cellObjects) {
+    const live = S.cellObjects.get(sw.scanTargetCell);
+    if (live?.position) sw.scanTargetPos = live.position.clone();
+  }
+  let lookAtTarget;
+  if (sw.scanTargetPos) {
+    lookAtTarget = new T.Vector3(
+      cam.position.x + tan.x * fwdLookAhead * fwdMix + (sw.scanTargetPos.x - cam.position.x) * perpMix,
+      cam.position.y * fwdMix + sw.scanTargetPos.y * perpMix,
+      cam.position.z + tan.z * fwdLookAhead * fwdMix + (sw.scanTargetPos.z - cam.position.z) * perpMix,
+    );
+  } else {
+    lookAtTarget = new T.Vector3(
+      cam.position.x + tan.x * fwdLookAhead * fwdMix + perpX * scanSide * perpLookAhead * perpMix,
+      cam.position.y,
+      cam.position.z + tan.z * fwdLookAhead * fwdMix + perpZ * scanSide * perpLookAhead * perpMix,
+    );
+  }
   if (!sw.lookAtActual) sw.lookAtActual = lookAtTarget.clone();
   // 2.5 (was 5.0): doubles the lookAt time constant from 0.2s to 0.4s.
   // At Catmull-Rom corners the curve tangent rotates ~45° in <0.5s; a
@@ -5286,7 +5329,44 @@ function _mixed3dResetCameraTimer() {
     _mixed3dState.swoopCam.scanNextStart = null;
     _mixed3dState.swoopCam.lastT = null;
     _mixed3dState.swoopCam.arcAccum = null;
+    _mixed3dState.swoopCam.scanTargetCell = null;
+    _mixed3dState.swoopCam.scanTargetPos = null;
   }
+}
+
+// Pick a tier-1 cell to anchor the next scan window on. "We made them,
+// may as well let the user look at them" (user 2026-05-23). Filters to
+// cells that (a) have a cached snap in _snapTexCache (so the user
+// actually sees rendered content, not a stub), (b) are ahead of the
+// camera along the path, (c) sit off to one side of the path so a
+// side-scan can show them. Picks the closest matching cell; returns
+// {id, pos, side} or null if no good candidate.
+//
+// `side` is +1 or -1 indicating which scan side faces this cell, so
+// scanSide can be set deterministically instead of randomly.
+function _mixed3dPickScanTarget(S, camPos, tan, perpX, perpZ) {
+  if (!S?.cellObjects || !S._snapTexCache || !camPos) return null;
+  let best = null;
+  let bestD2 = Infinity;
+  for (const [id, obj] of S.cellObjects) {
+    if (obj.isInstanceHandle) continue;
+    if (!S._snapTexCache.has(id)) continue;
+    const p = obj.position;
+    if (!p) continue;
+    const dx = p.x - camPos.x;
+    const dz = p.z - camPos.z;
+    const fwd = dx * tan.x + dz * tan.z;
+    if (fwd < 2 || fwd > 14) continue;
+    const lat = dx * perpX + dz * perpZ;
+    const absLat = Math.abs(lat);
+    if (absLat < 1.5 || absLat > 8) continue;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = { id, pos: p, side: lat > 0 ? 1 : -1 };
+    }
+  }
+  return best;
 }
 
 // Public reset: clears free-flight + park + mouselook state so the
