@@ -4771,6 +4771,19 @@ body {
   animation: mint-scrubber-leave 280ms ease-out forwards !important;
 }
 
+/* Pack-layout pre-layout state. Applied to cells before Muuri's initial
+   layout pass, removed after. Replaces the prior visibility:hidden
+   approach which was binary (cell either invisible or fully visible)
+   and prone to leaving cells permanently hidden if the unhide callback
+   didn't fire. Opacity-with-transition is self-healing: even an
+   "unprep" fire that arrives late produces a smooth fade-in. User
+   2026-05-24: ephemeral cells flashed in a grid before being placed,
+   then 60 cells stuck permanently hidden after multi-nav. */
+.cell.pack-prep {
+  opacity: 0 !important;
+  transition: opacity 0.4s ease;
+}
+
 /* Vigil: Jarvis-style static schematic — concentric rings + dotted
    crosshair + measurement dots at intersections + slow-cycling corner
    readouts. NO rotating sweep wedge (replaced 2026-05-23 — generic

@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=17" />
+<link rel="stylesheet" href="notebook.css?v=18" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -44,7 +44,7 @@
   // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
   // Adapted from gemotvis/frontend/src/stores/theme.ts.
   (function () {
-    var valid = ["lab", "conclave", "minimal", "gastown", "ops", "vigil", "circuit", "noir", "renegade", "mainframe", "terminus", "hackers"];
+    var valid = ["lab", "conclave", "minimal", "gastown", "ops", "vigil", "circuit", "noir", "renegade", "mainframe", "terminus", "hackers", "hailmary"];
     var theme = "lab";
     try {
       var url = new URLSearchParams(window.location.search).get("theme");
@@ -2550,7 +2550,13 @@ function applyPackLayout() {
       }
       const fresh = sized.filter(el => !muuriEls.has(el));
       if (fresh.length) {
-        fresh.forEach(el => { el.style.visibility = "hidden"; });
+        // 2026-05-24: replaced visibility:hidden with .pack-prep class
+        // (opacity:0 + 0.4s transition). visibility:hidden race could
+        // leave cells permanently invisible if Muuri's layout callback
+        // didn't fire (60 cells observed stuck-hidden after multi-nav).
+        // Opacity-with-transition is self-healing — even if unhide
+        // never runs, the transition fires once we remove the class.
+        fresh.forEach(el => { el.classList.add("pack-prep"); });
         _muuriGrid.add(fresh, { layout: false });
         const ro = _packGetObserver();
         if (ro) fresh.forEach(el => { try { ro.observe(el); } catch (e) {} });
@@ -2560,9 +2566,10 @@ function applyPackLayout() {
         // existing siblings may have grown into their natural sizes
         // since the last layout pass (substrates lazy-mount async).
         _muuriGrid.refreshItems();
-        _muuriGrid.layout(false, () => {
-          fresh.forEach(el => { el.style.visibility = ""; });
-        });
+        const _unprepFresh = () => fresh.forEach(el => el.classList.remove("pack-prep"));
+        _muuriGrid.layout(false, _unprepFresh);
+        requestAnimationFrame(_unprepFresh);
+        setTimeout(_unprepFresh, 300);
         dbg.path = "incremental";
         dbg.added = fresh.length;
         dbg.removed = stale.length;
@@ -2589,8 +2596,14 @@ function applyPackLayout() {
   dbg.path = "create";
   // Hide all items during the destroy-recreate so the brief moment
   // before Muuri sets transforms doesn't render them stacked at the
-  // container's top-left. Restored after the instant initial layout.
-  sized.forEach(el => { el.style.visibility = "hidden"; });
+  // container's top-left. 2026-05-24: switched from visibility:hidden
+  // to .pack-prep class (opacity:0 + 0.4s transition). User reported
+  // (a) ephemeral cells flashing in a grid before Muuri positions them
+  // (visibility:hidden didn't fire on cells added after the create
+  // pass) AND (b) 60 cells stuck permanently hidden after multi-nav
+  // (the unhide callback raced a follow-up refresh). Opacity-class is
+  // self-healing — even if unprep fails, removing the class transitions
+  // smoothly; multiple safety unprep passes catch any callback race.
   _muuriGrid = new window.Muuri(root, {
     items: sized,
     // fillGaps:true is the load-bearing setting — small items fill
@@ -2611,18 +2624,26 @@ function applyPackLayout() {
     hideDuration: 0,
     layoutOnInit: false,
   });
-  // Instant initial layout — no animation interpolation. Then unhide.
-  // Belt-and-suspenders unhide: layout(true) callback fires only once
-  // and on rapid theme→layout navigations the callback can race a
-  // refreshItems() pass that re-hides items, or fire before Muuri has
-  // committed transforms — leaving the grid invisible. Add an rAF
-  // chase + 200ms safety pass so every cell is guaranteed visible
-  // post-layout regardless of Muuri's internal scheduling. User saw
-  // pack-2D render fully invisible after multi-nav 2026-05-23.
-  const _packUnhide = () => sized.forEach(el => { el.style.visibility = ""; });
-  _muuriGrid.layout(true, _packUnhide);
-  requestAnimationFrame(_packUnhide);
-  setTimeout(_packUnhide, 200);
+  // Apply prep class to all current cells. Instant initial layout.
+  // After layout: remove .pack-prep so the opacity transition fires
+  // and cells fade in together. Belt-and-suspenders unprep: layout(true)
+  // callback + rAF chase + 300ms safety pass. Even if all three race
+  // a follow-up refresh, the opacity-class approach is self-healing —
+  // removing the class triggers a smooth fade rather than abruptly
+  // toggling visibility.
+  sized.forEach(el => { el.classList.add("pack-prep"); });
+  const _packUnprep = () => sized.forEach(el => el.classList.remove("pack-prep"));
+  _muuriGrid.layout(true, _packUnprep);
+  requestAnimationFrame(_packUnprep);
+  setTimeout(_packUnprep, 300);
+  // Last-resort safety: at 1.5s, sweep every cell in the container.
+  // Catches cells added between create and the rAF/timeout that the
+  // closure-captured `sized` array doesn't include.
+  setTimeout(() => {
+    document.querySelectorAll("#notebook > .cell.pack-prep").forEach(el => {
+      el.classList.remove("pack-prep");
+    });
+  }, 1500);
   // Observe each cell for size changes — substrates hydrate async and
   // a late-growing cell would overlap neighbors without a re-pack.
   const ro = _packGetObserver();
@@ -13114,21 +13135,21 @@ function spawnTransientCell(opts) {
   _buildTransientBody(body, theme);
 
   if (motion === "pack") {
-    // Hide before append so the cell never paints at the container's
-    // top-left corner (Muuri sets transforms in its layout pass; the
-    // gap between paint and pass is one frame of (0,0) flash). Restore
-    // visibility from Muuri's add-completion callback so we know the
-    // packed transform is in place.
-    card.style.visibility = "hidden";
+    // Use .pack-prep (opacity:0 + transition) instead of visibility:
+    // hidden so the cell can't get stuck invisible if Muuri's layout
+    // callback doesn't fire — even a late .pack-prep removal fades
+    // smoothly. 2026-05-24 user: ephemeral cells flashed in a grid at
+    // boot. Belt-and-suspenders unprep: callback + rAF + 300ms safety.
+    card.classList.add("pack-prep");
     root.appendChild(card);
     try {
       _muuriGrid.add([card], { layout: true });
-      // layout: true on add returns sync but the layout pass is async
-      // when layoutDuration > 0. Use Muuri's layout method with a
-      // callback to know when transforms are committed.
-      _muuriGrid.layout(false, () => { card.style.visibility = ""; });
+      const _unprep = () => card.classList.remove("pack-prep");
+      _muuriGrid.layout(false, _unprep);
+      requestAnimationFrame(_unprep);
+      setTimeout(_unprep, 300);
     } catch (e) {
-      card.style.visibility = "";
+      card.classList.remove("pack-prep");
     }
   } else {
     // Edge-slide: position fixed-overlay anchored to a screen edge.
