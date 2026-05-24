@@ -16,22 +16,24 @@ https://github.com/user-attachments/assets/d08aa14f-2a12-4f6d-a107-d71d98529dac
 
 ## Themes
 
-The dashboard ships eleven themes. Switch via `?theme=` in the URL or the
+The dashboard ships thirteen themes. Switch via `?theme=` in the URL or the
 `THEME` chip in the HUD.
 
-| Theme       | Feel                                                |
-| ----------- | --------------------------------------------------- |
-| `lab`       | Default dark, cyan accent                           |
-| `vigil`     | MCU/Jarvis — cold electric cyan, arc reactor gold   |
-| `ops`       | Star Trek LCARS — full L-frame chrome               |
-| `circuit`   | Tron Legacy — hard grid, neon data strip            |
-| `noir`      | Blade Runner 2049 — amber holograms, blue-black     |
-| `terminus`  | Alien/Nostromo — phosphor green, CRT vignette       |
-| `renegade`  | Mass Effect N7 — omnitool orange, diagonal geometry |
-| `mainframe` | ReBoot (1994) — Energy Sea teal                     |
-| `conclave`  | Eva/NERV — amber scan lines, monospace              |
-| `minimal`   | Vercel/Linear — clean flat light                    |
-| `gastown`   | Steampunk brass + serif                             |
+| Theme       | Feel                                                       |
+| ----------- | ---------------------------------------------------------- |
+| `lab`       | Default dark, cyan accent                                  |
+| `vigil`     | MCU/Jarvis — cold electric cyan, arc reactor gold          |
+| `ops`       | Star Trek LCARS — full L-frame chrome                      |
+| `circuit`   | Tron Legacy — hard grid, neon data strip                   |
+| `noir`      | Blade Runner 2049 — amber holograms, blue-black            |
+| `terminus`  | Alien/Nostromo — phosphor green, CRT vignette              |
+| `renegade`  | Mass Effect N7 — omnitool orange, diagonal geometry        |
+| `mainframe` | ReBoot (1994) — Energy Sea teal                            |
+| `conclave`  | Eva/NERV — amber scan lines, monospace                     |
+| `minimal`   | Vercel/Linear — clean flat light                           |
+| `gastown`   | Steampunk brass + serif                                    |
+| `hackers`   | Hackers (1995) Gibson canyon — cyan-dominant, rare magenta |
+| `hailmary`  | Project Hail Mary — cyan-white wireframe, monochrome       |
 
 Each theme ships per-theme entrance animations and window-edge chrome
 authentic to its source material. Themes also declare a preferred layout
@@ -167,7 +169,7 @@ Full URL param reference:
 ```
 ?theme=<name>               theme (lab / vigil / ops / circuit / noir / terminus /
                             renegade / mainframe / conclave / minimal / gastown /
-                            hackers)
+                            hackers / hailmary)
 ?layout=<name>              layout (pack / grid / treemap / scatter / tactical /
                             terminal / mixed3d)
 ?session=<id>               scope to one session
