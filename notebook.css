@@ -458,6 +458,14 @@ main {
 #notebook[data-layout="tactical"] > .cell:nth-child(n+2) {
   grid-column: 2;
 }
+/* Grid items default to min-width:auto (intrinsic content width); long
+   single-word titles or wide mermaid SVGs blow past the 45fr column
+   width and the cell overflows past the right viewport edge. min-width:0
+   lets each cell shrink to its column allocation. User 2026-05-23 saw
+   tactical right column cut off on a 730px viewport. */
+#notebook[data-layout="tactical"] > .cell {
+  min-width: 0;
+}
 @media (max-width: 700px) {
   #notebook[data-layout="tactical"] {
     grid-template-columns: 1fr;

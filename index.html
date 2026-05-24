@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=14" />
+<link rel="stylesheet" href="notebook.css?v=15" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -2611,9 +2611,17 @@ function applyPackLayout() {
     layoutOnInit: false,
   });
   // Instant initial layout — no animation interpolation. Then unhide.
-  _muuriGrid.layout(true, () => {
-    sized.forEach(el => { el.style.visibility = ""; });
-  });
+  // Belt-and-suspenders unhide: layout(true) callback fires only once
+  // and on rapid theme→layout navigations the callback can race a
+  // refreshItems() pass that re-hides items, or fire before Muuri has
+  // committed transforms — leaving the grid invisible. Add an rAF
+  // chase + 200ms safety pass so every cell is guaranteed visible
+  // post-layout regardless of Muuri's internal scheduling. User saw
+  // pack-2D render fully invisible after multi-nav 2026-05-23.
+  const _packUnhide = () => sized.forEach(el => { el.style.visibility = ""; });
+  _muuriGrid.layout(true, _packUnhide);
+  requestAnimationFrame(_packUnhide);
+  setTimeout(_packUnhide, 200);
   // Observe each cell for size changes — substrates hydrate async and
   // a late-growing cell would overlap neighbors without a re-pack.
   const ro = _packGetObserver();
@@ -9546,8 +9554,23 @@ function applyOrganicLayout() {
   // summaries) eaten before the body area. Vega min body 280px →
   // tile height needs ≥ 362, tile width ≥ ~462. 0.55 × minDim ≈ 479
   // wide × 374 tall at minDim=871. Clears the budgeted minimum.
+  //
+  // Fit-to-viewport scale: an outer cell at angle 0° (right side) sits
+  // at x = cx + radius + size/2. To stay inside w it needs
+  //   radius + size/2 <= w/2 - margin
+  // Same constraint vertically. Without this clamp, default
+  // (radius=0.62, sizeMul=0.55) ring of cells extended ~430px past
+  // the right viewport edge at 1920×1080 (user 2026-05-23 audit).
+  // Scale the entire layout proportionally to keep the FUI feel while
+  // guaranteeing the outer satellites fit.
+  const margin = 32;
+  const radMul = 0.62;
+  const sizeMul = 0.55;
+  const availHalf = Math.min(w, window.innerHeight - headerH) / 2 - margin;
+  const reach = (radMul + sizeMul / 2) * minDim;
+  const fitScale = Math.min(1, availHalf / Math.max(1, reach));
   const ringSpecs = [
-    { radius: minDim * 0.62, size: minDim * 0.55 },
+    { radius: radMul * minDim * fitScale, size: sizeMul * minDim * fitScale },
   ];
   const outer = ringSpecs[ringSpecs.length - 1];
   const outerSatHalfH = outer.size * 0.78 / 2;
@@ -9560,9 +9583,10 @@ function applyOrganicLayout() {
   // of the top status bar still").
   const cy = Math.max(window.innerHeight / 2, outer.radius + outerSatHalfH + headerH);
   // Hero substantially bigger so its body fills its tile rather than
-  // floating in a sparse center.
-  const heroW = minDim * 0.58;
-  const heroH = minDim * 0.42;
+  // floating in a sparse center. Apply the same fit-scale so the hero
+  // also respects narrow viewports.
+  const heroW = minDim * 0.58 * fitScale;
+  const heroH = minDim * 0.42 * fitScale;
   cells.forEach((cell, i) => {
     let x, y, sw, sh, visible = true;
     if (i === 0) {
