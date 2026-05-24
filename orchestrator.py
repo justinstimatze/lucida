@@ -337,11 +337,12 @@ def save_cells(data: dict) -> None:
     """Atomic write of cells.json, enforcing the rolling cap.
 
     Writes to cells.json.tmp + os.replace() so a crash mid-write can't
-    corrupt the file. Cells are ephemeral by default — LUCIDA_MAX_CELLS
-    caps total cells (newest kept). Set to 0 or "all" to keep everything
-    for users who want the file as a long-running archive.
+    corrupt the file. Default keeps everything — LUCIDA_MAX_CELLS caps
+    total cells (newest kept) only when the user opts in. The previous
+    default of 200 silently truncated existing 2k+ corpora on first
+    watcher restart with no warning, destroying historical cells.
     """
-    raw = os.environ.get("LUCIDA_MAX_CELLS", "200").strip().lower()
+    raw = os.environ.get("LUCIDA_MAX_CELLS", "all").strip().lower()
     cap = 0 if raw in ("0", "all", "none", "off") else max(1, int(raw))
     if cap and len(data.get("cells", [])) > cap:
         data["cells"] = data["cells"][-cap:]
