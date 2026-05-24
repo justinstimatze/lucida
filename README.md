@@ -137,12 +137,12 @@ python watcher.py \
   --write                 # persist to cells.json
   --generate              # call specialists (costs API tokens)
   --session-id <name>     # tag cells with a session name
-  --max-cells 200         # rolling cap (default); use 'all' to keep everything
+  --max-cells all         # default — keep every cell; pass N to cap at last N
 ```
 
-**Cells are ephemeral by default.** `cells.json` keeps the last 200 (enough
-for casual scrollback). Set `--max-cells all` (or `LUCIDA_MAX_CELLS=all`) if
-you want the file to accumulate as a long-running work-summary archive.
+**Cells accumulate by default.** `cells.json` grows with each minted cell.
+Pass `--max-cells N` (or `LUCIDA_MAX_CELLS=N`) if you want a rolling cap —
+e.g. `--max-cells 500` keeps only the last 500.
 
 Multiple sessions:
 

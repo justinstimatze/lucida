@@ -482,7 +482,8 @@ def main() -> None:
     p.add_argument(
         "--max-cells",
         default=None,
-        help="rolling cap on cells.json (default 200; 'all' to keep everything). "
+        help="rolling cap on cells.json (default 'all' — keep everything). "
+        "Pass a positive integer N to keep only the last N cells. "
         "Sets LUCIDA_MAX_CELLS in this process.",
     )
     p.add_argument(
