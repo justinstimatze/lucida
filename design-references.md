@@ -539,3 +539,35 @@ The ambitious aesthetic phase per `feedback_holographic_depth_yes`.
 4. Phase 2A — hero themes first (4-5 of the 11). Note to spread the
    love to remaining themes after first wave; learn as we go.
 
+
+## Video reference channels
+
+Captured 2026-05-23. Channels and individual creators whose work supplies our
+per-theme visual ground truth. We pull short samples via `yt-dlp` + the
+`claude-video-vision` plugin, extract frames, and back-derive token decisions.
+
+### System47 / meWho (Rob)
+
+Channel: <https://www.youtube.com/@system47>
+
+The deepest single-source for thoroughly-researched FUI in 2026. Active LCARS
+work via Titan.DS (their flagship), plus speculative interfaces for ships and
+contexts that don't have established canon yet — notably **▵Project Hail Mary**
+(<https://mewho.com/pphm>), which is the seed for our `hailmary` theme.
+
+Key projects worth lifting from:
+
+- **Titan.DS** — multi-module LCARS rendition (Spacedock, Warp Drive,
+  Enterprise-G, Discovery NCC-1031). Best 4K loop refs for our `ops` theme:
+  `9XtYJmSu5oY` Spacedock, `9nJlJQ5_o5E` Enterprise-G.
+- **TURBOLIFT 1** — interactive turbolift interface (`mTew8IURfew` demo,
+  `x0skXFKlDEg` 1-hour loop in "Fuel Ignition" theme variant).
+- **▵Project Hail Mary** — speculative PHM ship interface
+  (`9yoMXYTC9pA` 1-hour loop). Source for our `hailmary` theme tokens.
+- **LCARS Asset Prep timelapse** (`gXnuG9dcpDo`) — shows the building blocks
+  being designed; high-leverage for design-vocabulary extraction.
+
+Attribution: every theme we derive from System47 work cites Rob and links the
+specific video in `refs/<theme>/NOTES.md`. Currently `refs/hailmary/NOTES.md`.
+
+Support: <https://patreon.com/mewho> / <https://ko-fi.com/system47>.

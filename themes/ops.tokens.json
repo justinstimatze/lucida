@@ -1,27 +1,27 @@
 {
-  "_comment": "Operations board aesthetic — Star Trek TNG inspired. Saturated orange + peach + magenta + purple on navy/black, condensed-bold display type. Color-band bracket framing.",
+  "_comment": "Operations board aesthetic — Star Trek TNG / LCARS. Saturated orange + cream + lavender + yellow on pure black, condensed-bold display type. Pill-chip-and-bracket framing. Refs/ops/ holds LCARS asset-prep + Titan.DS Spacedock frames extracted 2026-05-23 from System47/meWho's catalog (see design-references.md). Pre-2026-05-23 cell bg was #000044 navy — true LCARS uses pure #000000 black, the blue tint muddied the saturated pill chips. cat[2] was #cc5599 dark magenta; canonical TNG lavender is #cc99ff.",
   "accent": {
     "primary":   "#ff9900",
-    "secondary": "#ffcc99",
-    "warning":   "#ffcc33",
-    "danger":    "#cc6666",
-    "ok":        "#99cc99"
+    "secondary": "#ddb888",
+    "warning":   "#ffcc66",
+    "danger":    "#cc4444",
+    "ok":        "#88cc66"
   },
   "surface": {
     "bg":     "#000000",
-    "cell":   "#000044",
+    "cell":   "#000000",
     "header": "#000000",
-    "code":   "#0a0a1a",
-    "muted":  "#9999cc",
+    "code":   "#0a0a0a",
+    "muted":  "#9988cc",
     "line":   "#ff9900"
   },
   "text": {
-    "fg":    "#ffcc99",
-    "muted": "#9999cc"
+    "fg":    "#e8c89c",
+    "muted": "#9988cc"
   },
   "data": {
-    "_comment": "LCARS canonical palette in display order: orange, peach, magenta, purple, yellow, salmon. Reads instantly as TNG ops board — saturated flat fills, no shading.",
-    "cat": ["#ff9900", "#ffcc99", "#cc5599", "#9999cc", "#ffcc33", "#cc6666"]
+    "_comment": "LCARS canonical palette in display order: orange (primary), cream, lavender, yellow, salmon, red. Reads instantly as TNG ops board — saturated flat fills, no shading. Unlike vigil/hackers/hailmary (cyan-dominant ladder), LCARS intentionally uses bold-color diversity as its aesthetic primary; the 'don't saturate cat[1..2]' rule does NOT apply here.",
+    "cat": ["#ff9900", "#ddb888", "#cc99ff", "#ffcc66", "#ff9966", "#cc4444"]
   },
   "type": {
     "body": "\"Antonio\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed\", \"Arial Narrow\", sans-serif",
@@ -33,14 +33,14 @@
     "glow-line": "rgba(255, 153, 0, 0.25)"
   },
   "palette": {
-    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution.",
+    "_comment": "stroke1/2/3 align with data.cat[0..2] so the same logical role (primary/secondary/tertiary) resolves to the same color across vega categorical, scene3d wireframes, and animated_svg $token substitution. Orange + cream + lavender = the iconic LCARS bracket-color triplet.",
     "stroke1": "#ff9900",
-    "stroke2": "#ffcc99",
-    "stroke3": "#cc5599",
+    "stroke2": "#ddb888",
+    "stroke3": "#cc99ff",
     "accent":  "#ff9900",
-    "fg":      "#ffcc99",
-    "muted":   "#9999cc",
+    "fg":      "#e8c89c",
+    "muted":   "#9988cc",
     "bg":      "#000000",
-    "panel":   "#000044"
+    "panel":   "#000000"
   }
 }
