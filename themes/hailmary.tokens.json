@@ -20,8 +20,8 @@
     "muted": "#6a8aa6"
   },
   "data": {
-    "_comment": "cat[0..3] stay in the cyan/blue family so 2-4 category treemaps read inside the technical-drafting envelope. Yellow + red at cat[4..5] match the PHM warning-pill/warning-line motif — they only fire when 5+ categories are present (rare highlight rule, same lesson hackers + vigil learned).",
-    "cat": ["#a8e8f0", "#6cb8d8", "#a0c8e0", "#88ee88", "#ffd640", "#ff4040"]
+    "_comment": "Fully monochrome cyan ladder. PHM reference confirmed via bmg 2026-05-24: the central viewport / data viz area is unconditionally monochromatic cyan-white. The accent colors (yellow/green/orange/red) appear ONLY in chrome pills + warning lines as state indicators, NEVER in data fills. So all 6 cat[*] entries stay inside the cyan-white-to-steel envelope. State colors live in accent.warning / accent.ok / accent.danger and are picked up by gauges + alert chips, not by treemap/vega categorical fills.",
+    "cat": ["#a8e8f0", "#6cb8d8", "#a0c8e0", "#7fb0c8", "#c4dcec", "#5588aa"]
   },
   "type": {
     "body": "\"Bahnschrift\", \"DIN Condensed\", \"Avenir Next Condensed\", \"Arial Narrow\", sans-serif",
