@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=15" />
+<link rel="stylesheet" href="notebook.css?v=16" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -12502,24 +12502,28 @@ function _buildTransientLab(body) {
 }
 
 function _buildTransientVigil(body) {
-  // Surveillance radar — concentric rings + sweep wedge + blips. 5
-  // subtle variants per spawn:
-  //  - ringCount: 3 / 4 / 5 (sparse / standard / dense range bands)
-  //  - sweepDuration: 1.6-3.4s (slow scan vs fast scan)
-  //  - sweepReverse: 30% chance of counter-clockwise rotation
-  //  - blipRate: 180ms / 280ms / 460ms (busy / steady / sparse)
-  //  - blipColor: green or amber tint
+  // Jarvis-style static schematic — concentric rings, dotted crosshair,
+  // measurement dots at intersections, slow-cycling corner readouts.
+  // Replaces the prior rotating-sweep radar (user 2026-05-23: "the
+  // radar sweep is cringey") — rotating wedges read as generic-sci-fi-
+  // computer trope rather than the Iron Man HUD aesthetic the theme
+  // is supposed to evoke (refs/vigil/00_00_01_wireframe_mask_blueprint
+  // .png shows the actual motif: static schematic + measurement dots
+  // + numeric readouts).
+  //
+  // 4 subtle variants per spawn keep the ambient row from looking
+  // mechanical-identical:
+  //  - ringCount: 3 / 4 / 5 (sparse / standard / dense)
+  //  - readoutSet: hex-ids / phase-codes / coord-pairs
+  //  - amber tint: 30% chance
+  //  - dot-pulse phase: random per-cell so cells don't pulse in lockstep
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 100 100");
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.classList.add("transient-vigil");
   if (Math.random() < 0.3) svg.classList.add("transient-vigil-amber");
-  if (Math.random() < 0.3) svg.classList.add("transient-vigil-reverse");
-  const sweepDur = (1.6 + Math.random() * 1.8).toFixed(2);
-  svg.style.setProperty("--vigil-sweep-dur", sweepDur + "s");
-  // Concentric range rings — count varies per spawn.
-  const ringSet = [[15, 30, 45], [12, 24, 36, 46], [10, 22, 32, 42, 48]];
+  const ringSet = [[18, 32, 46], [15, 26, 37, 47], [12, 22, 31, 40, 47]];
   const rings = ringSet[Math.floor(Math.random() * ringSet.length)];
   for (const r of rings) {
     const ring = document.createElementNS(ns, "circle");
@@ -12528,7 +12532,7 @@ function _buildTransientVigil(body) {
     ring.setAttribute("class", "transient-vigil-ring");
     svg.appendChild(ring);
   }
-  // Crosshairs.
+  // Dotted crosshair (not solid lines — reads as scaffold, not target).
   const ch1 = document.createElementNS(ns, "line");
   ch1.setAttribute("x1", "50"); ch1.setAttribute("y1", "4");
   ch1.setAttribute("x2", "50"); ch1.setAttribute("y2", "96");
@@ -12539,30 +12543,61 @@ function _buildTransientVigil(body) {
   ch2.setAttribute("x2", "96"); ch2.setAttribute("y2", "50");
   ch2.setAttribute("class", "transient-vigil-cross");
   svg.appendChild(ch2);
-  // Sweep wedge — rotates around the center.
-  const sweep = document.createElementNS(ns, "path");
-  sweep.setAttribute("d", "M 50 50 L 96 50 A 46 46 0 0 0 82.5 17.5 Z");
-  sweep.setAttribute("class", "transient-vigil-sweep");
-  svg.appendChild(sweep);
-  // Detection blips spawn periodically and fade.
-  const blipsLayer = document.createElementNS(ns, "g");
-  blipsLayer.setAttribute("class", "transient-vigil-blips");
-  svg.appendChild(blipsLayer);
+  // Measurement dots at each ring's intersection with both axes
+  // (4 dots per ring). These are the Iron-Man-blueprint vocabulary —
+  // small filled circles marking spec points. CSS animates a slow
+  // opacity pulse per-cell with a random phase offset so the cell
+  // breathes rather than blinks in lockstep.
+  const pulsePhase = (Math.random() * 4).toFixed(2);
+  svg.style.setProperty("--vigil-dot-phase", pulsePhase + "s");
+  for (const r of rings) {
+    for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+      const dot = document.createElementNS(ns, "circle");
+      dot.setAttribute("cx", (50 + dx).toFixed(1));
+      dot.setAttribute("cy", (50 + dy).toFixed(1));
+      dot.setAttribute("r", "0.9");
+      dot.setAttribute("class", "transient-vigil-dot");
+      svg.appendChild(dot);
+    }
+  }
+  // Corner readouts — 4 small numeric labels in fixed positions. Cycle
+  // values every ~3s so the cell looks live without rotating motion.
+  const readoutSets = [
+    () => ["0x" + Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, "0"),
+           "0x" + Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, "0"),
+           "0x" + Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, "0"),
+           "0x" + Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, "0")],
+    () => ["PH " + String(Math.floor(Math.random() * 999)).padStart(3, "0"),
+           "SY " + String(Math.floor(Math.random() * 999)).padStart(3, "0"),
+           "RX " + String(Math.floor(Math.random() * 999)).padStart(3, "0"),
+           "TX " + String(Math.floor(Math.random() * 999)).padStart(3, "0")],
+    () => [(Math.random() * 89 + 1).toFixed(1) + "°N",
+           (Math.random() * 179 + 1).toFixed(1) + "°E",
+           "Δ" + (Math.random() * 9).toFixed(2),
+           "σ" + (Math.random() * 9).toFixed(2)],
+  ];
+  const pickSet = readoutSets[Math.floor(Math.random() * readoutSets.length)];
+  const positions = [[6, 9, "start"], [94, 9, "end"], [6, 96, "start"], [94, 96, "end"]];
+  const labels = [];
+  for (let i = 0; i < 4; i++) {
+    const t = document.createElementNS(ns, "text");
+    t.setAttribute("x", positions[i][0]);
+    t.setAttribute("y", positions[i][1]);
+    t.setAttribute("text-anchor", positions[i][2]);
+    t.setAttribute("class", "transient-vigil-readout");
+    svg.appendChild(t);
+    labels.push(t);
+  }
+  const refresh = () => {
+    const vals = pickSet();
+    labels.forEach((l, i) => { l.textContent = vals[i]; });
+  };
+  refresh();
   body.appendChild(svg);
-  const blipRates = [180, 280, 460];
-  const blipRate = blipRates[Math.floor(Math.random() * blipRates.length)];
   const ivl = setInterval(() => {
     if (!body.isConnected) { clearInterval(ivl); return; }
-    const blip = document.createElementNS(ns, "circle");
-    const ang = Math.random() * Math.PI * 2;
-    const rad = 6 + Math.random() * 38;
-    blip.setAttribute("cx", (50 + Math.cos(ang) * rad).toFixed(1));
-    blip.setAttribute("cy", (50 + Math.sin(ang) * rad).toFixed(1));
-    blip.setAttribute("r", (1 + Math.random() * 1.5).toFixed(1));
-    blip.setAttribute("class", "transient-vigil-blip");
-    blipsLayer.appendChild(blip);
-    setTimeout(() => blip.remove(), 1400);
-  }, blipRate);
+    refresh();
+  }, 2800 + Math.random() * 1200);
 }
 
 // Ops code pools — picked per spawn so consecutive LCARS panels read
