@@ -128,6 +128,35 @@ def test_load_cells_roundtrip(tmp_cells: Path):
     assert orchestrator.load_cells() == original
 
 
+def test_save_cells_writes_bak_on_overwrite(tmp_cells: Path):
+    """R1: save_cells should rotate the prior live file to .bak so a
+    subsequent corruption is recoverable. First save has nothing to back up;
+    second save rotates the first save's bytes to .bak."""
+    first = {"session_id": "t", "cells": [{"id": "cell-0001"}]}
+    orchestrator.save_cells(first)
+    second = {"session_id": "t", "cells": [{"id": "cell-0002"}]}
+    orchestrator.save_cells(second)
+    bak = tmp_cells.with_suffix(".json.bak")
+    assert bak.exists()
+    assert json.loads(bak.read_text()) == first
+    assert json.loads(tmp_cells.read_text()) == second
+
+
+def test_load_cells_recovers_from_bak_on_corruption(tmp_cells: Path):
+    """R4: load_cells should recover from cells.json.bak when the live file
+    is corrupt, quarantining the broken one and restoring the backup."""
+    good = {"session_id": "t", "cells": [{"id": "cell-0001"}]}
+    orchestrator.save_cells(good)
+    orchestrator.save_cells({"session_id": "t", "cells": [{"id": "cell-0002"}]})
+    # Now corrupt the live file. .bak holds the first save.
+    tmp_cells.write_text('{"session_id": "t", "cells": [{"id": "cell-0001"}]}}EXTRA')
+    recovered = orchestrator.load_cells()
+    assert recovered == good
+    # Original corrupt file should be quarantined alongside.
+    quarantined = list(tmp_cells.parent.glob("cells.json.corrupt-*"))
+    assert len(quarantined) == 1
+
+
 # --- cells_lock ---
 
 

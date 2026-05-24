@@ -381,6 +381,20 @@ def run_once(state: dict[str, Any], window: int, dt_sec: float, write: bool, bac
 
 
 def main() -> None:
+    # R3: this tool writes cells.json as a second concurrent writer alongside
+    # watcher.py. Even with the shared cells.json.lock flock, a 2026-05-24
+    # incident corrupted cells.json with "Extra data" — symptom of an unlucky
+    # write overlap. Gate the whole process on an explicit opt-in env var so
+    # the supervisor can't accidentally launch a second writer. --print-only
+    # is exempt because it doesn't touch cells.json.
+    opt_in = os.environ.get("LUCIDA_SYSMETRIC", "").strip().lower() in ("1", "true", "yes", "on")
+    if not opt_in and "--print-only" not in sys.argv:
+        sys.stderr.write(
+            "[sysmetric] disabled by default — concurrent writer to cells.json.\n"
+            "  Set LUCIDA_SYSMETRIC=1 to enable, or pass --print-only to inspect output\n"
+            "  without writing.\n",
+        )
+        sys.exit(0)
     ap = argparse.ArgumentParser(description="Live system-metric cell ingest.")
     ap.add_argument("--watch", action="store_true", help="Poll forever (Ctrl-C to stop).")
     ap.add_argument(
