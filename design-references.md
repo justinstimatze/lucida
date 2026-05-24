@@ -620,3 +620,43 @@ yt-dlp -f 'best[ext=mp4][height<=720]' -o 'sample.%(ext)s' "https://..."
 Then `video_watch fps=0.5 view_sample=10-12` via claude-video-vision to pick
 best moments; `ffmpeg -y -ss MM:SS -i sample.mp4 -frames:v 1 -q:v 2 out.png`
 per extracted PNG; `bmg_describe` to cross-check design vocabulary.
+
+### General FUI survey video
+
+- `1NMquGw21tU` — "FUI - Fictional User Interfaces" by Fabio Baccaglioni
+  (5:05, 2016). Cross-film compilation: Spectre, Avengers: Age of Ultron,
+  RoboCop, Captain America: Winter Soldier, Prometheus, Oblivion, Ender's
+  Game, After Earth, Iron Man 3, Total Recall, The Avengers, Battleship,
+  Tron. Useful as a **vocabulary survey** — patterns common across films
+  that could become substrate variants or chrome flourishes. Not a
+  theme-specific source.
+
+### eDEX-UI — Tron Legacy aesthetic (GPL-3.0, visual reference only)
+
+- Repo: <https://github.com/GitSquared/edex-ui> (archived 2021-10-18)
+- Demo video: `BGeY1rK19zA` (30s, 2021 OSS Awards trailer)
+
+**License compatibility**: eDEX-UI is **GPL-3.0** (copyleft). Lucida is
+**MIT**. We cannot lift code, assets, or substantial UI patterns from
+eDEX-UI without relicensing lucida to GPL-3.0 — which would force
+every downstream user/contributor to comply with copyleft.
+
+**What we CAN do**: clean-room visual reference. Ideas aren't
+copyrightable, only specific code. The eDEX-UI demo video shows the
+aesthetic we can mirror with independent implementation:
+
+- Tron Legacy cyan-on-black (close to our existing `circuit` theme)
+- System monitor panels: CPU/RAM/swap real-time gauges in fixed sidebar slots
+- Network monitor with GeoIP visualization
+- On-screen keyboard chrome (decorative)
+- Tabbed terminal as central element
+- File browser tracking CWD
+
+**Composes with**: `circuit` theme retune (existing Tron-derived) OR a new
+"operator-terminal" theme/layout where system-monitor cells dock around a
+central focal area. Aligned with the PHM "cockpit layout" arc (task #190)
+since both share the named-slots-around-a-central-hero pattern.
+
+**Strict rule**: when working with eDEX-UI as reference, treat its demo
+video and screenshots the same way we treat film stills — observe, sketch,
+reimplement. Never copy CSS, JS, or asset files from the repo.
