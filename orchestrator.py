@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import time
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -296,7 +297,35 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
 def load_cells() -> dict:
     if not CELLS_PATH.exists():
         return {"session_id": "leg5-v0", "cells": []}
-    return json.loads(CELLS_PATH.read_text())  # type: ignore[no-any-return]
+    try:
+        return json.loads(CELLS_PATH.read_text())  # type: ignore[no-any-return]
+    except json.JSONDecodeError as e:
+        # R4: cells.json is corrupt — try the rolling .bak written by save_cells.
+        # Quarantine the broken file so the operator can inspect, restore the
+        # backup as the live file, and carry on. Loud stderr so it can't go
+        # silent the way the 2026-05-24 race-corruption incident did.
+        bak = CELLS_PATH.with_suffix(".json.bak")
+        sys.stderr.write(
+            f"[orchestrator] cells.json corrupt ({e}); attempting recovery from {bak.name}\n",
+        )
+        if bak.exists():
+            try:
+                recovered = json.loads(bak.read_text())
+            except json.JSONDecodeError as e2:
+                sys.stderr.write(
+                    f"[orchestrator] {bak.name} also corrupt ({e2}); "
+                    f"please restore manually from a known-good source\n",
+                )
+                raise
+            quarantine = CELLS_PATH.with_suffix(f".json.corrupt-{int(time.time())}")
+            CELLS_PATH.rename(quarantine)
+            sys.stderr.write(
+                f"[orchestrator] quarantined corrupt file at {quarantine.name}, "
+                f"restoring {bak.name} ({len(recovered.get('cells', []))} cells)\n",
+            )
+            save_cells(recovered)
+            return recovered  # type: ignore[no-any-return]
+        raise
 
 
 # Inter-process lock for the read-mint-write cycle. Sidecar file
@@ -334,20 +363,39 @@ def cells_lock():
 
 
 def save_cells(data: dict) -> None:
-    """Atomic write of cells.json, enforcing the rolling cap.
+    """Atomic write of cells.json with backup rotation + parse validation.
 
-    Writes to cells.json.tmp + os.replace() so a crash mid-write can't
-    corrupt the file. Default keeps everything — LUCIDA_MAX_CELLS caps
-    total cells (newest kept) only when the user opts in. The previous
-    default of 200 silently truncated existing 2k+ corpora on first
-    watcher restart with no warning, destroying historical cells.
+    Pipeline: write .tmp → parse-validate .tmp → rotate live file to .bak
+    → os.replace .tmp into place. The validate step (R2) catches partial
+    writes / disk corruption BEFORE they hit the live file. The .bak
+    rotation (R1) makes any future corruption recoverable from the prior
+    save without external backups (load_cells reads it on JSONDecodeError).
+
+    Default keeps everything — LUCIDA_MAX_CELLS caps total cells (newest
+    kept) only when the user opts in. The previous default of 200 silently
+    truncated existing 2k+ corpora on first watcher restart with no
+    warning, destroying historical cells (2026-05-24 incident).
     """
     raw = os.environ.get("LUCIDA_MAX_CELLS", "all").strip().lower()
     cap = 0 if raw in ("0", "all", "none", "off") else max(1, int(raw))
     if cap and len(data.get("cells", [])) > cap:
         data["cells"] = data["cells"][-cap:]
     tmp = CELLS_PATH.with_suffix(".json.tmp")
+    bak = CELLS_PATH.with_suffix(".json.bak")
     tmp.write_text(json.dumps(data, indent=2) + "\n")
+    # R2: parse-validate the .tmp before committing. If the bytes on disk
+    # don't round-trip, abort instead of clobbering the live file.
+    try:
+        json.loads(tmp.read_text())
+    except json.JSONDecodeError as e:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(f"save_cells aborted: .tmp failed parse check ({e})") from e
+    # R1: rotate the prior live file to .bak (best-effort; never block).
+    if CELLS_PATH.exists():
+        try:
+            os.replace(CELLS_PATH, bak)
+        except OSError:
+            pass
     os.replace(tmp, CELLS_PATH)
 
 
