@@ -1,27 +1,28 @@
 {
-  "_comment": "Always-watching HUD aesthetic — Iron Man / JARVIS inspired. Reference: Jayse Hansen's MCU interface work + F-15/F-18 HUD design language. Cold electric cyan on void black, arc reactor gold secondary. Military aviation HUD.",
+  "_comment": "Always-watching HUD aesthetic — Iron Man / JARVIS inspired. Reference: Jayse Hansen's MCU interface work + F-15/F-18 HUD design language. Cold electric teal-cyan on void black, arc reactor gold secondary. Military aviation HUD. Refs/vigil/ holds extracted frames from the Iron Man (2008) 'Hot Rod Red' workshop scene that informed the 2026-05-23 retune.",
   "accent": {
-    "primary":   "#00bfff",
+    "primary":   "#00d8e8",
     "secondary": "#ffd700",
     "warning":   "#ff8800",
     "danger":    "#ff3333",
-    "ok":        "#00e5a0"
+    "ok":        "#00e5a0",
+    "complete":  "#ff5040"
   },
   "surface": {
     "bg":     "#000000",
-    "cell":   "#050508",
-    "header": "#020205",
-    "code":   "#040408",
+    "cell":   "rgba(8, 16, 24, 0.86)",
+    "header": "rgba(4, 12, 20, 0.9)",
+    "code":   "rgba(4, 10, 18, 0.85)",
     "muted":  "#2a5a7a",
-    "line":   "#0a2a3f"
+    "line":   "rgba(0, 216, 232, 0.22)"
   },
   "text": {
-    "fg":    "#b8e0f7",
-    "muted": "#2a5a7a"
+    "fg":    "#cceeff",
+    "muted": "#3a7095"
   },
   "data": {
-    "_comment": "Electric cyan primary, arc reactor gold, threat-orange, bright cyan, red alert, steel blue. Reads as combat systems readout.",
-    "cat": ["#00bfff", "#ffd700", "#ff8800", "#00e5ff", "#ff3333", "#4db8ff"]
+    "_comment": "Cyan-dominant ladder per the same 'large-category-mustn't-saturate' lesson hackers learned (memory/feedback_hackers_cyan_dominant). cat[0..3] stay in the cyan/teal family so 2-4 category treemaps don't kick orange or red into 30%-of-viewport bars. Gold/orange/red push to cat[4..5] for rare highlight only. Reference: refs/vigil/ Iron Man Hot Rod Red scene 2026-05-23.",
+    "cat": ["#00d8e8", "#00bfff", "#4db8ff", "#88dde8", "#ffd700", "#ff5040"]
   },
   "type": {
     "body": "\"DIN Condensed\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed\", \"Arial Narrow\", sans-serif",
@@ -29,18 +30,18 @@
     "mono": "\"Courier New\", ui-monospace, monospace"
   },
   "fx": {
-    "glow":      "rgba(0, 191, 255, 0.45)",
-    "glow-line": "rgba(0, 229, 255, 0.3)"
+    "glow":      "rgba(0, 216, 232, 0.55)",
+    "glow-line": "rgba(0, 229, 255, 0.35)"
   },
   "palette": {
-    "_comment": "stroke1/2/3 align with data.cat[0..2]: cyan/gold/orange across vega categorical, scene3d wireframes, animated_svg $token substitution.",
-    "stroke1": "#00bfff",
-    "stroke2": "#ffd700",
-    "stroke3": "#ff8800",
-    "accent":  "#00bfff",
-    "fg":      "#b8e0f7",
-    "muted":   "#2a5a7a",
+    "_comment": "stroke1/2/3 align with data.cat[0..2]: teal-cyan / sky-cyan / steel-blue across vega categorical, scene3d wireframes, animated_svg $token substitution. Gold and red moved out of stroke[1..3] so wireframes stay monochrome-cyan matching the Jarvis aesthetic.",
+    "stroke1": "#00d8e8",
+    "stroke2": "#00bfff",
+    "stroke3": "#4db8ff",
+    "accent":  "#00d8e8",
+    "fg":      "#cceeff",
+    "muted":   "#3a7095",
     "bg":      "#000000",
-    "panel":   "#050508"
+    "panel":   "rgba(8, 16, 24, 0.86)"
   }
 }
