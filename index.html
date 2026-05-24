@@ -3406,7 +3406,7 @@ function applyMixed3DLayout(opts) {
   // prominent horizontal light streak in
   // refs/gibson/canyon_flythrough.png that the point-pulses above
   // (small fast dots) don't capture. 5 streaks, additive cyan, ~2.5
-  // u/s along corridors. (Task #112, user 2026-05-23 fidelity pass.)
+  // u/s along corridors.
   const streaks = [];
   {
     const N_STREAKS = 5;
@@ -4938,7 +4938,20 @@ function _mixed3dDriveSwoopyTour(t) {
     const SCAN_Y_BOT = 5;
     // panU stretched to match the 22s scan window (5 + 12 + 5).
     const panU = Math.max(0, Math.min(1, dts / 22.0));
-    const scanY = SCAN_Y_TOP - (SCAN_Y_TOP - SCAN_Y_BOT) * panU;
+    let scanY = SCAN_Y_TOP - (SCAN_Y_TOP - SCAN_Y_BOT) * panU;
+    // Altitude follows the scan target so the camera rises to face
+    // high tower-top cells and drops to face low cells, instead of
+    // staying at swoopy-altitude and craning up/down (which produced
+    // straight-up looks when the target was a y=18 cell with cam at
+    // y=4). User pref 2026-05-24: smooth altitude changes are fine
+    // as long as pitch stays controlled.
+    if (sw.scanTargetPos) {
+      // Park the camera ~3u below the target so lookAt produces a
+      // gentle upward pitch (~15° at perpLookAhead=3.5). Clamp to
+      // floor+1 so it never dips into the ground.
+      const targetCamY = Math.max(1, sw.scanTargetPos.y - 3);
+      scanY = scanY * 0.4 + targetCamY * 0.6;
+    }
     desiredPos.y = desiredPos.y * (1 - sf) + scanY * sf;
   }
   const tan = sw.curve.getTangentAt(u);
@@ -5071,6 +5084,22 @@ function _mixed3dDriveSwoopyTour(t) {
   sw.bankActual += (bankTarget - sw.bankActual) * 0.04;
   const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
   cam.up.copy(bankedUp);
+  // Pitch clamp safety: cap the lookAt y so the resulting pitch never
+  // exceeds ±MAX_PITCH_DEG, even if the position-bias lerp above
+  // hasn't caught up to a sharply-different scan-target altitude.
+  // Without this the lookAt aims straight at the sky (pitch 70°+)
+  // during the transition from low-cell to high-cell scan targets
+  // (user 2026-05-24 "camera path is looking almost straight up").
+  const MAX_PITCH_DEG = 35;
+  const dx = sw.lookAtActual.x - cam.position.x;
+  const dz = sw.lookAtActual.z - cam.position.z;
+  const horizDist = Math.sqrt(dx * dx + dz * dz);
+  if (horizDist > 0.5) {
+    const maxDy = horizDist * Math.tan((MAX_PITCH_DEG * Math.PI) / 180);
+    const dy = sw.lookAtActual.y - cam.position.y;
+    if (dy > maxDy) sw.lookAtActual.y = cam.position.y + maxDy;
+    else if (dy < -maxDy) sw.lookAtActual.y = cam.position.y - maxDy;
+  }
   cam.lookAt(sw.lookAtActual);
 }
 
