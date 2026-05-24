@@ -4771,17 +4771,45 @@ body {
   animation: mint-scrubber-leave 280ms ease-out forwards !important;
 }
 
-/* Pack-layout pre-layout state. Applied to cells before Muuri's initial
-   layout pass, removed after. Replaces the prior visibility:hidden
-   approach which was binary (cell either invisible or fully visible)
-   and prone to leaving cells permanently hidden if the unhide callback
-   didn't fire. Opacity-with-transition is self-healing: even an
-   "unprep" fire that arrives late produces a smooth fade-in. User
-   2026-05-24: ephemeral cells flashed in a grid before being placed,
-   then 60 cells stuck permanently hidden after multi-nav. */
+/* Pack-layout pre-layout state. Two-layer:
+   1. Per-cell .pack-prep — used on incremental adds (fresh cells via
+      _muuriGrid.add). Self-healing opacity-class so a late unprep
+      still fades smoothly.
+   2. Container-level .pack-laying-out on #notebook — used on the
+      initial create pass. Hides ALL child cells (including ones added
+      between create and the unprep sweep — snap driver, transient
+      spawner, mount drain) until Muuri has placed everything. The
+      pseudo-element indicator gives the user a "wait, the layout is
+      coming" cue during the brief settle. */
 .cell.pack-prep {
   opacity: 0 !important;
   transition: opacity 0.4s ease;
+}
+#notebook.pack-laying-out > .cell {
+  opacity: 0 !important;
+  visibility: hidden;
+}
+#notebook.pack-laying-out {
+  position: relative;
+  min-height: 200px;
+}
+#notebook.pack-laying-out::after {
+  content: "LAYING OUT";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--type-mono, "Eurostile", "Share Tech Mono", monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.45em;
+  color: var(--accent-primary, var(--accent, #00ddff));
+  opacity: 0.7;
+  animation: pack-laying-out-pulse 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes pack-laying-out-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.85; }
 }
 
 /* Vigil: Jarvis-style static schematic — concentric rings + dotted

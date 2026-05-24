@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=18" />
+<link rel="stylesheet" href="notebook.css?v=19" />
 <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
@@ -2594,16 +2594,15 @@ function applyPackLayout() {
     }
   }
   dbg.path = "create";
-  // Hide all items during the destroy-recreate so the brief moment
-  // before Muuri sets transforms doesn't render them stacked at the
-  // container's top-left. 2026-05-24: switched from visibility:hidden
-  // to .pack-prep class (opacity:0 + 0.4s transition). User reported
-  // (a) ephemeral cells flashing in a grid before Muuri positions them
-  // (visibility:hidden didn't fire on cells added after the create
-  // pass) AND (b) 60 cells stuck permanently hidden after multi-nav
-  // (the unhide callback raced a follow-up refresh). Opacity-class is
-  // self-healing — even if unprep fails, removing the class transitions
-  // smoothly; multiple safety unprep passes catch any callback race.
+  // Hide the entire container during destroy-recreate. Per-cell .pack-prep
+  // was insufficient because cells added BETWEEN create and the unprep
+  // sweep (the snap driver, transient spawner, live mints from cells.json)
+  // hit the DOM before pack-prep got applied — flash at top-left, then
+  // Muuri re-positions them. Container-level hide is bulletproof: nothing
+  // inside #notebook paints until pack layout settles. User 2026-05-24
+  // (third report): "ephemeral cells still appear briefly at load on top
+  // of all the other cells then disappear."
+  root.classList.add("pack-laying-out");
   _muuriGrid = new window.Muuri(root, {
     items: sized,
     // fillGaps:true is the load-bearing setting — small items fill
@@ -2624,26 +2623,18 @@ function applyPackLayout() {
     hideDuration: 0,
     layoutOnInit: false,
   });
-  // Apply prep class to all current cells. Instant initial layout.
-  // After layout: remove .pack-prep so the opacity transition fires
-  // and cells fade in together. Belt-and-suspenders unprep: layout(true)
-  // callback + rAF chase + 300ms safety pass. Even if all three race
-  // a follow-up refresh, the opacity-class approach is self-healing —
-  // removing the class triggers a smooth fade rather than abruptly
-  // toggling visibility.
-  sized.forEach(el => { el.classList.add("pack-prep"); });
-  const _packUnprep = () => sized.forEach(el => el.classList.remove("pack-prep"));
-  _muuriGrid.layout(true, _packUnprep);
-  requestAnimationFrame(_packUnprep);
-  setTimeout(_packUnprep, 300);
-  // Last-resort safety: at 1.5s, sweep every cell in the container.
-  // Catches cells added between create and the rAF/timeout that the
-  // closure-captured `sized` array doesn't include.
-  setTimeout(() => {
-    document.querySelectorAll("#notebook > .cell.pack-prep").forEach(el => {
-      el.classList.remove("pack-prep");
-    });
-  }, 1500);
+  // Instant initial layout, then reveal the container. Belt-and-
+  // suspenders reveal: layout(true) callback + rAF + 300ms safety, so
+  // a callback race doesn't strand the container hidden. The opacity
+  // transition on #notebook makes any reveal fire smoothly regardless
+  // of which trigger fires first.
+  const _packReveal = () => root.classList.remove("pack-laying-out");
+  _muuriGrid.layout(true, _packReveal);
+  requestAnimationFrame(_packReveal);
+  setTimeout(_packReveal, 300);
+  // Last-resort safety: 1.5s hard floor — even if every other trigger
+  // somehow fails, the container is guaranteed visible after 1.5s.
+  setTimeout(_packReveal, 1500);
   // Observe each cell for size changes — substrates hydrate async and
   // a late-growing cell would overlap neighbors without a re-pack.
   const ro = _packGetObserver();
