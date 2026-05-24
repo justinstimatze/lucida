@@ -11889,6 +11889,29 @@ function initScene3D(container, spec) {
     }
   }
 
+  // Auto-fit camera. LLM-specced positions often place labels/objects
+  // outside the default camera_distance frustum — cell-4578 has labels
+  // at y=5.15 with camera_distance=7 (~10% past visible region), so
+  // "used 9.7Gi" text overflowed the top of the cell viewport. Compute
+  // the scene's bounding box and pull the camera back along Z until
+  // the box fits with a margin. Re-target lookAt to box center so the
+  // scene is visually centered regardless of how the LLM laid it out.
+  // Spec's camera_distance is treated as a MINIMUM (cleanly framed
+  // scenes don't lose their composition).
+  const bbox = new T.Box3().setFromObject(scene);
+  if (!bbox.isEmpty()) {
+    const center = bbox.getCenter(new T.Vector3());
+    const size = bbox.getSize(new T.Vector3());
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const margin = 1.18;
+    const distForH = (size.y / 2) * margin / Math.tan(fovRad / 2);
+    const distForW = (size.x / 2) * margin / (Math.tan(fovRad / 2) * camera.aspect);
+    const minDist = spec.camera_distance || 5;
+    const requiredDist = Math.max(distForH, distForW, minDist);
+    camera.position.set(center.x, center.y, center.z + requiredDist);
+    camera.lookAt(center);
+  }
+
   // Render loop is play/pause-able via the returned controller; the caller
   // wires it to an IntersectionObserver so off-screen scenes don't compete
   // for the GPU thread.
@@ -11916,6 +11939,24 @@ function initScene3D(container, spec) {
         renderer.domElement.style.height = h + "px";
         camera.aspect = cw / h;
         camera.updateProjectionMatrix();
+        // Re-apply auto-fit so a cell that narrows (hero → ambient
+        // grid slot) doesn't crop scene width. We only need to grow
+        // the camera distance — if the cell got wider we don't need
+        // to come closer, the existing distance still frames the box.
+        if (!bbox.isEmpty()) {
+          const center = bbox.getCenter(new T.Vector3());
+          const size = bbox.getSize(new T.Vector3());
+          const fovRad = (camera.fov * Math.PI) / 180;
+          const margin = 1.18;
+          const distForH = (size.y / 2) * margin / Math.tan(fovRad / 2);
+          const distForW = (size.x / 2) * margin / (Math.tan(fovRad / 2) * camera.aspect);
+          const minDist = spec.camera_distance || 5;
+          const requiredDist = Math.max(distForH, distForW, minDist);
+          if (requiredDist > camera.position.z - center.z) {
+            camera.position.set(center.x, center.y, center.z + requiredDist);
+            camera.lookAt(center);
+          }
+        }
       }
     }
   });
