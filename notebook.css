@@ -4399,10 +4399,16 @@ body {
    layout but with reduced opacity and an em-dash tag in the head so it
    reads as "this is the system's heartbeat, not a content cell". */
 .cell.cell-transient {
-  opacity: 0.85;
-  /* Slightly recessed so they sit "behind" real cells visually even
-     though they're laid out as peers. */
-  filter: saturate(0.85);
+  /* Tier-2 demotion (2026-05-24, user "more like tier-2 cells"): ephemeral
+     cells were reading as peer-of-content because opacity 0.85 +
+     saturate 0.85 left them too bright/saturated. They should recede into
+     the background the way mixed3d tier-2 cells do — present, visible,
+     but unambiguously not where the eye lands. Dropped to 0.6 opacity,
+     0.7 saturate, 0.85 brightness. Pairs with the universal motion=pack
+     switch (no more edge-slide overlay) so transients never obscure
+     real-cell content either. */
+  opacity: 0.6;
+  filter: saturate(0.7) brightness(0.85);
   overflow: hidden;
   position: relative;
 }
@@ -4453,10 +4459,10 @@ body {
 /* Entrance / exit animations — pack motion (peer cell in Muuri grid). */
 @keyframes transient-enter-pack {
   from { opacity: 0; transform: translateZ(-20px) scale(0.92); }
-  to   { opacity: 0.85; transform: none; }
+  to   { opacity: 0.6; transform: none; }
 }
 @keyframes transient-leave-pack {
-  from { opacity: 0.85; transform: none; }
+  from { opacity: 0.6; transform: none; }
   to   { opacity: 0; transform: translateZ(-30px) scale(0.96); filter: blur(1px); }
 }
 .cell.cell-transient.cell-transient-motion-pack.cell-transient-enter {
