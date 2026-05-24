@@ -7340,9 +7340,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
       // - NARROW (w < 480): console-readout — each row collapses to
       //   "label :: value" lines, severity still rendered as blocks.
       // Both modes match the Gibson tower-label aesthetic (cyan-dominant
-      // mono caps + light cyan rules). User 2026-05-22: "how can we
-      // make html tables not look bad and also aligned with the
-      // hackers gibson aesthetic".
+      // mono caps + light cyan rules).
       const MAX_COLS = 5;
       const rawCols = Math.max(...rows.map(r => r.length));
       const cols = Math.min(MAX_COLS, rawCols);
@@ -9288,12 +9286,10 @@ function _mixed3dHideDecorativeAtSlot(towerIdx, face, col, p) {
 function _mixed3dColspanForCell(cell) {
   if (!cell || !cell.dataset) return 1;
   const ct = cell.dataset.cellType || "";
-  // User 2026-05-21: "at the required font sizes, any tier 1 cells need
-  // to be 4-6 columns wide / otherwise it's just uselessly unreadable
-  // / as long as we can pepper in enough decorative cells to continue
-  // to imply the 6 column visual default". Every content substrate gets
-  // colspan >= 4. Tier-2 decoratives (singleton procedural fill) remain
-  // at colspan=1 and pack the gaps left between tier-1 cells.
+  // At required tier-1 font sizes, content substrates need 4-6 columns
+  // to stay legible. Decorative singletons (tier-2 procedural fill) keep
+  // colspan=1 and pack the gaps between tier-1 cells, preserving the
+  // visual 6-column read.
   const SUBSTRATES_NEEDING_BREADTH = new Set([
     "mermaid", "html", "vega", "force_graph", "timeline_ribbon",
     "animated_svg", "treemap",
