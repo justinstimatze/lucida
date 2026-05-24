@@ -9,6 +9,11 @@ set -u
 LUCIDA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$LUCIDA_DIR"
 
+# Prefer the project venv so anthropic + python-dotenv are importable.
+# Fall back to system python3 if no venv (dev hasn't run `uv venv` yet).
+PY="$LUCIDA_DIR/.venv/bin/python3"
+[ -x "$PY" ] || PY=python3
+
 # --- config ---
 # Default to the most-recently-modified Claude Code transcript on this host.
 # Override by setting LUCIDA_TRANSCRIPT before running this script, or by
@@ -41,13 +46,13 @@ cleanup() {
 trap cleanup INT TERM
 
 # serve.py bundles static + snap_receiver
-python3 serve.py &
+"$PY" serve.py &
 PIDS+=($!)
 echo "[start] serve.py pid=${PIDS[-1]}"
 
 if [[ -n "${TRANSCRIPT}" ]]; then
     sleep 0.5
-    python3 watcher.py \
+    "$PY" watcher.py \
         --transcript "${TRANSCRIPT}" \
         --watch 30 --write --generate &
     PIDS+=($!)
