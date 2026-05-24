@@ -11794,20 +11794,46 @@ function initScene3D(container, spec) {
       geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
       mesh = new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
     } else if (obj.kind === "cylinder") {
-      // Vertical column / tower / pole. height defaults to 2*size for
-      // a tower-shaped default; specs that want a flat puck pass a
+      // Vertical column / tower / pole / bar. height defaults to 2*size
+      // for a tower-shaped default; specs that want a flat puck pass a
       // smaller height. Top/bottom radius separate so cones (height>0,
       // top=0) work via the same primitive without needing a "cone"
       // type — though we do also expose "cone" for clarity below.
+      //
+      // Render: translucent solid fill + crisp silhouette edges via
+      // LineSegments. Pre-2026-05-23 used `wireframe: true` which on a
+      // 16-sided geometry painted 16 parallel vertical lines per bar —
+      // bar charts (cell-4578 system memory snapshot) read as a "forest
+      // of vertical lines" rather than discrete bars. Solid+edges gives
+      // the FUI bar-chart aesthetic the Iron Man/Jarvis HUD references
+      // use (refs/vigil/00_01_30_workshop_body_schematic_finale.png).
       const radius = size;
       const height = (typeof obj.height === "number") ? obj.height : size * 2;
       const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.4,
+      }));
+      const edges = new T.LineSegments(
+        new T.EdgesGeometry(geo, 1),
+        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+      );
+      mesh = new T.Group();
+      mesh.add(fill);
+      mesh.add(edges);
     } else if (obj.kind === "cone") {
       const radius = size;
       const height = (typeof obj.height === "number") ? obj.height : size * 2;
       const geo = new T.ConeGeometry(radius, height, 16, 1, false);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.4,
+      }));
+      const edges = new T.LineSegments(
+        new T.EdgesGeometry(geo, 1),
+        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+      );
+      mesh = new T.Group();
+      mesh.add(fill);
+      mesh.add(edges);
     } else if (obj.kind === "plane") {
       // Stacked translucent layers / floor planes / strata. Default
       // square; specs can pass width + height for rectangular layers.
