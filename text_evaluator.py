@@ -188,20 +188,24 @@ def evaluate_substrate_cell(
         f"Trigger snippet:\n{snippet}\n\nGenerated {label}:\n{substrate}\n\nCaption:\n{caption}"
     )
 
+    from tools.anthropic_retry import call_with_retry
+
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=1024,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            tools=[EVALUATE_TOOL],
-            tool_choice={"type": "tool", "name": "evaluate_substrate_cell"},
-            messages=[{"role": "user", "content": user_text}],
+        response = call_with_retry(
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=1024,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[EVALUATE_TOOL],
+                tool_choice={"type": "tool", "name": "evaluate_substrate_cell"},
+                messages=[{"role": "user", "content": user_text}],
+            )
         )
     except anthropic.APIError as e:
         raise TextEvaluatorError(f"Anthropic API call failed: {e}") from e

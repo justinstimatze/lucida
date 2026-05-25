@@ -26,6 +26,17 @@ import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+# Bootstrap: when invoked as `python tools/snap_receiver.py`, sys.path[0]
+# is `tools/` and the project root isn't importable. Prepend the parent
+# dir so `from tools.atomic_state import ...` works whether run as a
+# script or imported as a package module.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_THIS_DIR)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from tools.atomic_state import atomic_write_bytes  # noqa: E402  — after sys.path bootstrap
+
 LUCIDA_ROOT = os.environ.get(
     "LUCIDA_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
@@ -125,6 +136,20 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        # Healthcheck: GET /healthz returns 200 OK once the receiver is
+        # listening. Used by scripts/start.sh to wait for snap_receiver
+        # readiness before declaring the dashboard usable — without
+        # this, the browser can connect to serve.py and start firing
+        # cache-fetch requests at snap_receiver before it has bound
+        # the port, producing a noisy 404 burst at first paint.
+        if self.path == "/healthz":
+            self.send_response(200)
+            self._cors()
+            self.send_header("content-type", "text/plain")
+            self.send_header("cache-control", "no-store")
+            self.end_headers()
+            self.wfile.write(b"ok\n")
+            return
         # Manifest: GET /cells-index.json returns a list of cached SVG
         # filenames so the browser can skip 404-noisy fetches on cells
         # that aren't yet cached. Without this, every cache-miss render
@@ -186,8 +211,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"refused: path escapes cells/\n")
                 return
-            with open(target, "wb") as f:
-                f.write(body)
+            # Atomic write via tmp+replace: an in-progress cell render
+            # being read by the browser must never see a partial SVG.
+            # No .bak — cache is regenerable from cells.json on miss,
+            # so doubling disk pressure at 2500-file scale isn't worth it.
+            from pathlib import Path as _Path
+
+            atomic_write_bytes(_Path(target), body)
             _evict_counter[0] += 1
             # Every write triggers an eviction check — operation is
             # cheap (scandir + maybe a few unlinks) and the cap should

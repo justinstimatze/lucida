@@ -180,20 +180,24 @@ def shape_prompt(snippet: str, context: str = "", model: str = DEFAULT_MODEL) ->
     client = anthropic.Anthropic(api_key=api_key)
     user_msg = f"Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
 
+    from tools.anthropic_retry import call_with_retry
+
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=1024,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            tools=[BRIEF_TOOL],
-            tool_choice={"type": "tool", "name": "build_image_brief"},
-            messages=[{"role": "user", "content": user_msg}],
+        response = call_with_retry(
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=1024,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[BRIEF_TOOL],
+                tool_choice={"type": "tool", "name": "build_image_brief"},
+                messages=[{"role": "user", "content": user_msg}],
+            )
         )
     except anthropic.APIError as e:
         raise ImageSpecialistError(f"Anthropic API call failed: {e}") from e

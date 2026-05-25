@@ -13,32 +13,67 @@
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="stylesheet" href="notebook.css?v=19" />
-<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<!--
+  CDN scripts pinned with SRI (sha384) for supply-chain integrity.
+  Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
+  → newer 5.x), the integrity check will fail-fast and the script won't
+  load. Refresh the hashes after a deliberate version bump.
+
+  DOMPurify loaded first so the cell-rendering paths can sanitize LLM-
+  emitted html/svg before innerHTML — prevents prompt-injected cells
+  from running arbitrary JS in the dashboard.
+-->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"
+        integrity="sha384-Ic7KEGROu37YaruU6NyiYeib7UhjFyDZQ5fzBAji965L75T/4LGk5nzwMEjNGexs"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"
+        integrity="sha384-NMXhl2TbCXxcN7o4ROC56Funm78m4AylL8gMg/7Kn4YU+wrm23K9l7cY8lDRXQ9d"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"
+        integrity="sha384-D9LYH0esGjcxQJsBuxOuXtCDJGXRWW1+KhluzWPqi0rLJmiR/ygPChefaD+rFFDQ"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"
+        integrity="sha384-M+Ax7e/WFJpxSOF09HzI+Sj4wg9ottVd/uxmV2ItGGh02fLH28t2FAOJx3TJBap5"
+        crossorigin="anonymous"></script>
 <!-- Three.js loaded eagerly for scene3d cells. -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"
+        integrity="sha384-X9Z4JPIA98tyn9ayVMe0cM9j3zfE7CliV/xrpqv2t757y/UFj/awObaY8PUT6rh7"
+        crossorigin="anonymous"></script>
 <script src="vendor/CSS3DRenderer.js"></script>
 <!-- d3-hierarchy: canonical squarified treemap (Bruls 2000). Replaces
      ~80 lines of custom squarify code; we just feed it weights and read
      leaf rectangles back. -->
-<script src="https://cdn.jsdelivr.net/npm/d3-array@3"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-hierarchy@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-array@3"
+        integrity="sha384-VpKMdU+TlpggHFip46tJ/xkFUs8NFBwLqUMo3+3uiu411lU6eUQYsHVU+JFpA5ja"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-hierarchy@3"
+        integrity="sha384-WNr9kP7FJlLJ8Cjg/MC+b23H5hRo5I5T8rbsrqZMi0Zl7bTsYgHDUoQ+qV2uLia3"
+        crossorigin="anonymous"></script>
 <!-- d3-force + d3-dispatch + d3-quadtree + d3-timer: canonical Verlet
      spring layout for force_graph cells. Pulls in just the force module
      family (~10KB combined) — not the full d3 bundle. Used for entity-
      mesh snippets where mermaid would render a hairball. -->
-<script src="https://cdn.jsdelivr.net/npm/d3-dispatch@3"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-timer@3"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-quadtree@3"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-force@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-dispatch@3"
+        integrity="sha384-oGUk7ZMuIJXyjegrWZrjUkxuWZHJoUPTeaUNKzjcEhND8HzfagI4EnXVspF2mP60"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-timer@3"
+        integrity="sha384-brChTSJXF1bpEGi+e8fNotmiEQtehLbv5EWt3njlDFlYjl/SwmXs4xofe0gvWd7E"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-quadtree@3"
+        integrity="sha384-JzQQZeN94rbeGRpksNSu8TCkRWLlzTHev53JZngDT0faxrmd9bApgXS5pZWShqJb"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-force@3"
+        integrity="sha384-RM+ykRJc5/xPC56TVMOAYbZeVThoKXqcRlmRHZZc3YDHDCvFJrsEH2dpLMqL50K8"
+        crossorigin="anonymous"></script>
 <!-- Muuri: bin-packing layout engine. Used by the `pack` layout mode to
      subsume the old grid+treemap behavior with rock-sand density: cells
      keep their natural sizes (no proportional squish like treemap) and
      small cells fill gaps under tall ones (fixing wasted-whitespace under
      CSS auto-fit). fillGaps:true rearranges out-of-order *only when it
      produces denser packing*. ~50KB. -->
-<script src="https://cdn.jsdelivr.net/npm/muuri@0.9.5/dist/muuri.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/muuri@0.9.5/dist/muuri.min.js"
+        integrity="sha384-pjx/ohA+FGGT1DkH8NeTscW3x2H82LwvD4gfQIvtJ8JY5UjIdU82eel4/J5pCj8D"
+        crossorigin="anonymous"></script>
 <script>
   // Theme bootstrap -- runs synchronously in head to avoid FOUC.
   // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
@@ -200,7 +235,13 @@
      drawConnections() below. -->
 <canvas id="connection-overlay" aria-hidden="true"></canvas>
 <script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+// Pinned to 10.9.6 explicitly — the npm advisory range fixed in this
+// patch covers classDef CSS injection (GHSA-xcj9-5m2h-648r), state
+// diagram HTML injection (GHSA-ghcm-xqfw-q4vr), Gantt infinite-loop
+// DoS, and the transitive uuid<11.1.1 bounds check. ES module imports
+// can't carry SRI integrity attributes, so pinning the exact version
+// is the only supply-chain handle here.
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.esm.min.mjs";
 // Expose mermaid globally so the mixed3d tier-1 snapshot pipeline (#142)
 // can render cell.spec → SVG → canvas-texture for tower-face textures.
 window.mermaid = mermaid;
@@ -9976,6 +10017,40 @@ function el(tag, cls, text) {
   return e;
 }
 
+// XSS defense for LLM-emitted cell content. Cells of type html and
+// animated_svg take strings produced by Claude specialists and inject
+// them via innerHTML. A prompt-injected transcript could in principle
+// hijack a specialist to emit <script>, on* handlers, or javascript:
+// URLs that would execute in the dashboard's origin. DOMPurify is the
+// industry-standard sanitizer (loaded from CDN with SRI above).
+//
+// Two profiles: html (general content) and svg (animated SVG cells).
+// If DOMPurify failed to load (offline / CDN block), we degrade to a
+// "no rich content" mode by returning a plain-text fallback wrapped
+// in <pre> — readable but inert.
+function _purifyHtml(s) {
+  if (window.DOMPurify) {
+    return DOMPurify.sanitize(String(s || ""), {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ["script", "iframe", "object", "embed", "form"],
+      FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus"],
+    });
+  }
+  const pre = document.createElement("pre");
+  pre.textContent = String(s || "");
+  return pre.outerHTML;
+}
+function _purifySvg(s) {
+  if (window.DOMPurify) {
+    return DOMPurify.sanitize(String(s || ""), {
+      USE_PROFILES: { svg: true, svgFilters: true },
+      FORBID_TAGS: ["script", "foreignObject"],
+      FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus"],
+    });
+  }
+  return "";
+}
+
 // MutationObserver: when a cell is removed from #notebook (layout
 // clear, session switch, live-feed eviction, etc.), disconnect its
 // archetype-backdrop ResizeObserver so we don't leak. Audit
@@ -10319,7 +10394,13 @@ function renderCell(c, snippetGroups, cellsById, opts) {
         const normSpec = _normalizeMermaidSpec(c.spec);
         await mermaid.parse(normSpec);
         const { svg } = await mermaid.render(`m-${c.id}`, normSpec);
-        target.innerHTML = svg;
+        // Sanitize before innerHTML even though mermaid produces the
+        // SVG itself — defense-in-depth against the mermaid CVE family
+        // (CSS injection via classDef, HTML injection in state diagrams)
+        // and against future bypasses. USE_PROFILES.svg permits SVG
+        // structure but strips <script>, on* event handlers, and the
+        // FORBID_TAGS list catches anything snuck through.
+        target.innerHTML = _purifySvg(svg);
         // Edge-label backplates were sized flush to the text bbox by
         // mermaid (htmlLabels:false path), so labels read as cramped
         // chips. Inflate each rect by a few px on each side and re-
@@ -10395,7 +10476,11 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       // overflow. Natural-size pivot 2026-04-29: cell width follows
       // wrap.scrollWidth via applyNaturalCellSize.
       const wrap = el("div", "html-pan-wrap");
-      wrap.innerHTML = c.html;
+      // Sanitize LLM-emitted html before innerHTML — prompt injection
+      // could otherwise smuggle <script> or event handlers through a
+      // hijacked specialist output. Allows mainstream tags/attrs; strips
+      // script, on* handlers, javascript:/data: URLs.
+      wrap.innerHTML = _purifyHtml(c.html);
       target.innerHTML = "";
       target.appendChild(wrap);
       applyNaturalCellSize(wrap);
@@ -10406,7 +10491,9 @@ function renderCell(c, snippetGroups, cellsById, opts) {
     const target = el("div", "svg-target");
     body.appendChild(target);
     const renderSVG = () => {
-      target.innerHTML = expandTokens(c.spec);
+      // Sanitize before innerHTML — animated_svg specs come from LLM,
+      // could embed <script> or onload= handlers.
+      target.innerHTML = _purifySvg(expandTokens(c.spec));
       const inner = target.querySelector("svg");
       // Tighten the viewBox + size to actual content bbox. Authors
       // sometimes write a generous canvas (width=400) for content

@@ -273,20 +273,24 @@ def reflect_on_recent_cells(
                 )
 
     client = anthropic.Anthropic(api_key=api_key)
+    from tools.anthropic_retry import call_with_retry
+
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=2048,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            tools=[REFLECT_TOOL],
-            tool_choice={"type": "tool", "name": "reflect"},
-            messages=[{"role": "user", "content": content}],
+        response = call_with_retry(
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=2048,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[REFLECT_TOOL],
+                tool_choice={"type": "tool", "name": "reflect"},
+                messages=[{"role": "user", "content": content}],
+            )
         )
     except anthropic.APIError as e:
         raise ReflectError(f"Anthropic API call failed: {e}") from e

@@ -29,6 +29,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from tools.atomic_state import atomic_write_json, load_json_with_recovery, state_lock
+
 
 def _state_path_for(transcript_path: Path) -> Path:
     """Where to persist last_offset for a given transcript."""
@@ -36,16 +38,30 @@ def _state_path_for(transcript_path: Path) -> Path:
 
 
 def _load_state(state_path: Path) -> dict:
+    """Read watcher state via the shared recovery helper. On corruption
+    it quarantines + tries .bak; on any other OSError we fall through to
+    empty-state. State loss is recoverable here — at worst we re-prime
+    the transcript from prime_lookback_chars; never crash the watcher
+    loop over a bad sidecar."""
     if not state_path.exists():
         return {}
     try:
-        return json.loads(state_path.read_text())  # type: ignore[no-any-return]
-    except json.JSONDecodeError:
+        recovered = load_json_with_recovery(state_path)
+    except OSError as e:
+        sys.stderr.write(f"[watcher] state read failed for {state_path.name}: {e}\n")
         return {}
+    return recovered if recovered is not None else {}
 
 
 def _save_state(state_path: Path, state: dict) -> None:
-    state_path.write_text(json.dumps(state, indent=2))
+    """Atomic state write via the shared helper. Swallow OSError to
+    stderr — on next pass we retry and at worst re-process whatever delta
+    got dropped (bounded by prime_lookback_chars / max_delta_chars).
+    Crashing the watcher over a transient FS hiccup is the bigger harm."""
+    try:
+        atomic_write_json(state_path, state)
+    except (OSError, RuntimeError) as e:
+        sys.stderr.write(f"[watcher] state write failed for {state_path.name}: {e}\n")
 
 
 def _is_dup(snippet: str, existing_snippets: set[str], jaccard_threshold: float = 0.7) -> bool:
@@ -122,6 +138,49 @@ def process_once(
         return WatcherStep(0, 0, 0, 0, note=f"transcript not found: {transcript_path}")
 
     state_path = state_path or _state_path_for(transcript_path)
+    # Inter-process lock around the load→process→save cycle. Two watcher
+    # processes on the same transcript (manual run + systemd unit) would
+    # otherwise race on last_offset, re-processing or skipping deltas.
+    # Lock lives on <state>.lock so it survives os.replace of the state.
+    # Body lifted into _process_once_locked so the with-block can bound
+    # every early-return path without indenting 120 lines.
+    with state_lock(state_path):
+        return _process_once_locked(
+            transcript_path,
+            state_path=state_path,
+            write=write,
+            generate=generate,
+            use_llm=use_llm,
+            auto_retrigger=auto_retrigger,
+            max_retriggers=max_retriggers,
+            min_new_chars=min_new_chars,
+            reflect_every=reflect_every,
+            reflect_n=reflect_n,
+            session_id=session_id,
+            prime_lookback_chars=prime_lookback_chars,
+            max_delta_chars=max_delta_chars,
+        )
+
+
+def _process_once_locked(
+    transcript_path: Path,
+    *,
+    state_path: Path,
+    write: bool,
+    generate: bool,
+    use_llm: bool | None,
+    auto_retrigger: bool,
+    max_retriggers: int,
+    min_new_chars: int,
+    reflect_every: int | None,
+    reflect_n: int,
+    session_id: str | None,
+    prime_lookback_chars: int,
+    max_delta_chars: int,
+) -> WatcherStep:
+    """Locked body of process_once. Caller holds state_lock(state_path)
+    across this whole function, so every load → mutate → save path runs
+    atomically vs other watcher processes pointed at the same state."""
     state = _load_state(state_path)
     last_offset = state.get("last_offset")
 
