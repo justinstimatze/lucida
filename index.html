@@ -8760,6 +8760,14 @@ function _mixed3dDrainMountQueue() {
     obj.userData.colspan = cs;
     obj.userData.canvasW = canvasW;
     obj.userData.canvasH = canvasH;
+    // Hide-until-first-paint: cells flash WHITE for a frame between
+    // scene.add and the first texture upload because Three.js samples
+    // the not-yet-uploaded GL texture as default-white. visible=false
+    // skips the render, then we flip true on next rAF when the upload
+    // has completed. User 2026-05-24: "the t1 cells are just white
+    // boxes until the content loads in a second or two later".
+    obj.visible = false;
+    requestAnimationFrame(() => { obj.visible = true; });
     S.scene.add(obj);
     map.set(cell.id, obj);
     S.cellTier.set(cell.id, tier);
