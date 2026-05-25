@@ -8402,7 +8402,18 @@ function _mixed3dSyncCells() {
 
   const map = _mixed3dState.cellObjects;
   const pending = _mixed3dState.mountPending;
-  const fresh = [...root.querySelectorAll(".cell")].filter(
+  // Cap visible cell count to keep draw calls bounded. 1300+ cells in
+  // scene produced 854 draw calls / frame → 41 fps. The 2D notebook
+  // DOM still has every cell; mixed3d just renders the most-recent
+  // 300 (DOM is reverse-chrono so .slice(0, N) takes the newest).
+  // User 2026-05-24: option A from the perf trade — fewer unique
+  // Mesh draw calls at the cost of not showing the deepest history
+  // in the canyon. Override via ?mixed3dCap=N URL param.
+  const capRaw = new URLSearchParams(window.location.search).get("mixed3dCap");
+  const capN = capRaw && Number.isFinite(+capRaw) && +capRaw > 0 ? +capRaw : 300;
+  const allCellEls = [...root.querySelectorAll(".cell")];
+  const capped = allCellEls.slice(0, capN);
+  const fresh = capped.filter(
     c => c.id
       && !map.has(c.id)
       && !pending.has(c.id)
