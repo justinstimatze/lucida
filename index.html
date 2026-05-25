@@ -7876,31 +7876,21 @@ const _MIXED3D_RENDERERS = {
 // Two small fixed-position callouts in opposite corners of the body
 // region. Lives entirely in margin (top-right + bottom-left), 80×42px
 // each. Cyan Eurostile, decorative-style. Deterministic per-cell seed
-// so each cell has stable values across reloads — they read as
-// instrumentation, not random animation. Top-right is status-style
-// (id + confidence), bottom-left is tick-style (rank + counter).
-// User 2026-05-25 density-without-fighting-content option E:
-// "floating callouts in unused corners".
+// from cell.id so each cell's tokens are stable across reloads —
+// reads as ambient instrumentation. User 2026-05-25 density-without-
+// fighting-content option E: "floating callouts in unused corners".
+//
+// Tokens drawn from _MIXED3D_DECO_TOKENS (the decorative-text pool),
+// not labelled with metric prefixes (CONF, RANK, etc) — the earlier
+// CONF·0.87 framing implied real numbers and these are deterministic-
+// random. Plain decorative tokens read as flair without implying
+// they're derived from anything (user 2026-05-25 review).
 function _mixed3dPaintCornerCallouts(ctx, fullCanvasW, fullCanvasH, titleH, cellData, targetId) {
   const id = String(targetId || cellData?.id || "x");
   let seed = 0;
   for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) | 0;
   const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-  const subAbbrev = (() => {
-    const t = (cellData?.cellType || "").toLowerCase();
-    return ({
-      mermaid: "MMD", vega: "VEG", html: "HTM", gauge: "GAU",
-      sparkline: "SPK", treemap: "TRM", timeline_ribbon: "TLN",
-      force_graph: "FGR", animated_svg: "ASV", image: "IMG",
-      scene3d: "S3D", code: "COD", ascii: "ASC", trajectory: "TRJ",
-      coord_plot: "CRD", text: "TXT",
-    }[t] || "CEL");
-  })();
-  const idMatch = /(\d+)/.exec(id);
-  const idNum = idMatch ? idMatch[1] : Math.floor(rng() * 9999).toString();
-  const conf = (0.62 + rng() * 0.37).toFixed(2);
-  const rank = String(1 + Math.floor(rng() * 32)).padStart(2, "0");
-  const tickHex = Math.floor(rng() * 0xfff).toString(16).toUpperCase().padStart(3, "0");
+  const pickToken = () => _MIXED3D_DECO_TOKENS[Math.floor(rng() * _MIXED3D_DECO_TOKENS.length)];
 
   const fontPx = 10;
   const lineH = 13;
@@ -7913,15 +7903,15 @@ function _mixed3dPaintCornerCallouts(ctx, fullCanvasW, fullCanvasH, titleH, cell
   ctx.textAlign = "right";
   const trX = fullCanvasW - 8;
   const trY = titleH + 6;
-  ctx.fillText(`ID·${idNum}`, trX, trY);
-  ctx.fillText(`${subAbbrev}·${conf}`, trX, trY + lineH);
+  ctx.fillText(pickToken(), trX, trY);
+  ctx.fillText(pickToken(), trX, trY + lineH);
 
   ctx.globalAlpha = 0.78;
   ctx.textAlign = "left";
   const blX = 8;
   const blY = fullCanvasH - 6 - lineH * 2;
-  ctx.fillText(`RANK·${rank}`, blX, blY);
-  ctx.fillText(`TICK·${tickHex}`, blX, blY + lineH);
+  ctx.fillText(pickToken(), blX, blY);
+  ctx.fillText(pickToken(), blX, blY + lineH);
 
   ctx.restore();
 }
