@@ -6561,45 +6561,42 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
+  // Rectilinear horizontal bar — gauges in hackers/mixed3d match the
+  // Gibson aesthetic (no curves) per task #176. Replaces the previous
+  // 270° dial which read as out-of-theme in the canyon view.
   const cx = w / 2;
-  // 270° dial — starts at lower-left, sweeps clockwise through top
-  // to lower-right. Looks like a real gauge instead of the squashed
-  // half-circle (user 2026-05-21: "looks squeezed horizontally"). The
-  // 3/4 circle uses similar width AND height, fixing the 2:1 squat
-  // shape the half-moon read as.
-  const r = w * 0.36;
   const cy = h * 0.42;
-  const ARC_START = Math.PI * 0.75;       // 135° (lower-left)
-  const ARC_END = Math.PI * 2.25;          // 405° == 45° (lower-right)
-  const ARC_SPAN = ARC_END - ARC_START;    // 1.5π = 270°
-  // Track arc
-  ctx.strokeStyle = "#9966ff";
-  ctx.globalAlpha = 0.35;
-  ctx.lineWidth = 12;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, ARC_START, ARC_END, false);
-  ctx.stroke();
-  // Filled arc
+  const barW = w * 0.78;
+  const barH = 14;
+  const barX = (w - barW) / 2;
+  const barY = cy - barH / 2;
   const norm = Math.max(0, Math.min(1, (value - min) / (max - min)));
-  ctx.strokeStyle = "#00ddff";
+  // Track
+  ctx.fillStyle = "#9966ff";
+  ctx.globalAlpha = 0.25;
+  ctx.fillRect(barX, barY, barW, barH);
+  // Fill
+  ctx.fillStyle = "#00ddff";
   ctx.globalAlpha = 1;
-  ctx.lineWidth = 12;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, ARC_START, ARC_START + norm * ARC_SPAN, false);
-  ctx.stroke();
+  ctx.fillRect(barX, barY, barW * norm, barH);
+  // Bracket frame
+  ctx.strokeStyle = "#00ddff";
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(barX, barY, barW, barH);
   // Value
   ctx.fillStyle = "#ccf3ff";
+  ctx.globalAlpha = 1;
   ctx.font = "bold 36px 'Eurostile', 'Share Tech Mono', monospace";
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
   const vs = (Number.isInteger(value) ? value.toString() : value.toFixed(1));
-  ctx.fillText(vs, cx, cy + 6);
-  // Label below dial
-  let labelY = cy + 28;
+  ctx.fillText(vs, cx, cy - 36);
+  // Label below bar
   if (label) {
     ctx.fillStyle = "#9966ff";
     ctx.font = "16px 'Eurostile', 'Share Tech Mono', monospace";
-    ctx.fillText(String(label).toUpperCase().slice(0, 18), cx, labelY);
+    ctx.fillText(String(label).toUpperCase().slice(0, 18), cx, cy + 28);
   }
   return Promise.resolve(canvas);
 }
