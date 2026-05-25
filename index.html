@@ -5478,7 +5478,13 @@ document.addEventListener("visibilitychange", () => {
 // halves the eligible-cells count; the hysteresis gap (22→26) still
 // prevents thrash at the boundary.
 const _MIXED3D_TIER1_DIST_SQ = 22 * 22;
-const _MIXED3D_TIER2_DIST_SQ = 26 * 26;
+// Widened demote threshold (was 26²): cells that promoted to tier-1 stay
+// there until the camera is much further away. The tight 22→26 gap was
+// causing promote→demote churn as the swoopy camera passed cells; each
+// state change does material swap + scene mutation + retier-sweep work.
+// 22→40 keeps cells stable across a typical scan-window transit.
+// User 2026-05-24 perf regression: option B from the 41 vs 9 fps trade.
+const _MIXED3D_TIER2_DIST_SQ = 40 * 40;
 const _MIXED3D_TIER1_CAP = 400;
 const _MIXED3D_RETIER_BUDGET_MS = 4;
 
