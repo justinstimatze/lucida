@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "jsdom": "^29.1.1",
-    "mermaid": "^10.9.5"
+    "mermaid": "^10.9.5",
+    "puppeteer": "^25.0.4"
   }
 }

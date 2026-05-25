@@ -45,15 +45,22 @@ https://github.com/user-attachments/assets/6da05581-f458-48f4-9044-4ad3795d152f
 
 ## Get running in 5 minutes
 
-**Requirements:** Python 3.11+, an Anthropic API key, a running Claude Code
-session.
+**Requirements:** Python 3.11+, Node.js 18+, an Anthropic API key, a
+running Claude Code session.
 
 ```bash
 git clone https://github.com/justinstimatze/lucida && cd lucida
 uv venv && uv pip install -e .
+npm install                       # pulls mermaid + jsdom + puppeteer (bundles its own Chromium, ~170MB)
 cp .env.example .env
 # fill in your ANTHROPIC_API_KEY in .env
 ```
+
+Why `npm install`: lucida lints mermaid specs at mint time and
+pre-renders mermaid diagrams server-side so the browser never blocks
+on `mermaid.render()`. Both rely on Node deps. Puppeteer's
+`postinstall` hook downloads a bundled Chromium — no system Chrome
+required, and the download only happens once per machine.
 
 Start the renderer — open this on your second monitor and leave it there:
 

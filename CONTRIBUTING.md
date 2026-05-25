@@ -9,6 +9,7 @@ to know.
 git clone https://github.com/justinstimatze/lucida
 cd lucida
 uv venv && uv pip install -e .[dev]
+npm install          # mermaid lint + server-side mermaid pre-render via puppeteer
 pre-commit install   # ruff format + lint on commit
 
 cp .env.example .env
@@ -19,6 +20,12 @@ cp .env.example .env
 #   python serve.py
 #   python watcher.py --transcript /path/to/your/transcript.jsonl --watch 30 --write --generate
 ```
+
+The `npm install` step pulls `mermaid` (for spec lint), `jsdom` (DOM
+shim for the linter), and `puppeteer` (server-side mermaid render to
+avoid blocking the browser main thread). Puppeteer's postinstall
+downloads its own bundled Chromium to `~/.cache/puppeteer/` —
+~170MB, one-time, no system Chrome required.
 
 Open <http://localhost:8766/?theme=hackers&layout=mixed3d>.
 

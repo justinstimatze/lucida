@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -291,6 +292,31 @@ def _process_once_locked(
         state["last_offset"] = len(text)
         state["last_pass"] = time.time()
         _save_state(state_path, state)
+
+    # Mermaid SVG pre-render hook. If any mermaid cells minted this pass,
+    # fire-and-forget the backfill script in a detached subprocess. The
+    # script scans cells.json, finds the uncached ones, and renders them
+    # via Puppeteer + Chrome (one batch, single Chrome startup ~1s).
+    # Without this, newly-minted mermaid cells fall back to client-side
+    # mermaid.render — ~200ms per render on the browser main thread,
+    # which produces the "decorative animations stutter when new cells
+    # arrive" pattern (user 2026-05-25). The backfill noops fast when
+    # nothing's uncached, so we just call it after every mint pass.
+    if write and any(
+        c.get("id") in minted_ids and c.get("cell_type") == "mermaid"
+        for c in load_cells().get("cells", [])
+    ):
+        try:
+            _root = Path(__file__).resolve().parent
+            subprocess.Popen(
+                [sys.executable, str(_root / "tools" / "backfill_mermaid_svgs.py")],
+                cwd=str(_root),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as e:
+            print(f"  mermaid prerender spawn failed: {e}", file=sys.stderr)
 
     note = seg_result.summary
     if dropped_chars:
