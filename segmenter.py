@@ -143,20 +143,24 @@ def segment_document(text: str, model: str = DEFAULT_MODEL) -> SegmentationResul
     client = anthropic.Anthropic(api_key=api_key)
     user_msg = f"Document:\n\n{text.strip()}"
 
+    from tools.anthropic_retry import call_with_retry
+
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            tools=[SEGMENT_TOOL],
-            tool_choice={"type": "tool", "name": "build_segments"},
-            messages=[{"role": "user", "content": user_msg}],
+        response = call_with_retry(
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=4096,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[SEGMENT_TOOL],
+                tool_choice={"type": "tool", "name": "build_segments"},
+                messages=[{"role": "user", "content": user_msg}],
+            )
         )
     except anthropic.APIError as e:
         raise SegmenterError(f"Anthropic API call failed: {e}") from e

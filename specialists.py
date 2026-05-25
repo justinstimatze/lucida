@@ -80,20 +80,24 @@ def _call_specialist(
     hint_block = f"[shape hint from classifier: {shape_hint}]\n\n" if shape_hint.strip() else ""
     user_msg = f"{hint_block}Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
 
+    from tools.anthropic_retry import call_with_retry
+
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=2048,
-            system=[
-                {
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            tools=[tool_def],
-            tool_choice={"type": "tool", "name": tool_name},
-            messages=[{"role": "user", "content": user_msg}],
+        response = call_with_retry(
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=2048,
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[tool_def],
+                tool_choice={"type": "tool", "name": tool_name},
+                messages=[{"role": "user", "content": user_msg}],
+            )
         )
     except anthropic.APIError as e:
         raise SpecialistError(f"Anthropic API call failed: {e}") from e
@@ -522,20 +526,24 @@ def fix_mermaid_spec(
         f"Failed spec:\n```\n{bad_spec}\n```\n\n"
         f"Return a fixed spec that parses cleanly."
     )
+    from tools.anthropic_retry import call_with_retry
+
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=2048,
-            system=[
-                {
-                    "type": "text",
-                    "text": MERMAID_FIX_SYSTEM,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            tools=[MERMAID_FIX_TOOL],
-            tool_choice={"type": "tool", "name": "fix_mermaid_spec"},
-            messages=[{"role": "user", "content": user_msg}],
+        response = call_with_retry(
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=2048,
+                system=[
+                    {
+                        "type": "text",
+                        "text": MERMAID_FIX_SYSTEM,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[MERMAID_FIX_TOOL],
+                tool_choice={"type": "tool", "name": "fix_mermaid_spec"},
+                messages=[{"role": "user", "content": user_msg}],
+            )
         )
     except Exception as e:
         return bad_spec, f"fixer API call failed: {e}", True

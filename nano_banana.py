@@ -19,13 +19,15 @@ Reference:
 
 from __future__ import annotations
 
-import json
+import json  # noqa: F401  — kept for downstream callers; usage I/O routes via atomic_state
 import mimetypes
 import os
 import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+
+from tools.atomic_state import atomic_write_json, load_json_with_recovery
 
 try:
     from dotenv import load_dotenv
@@ -51,16 +53,28 @@ class GenResult:
 
 
 def _load_usage() -> dict:
+    """Read daily-cap usage sidecar. Corrupt-file recovery via the shared
+    helper (quarantine + .bak fallback). On any other I/O error we return
+    {} so a transient FS hiccup can't block image generation — worst case
+    we under-count one image until the next save."""
     if not USAGE_PATH.exists():
         return {}
     try:
-        return json.loads(USAGE_PATH.read_text())  # type: ignore[no-any-return]
-    except json.JSONDecodeError:
+        recovered = load_json_with_recovery(USAGE_PATH)
+    except OSError as e:
+        sys.stderr.write(f"[nano_banana] usage read failed: {e}\n")
         return {}
+    return recovered if recovered is not None else {}
 
 
 def _save_usage(usage: dict) -> None:
-    USAGE_PATH.write_text(json.dumps(usage, indent=2))
+    """Atomic usage write. Swallow OSError to stderr — daily-cap is
+    advisory, so a failed write degrades to next-run-re-counts rather
+    than killing the image generation path entirely."""
+    try:
+        atomic_write_json(USAGE_PATH, usage)
+    except (OSError, RuntimeError) as e:
+        sys.stderr.write(f"[nano_banana] usage write failed: {e}\n")
 
 
 def _check_and_bump_daily_cap() -> None:

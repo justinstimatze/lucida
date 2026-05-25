@@ -275,20 +275,24 @@ def evaluate_image_cell(
         },
     ]
 
+    from tools.anthropic_retry import call_with_retry
+
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=768,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            tools=[EVALUATE_TOOL],
-            tool_choice={"type": "tool", "name": "evaluate_cell"},
-            messages=[{"role": "user", "content": user_content}],
+        response = call_with_retry(
+            lambda: client.messages.create(
+                model=model,
+                max_tokens=768,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                tools=[EVALUATE_TOOL],
+                tool_choice={"type": "tool", "name": "evaluate_cell"},
+                messages=[{"role": "user", "content": user_content}],
+            )
         )
     except anthropic.APIError as e:
         raise EvaluatorError(f"Anthropic API call failed: {e}") from e

@@ -69,8 +69,25 @@ trap cleanup INT TERM
 # serve.py bundles static + snap_receiver
 start_child "serve.py" "\"$PY\" serve.py"
 
+# Block until snap_receiver answers /healthz on :8767 (or 10s timeout).
+# Without this, the watcher and any browser tab connecting to :8766
+# can race ahead and start firing POST /cells/<id>.svg requests at a
+# snap_receiver port that isn't bound yet — produces a noisy 404 burst
+# at first paint that looks like the cache is broken.
+SNAP_READY=0
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    if curl -sf -o /dev/null --max-time 1 http://127.0.0.1:8767/healthz 2>/dev/null; then
+        SNAP_READY=1
+        echo "[start] snap_receiver ready (took ${attempt}s)"
+        break
+    fi
+    sleep 1
+done
+if [[ $SNAP_READY -eq 0 ]]; then
+    echo "[start] WARN snap_receiver /healthz unanswered after 10s — continuing anyway" >&2
+fi
+
 if [[ -n "${TRANSCRIPT}" ]]; then
-    sleep 0.5
     start_child "watcher.py" "\"$PY\" watcher.py --transcript \"${TRANSCRIPT}\" --watch 30 --write --generate"
 fi
 

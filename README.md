@@ -293,3 +293,33 @@ uv run pytest tests/integration/
 ```
 
 CI runs lint + tests + a bandit security scan on every push.
+
+---
+
+## Known limitations
+
+- **Single-user, local-host by default.** `serve.py` binds 127.0.0.1.
+  No auth layer — if you expose the port externally, anything that can
+  reach it can read your cells and mint log.
+- **State files are POSIX-only.** `cells_lock` and `state_lock` use
+  `fcntl.flock`. Windows users will run without locking — fine for
+  single-process use, race-prone for parallel watchers.
+- **Cells are LLM output rendered with DOMPurify sanitization.** HTML
+  and SVG cells are sanitized before insertion (strips `<script>`,
+  event handlers, dangerous URLs). A bug in DOMPurify or a future
+  sanitizer-bypass would still be exposure for a session run with an
+  attacker-controlled transcript.
+- **API cost is on the user.** Every transcript turn that lands a mint
+  triggers a classifier + specialist call (plus an occasional
+  reflection). Default models are tuned for cost, but a runaway
+  transcript ingestor will burn through API credit. Set
+  `LUCIDA_RETRIGGER_SCORE_FLOOR` higher to make the mint gate stricter.
+- **Mixed3d is GPU-heavy.** ~250-500MB GPU memory at saturation
+  (~1500 cells in scene, 300-entry snap cache). Integrated GPUs may
+  drop frames; use `?layout=pack` for a pure-2D mode.
+- **No Anthropic-side context window cap.** Long sessions accumulate
+  context in `recent_cells` for the orchestrator. We don't truncate.
+  A multi-day session could hit `200k context` errors.
+- **Cell substrate prompts are tuned for code/dev transcripts.** Other
+  transcript domains (writing, research) work but may classify
+  differently than expected. Override via the `--type` CLI flag.
