@@ -83,9 +83,9 @@ def _evict_if_over_cap():
                 if not e.is_file():
                     continue
                 name = e.name
-                if not name.endswith(".svg"):
+                if not (name.endswith(".svg") or name.endswith(".png")):
                     continue
-                # Require <stem>.<substrate>.svg — at least two dots.
+                # Require <stem>.<substrate>.<v>.{svg,png} — at least two dots.
                 if name.count(".") < 2:
                     continue
                 try:
@@ -162,7 +162,16 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with os.scandir(CELLS_DEST) as it:
                     for e in it:
-                        if e.is_file() and e.name.endswith(".svg") and e.name.count(".") >= 2:
+                        if not e.is_file():
+                            continue
+                        # <stem>.<substrate>.<version>.{svg,png} pattern.
+                        # PNG entries support the animated_svg self-cache:
+                        # browser produces canvas at first render, posts to
+                        # snap_receiver, subsequent loads fetch the PNG and
+                        # skip the slow SVG parse path.
+                        if (e.name.endswith(".svg") or e.name.endswith(".png")) and e.name.count(
+                            "."
+                        ) >= 2:
                             names.append(e.name)
             except OSError:
                 pass
@@ -200,9 +209,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         body = self.rfile.read(n)
         raw_path = self.path.lstrip("/")
-        # Cells-cache target: POST /cells/<id>.<substrate>.svg → save
-        # under lucida/cells/. SVG body is written verbatim.
-        if raw_path.startswith("cells/") and raw_path.endswith(".svg"):
+        # Cells-cache target: POST /cells/<id>.<substrate>.{svg,png} → save
+        # under lucida/cells/. Body is written verbatim. PNG path supports
+        # the animated_svg self-cache (browser-side rasterization persisted
+        # to disk after first render so subsequent encounters skip the slow
+        # SVG-parse path).
+        if raw_path.startswith("cells/") and (
+            raw_path.endswith(".svg") or raw_path.endswith(".png")
+        ):
             name = raw_path[len("cells/") :]
             target = _safe_under(CELLS_DEST, name)
             if target is None:
@@ -212,7 +226,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(b"refused: path escapes cells/\n")
                 return
             # Atomic write via tmp+replace: an in-progress cell render
-            # being read by the browser must never see a partial SVG.
+            # being read by the browser must never see a partial body.
             # No .bak — cache is regenerable from cells.json on miss,
             # so doubling disk pressure at 2500-file scale isn't worth it.
             from pathlib import Path as _Path

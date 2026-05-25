@@ -6184,6 +6184,33 @@ function _mixed3dStyleMermaidSVG(svgString) {
       stroke: #00ddff !important;
       stroke-width: 2.5px !important;
     }
+    /* State diagrams (stateDiagram-v2): default theme paints state
+       rects/composites with a solid dark-blue fill which fights the
+       hackers theme's "cyan lines on transparent glass" rule.
+       cell-4062 surfaced this 2026-05-25. Mermaid's state-diagram
+       node classes don't match .node above, hence this explicit
+       parallel block. */
+    .statediagram .state, .statediagram-state, .stateGroup,
+    .composit, .composit rect, .composit path,
+    .statediagram rect, .statediagram circle, .statediagram path:not(.transition),
+    .statediagram-cluster, .statediagram-cluster path, .statediagram-cluster rect,
+    .start-state, .start-state circle,
+    .end-state, .end-state circle, .end-state path,
+    .noteText, .noteBkg, .note rect, .note path,
+    g.classGroup rect, g.classGroup line, g.classGroup polyline,
+    g.entityBox, g.entityBox rect,
+    g.actor rect, g.actor line,
+    g.commit-message-box, g.commit-circle {
+      fill: transparent !important;
+      stroke: #00ddff !important;
+      stroke-width: 2px !important;
+    }
+    .statediagram .transition, .statediagram path.transition,
+    g.classGroup .relation, g.classGroup path,
+    g.actor line {
+      stroke: #66e6ff !important;
+      fill: none !important;
+    }
     .node .label, .nodeLabel, .label foreignObject div, .label text, text.label,
     .label tspan, .nodeLabel tspan, text tspan,
     .mindmap-node text, .mindmap-node tspan,
@@ -6559,7 +6586,10 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // _mixed3dStyleMermaidSVG changes so stale renders don't haunt
   // future sessions. v4 = aspect-fit init-block + mindmap node-bkg
   // transparent + entity-safe tspan upper (2026-05-22).
-  const STYLE_V = "v9";
+  // v10 = state/sequence/class/ER diagram nodes forced transparent
+  // (2026-05-25); previously inherited mermaid default dark-blue
+  // fills only the .node block was overriding.
+  const STYLE_V = "v10";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
@@ -7239,31 +7269,101 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  // Place nodes on a circle deterministically by index. Circle anchored in
-  // top portion — was h/2 centered which left big empty regions above and
-  // below in tall narrow cells. Radius scales with w so the graph still
-  // fills the width.
-  // Fit circle to min(w, h) so nodes never overflow off-cell when the
-  // canvas is short (post-#159 variable heights). User 2026-05-21:
-  // "truncated on the bottom of the cell".
-  const cx = w / 2;
-  const r = Math.min(w * 0.38, (h - 40) * 0.38);
-  const cy = h / 2;
+  // Real spring-repulsion layout. Earlier path placed nodes on a regular
+  // circle, so every force_graph cell collapsed to the same regular
+  // N-gon (user 2026-05-25 "kind of weird that all the force graphs end
+  // up in this same polygon shape"). This runs ~80 relaxation steps
+  // with Coulomb-style node repulsion + spring forces along edges,
+  // converging to graph-specific layouts (chain reads as line, hub
+  // reads as star, cycle reads as ring, etc.). Deterministic per-cell
+  // seed via the spec hash so a cell paints the same way across
+  // re-renders.
+  let seedRaw = 0;
+  const seedSrc = String(extras?.id || nodes.map(n => n.id || n.label).join(",")).slice(0, 64);
+  for (let i = 0; i < seedSrc.length; i++) seedRaw = (seedRaw * 31 + seedSrc.charCodeAt(i)) | 0;
+  let seed = seedRaw || 1;
+  const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const pad = 30;
+  const minX = pad, maxX = w - pad;
+  const minY = pad + 8, maxY = h - pad - 20;
   const positions = [];
   for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2 - Math.PI / 2;
-    positions.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, node: nodes[i] });
+    positions.push({
+      x: minX + rng() * (maxX - minX),
+      y: minY + rng() * (maxY - minY),
+      vx: 0, vy: 0,
+      node: nodes[i],
+    });
   }
-  // Edges (only edges between visible nodes).
+  // Edge index pairs for the force pass — resolve once outside the loop.
   const idToIdx = new Map();
   for (let i = 0; i < positions.length; i++) idToIdx.set(positions[i].node.id, i);
-  ctx.strokeStyle = "#66e6ff";
-  ctx.globalAlpha = 0.85;
-  ctx.lineWidth = 4;
+  const edgeIdx = [];
   for (const e of edges.slice(0, 30)) {
     const a = idToIdx.get(e.source || e.from);
     const b = idToIdx.get(e.target || e.to);
-    if (a === undefined || b === undefined) continue;
+    if (a === undefined || b === undefined || a === b) continue;
+    edgeIdx.push([a, b]);
+  }
+  // Force-sim constants tuned for canvas-pixel scale (not unit-normalized).
+  // REPEL keeps nodes apart; SPRING_K pulls connected nodes; SPRING_L is
+  // the natural edge length. DAMP < 1 bleeds energy each step. WALL
+  // softly pushes nodes back inside the bounded rect.
+  const REPEL = (w * h) / 12;
+  const SPRING_K = 0.04;
+  const SPRING_L = Math.min(w, h) * 0.22;
+  const DAMP = 0.82;
+  const STEPS = 80;
+  for (let step = 0; step < STEPS; step++) {
+    for (let i = 0; i < N; i++) {
+      const p = positions[i];
+      let fx = 0, fy = 0;
+      for (let j = 0; j < N; j++) {
+        if (i === j) continue;
+        const q = positions[j];
+        const dx = p.x - q.x;
+        const dy = p.y - q.y;
+        const d2 = dx * dx + dy * dy + 0.01;
+        const f = REPEL / d2;
+        const d = Math.sqrt(d2);
+        fx += (dx / d) * f;
+        fy += (dy / d) * f;
+      }
+      // Spring forces from incident edges.
+      for (const [a, b] of edgeIdx) {
+        if (a !== i && b !== i) continue;
+        const other = positions[a === i ? b : a];
+        const dx = other.x - p.x;
+        const dy = other.y - p.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+        const stretch = d - SPRING_L;
+        fx += (dx / d) * stretch * SPRING_K;
+        fy += (dy / d) * stretch * SPRING_K;
+      }
+      // Soft walls.
+      if (p.x < minX) fx += (minX - p.x) * 0.2;
+      if (p.x > maxX) fx -= (p.x - maxX) * 0.2;
+      if (p.y < minY) fy += (minY - p.y) * 0.2;
+      if (p.y > maxY) fy -= (p.y - maxY) * 0.2;
+      p.vx = (p.vx + fx) * DAMP;
+      p.vy = (p.vy + fy) * DAMP;
+    }
+    for (let i = 0; i < N; i++) {
+      const p = positions[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < minX) p.x = minX;
+      else if (p.x > maxX) p.x = maxX;
+      if (p.y < minY) p.y = minY;
+      else if (p.y > maxY) p.y = maxY;
+    }
+  }
+  // Edges (only edges between visible nodes — already resolved as
+  // edgeIdx pairs during the force pass).
+  ctx.strokeStyle = "#66e6ff";
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = 4;
+  for (const [a, b] of edgeIdx) {
     ctx.beginPath();
     ctx.moveTo(positions[a].x, positions[a].y);
     ctx.lineTo(positions[b].x, positions[b].y);
@@ -7296,8 +7396,49 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
   return Promise.resolve(canvas);
 }
 
+// Cache version for animated_svg self-cache. Bump when theme substitution
+// rules change OR the body-canvas layout logic shifts. Independent of
+// STYLE_V (mermaid) since the substrate paint pipelines differ.
+const _ANIMATED_SVG_CACHE_V = "v1";
+
 function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (!spec || typeof spec !== "string" || !spec.includes("<svg")) return Promise.resolve(null);
+  const cellId = extras?.id;
+  const cs = Math.max(1, Math.min(3, extras?.colspan || 1));
+  const cacheKey = cs > 1
+    ? `animated_svg.c${cs}.${_ANIMATED_SVG_CACHE_V}`
+    : `animated_svg.${_ANIMATED_SVG_CACHE_V}`;
+  const cacheFilename = cellId ? `${cellId}.${cacheKey}.png` : null;
+  const _nocache = window._mixed3dNoCache
+    || new URLSearchParams(window.location.search).get("nocache") === "1";
+  const haveCache = !_nocache && cacheFilename && window._mixed3dSvgManifest?.has(cacheFilename);
+  // Fast-path: manifest says a rasterized PNG exists. Fetch + Image
+  // decode (~5-10ms for PNG vs ~50-100ms for SVG-parse path below).
+  // Self-caching: browser writes the PNG on first render via the
+  // fire-and-forget POST below; this branch picks it up on the second
+  // and all subsequent encounters of the same cell.
+  if (haveCache) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas);
+      };
+      img.onerror = () => {
+        // Cache file 404/corrupt — fall through to fresh render.
+        if (window._mixed3dSvgManifest) window._mixed3dSvgManifest.delete(cacheFilename);
+        _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilename).then(resolve);
+      };
+      img.src = `/cells/${encodeURIComponent(cellId)}.${cacheKey}.png`;
+    });
+  }
+  return _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilename);
+}
+
+function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilename) {
   // Substitute theme placeholders → hackers palette. $pink collapses to
   // purple in normal scenes (pink is reserved for tower-attack state);
   // animated SVGs that explicitly want danger framing should re-introduce
@@ -7318,7 +7459,7 @@ function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (themed.includes("xlink:") && !/xmlns:xlink=/.test(themed)) {
     themed = themed.replace(/<svg\b([^>]*)>/, '<svg$1 xmlns:xlink="http://www.w3.org/1999/xlink">');
   }
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
@@ -7334,8 +7475,31 @@ function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
       ctx.drawImage(img, 0, 0, dw, dh);
       URL.revokeObjectURL(img.src);
       resolve(canvas);
+      // Fire-and-forget cache write — deferred via requestIdleCallback
+      // (setTimeout fallback) so the encoding + POST overhead never
+      // delays the snap pipeline's consumption of `canvas`. The
+      // renderer's profiler stops at resolve(); whatever happens after
+      // is amortized into idle time. Persists rasterized canvas as
+      // PNG to snap_receiver so subsequent encounters of this cell
+      // (this session or future loads) hit the fast PNG-decode path.
+      if (cellId && cacheFilename) {
+        const cacheWrite = () => {
+          canvas.toBlob((blob) => {
+            if (!blob) return;
+            fetch(`http://127.0.0.1:8767/cells/${encodeURIComponent(cellId)}.${cacheKey}.png`, {
+              method: "POST",
+              body: blob,
+              headers: { "content-type": "image/png" },
+            }).then(() => {
+              if (window._mixed3dSvgManifest) window._mixed3dSvgManifest.add(cacheFilename);
+            }).catch(() => {}); // receiver down → next encounter renders fresh, no harm
+          }, "image/png");
+        };
+        if (window.requestIdleCallback) window.requestIdleCallback(cacheWrite, { timeout: 2000 });
+        else setTimeout(cacheWrite, 0);
+      }
     };
-    img.onerror = (e) => { URL.revokeObjectURL(img.src); resolve(null); };
+    img.onerror = () => { URL.revokeObjectURL(img.src); resolve(null); };
     const blob = new Blob([themed], { type: "image/svg+xml;charset=utf-8" });
     img.src = URL.createObjectURL(blob);
   });
@@ -7496,6 +7660,14 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     ctx.font = `bold ${fontSize}px 'Eurostile', 'Share Tech Mono', 'Courier New', monospace`;
     ctx.textBaseline = "top";
     ctx.textAlign = "start";
+    // Stroke pass on top of fill — visually chunkier glyphs without
+    // changing font weight or size. User 2026-05-25 round 2: "still
+    // could be bolder and brighter". Stroke width scales with font;
+    // 1px at 14pt, ~1.5px at 22pt. Cyan matches fill, alpha 0.55 so
+    // stroke layers without over-saturating.
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    const STROKE_W = Math.max(1, Math.round(fontSize / 14));
     const isTwoCol = layout === "dl" || layout === "definitions" || layout === "callouts";
     const leftColW = isTwoCol ? Math.floor(w * 0.36) : 0;
     const rightColX = isTwoCol ? pad + leftColW : pad;
@@ -7543,8 +7715,26 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     for (let ri = 0; ri < dataRows.length; ri++) {
       if (cy + fontSize > yMax) break;
       const r = dataRows[ri] || [];
-      ctx.globalAlpha = 0.55 + rng() * 0.4;
+      // Alpha 0.78–0.98 (was 0.55–0.95). Lifting the floor so html
+      // content rows read bright against the decorative backdrop now
+      // painted underneath. Pre-backdrop the 0.55 floor was readable
+      // on transparent; against an alpha=0.22 token bed, 0.55 rows
+      // got perceptually flattened. User 2026-05-25 round 2: "still
+      // could be bolder and brighter to match the decorative cells".
+      const rowAlpha = 0.78 + rng() * 0.2;
       ctx.fillStyle = "#00ddff";
+      ctx.strokeStyle = "#00ddff";
+      // Paint each glyph as stroke-then-fill: stroke at 0.55× the row's
+      // fill alpha thickens the visible weight without doubling color
+      // saturation. Stroke under fill (not over) keeps glyph interiors
+      // crisp; the stroke just halos the outline.
+      const drawText = (txt, x, y) => {
+        ctx.globalAlpha = rowAlpha * 0.55;
+        ctx.lineWidth = STROKE_W;
+        ctx.strokeText(txt, x, y);
+        ctx.globalAlpha = rowAlpha;
+        ctx.fillText(txt, x, y);
+      };
       let linesUsed = 1;
       if (isTwoCol) {
         const leftLines = wrap(ucase(r[0]), leftColMaxW, 3);
@@ -7558,17 +7748,17 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         const leftOffset = Math.floor((n - leftLines.length) * rowH / 2);
         const rightOffset = Math.floor((n - rightLines.length) * rowH / 2);
         for (let li = 0; li < leftLines.length; li++) {
-          ctx.fillText(leftLines[li], pad, cy + leftOffset + li * rowH);
+          drawText(leftLines[li], pad, cy + leftOffset + li * rowH);
         }
         for (let li = 0; li < rightLines.length; li++) {
-          ctx.fillText(rightLines[li], rightColX, cy + rightOffset + li * rowH);
+          drawText(rightLines[li], rightColX, cy + rightOffset + li * rowH);
         }
         linesUsed = n;
       } else {
         const txt = r.filter(Boolean).map(ucase).join("  ");
         const lines = wrap(txt, rightColMaxW, 3);
         for (let li = 0; li < lines.length; li++) {
-          ctx.fillText(lines[li], pad, cy + li * rowH);
+          drawText(lines[li], pad, cy + li * rowH);
         }
         linesUsed = Math.max(lines.length, 1);
       }
@@ -7589,7 +7779,14 @@ const _mixed3dSnapInflight = new Set();
 // 3 keeps peak transient at ~1.3MB instead of ~3.5MB, with negligible
 // throughput cost (mermaid is wall-bound at ~150-300ms anyway).
 const _MIXED3D_SNAP_MAX_INFLIGHT = 3;
-const _MIXED3D_SNAP_BATCH = 2;
+// BATCH 1 (was 2): mermaid renders run on main thread (no worker —
+// see memory/mermaid_worker_blocked.md) and avg ~200ms each. Two
+// chained back-to-back blocked rAF for ~400ms → "all decorative
+// animations pause" stutter. One-at-a-time halves the worst-case
+// blocking. Snap throughput drops accordingly, but most cells aren't
+// mermaid (html ~1ms, vega ~1ms, force_graph ~2ms — the average snap
+// is cheap; mermaid is the outlier).
+const _MIXED3D_SNAP_BATCH = 1;
 // LRU cap on _snapTexCache. Each cached entry is a 384-576px wide
 // canvas, 446-1152px tall — averaging ~1.5MB. Over hours of camera
 // movement the cache grew unbounded to 1249 entries / 1.8GB before this
@@ -7676,6 +7873,59 @@ const _MIXED3D_RENDERERS = {
   html: _mixed3dRenderHtmlToCanvas,
 };
 
+// Two small fixed-position callouts in opposite corners of the body
+// region. Lives entirely in margin (top-right + bottom-left), 80×42px
+// each. Cyan Eurostile, decorative-style. Deterministic per-cell seed
+// so each cell has stable values across reloads — they read as
+// instrumentation, not random animation. Top-right is status-style
+// (id + confidence), bottom-left is tick-style (rank + counter).
+// User 2026-05-25 density-without-fighting-content option E:
+// "floating callouts in unused corners".
+function _mixed3dPaintCornerCallouts(ctx, fullCanvasW, fullCanvasH, titleH, cellData, targetId) {
+  const id = String(targetId || cellData?.id || "x");
+  let seed = 0;
+  for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) | 0;
+  const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const subAbbrev = (() => {
+    const t = (cellData?.cellType || "").toLowerCase();
+    return ({
+      mermaid: "MMD", vega: "VEG", html: "HTM", gauge: "GAU",
+      sparkline: "SPK", treemap: "TRM", timeline_ribbon: "TLN",
+      force_graph: "FGR", animated_svg: "ASV", image: "IMG",
+      scene3d: "S3D", code: "COD", ascii: "ASC", trajectory: "TRJ",
+      coord_plot: "CRD", text: "TXT",
+    }[t] || "CEL");
+  })();
+  const idMatch = /(\d+)/.exec(id);
+  const idNum = idMatch ? idMatch[1] : Math.floor(rng() * 9999).toString();
+  const conf = (0.62 + rng() * 0.37).toFixed(2);
+  const rank = String(1 + Math.floor(rng() * 32)).padStart(2, "0");
+  const tickHex = Math.floor(rng() * 0xfff).toString(16).toUpperCase().padStart(3, "0");
+
+  const fontPx = 10;
+  const lineH = 13;
+  ctx.save();
+  ctx.font = `bold ${fontPx}px "Eurostile", "Share Tech Mono", "Courier New", monospace`;
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#00ddff";
+
+  ctx.globalAlpha = 0.85;
+  ctx.textAlign = "right";
+  const trX = fullCanvasW - 8;
+  const trY = titleH + 6;
+  ctx.fillText(`ID·${idNum}`, trX, trY);
+  ctx.fillText(`${subAbbrev}·${conf}`, trX, trY + lineH);
+
+  ctx.globalAlpha = 0.78;
+  ctx.textAlign = "left";
+  const blX = 8;
+  const blY = fullCanvasH - 6 - lineH * 2;
+  ctx.fillText(`RANK·${rank}`, blX, blY);
+  ctx.fillText(`TICK·${tickHex}`, blX, blY + lineH);
+
+  ctx.restore();
+}
+
 function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspan, canvasH) {
   if (!bodyCanvas) return;
   // Bail if teardown happened mid-render — S is stale, _mixed3dState has
@@ -7697,6 +7947,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   // uploads of larger cached canvases). User 2026-05-22.
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
+  _mixed3dPaintCornerCallouts(ctx, fullCanvas.width, fullCanvas.height, TITLE_H, cellData, targetId);
   _mixed3dSnapCacheSet(S, targetId, fullCanvas);
   const curObj = S.cellObjects.get(targetId);
   if (curObj && !curObj.isInstanceHandle
