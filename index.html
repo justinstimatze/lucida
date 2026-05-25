@@ -5555,70 +5555,9 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     });
     S.tier1Count = (S.tier1Count || 0) + 1;
   } else {
-    // Demote 1→2: try to convert this unique Mesh into a tier-2
-    // InstancedMesh handle. Previously this path just swapped the
-    // material to a shared variant, leaving the Mesh in place —
-    // accumulating thousands of unique-Mesh-with-shared-material
-    // objects as the camera tour drove cells through promote→demote
-    // cycles, blowing draw-call count to 850+ at corpus size 1300
-    // (perf regression diagnosed 2026-05-24). Converting back to an
-    // instance handle puts the cell into the buffered InstancedMesh
-    // batch, dropping per-frame state changes.
-    const matInfo = _mixed3dPickSharedMatVariantIdx(S, cell);
-    let convertedToHandle = false;
-    if (matInfo) {
-      const inst = _mixed3dGetTier2InstMesh(S, matInfo.mat, matInfo.substrate, matInfo.variantIdx);
-      const planeW = obj.geometry?.parameters?.width;
-      const planeH = obj.geometry?.parameters?.height;
-      if (planeW && planeH) {
-        const idx = _mixed3dAddTier2Instance(
-          S, inst, id,
-          obj.position.x, obj.position.y, obj.position.z,
-          obj.rotation.x, obj.rotation.y,
-          planeW, planeH,
-        );
-        if (idx >= 0) {
-          // Build the handle. Stash mount metadata so a later
-          // promote can rebuild this back to a unique Mesh in place.
-          const handle = {
-            isInstanceHandle: true,
-            userData: {
-              tier: 2,
-              cellEl: cell,
-              colspan: obj.userData?.colspan || 1,
-              canvasW: obj.userData?.canvasW,
-              canvasH: obj.userData?.canvasH,
-            },
-            meshKey: inst.key,
-            idx,
-            mountTx: obj.position.x, mountTy: obj.position.y, mountTz: obj.position.z,
-            mountRotX: obj.rotation.x, mountRotY: obj.rotation.y,
-            mountPlaneW: planeW, mountPlaneH: planeH,
-            mountIsTop: isTop,
-          };
-          // Dispose the unique tier-1 material's texture (already
-          // disposed above if oldTier===1, but defensive) + remove
-          // the old Mesh from the scene. Geometry is shared via
-          // _mixed3dGetSharedPlaneGeo so we don't dispose it.
-          if (obj.parent) obj.parent.remove(obj);
-          S.cellObjects.set(id, handle);
-          S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
-          S.cellTier.set(id, 2);
-          convertedToHandle = true;
-        }
-      }
-    }
-    if (!convertedToHandle) {
-      // Fallback: instance bucket full or matInfo missing. Keep the
-      // Mesh, swap material to shared. Same as the prior behavior;
-      // still accumulates draw calls but at least the cell stays alive.
-      obj.material = _mixed3dPickSharedMat(S, cell)
-        || S.sharedSubstrateMats?.get("html")?.[0];
-      S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
-      obj.userData.tier = newTier;
-      S.cellTier.set(id, newTier);
-    }
-    return;
+    obj.material = _mixed3dPickSharedMat(S, cell)
+      || S.sharedSubstrateMats?.get("html")?.[0];
+    S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
   }
   obj.userData.tier = newTier;
   S.cellTier.set(id, newTier);
