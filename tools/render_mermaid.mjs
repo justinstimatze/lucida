@@ -1,12 +1,12 @@
-// Server-side mermaid render via Puppeteer + system Chrome. Produces
-// the same styled SVG the browser does — same mermaid version, same
-// init config, same styling regex pipeline. Output goes to
-// cells/<id>.mermaid.cN.v*.svg so the browser's existing cache
-// manifest skips client-side mermaid entirely.
+// Server-side mermaid render via Puppeteer + bundled Chromium.
+// Produces the same styled SVG the browser does — same mermaid
+// version, same init config, same styling regex pipeline. Output
+// goes to cells/<id>.mermaid.cN.v*.svg so the browser's existing
+// cache manifest skips client-side mermaid entirely.
 //
-// Why Puppeteer and not jsdom: mermaid 10.x's dagre layout needs real
-// SVG layout (getBBox, getCTM, etc) which jsdom can't compute. Real
-// Chromium does. See memory/mermaid_offload_options.md.
+// Why Puppeteer and not jsdom: mermaid 10.x's dagre layout needs
+// real SVG layout (getBBox, getCTM, etc) which jsdom can't compute.
+// Real Chromium does. See memory/mermaid_offload_options.md.
 //
 // Why full puppeteer (not puppeteer-core): bundled Chromium means
 // contributors / forkers don't need to install Chrome separately.
@@ -20,126 +20,32 @@
 //           {cellId, ok, bytes?, error?}
 //   exits 0 if every job succeeded, 1 if any failed.
 //
-// **STYLE_CSS must stay in sync with _mixed3dStyleMermaidSVG in
-// index.html (~line 6171). STYLE_V must match index.html (~line 6592)
-// and backfill_mermaid_svgs.py. Bump all three when changing CSS.
+// Styling: STYLE_V + STYLE_CSS imported from ./mermaid_style.mjs so
+// there's a single Node-side source. The browser-side copy in
+// index.html still has to mirror it manually (no build step) — see
+// the comment block in mermaid_style.mjs for the bump checklist.
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import puppeteer from "puppeteer";
+import { STYLE_V, applyStyleToSvg } from "./mermaid_style.mjs";
 
-const STYLE_V = "v10";
-
-const STYLE_CSS = `<style>
-    svg, svg * { background: transparent !important; background-color: transparent !important; }
-    [fill^="rgba(8"], [style*="fill:rgba(8"], .labelBkg { fill: transparent !important; }
-    .node rect, .node polygon, .node circle, .node ellipse, .node path {
-      fill: transparent !important;
-      stroke: #00ddff !important;
-      stroke-width: 2.5px !important;
-    }
-    .statediagram .state, .statediagram-state, .stateGroup,
-    .composit, .composit rect, .composit path,
-    .statediagram rect, .statediagram circle, .statediagram path:not(.transition),
-    .statediagram-cluster, .statediagram-cluster path, .statediagram-cluster rect,
-    .start-state, .start-state circle,
-    .end-state, .end-state circle, .end-state path,
-    .noteText, .noteBkg, .note rect, .note path,
-    g.classGroup rect, g.classGroup line, g.classGroup polyline,
-    g.entityBox, g.entityBox rect,
-    g.actor rect, g.actor line,
-    g.commit-message-box, g.commit-circle {
-      fill: transparent !important;
-      stroke: #00ddff !important;
-      stroke-width: 2px !important;
-    }
-    .statediagram .transition, .statediagram path.transition,
-    g.classGroup .relation, g.classGroup path,
-    g.actor line {
-      stroke: #66e6ff !important;
-      fill: none !important;
-    }
-    .node .label, .nodeLabel, .label foreignObject div, .label text, text.label,
-    .label tspan, .nodeLabel tspan, text tspan,
-    .mindmap-node text, .mindmap-node tspan,
-    g[class*="section-"] text, g[class*="section-"] tspan {
-      fill: #e8f8ff !important;
-      color: #e8f8ff !important;
-      text-transform: uppercase !important;
-      font-family: "Eurostile", "trebuchet ms", sans-serif !important;
-      font-size: 12px !important;
-    }
-    g.mindmap-node text, g.mindmap-node tspan,
-    g.mindmap-nodes text, g.mindmap-nodes tspan {
-      font-size: 14px !important;
-    }
-    g.mindmap-node.section-root text, g.mindmap-node.section-root tspan,
-    .section-root text, .section-root tspan {
-      font-size: 17px !important;
-      font-weight: 700 !important;
-    }
-    .edgePath path, .flowchart-link, .messageLine0, .messageLine1 {
-      stroke: #66e6ff !important;
-      stroke-width: 2px !important;
-      fill: none !important;
-    }
-    .marker, .arrowheadPath, marker path { fill: #66e6ff !important; stroke: #66e6ff !important; }
-    .edgeLabel, .edgeLabel rect, .edgeLabel foreignObject div, .edgeLabel text {
-      background-color: transparent !important;
-      fill: #ccf3ff !important;
-      color: #ccf3ff !important;
-    }
-    .edgeLabel rect, g.edgeLabel > g > rect, foreignObject rect { fill: transparent !important; }
-    .cluster rect, .cluster path {
-      stroke: #9966ff !important;
-      stroke-width: 2px !important;
-      fill: rgba(153, 102, 255, 0.06) !important;
-    }
-    .section-root rect, .section-0 rect, .section-1 rect, .section-2 rect,
-    .section-3 rect, .section-4 rect, .section-5 rect, .section-6 rect,
-    .section-root circle, .section-0 circle, .section-1 circle,
-    .section-2 circle, .section-3 circle, .section-4 circle,
-    .mindmap-node rect, .mindmap-node circle {
-      fill: transparent !important;
-      stroke: #00ddff !important;
-    }
-    .node-bkg, .node-no-border, .node-circle, .node-bkg.node-no-border,
-    g.mindmap-node > rect, g.mindmap-node > path, g.mindmap-node > circle,
-    .mindmap-node > .label > rect, .mindmap-node foreignObject {
-      fill: transparent !important;
-      background: transparent !important;
-      background-color: transparent !important;
-    }
-    .node-line-0, .node-line-1, .node-line-2, .node-line-3, .node-line-4 {
-      stroke: #00ddff !important;
-      stroke-width: 1.5px !important;
-    }
-    .edge, g.edges path, .mindmap-edges path,
-    .edgePath, .edgePath path, g.edgePaths path,
-    path.section-edge {
-      stroke: #66e6ff !important;
-      fill: none !important;
-      stroke-width: 1.8px !important;
-    }
-    .nodeLabel, .edgeLabel, .label {
-      paint-order: stroke fill !important;
-    }
-  </style>`;
-
-function styleSvg(svgString) {
-  const upcased = svgString.replace(
-    /(<tspan[^>]*>)([^<]+)(<\/tspan>)/g,
-    (_m, open, txt, close) => {
-      if (/&[#a-zA-Z]/.test(txt)) return open + txt + close;
-      return open + txt.toUpperCase() + close;
-    },
-  );
-  return upcased.replace(/(<svg[^>]*>)/, "$1" + STYLE_CSS);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const LOCAL_MERMAID = path.join(PROJECT_ROOT, "node_modules", "mermaid", "dist", "mermaid.esm.min.mjs");
+if (!fs.existsSync(LOCAL_MERMAID)) {
+  console.error(`local mermaid not found at ${LOCAL_MERMAID}; run \`npm install\``);
+  process.exit(2);
 }
+const LOCAL_MERMAID_URL = pathToFileURL(LOCAL_MERMAID).href;
 
 function injectInitBlock(spec, colspan) {
   if (!/^\s*(flowchart|graph)\b/m.test(spec)) return spec;
   if (/%%\{init:/.test(spec)) return spec;
+  // Aspect-aware init: colspan=1 → 192x504 (tall), colspan=2 → 384x504,
+  // colspan=3 → 576x504. Matches index.html aspect bands.
   const aspect = (192 * colspan) / 504;
   let nodeSp, rankSp;
   if (aspect < 0.6) { nodeSp = 20; rankSp = 90; }
@@ -150,13 +56,18 @@ function injectInitBlock(spec, colspan) {
   return `%%{init: {'flowchart':{'nodeSpacing':${nodeSp},'rankSpacing':${rankSp},'padding':16,'curve':'step','useMaxWidth':false}}}%%\n` + spec;
 }
 
-// Inline HTML loaded into Chrome — imports the same mermaid version as
-// index.html, exposes window.renderMermaid(spec) → Promise<svg>.
-// Same initialize config as index.html ~line 770.
-const PAGE_HTML = `<!doctype html>
+// Load mermaid from the local node_modules copy via a file:// URL.
+// Earlier draft pulled from jsdelivr CDN, which made the renderer
+// hang under CI/offline conditions. Local file load is instant and
+// offline-safe — but ES-module file:// imports only work when the
+// page itself is at a file:// origin (setContent → about:blank
+// blocks the import). So we write the bootstrap HTML to a temp file
+// and goto() it. Cleaned up after the run.
+function buildPageHtml() {
+  return `<!doctype html>
 <html><head><meta charset="utf-8"></head><body><div id="sink"></div>
 <script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.esm.min.mjs";
+import mermaid from "${LOCAL_MERMAID_URL}";
 mermaid.initialize({
   startOnLoad: false,
   flowchart: { htmlLabels: false, padding: 16, curve: "step" },
@@ -169,6 +80,7 @@ window.__renderMermaid = async (spec) => {
 };
 window.__mermaidReady = true;
 </script></body></html>`;
+}
 
 async function main() {
   let stdinBuf = "";
@@ -187,16 +99,33 @@ async function main() {
   const cellsDir = path.resolve("cells");
   fs.mkdirSync(cellsDir, { recursive: true });
 
+  // Write bootstrap HTML to a temp file inside the project — file://
+  // module imports require the importing page to also be at file://
+  // origin, which means we navigate to a real local HTML file rather
+  // than feeding HTML through setContent (which lands at about:blank).
+  const bootstrapPath = path.join(PROJECT_ROOT, `.mermaid-bootstrap-${process.pid}.html`);
+  fs.writeFileSync(bootstrapPath, buildPageHtml(), "utf-8");
+  const bootstrapUrl = pathToFileURL(bootstrapPath).href;
+
   // No executablePath: full puppeteer manages its own bundled Chromium.
+  // --allow-file-access-from-files: Chrome blocks ES module imports
+  // across file:// origins by default; this re-enables the same-origin
+  // case so our bootstrap HTML can `import mermaid from "file://..."`.
+  // Sandbox flags: stable headless launch on Linux without setuid root.
   const browser = await puppeteer.launch({
     headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--allow-file-access-from-files",
+    ],
   });
   let nOk = 0, nFail = 0;
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(15000);
-    await page.setContent(PAGE_HTML, { waitUntil: "networkidle0" });
+    await page.goto(bootstrapUrl, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.__mermaidReady === true, { timeout: 15000 });
 
     for (const job of jobs) {
@@ -213,7 +142,7 @@ async function main() {
       const specWithInit = injectInitBlock(spec, cs);
       try {
         const svg = await page.evaluate((s) => window.__renderMermaid(s), specWithInit);
-        const styled = styleSvg(svg);
+        const styled = applyStyleToSvg(svg);
         fs.writeFileSync(outPath, styled, "utf-8");
         nOk++;
         process.stdout.write(JSON.stringify({ cellId, ok: true, bytes: styled.length, out: outName }) + "\n");
@@ -225,6 +154,7 @@ async function main() {
     }
   } finally {
     await browser.close();
+    try { fs.unlinkSync(bootstrapPath); } catch { /* fine */ }
   }
   process.stderr.write(`done: ok=${nOk} fail=${nFail}\n`);
   process.exit(nFail === 0 ? 0 : 1);

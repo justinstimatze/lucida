@@ -94,6 +94,7 @@ pythonpath = ["."]
 addopts = "-v --tb=short"
 markers = [
     "integration: mark test as requiring live API access (ANTHROPIC_API_KEY)",
+    "subprocess: mark test as launching a Node subprocess (slow, requires node + npm install)",
 ]
 
 [tool.coverage.run]
