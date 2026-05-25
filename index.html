@@ -4946,11 +4946,11 @@ function _mixed3dDriveSwoopyTour(t) {
     // y=4). User pref 2026-05-24: smooth altitude changes are fine
     // as long as pitch stays controlled.
     if (sw.scanTargetPos) {
-      // Park the camera ~3u below the target so lookAt produces a
-      // gentle upward pitch (~15° at perpLookAhead=3.5). Clamp to
-      // floor+1 so it never dips into the ground.
-      const targetCamY = Math.max(1, sw.scanTargetPos.y - 3);
-      scanY = scanY * 0.4 + targetCamY * 0.6;
+      // Park the camera AT scan-target altitude so lookAt is near
+      // horizontal — pitch stays minimal even on tower-top cells.
+      // Clamp to floor+1 so it never dips into the ground.
+      const targetCamY = Math.max(1, sw.scanTargetPos.y);
+      scanY = scanY * 0.2 + targetCamY * 0.8;
     }
     desiredPos.y = desiredPos.y * (1 - sf) + scanY * sf;
   }
@@ -5090,7 +5090,7 @@ function _mixed3dDriveSwoopyTour(t) {
   // Without this the lookAt aims straight at the sky (pitch 70°+)
   // during the transition from low-cell to high-cell scan targets
   // (user 2026-05-24 "camera path is looking almost straight up").
-  const MAX_PITCH_DEG = 35;
+  const MAX_PITCH_DEG = 18;
   const dx = sw.lookAtActual.x - cam.position.x;
   const dz = sw.lookAtActual.z - cam.position.z;
   const horizDist = Math.sqrt(dx * dx + dz * dz);
@@ -8865,18 +8865,25 @@ function _mixed3dPlanColumn(towerH, targetCount, cellW) {
   // at towerH - topPad (last cell flush with the top-pad edge).
   const last = positions[positions.length - 1];
   last.h = (towerH - topPad) - last.y;
-  // Shuffle positions so real cells (consumed in nextIdx order) land
-  // at random vertical positions, not all glued to the bottom row.
-  // User 2026-05-19: "the tier 2 cells are still populating only from
-  // the bottom up". The y/h slots themselves stay where they were —
-  // just the consumption order is randomized.
-  for (let i = positions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = positions[i];
-    positions[i] = positions[j];
-    positions[j] = tmp;
-  }
-  return { positions, nextIdx: 0 };
+  // Consumption-order bias: sort by distance-from-camera-altitude so the
+  // first-consumed slots are the ones the swoopy camera (y ~4.5) can
+  // actually read at low pitch. Random shuffle within each (small) bin
+  // keeps the field from looking grid-striped while still keeping pitch
+  // <20° on every real cell the camera approaches. Replaces the pure-
+  // random shuffle (user 2026-05-24 "camera path is looking almost
+  // straight up at a cell" — tower-top slots forced 70°+ pitch).
+  // Earlier pure-bottom-up pattern was disliked too (user 2026-05-19);
+  // this is the camera-altitude-anchored middle ground.
+  const CAM_Y = 4.5;
+  const BIN_SIZE = 2.0;  // ~2u bins → ~6-8 bins per tower
+  const tagged = positions.map((p, i) => ({
+    p,
+    rank: Math.floor(Math.abs((p.y + p.h * 0.5) - CAM_Y) / BIN_SIZE),
+    jitter: Math.random(),
+  }));
+  tagged.sort((a, b) => a.rank - b.rank || a.jitter - b.jitter);
+  const sorted = tagged.map(t => t.p);
+  return { positions: sorted, nextIdx: 0 };
 }
 
 // Decorative layer — fills every tower face slot with an InstancedMesh
