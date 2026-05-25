@@ -3401,15 +3401,13 @@ function applyMixed3DLayout(opts) {
     scene.add(pulseAir);
   }
 
-  // Inter-tower data streaks — elongated horizontal bars sliding
-  // slowly through the canyon at upper-mid altitude. Matches the
-  // prominent horizontal light streak in
-  // refs/gibson/canyon_flythrough.png that the point-pulses above
-  // (small fast dots) don't capture. 5 streaks, additive cyan, ~2.5
-  // u/s along corridors.
+  // Inter-tower data streaks — DISABLED 2026-05-24 (user: "I only want
+  // the short pulses"). Kept the block-scope so streaks[] stays an
+  // empty array consumed by the animation loop without code changes
+  // elsewhere. Flip N_STREAKS back to 5 to restore.
   const streaks = [];
   {
-    const N_STREAKS = 5;
+    const N_STREAKS = 0;
     const STREAK_LEN = 4.5;
     const half = fieldSize * 0.5;
     const corridorLines = [];
@@ -5259,29 +5257,127 @@ function _mixed3dDriveDollyCanyon(t) {
 // both the tier-2 preview and the cell backdrop pick from the same
 // pool — visual consistency.
 const _MIXED3D_DECO_TOKENS = [
+  // Status / state
   "STATUS", "READY", "BUFFER", "TARGET", "PASS", "CALL", "RESP",
+  "ACTIVE", "IDLE", "BUSY", "WAIT", "DONE", "ABORT", "RETRY", "QUEUE",
+  "FLUSH", "SYNC", "DRAIN", "FAULT", "TRACE", "GUARD", "SENTRY",
+  // Compound block titles (varied flavor — not all "REPORTS")
   "COMPANY_STATUS", "TROPIC_REPORTS", "INSTRUMENTATION", "RECRUITMENT",
   "DOMAIN_HEAD_BLOCK", "MEMORY_FENCE_TABLE", "COMPOSITE_PLANTS",
   "SHIPPING_FORECASTS", "ANNUAL_BUDGETS", "GARBAGE", "PAYROLL",
+  "FUEL_REPORTS", "GRID_STATUS", "NODE_CENSUS", "SECTOR_INDEX",
+  "RELAY_QUEUE", "TEMP_LOGS", "VAULT_LEDGER", "FRAME_MANIFEST",
+  "RING_BUFFER", "CIPHER_TABLE", "DECK_REGISTER", "CHANNEL_MAP",
+  "TRACE_VECTORS", "SHARD_INDEX", "ANCHOR_LEDGER", "GLYPH_TABLE",
+  // Opcodes / short labels
   "RX", "TX", "OK", "EXEC", "JMP", "RET", "MOV", "POP", "INIT", "RUN",
+  "PUSH", "LOAD", "STORE", "XOR", "AND", "ORR", "NOP", "SYSCALL",
+  "AUTH", "KEY", "HASH", "CHKSUM", "PROC", "SOCK", "RECV", "BIND",
+  "HEAP", "STACK", "FRAME", "DRAM", "CACHE", "PIPE", "FIFO", "MMIO",
+  "ICMP", "ARP", "DNS", "TLS", "GPU", "FPU", "INT", "FENCE", "ATOMIC",
+  // Numerics
   "0xABCD", "0x00FE", "0xFF", "$0042", "1.4e3", "12.4ms", "0/1",
-  "==", "->", "::", ">>", "+--",
+  "0xC0DE", "0xDEAD", "0xBEEF", "0xF00D", "0x0001", "0x7E57",
+  "$00FF", "$1000", "2.5e-3", "47.2ms", "100/2", "64KB", "4MB",
+  "1.21GW", "0.997", "+0.04", "-1.23",
+  // Symbols
+  "==", "->", "::", ">>", "+--", "|>", "<-", "~/", "!=", "&&", "||",
 ];
 
 function _mixed3dPaintDecorativeText(ctx, x0, y0, w, h, rng, cyan) {
   // Eurostile-bold cyan token rows, ~4% purple highlight to match the
-  // canyon decoratives. Font size scales with cell height so small
-  // cells stay readable as glyphs, not blurred blocks.
+  // canyon decoratives. Five layout variants picked per-cell so a wall
+  // of cells reads as varied at glance distance instead of one tiled
+  // pattern — variety stays inside the decorative idiom (no
+  // substrate-shaped drift, per user 2026-05-23). The variant pick is
+  // deterministic via the same seeded rng as the token pick, so a
+  // re-paint of the same cell paints the same way.
   const fontSize = Math.max(8, Math.min(14, Math.floor(h / 12)));
   ctx.font = `bold ${fontSize}px "Eurostile", "Share Tech Mono", "Courier New", monospace`;
   ctx.textBaseline = "top";
   const rowH = fontSize * 1.3;
   const xPad = 4;
-  for (let y = y0 + 2; y + fontSize < y0 + h; y += rowH) {
-    const txt = _MIXED3D_DECO_TOKENS[Math.floor(rng() * _MIXED3D_DECO_TOKENS.length)];
-    ctx.globalAlpha = 0.55 + rng() * 0.4;
-    ctx.fillStyle = rng() < 0.04 ? "#9966ff" : cyan;
-    ctx.fillText(txt, x0 + xPad, y);
+  const variant = Math.floor(rng() * 5);
+  const pickToken = () => _MIXED3D_DECO_TOKENS[Math.floor(rng() * _MIXED3D_DECO_TOKENS.length)];
+  const colorFor = () => rng() < 0.04 ? "#9966ff" : cyan;
+
+  if (variant === 0) {
+    // V0 dense rows (original look — still common, kept as default).
+    for (let y = y0 + 2; y + fontSize < y0 + h; y += rowH) {
+      ctx.globalAlpha = 0.55 + rng() * 0.4;
+      ctx.fillStyle = colorFor();
+      ctx.fillText(pickToken(), x0 + xPad, y);
+    }
+  } else if (variant === 1) {
+    // V1 sparse rows with horizontal rules every 3 lines — gives the
+    // cell visual rhythm without showing a chart shape.
+    let row = 0;
+    for (let y = y0 + 2; y + fontSize < y0 + h; y += rowH * 1.6) {
+      ctx.globalAlpha = 0.55 + rng() * 0.4;
+      ctx.fillStyle = colorFor();
+      ctx.fillText(pickToken(), x0 + xPad, y);
+      row++;
+      if (row % 3 === 0 && y + rowH < y0 + h) {
+        ctx.strokeStyle = cyan;
+        ctx.globalAlpha = 0.18;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x0 + xPad, y + rowH);
+        ctx.lineTo(x0 + w - xPad, y + rowH);
+        ctx.stroke();
+      }
+    }
+  } else if (variant === 2) {
+    // V2 two-column tokens — left column word-ish, right column
+    // numeric-ish. Approximates the "label : value" terminal look
+    // without committing to a specific data shape.
+    const xL = x0 + xPad;
+    const xR = x0 + w * 0.55;
+    for (let y = y0 + 2; y + fontSize < y0 + h; y += rowH) {
+      ctx.globalAlpha = 0.55 + rng() * 0.4;
+      ctx.fillStyle = colorFor();
+      ctx.fillText(pickToken(), xL, y);
+      ctx.globalAlpha = 0.55 + rng() * 0.4;
+      ctx.fillStyle = colorFor();
+      ctx.fillText(pickToken(), xR, y);
+    }
+  } else if (variant === 3) {
+    // V3 header block (3 lines of bigger tokens at top) then dense
+    // rows below — gives a sense of structure without imitating a
+    // specific substrate.
+    const headerSize = Math.min(fontSize + 4, Math.floor(h / 8));
+    ctx.font = `bold ${headerSize}px "Eurostile", "Share Tech Mono", "Courier New", monospace`;
+    let y = y0 + 2;
+    for (let i = 0; i < 3 && y + headerSize < y0 + h * 0.45; i++) {
+      ctx.globalAlpha = 0.7 + rng() * 0.3;
+      ctx.fillStyle = colorFor();
+      ctx.fillText(pickToken(), x0 + xPad, y);
+      y += headerSize * 1.25;
+    }
+    ctx.font = `bold ${fontSize}px "Eurostile", "Share Tech Mono", "Courier New", monospace`;
+    y += rowH * 0.3;
+    for (; y + fontSize < y0 + h; y += rowH) {
+      ctx.globalAlpha = 0.5 + rng() * 0.35;
+      ctx.fillStyle = colorFor();
+      ctx.fillText(pickToken(), x0 + xPad, y);
+    }
+  } else {
+    // V4 right-aligned tokens with leading dot-leader — readout look.
+    ctx.textAlign = "right";
+    for (let y = y0 + 2; y + fontSize < y0 + h; y += rowH) {
+      const txt = pickToken();
+      ctx.globalAlpha = 0.55 + rng() * 0.4;
+      ctx.fillStyle = colorFor();
+      ctx.fillText(txt, x0 + w - xPad, y);
+      // Leading dot-leader to the left.
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = cyan;
+      const dotCount = Math.max(2, Math.floor(w / (fontSize * 1.6)));
+      for (let i = 0; i < dotCount; i++) {
+        ctx.fillText(".", x0 + xPad + i * fontSize * 0.9, y);
+      }
+    }
+    ctx.textAlign = "start";
   }
   ctx.globalAlpha = 1.0;
 }
@@ -5477,8 +5573,15 @@ document.addEventListener("visibilitychange", () => {
 // ~60 stub cells visible at any time. Pulling promote in to 22u
 // halves the eligible-cells count; the hysteresis gap (22→26) still
 // prevents thrash at the boundary.
-const _MIXED3D_TIER1_DIST_SQ = 22 * 22;
-const _MIXED3D_TIER2_DIST_SQ = 26 * 26;
+// Widened 2026-05-24 (28/32): "still seem a little sparse" feedback
+// — bumping the promote radius ~25% to expand the eligible-cells set
+// while keeping the 4u hysteresis gap. Pairs with PROMOTE_BUDGET 2→4
+// in the retier sweep so the larger eligible set actually gets
+// promoted instead of just queued. Snap-cached cells paint instantly
+// (no canvas re-render), so the cost mostly hits cells that haven't
+// snapped yet.
+const _MIXED3D_TIER1_DIST_SQ = 28 * 28;
+const _MIXED3D_TIER2_DIST_SQ = 32 * 32;
 const _MIXED3D_TIER1_CAP = 400;
 const _MIXED3D_RETIER_BUDGET_MS = 4;
 
@@ -5546,6 +5649,11 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     const tex = new T.CanvasTexture(cachedSnap);
     tex.minFilter = T.LinearFilter;
     tex.magFilter = T.LinearFilter;
+    // Force GPU upload BEFORE the material swap so the very next
+    // render samples the actual texture instead of default-1×1-white.
+    if (S.renderer?.initTexture) {
+      try { S.renderer.initTexture(tex); } catch (_) {}
+    }
     obj.material = new T.MeshBasicMaterial({
       map: tex,
       transparent: true,
@@ -5599,6 +5707,11 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   }
   tex.minFilter = T.LinearFilter;
   tex.magFilter = T.LinearFilter;
+  // Pre-upload to GPU before the material sees this texture, so the
+  // first render with the new mesh samples real content not white.
+  if (S.renderer?.initTexture) {
+    try { S.renderer.initTexture(tex); } catch (_) {}
+  }
   const mat = new T.MeshBasicMaterial({
     map: tex,
     transparent: true,
@@ -5663,10 +5776,12 @@ function _mixed3dRetierSweep() {
   // Split budgets: demotions (1→2) just swap material refs and dispose
   // — cheap, ~0.1ms each. Promotions (2→1) paint a unique 80×240
   // CanvasTexture, ~2ms each, and a burst stalls the frame. Walk many
-  // cells per frame to catch all demotions, but cap promotions to 2
-  // per frame so a camera approach doesn't unleash a 36-cell paint
-  // storm in one tick.
-  const PROMOTE_BUDGET = 2;
+  // cells per frame to catch all demotions, but cap promotions to 4
+  // per frame (was 2, bumped 2026-05-24 to chase the widened 28u
+  // promote radius — a larger eligible set needs faster throughput
+  // or it just queues). Worst-case stall: ~8ms/frame during a
+  // dense-cluster fly-through, vs ~4ms previously.
+  const PROMOTE_BUDGET = 4;
   let promotesDone = 0;
   let i = S._retierIdx;
   while (i < S._retierKeys.length) {
@@ -6151,7 +6266,12 @@ function _mixed3dPaintTitleBlock(ctx, title, fullW) {
   const lineH = 26;
   const charsPerLine = Math.max(14, Math.floor(W / (fontPx * 0.55)));
   ctx.save();
-  ctx.fillStyle = "#d8c0ff"; // brighter than the previous #9966ff
+  // Title in cyan to match decorative bed + the new tier-1 body
+  // renderer (also cyan). Was #d8c0ff lavender, but that read as
+  // "different system" alongside the all-cyan body rows (user
+  // 2026-05-24). Full alpha keeps the title bright/dominant against
+  // the alpha-jittered body rows below.
+  ctx.fillStyle = "#00ddff";
   ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
@@ -6571,9 +6691,10 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   const barX = (w - barW) / 2;
   const barY = cy - barH / 2;
   const norm = Math.max(0, Math.min(1, (value - min) / (max - min)));
-  // Track
-  ctx.fillStyle = "#9966ff";
-  ctx.globalAlpha = 0.25;
+  // Track — cyan ghost (was purple #9966ff). Same hackers-decorative
+  // discipline: one hue, alpha hierarchy. 2026-05-24 substrate sweep.
+  ctx.fillStyle = "#00ddff";
+  ctx.globalAlpha = 0.18;
   ctx.fillRect(barX, barY, barW, barH);
   // Fill
   ctx.fillStyle = "#00ddff";
@@ -6584,19 +6705,21 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
   ctx.globalAlpha = 0.7;
   ctx.lineWidth = 1.5;
   ctx.strokeRect(barX, barY, barW, barH);
-  // Value
-  ctx.fillStyle = "#ccf3ff";
+  // Value — cyan at full alpha (was #ccf3ff cyan-white).
+  ctx.fillStyle = "#00ddff";
   ctx.globalAlpha = 1;
   ctx.font = "bold 36px 'Eurostile', 'Share Tech Mono', monospace";
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
   const vs = (Number.isInteger(value) ? value.toString() : value.toFixed(1));
   ctx.fillText(vs, cx, cy - 36);
-  // Label below bar
+  // Label below bar — cyan at 0.6 alpha (was purple #9966ff full).
   if (label) {
-    ctx.fillStyle = "#9966ff";
+    ctx.fillStyle = "#00ddff";
+    ctx.globalAlpha = 0.6;
     ctx.font = "16px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.fillText(String(label).toUpperCase().slice(0, 18), cx, cy + 28);
+    ctx.globalAlpha = 1;
   }
   return Promise.resolve(canvas);
 }
@@ -6636,9 +6759,11 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
     const vs = Number.isInteger(v) ? v.toString() : v.toFixed(2);
     ctx.fillText(vs, w / 2, h * 0.45);
     if (label) {
-      ctx.fillStyle = "#9966ff";
+      ctx.fillStyle = "#00ddff";
+      ctx.globalAlpha = 0.6;
       ctx.font = "14px 'Eurostile', 'Share Tech Mono', monospace";
       ctx.fillText(String(label).toUpperCase().slice(0, 22), w / 2, h * 0.45 + 40);
+      ctx.globalAlpha = 1;
     }
     return Promise.resolve(canvas);
   }
@@ -6716,7 +6841,9 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
     const pad = 12;
     const usableH = h - pad * 2;
     const rowH = Math.floor(usableH / items.length);
-    const colors = ["#00ddff", "#9966ff", "#cceeff"];
+    // Cyan family at varying alpha — was [cyan, purple, cyan-white].
+    // Decorative discipline: one hue, alpha hierarchy.
+    const colors = ["rgba(0,221,255,1)", "rgba(0,221,255,0.75)", "rgba(0,221,255,0.55)"];
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       const label = String(it.label || it.name || it.title || "").toUpperCase();
@@ -6768,9 +6895,9 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
   const pad = 8;
   const x0 = pad, y0 = pad, x1 = w - pad, y1 = h - pad;
   const total = items.reduce((a, it) => a + Math.max(0, +(it.value ?? it.size ?? 1)), 0) || 1;
-  // Squarified-ish: alternate rows/cols. Cyan + purple only — pink/green/
-  // orange violated the normal-scene rule (pink = tower-attack state).
-  const colors = ["#00ddff", "#9966ff"];
+  // Cyan family with alpha alternation (was cyan + purple). One hue,
+  // alpha hierarchy — decorative discipline. 2026-05-24 substrate sweep.
+  const colors = ["rgba(0,221,255,1)", "rgba(0,221,255,0.6)"];
   let curX = x0, curY = y0, remW = x1 - x0, remH = y1 - y0;
   let horizontal = remW > remH;
   let i = 0;
@@ -6861,22 +6988,24 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
   const detailFontSize = Math.max(12, Math.round(labelFontSize * 0.65));
   const labelX = axisX + haloR + 12;
   const availW = w - labelX - 12;
-  // Vertical axis line.
-  ctx.strokeStyle = "#9966ff";
-  ctx.globalAlpha = 0.55;
+  // Vertical axis line — cyan dim (was purple). 2026-05-24 sweep.
+  ctx.strokeStyle = "#00ddff";
+  ctx.globalAlpha = 0.35;
   ctx.lineWidth = lineW;
   ctx.beginPath();
   ctx.moveTo(axisX, padTop);
   ctx.lineTo(axisX, h - padBot);
   ctx.stroke();
   ctx.globalAlpha = 1;
-  // Axis label across the top.
+  // Axis label across the top — cyan dim (was purple).
   if (axisLabel) {
-    ctx.fillStyle = "#9966ff";
+    ctx.fillStyle = "#00ddff";
+    ctx.globalAlpha = 0.6;
     ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.fillText(String(axisLabel).toUpperCase(), 12, 10);
+    ctx.globalAlpha = 1;
   }
   // Helper: measure-based wrap that splits on spaces and falls back to
   // hard-wrap for over-long single words. Returns array of lines.
@@ -6919,12 +7048,15 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
     const isFailed = status === "failed";
     const isSkipped = status === "skipped";
     const isPending = status === "pending";
+    // Cyan family with alpha hierarchy (was cyan + purple). 2026-05-24
+    // substrate sweep. Active = bright cyan; done = dim cyan; pending /
+    // skipped = ghost cyan; failed keeps red (failure signal).
     const baseColor = isActive ? "#00ddff"
                     : isFailed ? "#f87171"
-                    : isDone ? "#9966ff"
-                    : isSkipped ? "rgba(153,102,255,0.4)"
-                    : isPending ? "rgba(153,102,255,0.5)"
-                    : "rgba(153,102,255,0.6)";
+                    : isDone ? "rgba(0,221,255,0.7)"
+                    : isSkipped ? "rgba(0,221,255,0.3)"
+                    : isPending ? "rgba(0,221,255,0.4)"
+                    : "rgba(0,221,255,0.5)";
     // Active halo.
     if (isActive) {
       ctx.strokeStyle = "#00ddff";
@@ -7035,14 +7167,14 @@ function _mixed3dRenderVegaToCanvas(spec, w, h, extras) {
     ctx.lineWidth = 2;
     ctx.globalAlpha = 1;
     ctx.strokeRect(bx, py1 - bh, bw, bh);
-    // Value
-    ctx.fillStyle = "#e8f8ff";
+    // Value — cyan full alpha (was #e8f8ff cyan-white).
+    ctx.fillStyle = "#00ddff";
     ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.fillText(String(Math.round(it.value)), bx + bw / 2, py1 - bh - 4);
-    // Label
-    ctx.fillStyle = "#9966ff";
+    // Label — cyan dim (was purple).
+    ctx.fillStyle = "rgba(0,221,255,0.6)";
     ctx.font = "10px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
@@ -7103,7 +7235,7 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
     ctx.beginPath();
     ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#9966ff";
+    ctx.strokeStyle = "rgba(0,221,255,0.65)";
     ctx.lineWidth = 3;
     ctx.stroke();
     // Label — dark halo via strokeText first, then fillText. Makes
@@ -7129,11 +7261,22 @@ function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   // purple in normal scenes (pink is reserved for tower-attack state);
   // animated SVGs that explicitly want danger framing should re-introduce
   // pink via the danger-state path, not via this default substitution.
-  const themed = spec
+  let themed = spec
     .replace(/\$accent\b/g, "#00ddff")
     .replace(/\$muted\b/g, "#9966ff")
     .replace(/\$pink\b/g, "#9966ff")
+    .replace(/\$stroke1\b/g, "#00ddff")
+    .replace(/\$stroke2\b/g, "#9966ff")
+    .replace(/\$bg\b/g, "#0a0e14")
+    .replace(/\$panel\b/g, "#0f1620")
     .replace(/\$fg\b/g, "#ccf3ff");
+  // Strict-parse defense: SVG-as-Image fails silently (white square)
+  // when the root <svg> uses xlink:href but doesn't declare the xlink
+  // namespace. Inject it if missing. User 2026-05-24 cell-4049: blank
+  // canvas; spec used xlink:href on <animateTransform> without xmlns:xlink.
+  if (themed.includes("xlink:") && !/xmlns:xlink=/.test(themed)) {
+    themed = themed.replace(/<svg\b([^>]*)>/, '<svg$1 xmlns:xlink="http://www.w3.org/1999/xlink">');
+  }
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -7279,379 +7422,118 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   // "duplicating titles now, one purple one white".
   let cy = pad;
   const yMax = h - pad - 12;
-  // Render rows in decorative-text aesthetic. Layout-specific
-  // sizing: callouts get a big-number + label per row, table/dl/list
-  // get tighter mono-text rows. User 2026-05-21: "grey text
-  // unreadable" → bumped alpha 0.78 → 1.0 with a brighter fill.
+  // Row rendering is uniform across layouts (see block below) —
+  // bold cyan Eurostile with row-to-row alpha jitter to match the
+  // tier-2 decorative bed. Earlier per-layout treatments (callouts
+  // big-number, table grid, severity bars) read as a different
+  // visual system and were collapsed 2026-05-24.
   if (rows && rows.length) {
-    if (layout === "callouts") {
-      // Two-column big + label layout. Few-rows expansion: when ≤3
-      // rows, claim the full body height so the cell doesn't read
-      // sparse (user 2026-05-22 cell-3356). For ≥4 rows, original
-      // tight 64-110px rowH.
-      const nRowsCO = rows.length;
-      const fewRowsCO = nRowsCO <= 3;
-      const usableHCO = yMax - cy;
-      const rowH = fewRowsCO
-        ? Math.floor(usableHCO / Math.max(1, nRowsCO))
-        : Math.max(64, Math.min(110, Math.floor(usableHCO / Math.max(1, nRowsCO))));
-      const numW = Math.floor(w * (fewRowsCO ? 0.42 : 0.35));
-      for (let ri = 0; ri < rows.length; ri++) {
-        if (cy + 28 > yMax) break;
-        const [big, label] = rows[ri];
-        // Big value — purple, font scales to fit numW (single line).
-        // 30px for ≤4 chars; 22px ≤8 chars; 16px ≤16 chars; 12px else.
-        const bigText = (big || "").replace(/[ -⁯]/g, "").trim();
-        const bigLen = bigText.length;
-        let bigFont;
-        if (fewRowsCO) {
-          bigFont = bigLen <= 4 ? Math.min(90, Math.floor(rowH * 0.62))
-                  : bigLen <= 8 ? Math.min(58, Math.floor(rowH * 0.40))
-                  : bigLen <= 16 ? 28 : 20;
+    // DECORATIVE-STYLE rendering. User 2026-05-24 (repeated): tier-1
+    // html cells must "look similar enough to the decoration cells".
+    // Earlier paths (callouts big-number-purple, table grid + severity
+    // bars, dl two-col with bright labels) all read as a different
+    // visual system. This collapses them onto the same shape as
+    // _mixed3dPaintDecorativeText: bold Eurostile, cyan #00ddff, alpha
+    // jittered row-to-row, font proportional to cell height.
+    //
+    // The only structural concession: dl + callouts get a two-column
+    // layout (left ≈ key/big, right ≈ value/label) because that
+    // separation matches what's in the source data and the cell is
+    // unreadable when collapsed to one stream. Tables / lists / kanban
+    // flatten to a single space-joined string per row.
+    //
+    // Font size is clamp(14, 22, h/26) — proportional like decoratives
+    // (h/12 → 8-14px) but bumped 1.8× for tier-1 viewing distance.
+    const fontSize = Math.max(14, Math.min(22, Math.floor(h / 26)));
+    const rowH = Math.max(Math.floor(fontSize * 1.45), 22);
+    const ucase = (s) => String(s || "").trim().replace(/\s+/g, " ").toUpperCase();
+    // Deterministic alpha jitter — same cell paints the same way.
+    let seed = 0;
+    const seedSrc = (cellData?.id || cellData?.title || "x");
+    for (let i = 0; i < seedSrc.length; i++) seed = (seed * 31 + seedSrc.charCodeAt(i)) | 0;
+    const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    ctx.font = `bold ${fontSize}px 'Eurostile', 'Share Tech Mono', 'Courier New', monospace`;
+    ctx.textBaseline = "top";
+    ctx.textAlign = "start";
+    const isTwoCol = layout === "dl" || layout === "definitions" || layout === "callouts";
+    const leftColW = isTwoCol ? Math.floor(w * 0.36) : 0;
+    const rightColX = isTwoCol ? pad + leftColW : pad;
+    const rightColMaxW = isTwoCol ? (w - pad - rightColX) : (w - pad * 2);
+    const leftColMaxW = leftColW - pad;
+    // Word-wrap to fit pixel width (was missing — text overflowed cell
+    // right edge, user 2026-05-24 "text just falls off the right edge").
+    // Max 2 lines per row; ellipsize beyond. Returns array of lines.
+    const wrap = (text, maxPx, maxLines) => {
+      if (!text) return [];
+      if (ctx.measureText(text).width <= maxPx) return [text];
+      const words = text.split(" ");
+      const lines = [];
+      let cur = "";
+      for (const w of words) {
+        const next = cur ? cur + " " + w : w;
+        if (ctx.measureText(next).width <= maxPx) {
+          cur = next;
         } else {
-          bigFont = bigLen <= 4 ? 30 : bigLen <= 8 ? 22 : bigLen <= 16 ? 16 : 12;
-        }
-        ctx.fillStyle = "#9966ff";
-        ctx.globalAlpha = 1.0;
-        ctx.font = `bold ${bigFont}px 'Eurostile', 'Share Tech Mono', monospace`;
-        ctx.textBaseline = "middle";
-        const bigY = fewRowsCO ? cy + rowH * 0.42 : cy + Math.min(rowH, 50) / 2 + 4;
-        ctx.fillText(bigText, pad, bigY);
-        ctx.textBaseline = "top";
-        // Label — cyan-white. Few-rows mode bumps font 13→16 and uses
-        // full row height for wrap; default mode keeps tight 13px x 4 lines.
-        ctx.fillStyle = "#e8f8ff";
-        ctx.globalAlpha = 0.95;
-        const labelFontSize = fewRowsCO ? 16 : 13;
-        const labelLineH = labelFontSize + 4;
-        ctx.font = `${labelFontSize}px 'Eurostile', 'Share Tech Mono', monospace`;
-        const labelMaxW = w - pad - numW;
-        const labelCharsPerLine = Math.max(10, Math.floor(labelMaxW / (labelFontSize * 0.55)));
-        const labelMaxLines = fewRowsCO ? Math.max(2, Math.floor((rowH - 8) / labelLineH)) : 4;
-        const labelWords = (label || "").split(/\s+/);
-        const labelLines = [];
-        let lcur = "";
-        for (const word of labelWords) {
-          const next = lcur ? lcur + " " + word : word;
-          if (next.length > labelCharsPerLine) {
-            if (lcur) labelLines.push(lcur);
-            lcur = word.length > labelCharsPerLine ? word.slice(0, labelCharsPerLine - 1) + "…" : word;
-          } else lcur = next;
-          if (labelLines.length >= labelMaxLines) break;
-        }
-        if (lcur && labelLines.length < labelMaxLines) labelLines.push(lcur);
-        let ly = cy + 4;
-        for (const ll of labelLines) {
-          ctx.fillText(ll, pad + numW, ly);
-          ly += labelLineH;
-        }
-        // Inter-row rule line in few-rows mode for visual structure.
-        if (fewRowsCO && ri < nRowsCO - 1) {
-          ctx.strokeStyle = "#00ddff";
-          ctx.globalAlpha = 0.22;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(pad, cy + rowH - 2);
-          ctx.lineTo(w - pad, cy + rowH - 2);
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
-        cy += rowH;
-      }
-    } else {
-      // Terminal-grid layout for table / dl / list / kanban. Two modes:
-      // - WIDE (w >= 480): full grid with header rule + per-column cells
-      //   + auto-detected severity columns rendered as block bars.
-      //   Text wraps to up to 2 lines instead of "AUTHENTIC…" truncation.
-      // - NARROW (w < 480): console-readout — each row collapses to
-      //   "label :: value" lines, severity still rendered as blocks.
-      // Both modes match the Gibson tower-label aesthetic (cyan-dominant
-      // mono caps + light cyan rules).
-      const MAX_COLS = 5;
-      const rawCols = Math.max(...rows.map(r => r.length));
-      const cols = Math.min(MAX_COLS, rawCols);
-      rows = rows.map(r => r.slice(0, cols));
-      // Detect severity / level columns. A column is "level-like" when
-      // >= 60% of non-empty values match a severity pattern.
-      const SEVERITY_MAX = 5;
-      const parseLevel = (raw) => {
-        if (!raw) return null;
-        const s = String(raw).trim();
-        if (!s) return null;
-        // Multi-char "+++"/"---" / "•••" / "✓✓✓" patterns: count the symbols.
-        const symMatch = s.match(/^([+\-•·✓●\*])\1*$/);
-        if (symMatch) return Math.min(SEVERITY_MAX, s.length);
-        // Words.
-        const lower = s.toLowerCase();
-        const wordMap = { "none":0, "low":1, "l":1, "lo":1, "med":3, "medium":3, "m":3, "mid":3, "high":5, "h":5, "hi":5, "max":5, "critical":5 };
-        if (wordMap[lower] !== undefined) return wordMap[lower];
-        // STRICT numeric — whole-string match only. parseFloat alone
-        // happily returned 1 for "1. Beliefs become less accurate",
-        // letting the text dimension column flip to a level column.
-        const numMatch = s.match(/^-?\d+(?:\.\d+)?(%?)$/);
-        if (numMatch) {
-          const num = parseFloat(s.replace(/%/g, ""));
-          if (numMatch[1] === "%") return Math.round(Math.max(0, Math.min(100, num)) / 20);
-          if (num >= 0 && num <= 5) return Math.round(num);
-        }
-        return null;
-      };
-      const isLevelCol = new Array(cols).fill(false);
-      const dataStartRi = layout === "table" ? 1 : 0;  // skip header row
-      for (let ci = 0; ci < cols; ci++) {
-        let nNonEmpty = 0, nMatches = 0;
-        for (let ri = dataStartRi; ri < rows.length; ri++) {
-          const v = rows[ri][ci];
-          if (!v || !String(v).trim()) continue;
-          nNonEmpty++;
-          if (parseLevel(v) !== null) nMatches++;
-        }
-        if (nNonEmpty >= 2 && nMatches / nNonEmpty >= 0.6) {
-          isLevelCol[ci] = true;
-        }
-      }
-      const NARROW = w < 480;
-      const drawSeverityBar = (x, y, barW, level, isHeader) => {
-        const lv = Math.max(0, Math.min(SEVERITY_MAX, level || 0));
-        const blockGap = 2;
-        const blockW = Math.max(4, Math.floor((barW - blockGap * (SEVERITY_MAX - 1)) / SEVERITY_MAX));
-        const blockH = Math.max(6, Math.min(12, blockW + 2));
-        const total = blockW * SEVERITY_MAX + blockGap * (SEVERITY_MAX - 1);
-        const x0 = x + Math.max(0, Math.floor((barW - total) / 2));
-        // Dim cyan tinting to match the decorative bed (user 2026-05-22):
-        // filled = 0.75 alpha (matches the tier-2 stroke alpha), unfilled
-        // = 0.10 alpha (almost-invisible ghost). Was 1.0 / 0.18.
-        for (let b = 0; b < SEVERITY_MAX; b++) {
-          ctx.fillStyle = b < lv ? "rgba(0,221,255,0.78)" : "rgba(0,221,255,0.10)";
-          ctx.globalAlpha = 1.0;
-          ctx.fillRect(x0 + b * (blockW + blockGap), y, blockW, blockH);
-        }
-      };
-      const cleanCell = (raw) => String(raw || "")
-        .replace(/[✓✗]/g, m => m === "✓" ? "+" : "-")
-        .toUpperCase();
-      // Two-line wrap that splits on word boundaries; preserves all
-      // chars up to maxChars * 2. Returns 1-2 lines.
-      const wrapTwoLines = (text, maxCharsPerLine) => {
-        if (text.length <= maxCharsPerLine) return [text];
-        const words = text.split(/\s+/).filter(Boolean);
-        if (words.length === 1) {
-          // Single long word — hard-split.
-          return [text.slice(0, maxCharsPerLine), text.slice(maxCharsPerLine, maxCharsPerLine * 2)];
-        }
-        // Find split closest to mid that keeps line ≤ maxCharsPerLine.
-        let bestSplit = 1, bestDist = Infinity;
-        const mid = Math.floor(text.length / 2);
-        let acc = 0;
-        for (let k = 0; k < words.length - 1; k++) {
-          acc += words[k].length + 1;
-          if (acc > maxCharsPerLine) break;
-          const d = Math.abs(acc - mid);
-          if (d < bestDist) { bestDist = d; bestSplit = k + 1; }
-        }
-        const line1 = words.slice(0, bestSplit).join(" ");
-        const line2 = words.slice(bestSplit).join(" ");
-        return [
-          line1.length > maxCharsPerLine ? line1.slice(0, maxCharsPerLine - 1) + "…" : line1,
-          line2.length > maxCharsPerLine ? line2.slice(0, maxCharsPerLine - 1) + "…" : line2,
-        ];
-      };
-      if (NARROW) {
-        // Console-readout: stack rows as " > [hdr] :: value" lines.
-        // Header row (if layout=table) becomes column-label glossary.
-        const fontPx = 13;
-        const lineH = fontPx + 4;
-        ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-        const charW = fontPx * 0.55;
-        const innerW = w - pad * 2;
-        const maxCharsPerLine = Math.max(8, Math.floor(innerW / charW) - 2);
-        const header = (layout === "table" && rows[0]) ? rows[0].map(cleanCell) : [];
-        const dataRows = layout === "table" ? rows.slice(1) : rows;
-        for (let ri = 0; ri < dataRows.length; ri++) {
-          if (cy + lineH * 2 > yMax) break;
-          const r = dataRows[ri];
-          // Row index gutter — "01" / "02" — in dim cyan, hackers style.
-          ctx.fillStyle = "rgba(0,221,255,0.55)";
-          ctx.globalAlpha = 1.0;
-          ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-          ctx.fillText(String(ri + 1).padStart(2, "0"), pad, cy);
-          let lineX = pad + (fontPx * 0.55 * 3);  // after "NN  "
-          let lineY = cy;
-          for (let ci = 0; ci < r.length; ci++) {
-            const label = header[ci] || "";
-            const raw = cleanCell(r[ci]);
-            if (isLevelCol[ci]) {
-              const lv = parseLevel(r[ci]) || 0;
-              if (label) {
-                ctx.fillStyle = "rgba(153,102,255,0.85)";
-                ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-                ctx.fillText(label + ":", lineX, lineY);
-                lineX += (label.length + 2) * charW;
-              }
-              drawSeverityBar(lineX, lineY + 2, 80, lv, false);
-              lineY += lineH;
-              lineX = pad + (fontPx * 0.55 * 3);
-            } else {
-              const lines = wrapTwoLines(raw, maxCharsPerLine - 4);
-              for (let li = 0; li < lines.length; li++) {
-                if (li === 0 && label) {
-                  ctx.fillStyle = "rgba(153,102,255,0.85)";
-                  ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-                  ctx.fillText(label + ":", lineX, lineY);
-                  lineX += (label.length + 2) * charW;
-                }
-                ctx.fillStyle = "#e8f8ff";
-                ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-                ctx.fillText(lines[li], lineX, lineY);
-                lineY += lineH;
-                lineX = pad + (fontPx * 0.55 * 3);
-              }
+          if (cur) lines.push(cur);
+          cur = w;
+          // If a single word is longer than maxPx, hard-truncate it.
+          if (ctx.measureText(cur).width > maxPx) {
+            while (cur.length > 1 && ctx.measureText(cur + "…").width > maxPx) {
+              cur = cur.slice(0, -1);
             }
+            cur += "…";
           }
-          // Row separator — faint cyan rule, very low alpha.
-          if (ri < dataRows.length - 1) {
-            ctx.strokeStyle = "#00ddff";
-            ctx.globalAlpha = 0.10;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(pad, lineY + 2);
-            ctx.lineTo(w - pad, lineY + 2);
-            ctx.stroke();
-            ctx.globalAlpha = 1.0;
-          }
-          cy = lineY + 8;
+          if (lines.length >= maxLines - 1) break;
         }
+      }
+      if (cur && lines.length < maxLines) lines.push(cur);
+      // Ellipsize the last line if there was more content.
+      if (lines.length >= maxLines) {
+        let last = lines[maxLines - 1];
+        while (last.length > 1 && ctx.measureText(last + "…").width > maxPx) {
+          last = last.slice(0, -1);
+        }
+        lines[maxLines - 1] = last + "…";
+      }
+      return lines;
+    };
+    // Drop the table header row — column labels are chrome, not content.
+    const dataRows = (layout === "table" && rows.length > 1) ? rows.slice(1) : rows;
+    for (let ri = 0; ri < dataRows.length; ri++) {
+      if (cy + fontSize > yMax) break;
+      const r = dataRows[ri] || [];
+      ctx.globalAlpha = 0.55 + rng() * 0.4;
+      ctx.fillStyle = "#00ddff";
+      let linesUsed = 1;
+      if (isTwoCol) {
+        const leftLines = wrap(ucase(r[0]), leftColMaxW, 3);
+        const rightLines = wrap(ucase(r[1]), rightColMaxW, 3);
+        const n = Math.max(leftLines.length, rightLines.length, 1);
+        // Vertically center each column within the row's used height.
+        // Without this, a 1-line value next to a 2-line label stuck
+        // to the top with dead space below — read as "weird wrap"
+        // (user 2026-05-24). Now: short side floats to vertical
+        // middle, tall side fills.
+        const leftOffset = Math.floor((n - leftLines.length) * rowH / 2);
+        const rightOffset = Math.floor((n - rightLines.length) * rowH / 2);
+        for (let li = 0; li < leftLines.length; li++) {
+          ctx.fillText(leftLines[li], pad, cy + leftOffset + li * rowH);
+        }
+        for (let li = 0; li < rightLines.length; li++) {
+          ctx.fillText(rightLines[li], rightColX, cy + rightOffset + li * rowH);
+        }
+        linesUsed = n;
       } else {
-        // Grid mode: column widths weighted by content length, with a
-        // floor for level columns (just need bar room) and minimum
-        // for text columns. Level cols cap at ~70px.
-        const colMaxLen = new Array(cols).fill(0);
-        for (const r of rows) {
-          for (let ci = 0; ci < cols; ci++) {
-            const len = (r[ci] || "").length;
-            if (len > colMaxLen[ci]) colMaxLen[ci] = len;
-          }
+        const txt = r.filter(Boolean).map(ucase).join("  ");
+        const lines = wrap(txt, rightColMaxW, 3);
+        for (let li = 0; li < lines.length; li++) {
+          ctx.fillText(lines[li], pad, cy + li * rowH);
         }
-        // Allocate fixed 70px for each level col; share remainder by content.
-        const LEVEL_COL_W = 76;
-        const innerW = w - pad * 2;
-        let levelTotal = 0;
-        for (let ci = 0; ci < cols; ci++) if (isLevelCol[ci]) levelTotal += LEVEL_COL_W;
-        const flowAvail = Math.max(120, innerW - levelTotal);
-        const flowTotal = colMaxLen
-          .map((l, ci) => isLevelCol[ci] ? 0 : Math.max(6, l))
-          .reduce((a, b) => a + b, 0) || 1;
-        const colWidths = colMaxLen.map((l, ci) =>
-          isLevelCol[ci] ? LEVEL_COL_W
-          : Math.floor(flowAvail * Math.max(6, l) / flowTotal));
-        const colXs = [pad];
-        for (let ci = 1; ci < cols; ci++) colXs.push(colXs[ci - 1] + colWidths[ci - 1]);
-        const fontPx = 14;
-        const lineH = fontPx + 4;
-        const rowVPad = 8;
-        ctx.font = `bold ${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-        // Header row.
-        const dataStart = (layout === "table" && rows.length > 1) ? 1 : 0;
-        if (layout === "table" && rows.length > 0) {
-          // Header in dim purple — closer to the decorative bed's
-          // muted accent than the previous near-opaque label color.
-          ctx.fillStyle = "rgba(153,102,255,0.65)";
-          ctx.globalAlpha = 1.0;
-          for (let ci = 0; ci < cols; ci++) {
-            const txt = cleanCell(rows[0][ci]);
-            const maxChars = Math.max(4, Math.floor(colWidths[ci] / (fontPx * 0.55)) - 1);
-            const printed = txt.length > maxChars ? txt.slice(0, maxChars - 1) + "…" : txt;
-            ctx.fillText(printed, colXs[ci], cy);
-          }
-          cy += lineH;
-          // Header rule — soft cyan, alpha 0.22 (was 0.55). Was reading
-          // as a hard chrome border that broke the ambient-bed feel.
-          ctx.strokeStyle = "#00ddff";
-          ctx.globalAlpha = 0.22;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(pad, cy);
-          ctx.lineTo(w - pad, cy);
-          ctx.stroke();
-          ctx.globalAlpha = 1.0;
-          cy += rowVPad;
-        }
-        // Pre-pass: compute each row's intrinsic line count + wrap.
-        // Then distribute leftover vertical space evenly across rows so
-        // the table fills the canvas without trailing whitespace.
-        // User 2026-05-22: "looks better denser but now there's a bunch
-        // of whitespace below it in the cell".
-        const rowMeta = [];
-        for (let ri = dataStart; ri < rows.length; ri++) {
-          const r = rows[ri];
-          const cellLines = new Array(cols);
-          let rowLineCt = 1;
-          for (let ci = 0; ci < cols; ci++) {
-            if (isLevelCol[ci]) { cellLines[ci] = null; continue; }
-            const txt = cleanCell(r[ci]);
-            const maxChars = Math.max(6, Math.floor(colWidths[ci] / (fontPx * 0.55)) - 1);
-            const wrapped = wrapTwoLines(txt, maxChars);
-            cellLines[ci] = wrapped;
-            if (wrapped.length > rowLineCt) rowLineCt = wrapped.length;
-          }
-          rowMeta.push({ cellLines, baseH: rowLineCt * lineH + rowVPad });
-        }
-        const totalBaseH = rowMeta.reduce((a, b) => a + b.baseH, 0);
-        const bodyAvail = yMax - cy;
-        const extraPerRow = rowMeta.length > 0
-          ? Math.max(0, Math.floor((bodyAvail - totalBaseH) / rowMeta.length))
-          : 0;
-        // Cap stretch so 1 row in a 1000px body doesn't read as one
-        // floating line of text in a sea of nothing. ~3x base height is
-        // a defensible "tall row but still a row".
-        const cappedExtra = Math.min(extraPerRow, lineH * 2 + 12);
-        // Data rows — draw with the stretched row height.
-        for (let mi = 0; mi < rowMeta.length; mi++) {
-          const ri = dataStart + mi;
-          if (cy + lineH > yMax) break;
-          const r = rows[ri];
-          const { cellLines, baseH } = rowMeta[mi];
-          const rowH = baseH + cappedExtra;
-          // Vertically center the content within the stretched row.
-          const contentTop = cy + Math.floor((rowH - baseH) / 2);
-          for (let ci = 0; ci < cols; ci++) {
-            if (isLevelCol[ci]) {
-              const lv = parseLevel(r[ci]) || 0;
-              const barY = cy + Math.floor((rowH - 10) / 2);
-              drawSeverityBar(colXs[ci], barY, colWidths[ci] - 6, lv, false);
-            } else {
-              // Body text: bright #e8f8ff. Earlier tone-down to dim
-              // cyan made text unreadable at the cell's scene scale
-              // (user 2026-05-22 reported cells looking blank — the
-              // text WAS there but at 0.85-alpha cyan against the
-              // dark fill it didn't read from canyon distance). The
-              // "match the decorative bed" goal still holds at the
-              // composition level (dim header rule, soft separators);
-              // body content stays bright so it's readable.
-              ctx.fillStyle = "#e8f8ff";
-              ctx.globalAlpha = 1.0;
-              ctx.font = `${fontPx}px 'Eurostile', 'Share Tech Mono', monospace`;
-              const lines = cellLines[ci] || [""];
-              for (let li = 0; li < lines.length; li++) {
-                ctx.fillText(lines[li], colXs[ci], contentTop + li * lineH);
-              }
-            }
-          }
-          cy += rowH;
-          // Inter-row rule — barely-there. Was 0.08, now 0.05.
-          if (ri < rows.length - 1) {
-            ctx.strokeStyle = "#00ddff";
-            ctx.globalAlpha = 0.05;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(pad, cy - rowVPad / 2);
-            ctx.lineTo(w - pad, cy - rowVPad / 2);
-            ctx.stroke();
-            ctx.globalAlpha = 1.0;
-          }
-        }
+        linesUsed = Math.max(lines.length, 1);
       }
+      cy += linesUsed * rowH;
     }
+    ctx.globalAlpha = 1;
   }
   return Promise.resolve(canvas);
 }
@@ -7702,9 +7584,35 @@ function _mixed3dSnapCacheSet(S, id, canvas) {
     if (oldest === id || oldest === sticky) continue;
     const obj = S.cellObjects?.get(oldest);
     if (obj && !obj.isInstanceHandle && obj.userData?.tier === 1 && obj.material?.map) {
-      obj.material.map.dispose();
-      obj.material.map = null;
-      obj.material.needsUpdate = true;
+      // Don't null the material map — that left tier-1 cells showing
+      // pure white (default MeshBasicMaterial color) until the snap
+      // driver re-rendered them, producing the wave-of-white-flashes
+      // during warmup as the LRU rolled over (~1000 evictions when
+      // pre-rendering 1300 cells against a 300-cap). Instead, replace
+      // the cached canvas with a stub (title + decorative rows) so
+      // the cell still reads while waiting for the next snap. Stub
+      // texture pre-uploaded via initTexture so even the swap doesn't
+      // produce its own flash. User 2026-05-24 "still white blink".
+      const T = window.THREE;
+      const cellData = state.rendering.cellsById?.get(oldest);
+      const stubCanvas = _mixed3dPaintPromoteStub(oldest, cellData, obj.userData?.colspan || 1, obj.userData?.canvasH);
+      if (T && stubCanvas) {
+        const stubTex = new T.CanvasTexture(stubCanvas);
+        stubTex.minFilter = T.LinearFilter;
+        stubTex.magFilter = T.LinearFilter;
+        if (S.renderer?.initTexture) {
+          try { S.renderer.initTexture(stubTex); } catch (_) {}
+        }
+        const oldMap = obj.material.map;
+        obj.material.map = stubTex;
+        obj.material.needsUpdate = true;
+        if (oldMap) oldMap.dispose();
+      } else {
+        // Fallback: keep the old behavior if stub can't be built.
+        obj.material.map.dispose();
+        obj.material.map = null;
+        obj.material.needsUpdate = true;
+      }
     }
     S._snapTexCache.delete(oldest);
     S._snapLastAt?.delete(oldest);
@@ -7764,12 +7672,26 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
     // User 2026-05-22: "the cell is blank" on the tower face.
     const T = window.THREE;
     if (T) {
-      if (curObj.material.map) curObj.material.map.dispose();
       const tex = new T.CanvasTexture(fullCanvas);
       tex.minFilter = T.LinearFilter;
       tex.magFilter = T.LinearFilter;
+      // Pre-upload the new texture to GPU BEFORE swapping the material
+      // map. Without this, the swap creates a render-frame where the
+      // material points at a not-yet-uploaded texture → samples default
+      // 1×1 white → cell flashes white for one frame. The previous
+      // visible-false + 2-rAF defense only covered initial MOUNT, not
+      // this snap-replace path (user 2026-05-24 "still a white blink on
+      // all the tier 1 cells").
+      if (S.renderer?.initTexture) {
+        try { S.renderer.initTexture(tex); } catch (_) {}
+      }
+      const oldMap = curObj.material.map;
       curObj.material.map = tex;
       curObj.material.needsUpdate = true;
+      // Dispose AFTER the swap — disposing first leaves the material
+      // pointing at a disposed texture for a moment, which can cause
+      // GL warnings on hot reloads.
+      if (oldMap) oldMap.dispose();
     }
   }
 }
@@ -8264,9 +8186,21 @@ window._mixed3dParkAt = function(cellId, offset) {
   if (!T) return null;
   const obj = S.cellObjects.get(cellId);
   if (!obj || obj.isInstanceHandle) return { err: "not a tier-1 mesh" };
-  // 2.0u in front fills more of the viewport (cells are ~0.8u wide at
-  // the typical face-to-face camera distance). Was 3.5u — felt too far.
-  const parkOffset = offset || 2.0;
+  // Cell mesh dims (bucketed via _mixed3dGetSharedPlaneGeo) drive both
+  // pull-back distance and lookAt bias. Without these:
+  //  - tall cells overshoot the frustum vertically at the old fixed
+  //    2.0u offset
+  //  - content "near the top of the cell" lands above the visible
+  //    frame because lookAt = geometric center puts content at
+  //    +planeH/2 above the framing point, off-screen at 75° FOV
+  //    when planeH is large (user 2026-05-24, cell-4479).
+  const planeW = obj.geometry?.parameters?.width || 1.0;
+  const planeH = obj.geometry?.parameters?.height || 1.0;
+  // 75° vertical FOV → vertical half-extent at distance d is
+  // d * tan(37.5°) ≈ 0.767 * d. To fit a cell of height H with ~15%
+  // margin: d >= H * 0.75. Floor at 2.0u for small cells (they were
+  // fine before).
+  const parkOffset = offset || Math.max(2.0, Math.max(planeW, planeH) * 0.85);
   // The plane mesh's local +Z is the front face; rotate it by the
   // mesh's world rotation to get the camera-side normal in world space.
   const normal = new T.Vector3(0, 0, 1).applyEuler(obj.rotation);
@@ -8275,8 +8209,14 @@ window._mixed3dParkAt = function(cellId, offset) {
     obj.position.y + normal.y * parkOffset,
     obj.position.z + normal.z * parkOffset
   );
-  S._park = { target, lookAt: obj.position.clone(), cellId };
-  return { parked: cellId, at: { x: target.x.toFixed(2), y: target.y.toFixed(2), z: target.z.toFixed(2) } };
+  // Bias lookAt upward by planeH * 0.18 so content near the top of a
+  // tall cell lands at the upper-third of the visible frame instead of
+  // above it. Cells are yaw-only (no pitch), so world +Y is also
+  // screen-up for the framing point.
+  const lookAt = obj.position.clone();
+  lookAt.y += planeH * 0.18;
+  S._park = { target, lookAt, cellId };
+  return { parked: cellId, at: { x: target.x.toFixed(2), y: target.y.toFixed(2), z: target.z.toFixed(2) }, planeH: +planeH.toFixed(2), offset: +parkOffset.toFixed(2) };
 };
 window._mixed3dUnpark = function() {
   if (_mixed3dState) _mixed3dState._park = null;
@@ -8320,12 +8260,10 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
   // transparent canvas. Material's transparent pass alpha-blends
   // through to whatever's behind (tower glass).
   //
-  // Title color: purple (#9966ff) — user 2026-05-19 "pink should be more
-  // purple. the pink is really more when the whole system is under attack".
-  // Pink (--accent-secondary) is reserved for danger signal; purple is the
-  // normal-mode tier-1 highlight. Pulled from hackers.tokens.json
-  // palette.stroke3 / data.cat[2].
-  const titleColor = "#9966ff";
+  // Title color: cyan — pulled into the decorative palette 2026-05-24
+  // (was purple #9966ff). Same decorative discipline as the tier-1
+  // body rows + html title block: one hue, alpha hierarchy.
+  const titleColor = "#00ddff";
   const titleEl = cell.querySelector(".cell-title");
   const title = (titleEl?.textContent || cell.id || "").trim().toUpperCase();
   ctx.fillStyle = titleColor;
@@ -8402,15 +8340,18 @@ function _mixed3dSyncCells() {
 
   const map = _mixed3dState.cellObjects;
   const pending = _mixed3dState.mountPending;
-  // Cap visible cell count to keep draw calls bounded. 1300+ cells in
-  // scene produced 854 draw calls / frame → 41 fps. The 2D notebook
-  // DOM still has every cell; mixed3d just renders the most-recent
-  // 300 (DOM is reverse-chrono so .slice(0, N) takes the newest).
-  // User 2026-05-24: option A from the perf trade — fewer unique
-  // Mesh draw calls at the cost of not showing the deepest history
-  // in the canyon. Override via ?mixed3dCap=N URL param.
+  // Cap visible cell count to keep draw calls + GPU memory bounded.
+  // 2026-05-24 progression:
+  //   300  — original cap; throttled tier-1 density visibly
+  //   1500 — too generous; ballooned tab RAM to 2.3GB at 1338 cells
+  //   800  — compromise; ~2.6× the 300 baseline, enough room for the
+  //          22→28 promote radius bump to actually grow tier-1 count
+  //          (60→~150) without exploding GPU texture memory. Override
+  //          higher via ?mixed3dCap=N if a stress test wants saturation.
+  // The 2D notebook DOM still holds every cell; mixed3d renders the
+  // most-recent N (DOM is reverse-chrono so .slice(0, N) takes newest).
   const capRaw = new URLSearchParams(window.location.search).get("mixed3dCap");
-  const capN = capRaw && Number.isFinite(+capRaw) && +capRaw > 0 ? +capRaw : 300;
+  const capN = capRaw && Number.isFinite(+capRaw) && +capRaw > 0 ? +capRaw : 800;
   const allCellEls = [...root.querySelectorAll(".cell")];
   const capped = allCellEls.slice(0, capN);
   const fresh = capped.filter(
@@ -8625,6 +8566,17 @@ function _mixed3dDrainMountQueue() {
           ty -= yShift;
           mountedH = cap;
         }
+      } else if (ct_for_h === "html") {
+        // html cells render as bold cyan rows (decorative-style) — they
+        // don't need a tall portrait slot. Cap at 1.4× planeW for a
+        // landscape-ish aspect that fits 4-8 wrapped rows. User
+        // 2026-05-24: "should be multiple columns wide and also shorter".
+        const cap = G.cellW * cs * 1.4;
+        if (mountedH > cap) {
+          const yShift = (mountedH - cap) / 2;
+          ty -= yShift;
+          mountedH = cap;
+        }
       }
     }
 
@@ -8771,11 +8723,24 @@ function _mixed3dDrainMountQueue() {
     // Hide-until-first-paint: cells flash WHITE for a frame between
     // scene.add and the first texture upload because Three.js samples
     // the not-yet-uploaded GL texture as default-white. visible=false
-    // skips the render, then we flip true on next rAF when the upload
-    // has completed. User 2026-05-24: "the t1 cells are just white
-    // boxes until the content loads in a second or two later".
+    // skips the render, then we flip true after the GPU upload has
+    // actually happened.
+    //
+    // SINGLE rAF was not enough (user 2026-05-24 follow-up: "still
+    // white tiles at load, some blinking"). The rAF callback runs
+    // BEFORE that frame's renderer.render() call — so visible=true,
+    // then the render samples the still-default 1×1 white tex, and
+    // only the NEXT render uses the uploaded texture. Chain two rAFs
+    // so the upload-on-first-render has completed before we reveal.
+    // Also force the upload synchronously via renderer.initTexture
+    // when available — cuts the race entirely for browsers that have
+    // it. Belt-and-suspenders because the load-burst mounts dozens of
+    // cells in one tick and even one slipping through is visible.
     obj.visible = false;
-    requestAnimationFrame(() => { obj.visible = true; });
+    if (S.renderer?.initTexture && obj.material?.map) {
+      try { S.renderer.initTexture(obj.material.map); } catch (_) {}
+    }
+    requestAnimationFrame(() => requestAnimationFrame(() => { obj.visible = true; }));
     S.scene.add(obj);
     map.set(cell.id, obj);
     S.cellTier.set(cell.id, tier);
@@ -9357,14 +9322,15 @@ function _mixed3dColspanForCell(cell) {
     }
     return 2;
   }
-  // All structured html layouts default to colspan=2. Single-column
-  // tower-face slot (192px wide) is too narrow for any html layout
-  // with definitions / labels / cards / data columns — text
-  // truncates to "ab…" ellipses everywhere.
+  // All structured html layouts default to colspan=3 (was 2 →
+  // bumped 2026-05-24 with the decorative-text renderer). With the
+  // new bold cyan rows + 2-line wrap, wider cells give the text
+  // landscape aspect instead of tall portrait — matches user request
+  // "should be multiple columns wide and also shorter". Combined
+  // with the html height cap at mount (cellW * cs * 1.4) the cells
+  // come out roughly landscape-1.4:1 — content fills the frame.
   if (ct === "html") {
-    const hl = cell.dataset.htmlLayout || "";
-    if (hl === "table") return 3;
-    return 2;
+    return 3;
   }
   if (ct === "vega" || ct === "force_graph" || ct === "timeline_ribbon"
       || ct === "animated_svg" || ct === "treemap") {
