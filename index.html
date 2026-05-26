@@ -4870,17 +4870,26 @@ function _mixed3dDriveSwoopyTour(t) {
     const lo = lane(1);
     const hi = lane(ringIdx - 1);
     const mid = lane(Math.floor(ringIdx / 2));
-    // 8 waypoints around the field perimeter (4 corners + 4 mids).
+    // 8 waypoints around the field perimeter (4 corners + 4 mids),
+    // with varied Y heights so the path threads the full tower height
+    // (~0..17u) instead of orbiting at fixed eye-level y=4.5. Without
+    // Y variation, tier-1 promotion (distance-based) only ever fires
+    // on the bottom band of cells — top cells stay tier-2-decorative
+    // because the camera never approaches them. With this helix-ish
+    // path, the camera passes through every Y band over one ~9 min
+    // loop, so tier-1 distribution evens out across the tower face.
+    // Heights chosen to alternate high/low so adjacent waypoints
+    // produce diagonal sections rather than long climbs/dives.
     // Centripetal Catmull-Rom + closed loop → seamless at every pass.
     const pts = [
       new T.Vector3(lo, 4.5, lo),
-      new T.Vector3(mid, 4.5, lo),
-      new T.Vector3(hi, 4.5, lo),
-      new T.Vector3(hi, 4.5, mid),
-      new T.Vector3(hi, 4.5, hi),
-      new T.Vector3(mid, 4.5, hi),
-      new T.Vector3(lo, 4.5, hi),
-      new T.Vector3(lo, 4.5, mid),
+      new T.Vector3(mid, 11.0, lo),
+      new T.Vector3(hi, 7.0, lo),
+      new T.Vector3(hi, 13.0, mid),
+      new T.Vector3(hi, 5.0, hi),
+      new T.Vector3(mid, 10.0, hi),
+      new T.Vector3(lo, 14.0, hi),
+      new T.Vector3(lo, 8.0, mid),
     ];
     const curve = new T.CatmullRomCurve3(pts, true, "centripetal", 0.5);
     S.swoopCam = {
@@ -5004,7 +5013,9 @@ function _mixed3dDriveSwoopyTour(t) {
     return;
   }
   if (!desiredPos) return;
-  desiredPos.y = 4.5 + Math.sin(t * 0.22) * 0.6;
+  // Light Y bob layered on top of the curve's varied-Y heights —
+  // keeps the small organic float without flattening the helix.
+  desiredPos.y += Math.sin(t * 0.22) * 0.6;
   // Slow-scan vertical pan: during the hold, sweep camera Y from near
   // the top of the tower down to near the floor over the scan window.
   // Combined with the perpendicular lookAt and parked X/Z, this scans
