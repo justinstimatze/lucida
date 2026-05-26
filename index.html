@@ -6431,6 +6431,18 @@ function _mixed3dStyleMermaidSVG(svgString) {
       fill: #ccf3ff !important;
       color: #ccf3ff !important;
     }
+    /* Dark halo around edge label glyphs so the edge line passing beneath
+       the label is masked by the per-glyph stroke instead of bleeding
+       through the transparent label background. Paint-order rule at
+       .edgeLabel (below) draws stroke first, fill on top — without a
+       stroke value the rule is a no-op; setting it here completes the
+       intent. User 2026-05-26 cell-5148. */
+    .edgeLabel text, .edgeLabel foreignObject div, g.edgeLabel text {
+      stroke: #000814 !important;
+      stroke-width: 4px !important;
+      paint-order: stroke fill !important;
+      stroke-linejoin: round !important;
+    }
     .edgeLabel rect, g.edgeLabel > g > rect, foreignObject rect { fill: transparent !important; }
     .cluster rect, .cluster path {
       stroke: #9966ff !important;
@@ -6773,7 +6785,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // v10 = state/sequence/class/ER diagram nodes forced transparent
   // (2026-05-25); previously inherited mermaid default dark-blue
   // fills only the .node block was overriding.
-  const STYLE_V = "v10";
+  const STYLE_V = "v11";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
@@ -7674,6 +7686,26 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
     .replace(/\$bg\b/g, "#0a0e14")
     .replace(/\$panel\b/g, "#0f1620")
     .replace(/\$fg\b/g, "#ccf3ff");
+  // Strip full-canvas opaque dark background rects. Specs occasionally
+  // hardcode `<rect width="..." height="..." fill="#0d0d0d"/>` as the
+  // first child, turning the cell into a grey block that hides the
+  // animated foreground. cell-5307 (#0d0d0d) and cell-5297 (#0a0e14)
+  // both hit this. We let the cell's own background show through by
+  // dropping rects whose dimensions exactly match the SVG viewport AND
+  // whose fill is a near-black/panel color. Foreground panels with
+  // smaller dimensions are untouched.
+  const svgRootMatch = themed.match(/<svg\b[^>]*\bwidth="([^"]+)"\s+height="([^"]+)"/);
+  if (svgRootMatch) {
+    const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const w = escapeRe(svgRootMatch[1]);
+    const h = escapeRe(svgRootMatch[2]);
+    const darkFills = "(?:#0d0d0d|#0a0e14|#0f1620|#0e0e0e|#000000|#000|#111111|#111)";
+    const fullCanvasRectRe = new RegExp(
+      `<rect\\s+(?:width="${w}"\\s+height="${h}"|height="${h}"\\s+width="${w}")\\s+fill="${darkFills}"\\s*/?>`,
+      "i",
+    );
+    themed = themed.replace(fullCanvasRectRe, "");
+  }
   // Strict-parse defense: SVG-as-Image fails silently (white square)
   // when the root <svg> uses xlink:href but doesn't declare the xlink
   // namespace. Inject it if missing. User 2026-05-24 cell-4049: blank
