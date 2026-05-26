@@ -7725,7 +7725,7 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
 // Cache version for animated_svg self-cache. Bump when theme substitution
 // rules change OR the body-canvas layout logic shifts. Independent of
 // STYLE_V (mermaid) since the substrate paint pipelines differ.
-const _ANIMATED_SVG_CACHE_V = "v4";
+const _ANIMATED_SVG_CACHE_V = "v5";
 
 function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (!spec || typeof spec !== "string" || !spec.includes("<svg")) {
@@ -7794,21 +7794,27 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
     .replace(/\$panel\b/g, "#0f1620")
     .replace(/\$fg\b/g, "#ccf3ff");
   // Strip full-canvas opaque dark background rects. Specs occasionally
-  // hardcode `<rect width="..." height="..." fill="#0d0d0d"/>` as the
+  // hardcode <rect width="..." height="..." fill="#0d0d0d"/> as the
   // first child, turning the cell into a grey block that hides the
-  // animated foreground. cell-5307 (#0d0d0d) and cell-5297 (#0a0e14)
-  // both hit this. We let the cell's own background show through by
-  // dropping rects whose dimensions exactly match the SVG viewport AND
-  // whose fill is a near-black/panel color. Foreground panels with
-  // smaller dimensions are untouched.
+  // animated foreground. Hit so far: #0d0d0d (cell-5307), #0a0e14
+  // (cell-5297), #0d0d14 with rx="6" (cell-5834). Generalized regex:
+  //   - lookaheads for width / height / fill so attribute order and
+  //     extra attributes (rx, ry, stroke, opacity) don't break the
+  //     match
+  //   - any near-black hex color (each RGB channel < 0x40) or its
+  //     3-digit shortform — catches arbitrary dark grays/blues/blacks
+  // Foreground panels with smaller dimensions are untouched because
+  // the lookaheads require width AND height to match the SVG viewport.
   const svgRootMatch = themed.match(/<svg\b[^>]*\bwidth="([^"]+)"\s+height="([^"]+)"/);
   if (svgRootMatch) {
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const w = escapeRe(svgRootMatch[1]);
     const h = escapeRe(svgRootMatch[2]);
-    const darkFills = "(?:#0d0d0d|#0a0e14|#0f1620|#0e0e0e|#000000|#000|#111111|#111)";
+    const darkHex = "#[0-3][0-9a-f][0-3][0-9a-f][0-3][0-9a-f]";
+    const darkShort = "#[0-3][0-3][0-3]";
+    const darkFills = `(?:${darkHex}|${darkShort})`;
     const fullCanvasRectRe = new RegExp(
-      `<rect\\s+(?:width="${w}"\\s+height="${h}"|height="${h}"\\s+width="${w}")\\s+fill="${darkFills}"\\s*/?>`,
+      `<rect\\b(?=[^>]*\\bwidth="${w}")(?=[^>]*\\bheight="${h}")(?=[^>]*\\bfill="${darkFills}")[^>]*\\/?>`,
       "i",
     );
     themed = themed.replace(fullCanvasRectRe, "");
