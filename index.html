@@ -5599,31 +5599,83 @@ function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   }
   ctx.restore();
 }
-// Restart the swoopy-tour camera path at u=0 from "right now". Used
-// at loader-fade and on bfcache restore (pageshow with persisted=
-// true). The lerp uses a hardcoded dt=1/60, so when real elapsed
-// time is much larger than expected (held loader, tab-restore), the
-// lerp falls way behind desiredPos and catches up in a visible
-// "flying backwards quickly" snap. Resetting t0 + clearing the
-// swoopCam cached state collapses that to a clean restart.
+// Restart the swoopy-tour camera state. Used at loader-fade, on
+// bfcache restore (pageshow with persisted=true), and on R-key
+// reset. Previously this nulled posActual and arcAccum, which made
+// the next frame teleport: posActual was re-seeded from
+// curve.getPointAt(0), camera jumped from wherever it was to the
+// curve's t=0 waypoint (~1.6u jump observed in per-rAF trace 2026-
+// 05-25). Now reset finds the closest-u to the current camera
+// position and resumes there, seeding posActual at the current
+// pose so the lerp asymptotes smoothly. Same logic _mixed3dUnpark
+// uses for click-park exit.
 function _mixed3dResetCameraTimer() {
-  if (!_mixed3dState) return;
-  _mixed3dState.animation.t0 = performance.now();
-  if (_mixed3dState.swoopCam) {
-    _mixed3dState.swoopCam.posActual = null;
-    _mixed3dState.swoopCam.lookAtActual = null;
-    _mixed3dState.swoopCam.headingHistory = [];
-    _mixed3dState.swoopCam.bankActual = 0;
-    // Slow-scan state: drop any in-progress scan so the camera
-    // restarts from a normal-flight pose, and let the post-boot
-    // scheduler pick a fresh scan start once t passes 10.
-    _mixed3dState.swoopCam.scanFactor = 0;
-    _mixed3dState.swoopCam.scanSide = 0;
-    _mixed3dState.swoopCam.scanNextStart = null;
-    _mixed3dState.swoopCam.lastT = null;
-    _mixed3dState.swoopCam.arcAccum = null;
-    _mixed3dState.swoopCam.scanTargetCell = null;
-    _mixed3dState.swoopCam.scanTargetPos = null;
+  const S = _mixed3dState;
+  if (!S) return;
+  const sw = S.swoopCam;
+  // Fresh-boot path: no curve yet → fall back to the old null-state
+  // reset. The swoopy driver builds the curve on first call and the
+  // boot ease-in (t<10) absorbs any initial cam-pose mismatch.
+  if (!sw || !sw.curve || !isFinite(sw.totalLen) || sw.totalLen <= 0) {
+    S.animation.t0 = performance.now();
+    if (sw) {
+      sw.posActual = null;
+      sw.lookAtActual = null;
+      sw.headingHistory = [];
+      sw.bankActual = 0;
+      sw.scanFactor = 0;
+      sw.scanSide = 0;
+      sw.scanNextStart = null;
+      sw.lastT = null;
+      sw.arcAccum = null;
+      sw.scanTargetCell = null;
+      sw.scanTargetPos = null;
+    }
+    return;
+  }
+  // Closest-u search (matches _mixed3dUnpark). 256 uniform samples +
+  // 6 binary refines = ~0.01% u precision, cheap one-shot.
+  const T = window.THREE;
+  const camP = S.camera.position;
+  let bestU = 0;
+  let bestD2 = Infinity;
+  const N = 256;
+  for (let i = 0; i < N; i++) {
+    const u = i / N;
+    const p = sw.curve.getPointAt(u);
+    const dx = p.x - camP.x, dy = p.y - camP.y, dz = p.z - camP.z;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 < bestD2) { bestD2 = d2; bestU = u; }
+  }
+  let lo = Math.max(0, bestU - 1 / N);
+  let hi = Math.min(1, bestU + 1 / N);
+  for (let k = 0; k < 6; k++) {
+    const mid = (lo + hi) / 2;
+    const pl = sw.curve.getPointAt(Math.max(0, mid - 1e-4));
+    const pr = sw.curve.getPointAt(Math.min(1, mid + 1e-4));
+    const dl2 = (pl.x - camP.x) ** 2 + (pl.y - camP.y) ** 2 + (pl.z - camP.z) ** 2;
+    const dr2 = (pr.x - camP.x) ** 2 + (pr.y - camP.y) ** 2 + (pr.z - camP.z) ** 2;
+    if (dl2 < dr2) hi = mid; else lo = mid;
+    bestU = (lo + hi) / 2;
+  }
+  // Back-date t0 past the 10s boot ease-in so we don't double-ease.
+  S.animation.t0 = performance.now() - 11000;
+  const tNow = 11.0;
+  sw.arcAccum = bestU * sw.totalLen;
+  sw.lastT = tNow;
+  sw.lastAvgRate = 0;
+  sw.headingHistory = [];
+  sw.bankActual = 0;
+  sw.scanFactor = 0;
+  sw.scanSide = 0;
+  sw.scanNextStart = tNow + 6 + Math.random() * 4;
+  sw.scanTargetCell = null;
+  sw.scanTargetPos = null;
+  sw.posActual = S.camera.position.clone();
+  if (T) {
+    const fwd = new T.Vector3();
+    S.camera.getWorldDirection(fwd);
+    sw.lookAtActual = S.camera.position.clone().add(fwd.multiplyScalar(8));
   }
 }
 
