@@ -6307,11 +6307,17 @@ function _mixed3dRemoveTier2Instance(S, handle) {
 // lets us run tier-2 in the opaque pass — depth-tested, no sort,
 // huge per-frame savings. The glass-tower-behind look is preserved
 // because the tinted bg already approximates that.
-function _mixed3dCellTextureMini(cell, isTop, cyan, pink) {
+function _mixed3dCellTextureMini(cell, isTop, cyan, pink, colspan) {
   const T = window.THREE;
-  // Side cells: 48×144 to match 6×6 face layout (cell plane is
-  // 0.81×2.78, ratio 1:3.4, tall narrow).
-  const W = isTop ? 96 : 48;
+  // Side cells: 48×144 baseline (cs=1 plane is 0.81×2.78). For wider
+  // cells (cs>=2), the canvas width scales with colspan so text drawn
+  // here renders at consistent screen-pixel size when the wider plane
+  // is presented to the camera. Without this, the InstancedMesh path
+  // stretches a fixed-size texture across wide planes, making text
+  // ~Nx larger on cs=N cells — read as "inconsistently big" text
+  // relative to cs=1 neighbors (user 2026-05-26 cell-5027 case).
+  const cs = Math.max(1, colspan || 1);
+  const W = isTop ? 96 : 48 * cs;
   const H = isTop ? 96 : 144;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -9240,7 +9246,15 @@ function _mixed3dDrainMountQueue() {
     // _MIXED3D_INST_CAPACITY. cellObjects entry is a "handle" (plain
     // object with isInstanceHandle: true) — eviction path detects
     // this and dispatches to swap-and-pop instead of scene.remove.
-    if (tier === 2) {
+    // Wide cells (cs>=2) skip the tier-2 InstancedMesh path: that
+    // path shares one 1u-base plane texture across all instances and
+    // stretches it to the per-instance scale, which makes text on
+    // colspan-N cells render at ~Nx the screen size of text on cs=1
+    // cells. Falling through to the per-cell mini-texture mesh below
+    // (which sizes its canvas by colspan) keeps text size consistent
+    // across the dashboard. Wide cells are the minority (~25%) so
+    // the instancing-perf loss is small.
+    if (tier === 2 && cs <= 1) {
       const matInfo = _mixed3dPickSharedMatVariantIdx(S, cell);
       if (matInfo) {
         const inst = _mixed3dGetTier2InstMesh(S, matInfo.mat, matInfo.substrate, matInfo.variantIdx);
@@ -9308,7 +9322,7 @@ function _mixed3dDrainMountQueue() {
     } else {
       // Tier-2 fallback Mesh: shared mat not ready yet OR instance
       // bucket overflow. Per-cell unique CanvasTexture.
-      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink);
+      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs);
       mat = new T.MeshBasicMaterial({
         map: tex, transparent: true, opacity: 1.0,
         side: T.DoubleSide, depthWrite: false,
