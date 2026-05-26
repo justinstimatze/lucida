@@ -7618,7 +7618,7 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
 // Cache version for animated_svg self-cache. Bump when theme substitution
 // rules change OR the body-canvas layout logic shifts. Independent of
 // STYLE_V (mermaid) since the substrate paint pipelines differ.
-const _ANIMATED_SVG_CACHE_V = "v3";
+const _ANIMATED_SVG_CACHE_V = "v4";
 
 function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (!spec || typeof spec !== "string" || !spec.includes("<svg")) {
