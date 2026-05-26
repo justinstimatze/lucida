@@ -6038,12 +6038,19 @@ function _mixed3dRetierSweep() {
   // Split budgets: demotions (1→2) just swap material refs and dispose
   // — cheap, ~0.1ms each. Promotions (2→1) paint a unique 80×240
   // CanvasTexture, ~2ms each, and a burst stalls the frame. Walk many
-  // cells per frame to catch all demotions, but cap promotions to 4
-  // per frame (was 2, bumped 2026-05-24 to chase the widened 28u
-  // promote radius — a larger eligible set needs faster throughput
-  // or it just queues). Worst-case stall: ~8ms/frame during a
-  // dense-cluster fly-through, vs ~4ms previously.
-  const PROMOTE_BUDGET = 4;
+  // cells per frame to catch all demotions, but cap promotions.
+  // 2 → 4 (2026-05-24, 28u radius)
+  // 4 → 12 (2026-05-26, 36u radius): cells along the path were getting
+  //   stranded as tier-2 because the dense cluster crossed during a
+  //   single curve segment exceeded 4 promotes/frame; recency-sorted
+  //   sweep didn't always revisit them before the camera moved past.
+  //   User 2026-05-26 cell-5451: "why didn't that tier 2 promote
+  //   earlier into tier 1" — closest curve approach was 7.39u (well
+  //   inside 36u promote radius) but the budget kept missing it.
+  // Worst-case stall: ~24ms/frame during a dense-cluster fly-through,
+  // vs ~8ms previously. Snap-cache hits paint instantly (~0.1ms);
+  // only fresh-snap promotes pay the 2ms cost.
+  const PROMOTE_BUDGET = 12;
   let promotesDone = 0;
   let i = S._retierIdx;
   while (i < S._retierKeys.length) {
