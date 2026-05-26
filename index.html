@@ -4934,16 +4934,10 @@ function _mixed3dDriveSwoopyTour(t) {
         f = 0;
         // 6-10s forward fly between scans (was 8-14s) — more frequent
         // wall passes per user 2026-05-22.
-        if (sw.scanFadeUntil == null) {
-          // Begin a 2s bias-decay tail. scanTargetCell/Pos stay live
-          // so the route-through bias can fade out continuously
-          // instead of snapping off (which leaves posActual up to 2u
-          // off-curve and forced to catch up through the position
-          // lerp alone — read as a small but visible jolt).
-          sw.scanFadeUntil = t + 2.0;
-          sw.scanNextStart = t + 6 + Math.random() * 4;
-          sw.scanSide = 0;
-        }
+        sw.scanNextStart = t + 6 + Math.random() * 4;
+        sw.scanSide = 0;
+        sw.scanTargetCell = null;
+        sw.scanTargetPos = null;
       }
       sw.scanFactor = Math.max(0, Math.min(1, f));
       // scanSide assignment moved below — deferred until perp is computed
@@ -4951,13 +4945,8 @@ function _mixed3dDriveSwoopyTour(t) {
     } else {
       sw.scanFactor = 0;
       sw.scanSide = 0;
-      // Hold scanTarget* through any active fade so the bias keeps
-      // decaying. Once the fade window ends, drop everything.
-      if (sw.scanFadeUntil == null || t >= sw.scanFadeUntil) {
-        sw.scanFadeUntil = null;
-        sw.scanTargetCell = null;
-        sw.scanTargetPos = null;
-      }
+      sw.scanTargetCell = null;
+      sw.scanTargetPos = null;
     }
   }
   const scanFactor = sw.scanFactor || 0;
@@ -5094,18 +5083,14 @@ function _mixed3dDriveSwoopyTour(t) {
   // cross into adjacent tower bboxes (corridor half-width is ~3.5u
   // tower-to-tower; 2.0u keeps a 1.5u safety margin).
   const ROUTE_MAX = 2.0;
-  // biasGate = sf during scan window; during the 2s fade-tail after
-  // scan-end, biasGate smoothsteps from 1→0 even though sf is already 0.
-  // Lets the perpendicular offset bleed off continuously instead of
-  // snapping when scanFactor hits zero.
-  let biasGate = sf;
-  if (sf === 0 && sw.scanFadeUntil != null) {
-    const rem = sw.scanFadeUntil - t;
-    if (rem > 0) {
-      const r = Math.max(0, Math.min(1, rem / 2.0));
-      biasGate = r * r * (3 - 2 * r);
-    }
-  }
+  // Bias gate is just sf. A previous "fade-tail" extension was
+  // implemented backwards: at the frame sf hit 0, the tail logic
+  // reset biasGate back to 1.0 and ramped it down over 2s — which
+  // *introduced* a single-frame discontinuity (jump from sf~0 to
+  // biasGate=1) instead of smoothing the post-scan return. The 5s
+  // smoothstep ramp on sf already carries the bias smoothly to 0
+  // within the scan window itself.
+  const biasGate = sf;
   // Bias toward an ideal VIEWING POINT in front of the cell's face —
   // not the cell position itself. The viewing point is the cell's
   // world position offset along its face normal by the FOV-fit
@@ -5639,7 +5624,6 @@ function _mixed3dResetCameraTimer() {
     _mixed3dState.swoopCam.arcAccum = null;
     _mixed3dState.swoopCam.scanTargetCell = null;
     _mixed3dState.swoopCam.scanTargetPos = null;
-    _mixed3dState.swoopCam.scanFadeUntil = null;
   }
 }
 
@@ -8771,7 +8755,6 @@ window._mixed3dUnpark = function() {
   sw.scanNextStart = tNow + 6 + Math.random() * 4;
   sw.scanTargetCell = null;
   sw.scanTargetPos = null;
-  sw.scanFadeUntil = null;
   // Seed posActual/lookAtActual at the current camera pose. Without
   // these, the driver re-inits posActual = desiredPos.clone() and the
   // camera teleports to the curve point on the next frame.
