@@ -6782,21 +6782,21 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
       // sitting below it. User 2026-05-21: "lot of whitespace below
       // the diagram although I think the width is good overall".
       //
-      // MAX_GRAPH_DIM caps the rasterized graph dimensions so wide
-      // cells (cs>=4) don't blow up text size. Mermaid SVG renders at
-      // a natural ~600-800px width with 12px text; if we let the
-      // graph fill a 1152-wide canvas (cs=6), text scales ~1.9x and
-      // reads ~4-5x larger on screen than cs=1 cell text after plane
-      // projection. The 720px cap keeps wide-cell text within ~1.2x
-      // of natural scale, centered with padding. User 2026-05-26
-      // cell-5323 case. cs=1 cells (canvas 192) are unaffected.
-      const MAX_GRAPH_DIM = 720;
+      // Earlier MAX_GRAPH_DIM cap (720px, a389592, intended to shrink
+      // cs=6 mermaid text vs cs=1) removed 2026-05-26: user reported
+      // cell-5816 (cs=6 mermaid) reading "weirdly small for how many
+      // cells it takes up." A cs=6 plane is 6x wider in world units;
+      // proportionally larger text IS the correct behavior — the
+      // earlier "too big" complaint on cell-5323 was really about
+      // canvas-aspect mismatch (square plane → square canvas → graph
+      // forced into wrong aspect), now fixed via dynamic canvasH
+      // upstream.
       let graphW, graphH;
       if (aspectImg > w / h) {
-        graphW = Math.min(w, MAX_GRAPH_DIM);
-        graphH = graphW / aspectImg;
+        graphW = w;
+        graphH = w / aspectImg;
       } else {
-        graphH = Math.min(h * 0.95, MAX_GRAPH_DIM);
+        graphH = h * 0.95;
         graphW = graphH * aspectImg;
       }
       const dx = (w - graphW) / 2;
@@ -6906,7 +6906,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // v10 = state/sequence/class/ER diagram nodes forced transparent
   // (2026-05-25); previously inherited mermaid default dark-blue
   // fills only the .node block was overriding.
-  const STYLE_V = "v11";
+  const STYLE_V = "v12";
   const cacheKey = cs > 1 ? `mermaid.c${cs}.${STYLE_V}` : `mermaid.${STYLE_V}`;
   const filename = cellId ? `${cellId}.${cacheKey}.svg` : null;
   // Boot-time manifest tells us which SVGs exist on disk. Without
