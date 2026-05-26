@@ -5901,8 +5901,27 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     });
     S.tier1Count = (S.tier1Count || 0) + 1;
   } else {
-    obj.material = _mixed3dPickSharedMat(S, cell)
-      || S.sharedSubstrateMats?.get("html")?.[0];
+    // Demote 1->2. For wide cells (cs>1), use _mixed3dCellTextureMini —
+    // the same path mount uses for wide tier-2 — so the cell keeps a
+    // proper-aspect texture. The shared variant (192x576) is designed
+    // for cs=1 planes (~0.83u wide) and stretches horizontally when
+    // applied to a cs=N plane (1.5x at cs=2, 2.2x at cs=3). User
+    // 2026-05-26 cell-5722 / cell-5920: "weirdly stretched background
+    // decorative text". cs=1 cells still pick a shared variant.
+    const cs = obj.userData?.colspan || 1;
+    if (cs > 1) {
+      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs);
+      obj.material = new T.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        opacity: 1.0,
+        side: T.DoubleSide,
+        depthWrite: false,
+      });
+    } else {
+      obj.material = _mixed3dPickSharedMat(S, cell)
+        || S.sharedSubstrateMats?.get("html")?.[0];
+    }
     S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
   }
   obj.userData.tier = newTier;
