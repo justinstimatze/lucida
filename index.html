@@ -4800,6 +4800,45 @@ function _mixed3dSegmentIsStraight(p0, p1, p2, p3) {
   const d23x = p3.x - p2.x, d23z = p3.z - p2.z;
   return eq(d01x, d12x) && eq(d01z, d12z) && eq(d12x, d23x) && eq(d12z, d23z);
 }
+// Clamp an XZ position to stay outside every tower bounding box, used
+// to prevent the camera's smoothed position from crossing a tower
+// interior. Two sites can otherwise push posActual into a wall:
+//   (1) scan-target route-through bias attracts toward a cell on a
+//       tower face; if the cell's tower sits between the curve lane
+//       and the cell, the up-to-2u bias can punch through.
+//   (2) unpark resume lerps posActual from a parked-outside-perimeter
+//       position back to a corridor curve point — straight-line
+//       interpolation can clip a perimeter tower.
+// With spacing=12 and towerW=5, towers are 7u apart and only the
+// single nearest grid cell can contain a given (x,z). Find it, then
+// push out along whichever axis has smaller penetration so the camera
+// grazes the wall instead of teleporting to the corridor center.
+function _mixed3dClampOutsideTowers(pos) {
+  const S = _mixed3dState;
+  if (!S?.geometry) return;
+  const G = S.geometry;
+  if (G.towerCount == null || G.towerW == null || G.spacing == null) return;
+  const gridHalf = (G.towerCount - 1) / 2;
+  const hw = G.towerW / 2;
+  const margin = 0.35;
+  const ix = Math.round(pos.x / G.spacing + gridHalf);
+  const iz = Math.round(pos.z / G.spacing + gridHalf);
+  if (ix < 0 || ix >= G.towerCount || iz < 0 || iz >= G.towerCount) return;
+  const cx = (ix - gridHalf) * G.spacing;
+  const cz = (iz - gridHalf) * G.spacing;
+  const dx = pos.x - cx;
+  const dz = pos.z - cz;
+  const limit = hw + margin;
+  if (Math.abs(dx) >= limit || Math.abs(dz) >= limit) return;
+  const penX = limit - Math.abs(dx);
+  const penZ = limit - Math.abs(dz);
+  if (penX <= penZ) {
+    pos.x = cx + (dx >= 0 ? limit : -limit);
+  } else {
+    pos.z = cz + (dz >= 0 ? limit : -limit);
+  }
+}
+
 // Closed-loop tour: ONE Catmull-Rom curve through a fixed set of
 // waypoints, traversed at constant arc-length speed. No segment
 // advances, no random direction picks, no queue shift. The curve is
@@ -4895,10 +4934,16 @@ function _mixed3dDriveSwoopyTour(t) {
         f = 0;
         // 6-10s forward fly between scans (was 8-14s) — more frequent
         // wall passes per user 2026-05-22.
-        sw.scanNextStart = t + 6 + Math.random() * 4;
-        sw.scanSide = 0;
-        sw.scanTargetCell = null;
-        sw.scanTargetPos = null;
+        if (sw.scanFadeUntil == null) {
+          // Begin a 2s bias-decay tail. scanTargetCell/Pos stay live
+          // so the route-through bias can fade out continuously
+          // instead of snapping off (which leaves posActual up to 2u
+          // off-curve and forced to catch up through the position
+          // lerp alone — read as a small but visible jolt).
+          sw.scanFadeUntil = t + 2.0;
+          sw.scanNextStart = t + 6 + Math.random() * 4;
+          sw.scanSide = 0;
+        }
       }
       sw.scanFactor = Math.max(0, Math.min(1, f));
       // scanSide assignment moved below — deferred until perp is computed
@@ -4906,8 +4951,13 @@ function _mixed3dDriveSwoopyTour(t) {
     } else {
       sw.scanFactor = 0;
       sw.scanSide = 0;
-      sw.scanTargetCell = null;
-      sw.scanTargetPos = null;
+      // Hold scanTarget* through any active fade so the bias keeps
+      // decaying. Once the fade window ends, drop everything.
+      if (sw.scanFadeUntil == null || t >= sw.scanFadeUntil) {
+        sw.scanFadeUntil = null;
+        sw.scanTargetCell = null;
+        sw.scanTargetPos = null;
+      }
     }
   }
   const scanFactor = sw.scanFactor || 0;
@@ -5044,12 +5094,24 @@ function _mixed3dDriveSwoopyTour(t) {
   // cross into adjacent tower bboxes (corridor half-width is ~3.5u
   // tower-to-tower; 2.0u keeps a 1.5u safety margin).
   const ROUTE_MAX = 2.0;
-  if (sw.scanTargetPos && sf > 0) {
+  // biasGate = sf during scan window; during the 2s fade-tail after
+  // scan-end, biasGate smoothsteps from 1→0 even though sf is already 0.
+  // Lets the perpendicular offset bleed off continuously instead of
+  // snapping when scanFactor hits zero.
+  let biasGate = sf;
+  if (sf === 0 && sw.scanFadeUntil != null) {
+    const rem = sw.scanFadeUntil - t;
+    if (rem > 0) {
+      const r = Math.max(0, Math.min(1, rem / 2.0));
+      biasGate = r * r * (3 - 2 * r);
+    }
+  }
+  if (sw.scanTargetPos && biasGate > 0) {
     const bx = sw.scanTargetPos.x - desiredPos.x;
     const bz = sw.scanTargetPos.z - desiredPos.z;
     const bMag = Math.sqrt(bx * bx + bz * bz);
     if (bMag > 0.01) {
-      const want = bMag * sf * 0.5;
+      const want = bMag * biasGate * 0.5;
       const scale = Math.min(ROUTE_MAX, want) / bMag;
       desiredPos.x += bx * scale;
       desiredPos.z += bz * scale;
@@ -5058,6 +5120,7 @@ function _mixed3dDriveSwoopyTour(t) {
   if (!sw.posActual) sw.posActual = desiredPos.clone();
   const dt = 1 / 60;
   sw.posActual.lerp(desiredPos, Math.min(1, dt * 6.0));
+  _mixed3dClampOutsideTowers(sw.posActual);
   cam.position.copy(sw.posActual);
   // LookAt: blend forward-tan gaze with perp-tan gaze based on scan
   // factor. At full scan, the camera looks 90° to the side at the
@@ -5544,6 +5607,7 @@ function _mixed3dResetCameraTimer() {
     _mixed3dState.swoopCam.arcAccum = null;
     _mixed3dState.swoopCam.scanTargetCell = null;
     _mixed3dState.swoopCam.scanTargetPos = null;
+    _mixed3dState.swoopCam.scanFadeUntil = null;
   }
 }
 
@@ -5699,7 +5763,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     // see the cache and complete the promotion. User 2026-05-22:
     // "i just want the rendered cells to be rendered before they're
     // on camera period."
-    const cachedSnap = S._snapTexCache?.get(id);
+    const cachedSnap = _mixed3dSnapCacheGet(S, id);
     if (!cachedSnap) {
       // Cache miss: don't promote. Stays tier-2 (visually the
       // decorative bed); snap-driver picks it up via the cache-miss
@@ -5725,7 +5789,14 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
       map: tex,
       transparent: true,
       opacity: 1.0,
-      side: T.FrontSide,
+      // DoubleSide so cells stay visible when the camera sees them
+      // through the opposite face of their tower (or through an
+      // adjacent transparent tower). Without this, back-facing tier-1
+      // cells were invisible and whole towers read as empty when
+      // viewed from behind. Texture appears horizontally mirrored on
+      // the reverse side, which is acceptable at ambient viewing
+      // distance through tinted glass.
+      side: T.DoubleSide,
       depthWrite: false,
     });
     S.tier1Count = (S.tier1Count || 0) + 1;
@@ -5764,7 +5835,7 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
   // from cached canvas. Without cache hit, fall through to the stub
   // (also has correct dimensions because _mixed3dPaintPromoteStub
   // matches canvas size from cellData/colspan/canvasH).
-  const cachedSnap = S._snapTexCache?.get(id);
+  const cachedSnap = _mixed3dSnapCacheGet(S, id);
   let tex;
   if (cachedSnap) {
     tex = new T.CanvasTexture(cachedSnap);
@@ -5783,7 +5854,9 @@ function _mixed3dPromoteInstanceToTier1(handle, id, cyan, pink) {
     map: tex,
     transparent: true,
     opacity: 1.0,
-    side: T.FrontSide,
+    // DoubleSide — see comment in _mixed3dSwapCellTier. Required for
+    // back-of-tower visibility through transparent glass.
+    side: T.DoubleSide,
     depthWrite: false,
   });
   const planeGeo = _mixed3dGetSharedPlaneGeo(handle.mountPlaneW, handle.mountPlaneH);
@@ -7880,6 +7953,24 @@ const _MIXED3D_SNAP_CACHE_CAP = 300;
 // can actually be GC'd — otherwise tex.image keeps it alive and the
 // cap is cosmetic. Cell stays in scene; the next snap-driver pass
 // re-renders it when back in tier-1 range.
+// Read a cached snap canvas AND bump its insertion order to the most
+// recent slot, giving the Map true access-LRU semantics. JS Map orders
+// keys by insertion; without this delete+set on read, mermaid cells
+// (rendered once, never re-snapped per the 8213 skip) sit at the
+// bottom of the insertion order and get evicted by newer cells even
+// while the user is actively looking at them. Symptom: tier-1 cells
+// the user sees with a title + decorative-text body instead of the
+// real mermaid graph — the cache evicted the snap, the cell rendered
+// from the stub, and the snap driver hasn't re-rendered yet.
+function _mixed3dSnapCacheGet(S, id) {
+  if (!S || !id || !S._snapTexCache) return undefined;
+  const canvas = S._snapTexCache.get(id);
+  if (canvas == null) return undefined;
+  S._snapTexCache.delete(id);
+  S._snapTexCache.set(id, canvas);
+  return canvas;
+}
+
 function _mixed3dSnapCacheSet(S, id, canvas) {
   if (!S || !id || !canvas) return;
   if (!S._snapTexCache) S._snapTexCache = new Map();
@@ -8575,8 +8666,67 @@ window._mixed3dParkAt = function(cellId, offset) {
   return { parked: cellId, at: { x: target.x.toFixed(2), y: target.y.toFixed(2), z: target.z.toFixed(2) }, planeH: +planeH.toFixed(2), offset: +parkOffset.toFixed(2) };
 };
 window._mixed3dUnpark = function() {
-  if (_mixed3dState) _mixed3dState._park = null;
-  _mixed3dResetCameraTimer();
+  const S = _mixed3dState;
+  if (!S) return "unparked";
+  S._park = null;
+  // Resume swoopy on the curve at the closest u to the camera's
+  // current position rather than rebooting from t=0. The driver's
+  // posActual lerp toward desiredPos smears the residual gap over ~10
+  // frames, so re-entry reads as a smooth lerp instead of a teleport.
+  const T = window.THREE;
+  const sw = S.swoopCam;
+  if (!T || !sw || !sw.curve || !isFinite(sw.totalLen) || sw.totalLen <= 0) {
+    // Curve not built yet (parked before tour ever ran) — fall back to
+    // the full reset so the next frame can boot the swoopy state.
+    _mixed3dResetCameraTimer();
+    return "unparked";
+  }
+  // Closest-u search: 256 uniform samples then 6 binary-refine passes
+  // for ~0.01% u precision. Cheap (one-shot per unpark).
+  const camP = S.camera.position;
+  let bestU = 0;
+  let bestD2 = Infinity;
+  const N = 256;
+  for (let i = 0; i < N; i++) {
+    const u = i / N;
+    const p = sw.curve.getPointAt(u);
+    const dx = p.x - camP.x, dy = p.y - camP.y, dz = p.z - camP.z;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 < bestD2) { bestD2 = d2; bestU = u; }
+  }
+  let lo = Math.max(0, bestU - 1 / N);
+  let hi = Math.min(1, bestU + 1 / N);
+  for (let k = 0; k < 6; k++) {
+    const mid = (lo + hi) / 2;
+    const pl = sw.curve.getPointAt(Math.max(0, mid - 1e-4));
+    const pr = sw.curve.getPointAt(Math.min(1, mid + 1e-4));
+    const dl2 = (pl.x - camP.x) ** 2 + (pl.y - camP.y) ** 2 + (pl.z - camP.z) ** 2;
+    const dr2 = (pr.x - camP.x) ** 2 + (pr.y - camP.y) ** 2 + (pr.z - camP.z) ** 2;
+    if (dl2 < dr2) hi = mid; else lo = mid;
+    bestU = (lo + hi) / 2;
+  }
+  // Skip the 10s boot ease-in — we're not booting, we're resuming. Set
+  // t0 so the next animation t lands at ~11s, past the t<10 gate.
+  S.animation.t0 = performance.now() - 11000;
+  const tNow = 11.0;
+  sw.arcAccum = bestU * sw.totalLen;
+  sw.lastT = tNow;
+  sw.lastAvgRate = 0;
+  sw.headingHistory = [];
+  sw.bankActual = 0;
+  sw.scanFactor = 0;
+  sw.scanSide = 0;
+  sw.scanNextStart = tNow + 6 + Math.random() * 4;
+  sw.scanTargetCell = null;
+  sw.scanTargetPos = null;
+  sw.scanFadeUntil = null;
+  // Seed posActual/lookAtActual at the current camera pose. Without
+  // these, the driver re-inits posActual = desiredPos.clone() and the
+  // camera teleports to the curve point on the next frame.
+  sw.posActual = S.camera.position.clone();
+  const fwd = new T.Vector3();
+  S.camera.getWorldDirection(fwd);
+  sw.lookAtActual = S.camera.position.clone().add(fwd.multiplyScalar(8));
   return "unparked";
 };
 
@@ -9036,7 +9186,7 @@ function _mixed3dDrainMountQueue() {
       // commit e317751 note in _mixed3dSwapCellTier: the placeholder-
       // canvas-then-reassign-image pattern caused Three.js to bind the
       // placeholder's smaller dimensions, clipping the body region.
-      const cachedSnap = S._snapTexCache?.get(cell.id);
+      const cachedSnap = _mixed3dSnapCacheGet(S, cell.id);
       let tex;
       if (cachedSnap) {
         tex = new T.CanvasTexture(cachedSnap);
@@ -9049,7 +9199,11 @@ function _mixed3dDrainMountQueue() {
         map: tex,
         transparent: true,
         opacity: 1.0,
-        side: T.FrontSide,
+        // DoubleSide so cells stay visible when the camera looks at
+        // them through the opposite tower face. Otherwise back-facing
+        // tier-1 cells are culled and the tower reads as empty from
+        // behind.
+        side: T.DoubleSide,
         depthWrite: false,
       });
       S.tier1Count = (S.tier1Count || 0) + 1;
