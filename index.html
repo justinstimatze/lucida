@@ -5106,17 +5106,49 @@ function _mixed3dDriveSwoopyTour(t) {
       biasGate = r * r * (3 - 2 * r);
     }
   }
-  if (sw.scanTargetPos && biasGate > 0) {
-    const bx = sw.scanTargetPos.x - desiredPos.x;
-    const bz = sw.scanTargetPos.z - desiredPos.z;
-    const bMag = Math.sqrt(bx * bx + bz * bz);
-    if (bMag > 0.01) {
-      const want = bMag * biasGate * 0.5;
-      const scale = Math.min(ROUTE_MAX, want) / bMag;
-      desiredPos.x += bx * scale;
-      desiredPos.z += bz * scale;
+  // Bias toward an ideal VIEWING POINT in front of the cell's face —
+  // not the cell position itself. The viewing point is the cell's
+  // world position offset along its face normal by the FOV-fit
+  // distance for its plane size plus a 50% reading margin. This:
+  //   (a) keeps the camera head-on instead of glancing the face
+  //       obliquely as the curve sweeps by;
+  //   (b) automatically lands the bias target OUTSIDE the tower,
+  //       so the route never wants to cross the wall;
+  //   (c) auto-scales by colspan — wide colspan-6 cells get framed
+  //       at ~3u rather than 1.5u.
+  if (sw.scanTargetCell && biasGate > 0) {
+    const tObj = S.cellObjects?.get(sw.scanTargetCell);
+    if (tObj && !tObj.isInstanceHandle) {
+      const pw = tObj.geometry?.parameters?.width || 1.0;
+      const ph = tObj.geometry?.parameters?.height || 1.0;
+      const aspect = (S.renderer?.domElement?.clientWidth || 16) / (S.renderer?.domElement?.clientHeight || 9);
+      const tanV = Math.tan((75 * Math.PI / 180) / 2);
+      const tanH = tanV * aspect;
+      const fitDist = Math.max(ph / (2 * tanV), pw / (2 * tanH)) * 1.5;
+      // Face normal: cell's local +Z, rotated into world space by
+      // its yaw-only rotation. Same construction used by park.
+      const n = new T.Vector3(0, 0, 1).applyEuler(tObj.rotation);
+      const viewX = tObj.position.x + n.x * fitDist;
+      const viewZ = tObj.position.z + n.z * fitDist;
+      const bx = viewX - desiredPos.x;
+      const bz = viewZ - desiredPos.z;
+      const bMag = Math.sqrt(bx * bx + bz * bz);
+      if (bMag > 0.01) {
+        const want = bMag * biasGate * 0.5;
+        const scale = Math.min(ROUTE_MAX, want) / bMag;
+        desiredPos.x += bx * scale;
+        desiredPos.z += bz * scale;
+      }
     }
   }
+  // Clamp the LERP TARGET first so the asymptote is always outside
+  // any tower bbox. Without this, posActual could lerp toward an
+  // interior desiredPos for several frames before the post-lerp
+  // clamp snapped it back out — read as a discontinuous jolt at the
+  // bbox edge. With the target clamped, the lerp asymptotically
+  // approaches an outside point, posActual stays outside, and the
+  // post-lerp clamp becomes a sanity net that rarely fires.
+  _mixed3dClampOutsideTowers(desiredPos);
   if (!sw.posActual) sw.posActual = desiredPos.clone();
   const dt = 1 / 60;
   sw.posActual.lerp(desiredPos, Math.min(1, dt * 6.0));
@@ -8643,11 +8675,17 @@ window._mixed3dParkAt = function(cellId, offset) {
   //    when planeH is large (user 2026-05-24, cell-4479).
   const planeW = obj.geometry?.parameters?.width || 1.0;
   const planeH = obj.geometry?.parameters?.height || 1.0;
-  // 75° vertical FOV → vertical half-extent at distance d is
-  // d * tan(37.5°) ≈ 0.767 * d. To fit a cell of height H with ~15%
-  // margin: d >= H * 0.75. Floor at 2.0u for small cells (they were
-  // fine before).
-  const parkOffset = offset || Math.max(2.0, Math.max(planeW, planeH) * 0.85);
+  // FOV-fit distance: vertical needs planeH / (2*tan(37.5°)) ≈
+  // planeH * 0.65; horizontal at the renderer's live aspect ratio
+  // needs planeW / (2*tan(hFov/2)). Take the max so neither axis
+  // overflows, then 20% margin. Floor at 2.0u for small cells.
+  // 0.85 multiplier underframed wide colspan-6 cells (user 2026-05-25
+  // "camera still getting super close to the face in unhelpful ways").
+  const aspect = (_mixed3dState.renderer?.domElement?.clientWidth || 16) / (_mixed3dState.renderer?.domElement?.clientHeight || 9);
+  const tanV = Math.tan((75 * Math.PI / 180) / 2);
+  const tanH = tanV * aspect;
+  const fitDist = Math.max(planeH / (2 * tanV), planeW / (2 * tanH)) * 1.2;
+  const parkOffset = offset || Math.max(2.0, fitDist);
   // The plane mesh's local +Z is the front face; rotate it by the
   // mesh's world rotation to get the camera-side normal in world space.
   const normal = new T.Vector3(0, 0, 1).applyEuler(obj.rotation);
