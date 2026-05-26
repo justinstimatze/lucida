@@ -3397,7 +3397,11 @@ function applyMixed3DLayout(opts) {
     const groundGeo = new T.BufferGeometry();
     groundGeo.setAttribute("position", new T.BufferAttribute(groundPos, 3));
     const groundMat = new T.PointsMaterial({
-      color: new T.Color("#b48aff"),
+      // User 2026-05-25: "bright fast pulses should all be the tower
+      // color, so cyan currently ... not purple on the floor".
+      // Was #b48aff lavender. #80f0ff is bright cyan that survives
+      // additive bloom and reads as the same family as the tower glass.
+      color: new T.Color("#80f0ff"),
       size: 0.32,
       transparent: true,
       opacity: 1.0,
@@ -3429,7 +3433,9 @@ function applyMixed3DLayout(opts) {
     const airGeo = new T.BufferGeometry();
     airGeo.setAttribute("position", new T.BufferAttribute(airPos, 3));
     const airMat = new T.PointsMaterial({
-      color: new T.Color("#ffffff"),
+      // Cyan air pulses (was white). White under additive bloom read
+      // as theme-neutral; #80f0ff stays in the tower-color family.
+      color: new T.Color("#80f0ff"),
       size: 0.28,
       transparent: true,
       opacity: 1.0,
@@ -5029,6 +5035,26 @@ function _mixed3dDriveSwoopyTour(t) {
   }
   desiredPos.x += perpX * scanSide * sf * SCAN_LATERAL;
   desiredPos.z += perpZ * scanSide * sf * SCAN_LATERAL;
+  // Route-through bias (task #194): during the scan window, pull
+  // desiredPos toward scanTargetPos's X/Z so the camera passes
+  // through (or close to) the cell rather than just lookAt-ing it
+  // from the corridor lane. Y stays on the curve so we don't dive
+  // into the floor. Bias scaled by sf (so the camera coasts in
+  // smoothly during ramp-in) and capped at ROUTE_MAX so we can't
+  // cross into adjacent tower bboxes (corridor half-width is ~3.5u
+  // tower-to-tower; 2.0u keeps a 1.5u safety margin).
+  const ROUTE_MAX = 2.0;
+  if (sw.scanTargetPos && sf > 0) {
+    const bx = sw.scanTargetPos.x - desiredPos.x;
+    const bz = sw.scanTargetPos.z - desiredPos.z;
+    const bMag = Math.sqrt(bx * bx + bz * bz);
+    if (bMag > 0.01) {
+      const want = bMag * sf * 0.5;
+      const scale = Math.min(ROUTE_MAX, want) / bMag;
+      desiredPos.x += bx * scale;
+      desiredPos.z += bz * scale;
+    }
+  }
   if (!sw.posActual) sw.posActual = desiredPos.clone();
   const dt = 1 / 60;
   sw.posActual.lerp(desiredPos, Math.min(1, dt * 6.0));
@@ -6911,7 +6937,15 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
   if (items.length <= 3) {
     const pad = 12;
     const usableH = h - pad * 2;
-    const rowH = Math.floor(usableH / items.length);
+    // Cap rowH so small-n treemaps don't sprawl to full canvas height
+    // (user 2026-05-25 on cell-5972 "way too spaced out, needs to be
+    // compressed"). 110px keeps big number ~60px + label ~16px + 30px
+    // padding per row. Three rows × 110px = 330px content; the rest
+    // anchors top + leaves clean trailing space rather than stretched
+    // 160px rows. Even-spread still wins for narrow n=1/n=2 cases.
+    const MAX_ROW_H = 110;
+    const evenRowH = Math.floor(usableH / items.length);
+    const rowH = Math.min(evenRowH, MAX_ROW_H);
     // Cyan family at varying alpha — was [cyan, purple, cyan-white].
     // Decorative discipline: one hue, alpha hierarchy.
     const colors = ["rgba(0,221,255,1)", "rgba(0,221,255,0.75)", "rgba(0,221,255,0.55)"];
@@ -7048,7 +7082,13 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
   // as a "scaffold awaiting more events" — fits the Gibson terminal
   // aesthetic. Even-spread still wins when stage count exceeds what
   // MAX_STEP_Y can pack.
-  const MAX_STEP_Y = 180;
+  // Tightened 2026-05-25 from 180 → 100: timelines still read too
+  // spaced-out at 180, especially in tier-1 mixed3d cells where
+  // adjacent substrates pack tighter content. 100 keeps labels +
+  // detail readable (label 16px / detail 10.4px / dotR 8 = ~42px
+  // content per row, ~58px headroom) while halving the vertical
+  // footprint of sparse-stage timelines.
+  const MAX_STEP_Y = 100;
   const evenSpreadStepY = (h - padTop - padBot) / (n - 1 || 1);
   const stepY = Math.min(evenSpreadStepY, MAX_STEP_Y);
   const lineW = 3;
@@ -7060,18 +7100,22 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
   const labelX = axisX + haloR + 12;
   const availW = w - labelX - 12;
   // Vertical axis line — cyan dim (was purple). 2026-05-24 sweep.
+  // Alpha lifted 0.35 → 0.6 (user 2026-05-25: "timelines and html are
+  // surprisingly dim in comparison to other things in the render").
+  // Whole supporting-chrome layer of the timeline was too retreating
+  // against the high-density tier-2 decorative bed.
   ctx.strokeStyle = "#00ddff";
-  ctx.globalAlpha = 0.35;
+  ctx.globalAlpha = 0.6;
   ctx.lineWidth = lineW;
   ctx.beginPath();
   ctx.moveTo(axisX, padTop);
   ctx.lineTo(axisX, h - padBot);
   ctx.stroke();
   ctx.globalAlpha = 1;
-  // Axis label across the top — cyan dim (was purple).
+  // Axis label across the top — cyan, brightened (was 0.6).
   if (axisLabel) {
     ctx.fillStyle = "#00ddff";
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = 0.85;
     ctx.font = "bold 13px 'Eurostile', 'Share Tech Mono', monospace";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
@@ -7122,12 +7166,17 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
     // Cyan family with alpha hierarchy (was cyan + purple). 2026-05-24
     // substrate sweep. Active = bright cyan; done = dim cyan; pending /
     // skipped = ghost cyan; failed keeps red (failure signal).
+    // Alphas lifted 2026-05-25: 0.7→0.9, 0.3→0.6, 0.4→0.65, 0.5→0.75.
+    // The hierarchy preserved (each state still readably distinct from
+    // its neighbors) but the dim floor is way up. Per-pixel intensity
+    // now competes with the tier-2 decorative bed instead of getting
+    // visually steamrolled by it.
     const baseColor = isActive ? "#00ddff"
                     : isFailed ? "#f87171"
-                    : isDone ? "rgba(0,221,255,0.7)"
-                    : isSkipped ? "rgba(0,221,255,0.3)"
-                    : isPending ? "rgba(0,221,255,0.4)"
-                    : "rgba(0,221,255,0.5)";
+                    : isDone ? "rgba(0,221,255,0.9)"
+                    : isSkipped ? "rgba(0,221,255,0.6)"
+                    : isPending ? "rgba(0,221,255,0.65)"
+                    : "rgba(0,221,255,0.75)";
     // Active halo.
     if (isActive) {
       ctx.strokeStyle = "#00ddff";
@@ -7712,6 +7761,31 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     };
     // Drop the table header row — column labels are chrome, not content.
     const dataRows = (layout === "table" && rows.length > 1) ? rows.slice(1) : rows;
+    // Pre-measure pass: compute total content height by simulating wrap()
+    // per row so we can vertically center short content in the cell
+    // instead of leaving a fat strip of empty pixels at the bottom.
+    // User 2026-05-25 on cell-4120 (callouts): "should be more
+    // vertically centered so there isn't a bunch of whitespace at the
+    // bottom". Single extra pass over rows; wrap() runs on the same
+    // font/ctx as the paint pass so the simulation is exact.
+    let totalRowsH = 0;
+    for (let ri = 0; ri < dataRows.length; ri++) {
+      const r = dataRows[ri] || [];
+      let n;
+      if (isTwoCol) {
+        const ll = wrap(ucase(r[0]), leftColMaxW, 3).length;
+        const rl = wrap(ucase(r[1]), rightColMaxW, 3).length;
+        n = Math.max(ll, rl, 1);
+      } else {
+        const txt = r.filter(Boolean).map(ucase).join("  ");
+        n = Math.max(wrap(txt, rightColMaxW, 3).length, 1);
+      }
+      totalRowsH += n * rowH;
+    }
+    const availH = yMax - pad;
+    if (totalRowsH < availH) {
+      cy = pad + Math.floor((availH - totalRowsH) / 2);
+    }
     for (let ri = 0; ri < dataRows.length; ri++) {
       if (cy + fontSize > yMax) break;
       const r = dataRows[ri] || [];
@@ -9595,9 +9669,15 @@ function _mixed3dColspanForCell(cell) {
   ]);
   if (ct === "mermaid") {
     const sub = cell.dataset.mermaidSubtype || "";
+    // Flowcharts + their wide cousins (gitGraph, gantt, sankey, ER)
+    // take the full 6-col face. User 2026-05-25 on cell-6080: "this
+    // should be a full 6 colspan diagram" — flowcharts with non-
+    // trivial branching are illegible at colspan=3 (was the prior
+    // setting). Trade-off: colspan=6 means one diagram occupies the
+    // whole tower-face row, no neighbors pack alongside.
     if (sub === "flowchart" || sub === "gitGraph" || sub === "gantt"
         || sub === "sankey-beta" || sub === "erDiagram") {
-      return 3;
+      return 6;
     }
     if (sub === "timeline" || sub === "quadrantChart" || sub === "mindmap") {
       return 3;
