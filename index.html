@@ -7739,7 +7739,7 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
 // Cache version for animated_svg self-cache. Bump when theme substitution
 // rules change OR the body-canvas layout logic shifts. Independent of
 // STYLE_V (mermaid) since the substrate paint pipelines differ.
-const _ANIMATED_SVG_CACHE_V = "v5";
+const _ANIMATED_SVG_CACHE_V = "v6";
 
 function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (!spec || typeof spec !== "string" || !spec.includes("<svg")) {
@@ -7819,20 +7819,38 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
   //     3-digit shortform — catches arbitrary dark grays/blues/blacks
   // Foreground panels with smaller dimensions are untouched because
   // the lookaheads require width AND height to match the SVG viewport.
+  const darkHex = "#[0-3][0-9a-f][0-3][0-9a-f][0-3][0-9a-f]";
+  const darkShort = "#[0-3][0-3][0-3]";
+  const darkFills = `(?:${darkHex}|${darkShort})`;
   const svgRootMatch = themed.match(/<svg\b[^>]*\bwidth="([^"]+)"\s+height="([^"]+)"/);
   if (svgRootMatch) {
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const w = escapeRe(svgRootMatch[1]);
     const h = escapeRe(svgRootMatch[2]);
-    const darkHex = "#[0-3][0-9a-f][0-3][0-9a-f][0-3][0-9a-f]";
-    const darkShort = "#[0-3][0-3][0-3]";
-    const darkFills = `(?:${darkHex}|${darkShort})`;
     const fullCanvasRectRe = new RegExp(
       `<rect\\b(?=[^>]*\\bwidth="${w}")(?=[^>]*\\bheight="${h}")(?=[^>]*\\bfill="${darkFills}")[^>]*\\/?>`,
       "i",
     );
     themed = themed.replace(fullCanvasRectRe, "");
   }
+  // Strip background-color declarations from the SVG root style attribute.
+  // Hit by cell-5829: <svg ... style="background:#0a0e14"> — not a rect
+  // child, so the prior rect-strip missed it. SVG-as-Image renders the
+  // style:background as a full-viewport fill, same grey-block effect.
+  // Surgically removes "background[-color]:..." from the style attribute,
+  // leaving other style properties intact.
+  themed = themed.replace(
+    /(<svg\b[^>]*\bstyle=")([^"]*)(")/i,
+    (_m, pre, style, post) => {
+      // Remove background and background-color properties; keep semicolons clean.
+      const cleaned = style
+        .replace(/\bbackground(-color)?\s*:[^;]*;?/gi, "")
+        .replace(/;\s*;/g, ";")
+        .replace(/^\s*;\s*|\s*;\s*$/g, "")
+        .trim();
+      return pre + cleaned + post;
+    },
+  );
   // Strict-parse defense: SVG-as-Image fails silently (white square)
   // when the root <svg> uses xlink:href but doesn't declare the xlink
   // namespace. Inject it if missing. User 2026-05-24 cell-4049: blank
