@@ -1,108 +1,71 @@
-# Session handoff — 2026-05-24 evening
+# Session handoff — 2026-05-25 → 2026-05-26
 
-Long stretch covering attribution + cringe scrub + cells.json data-loss
-incident + multiple mixed3d perf attempts. Quality of work degraded in the
-last hour; capturing state cleanly so a fresh session can pick up.
+8 commits stacked + pushed to `origin/main`. Focus: camera smoothness diagnostics, viewing-point bias rewrites, substrate-mix rebalance, wide-cell text consistency, helix-Y camera path.
 
-## What landed (committed; some pushed)
+## What landed (pushed to `origin/main`)
 
-1. **Cringe history scrub** (`1ac8cea`, pushed) — git filter-repo, 2
-   substrings replaced. Branch protection toggled + restored. Backup
-   mirror at `~/Documents/lucida-git-backup-20260524-150449.git/`.
-2. **start.sh uses .venv python** (`82617c4`, pushed).
-3. **cells.json max-cells default flip** (`ee5cf9b`, pushed) — `"200"` →
-   `"all"`. The 200-default silently destroyed 2400 cells on first
-   watcher restart today; recovered from tarball.
-4. **R1–R5 cells.json robustness** (`320096f`) — `.bak` rotation +
-   parse-validate + recovery on JSONDecodeError + sysmetric
-   `LUCIDA_SYSMETRIC` gate + start.sh supervisor restart. Tests cover
-   R1/R4.
-5. **mixed3d streaks restore + pitch clamp + altitude bias** (`6740e83`)
-   — clamp pitch to ±18° (later tightened), bias camera altitude toward
-   scan target.
-6. **Slot consumption sorts by camera-altitude bins** (`4ceb2f9`) —
-   real cells fill bottom-up to CAM_Y first, spread upward.
-7. **Hide-until-rAF on cell mount** (`0f4d83f`) — kills the white-flash
-   on tier-1 cells between scene.add() and first GL upload.
-8. **Hackers gauge → horizontal bar in canvas renderer** (`a8b37b7`) —
-   task #176 follow-up.
-9. **Cap mixed3d visible cells at 300** (`7dba1fb`) — `?mixed3dCap=N`
-   override. Caps sync, doesn't fix unique-Mesh count problem.
+| Commit | Subject |
+|---|---|
+| `1722d68` | Tier-1 cell visibility + camera resume + scan smoothness + access-LRU |
+| `ba0be74` | Scan bias targets viewing-point, FOV-aware park, smoother re-entry |
+| `0d64007` | Animated_svg renderer centers content in body region |
+| `3481f65` | Drop scan-fade-tail — it introduced the jolt it was meant to fix |
+| `ab1f05f` | reset_camera_timer uses closest-u resume (same as unpark) |
+| `9342356` | Substrate rebalance: cull tool + live quota guard |
+| `631c2e8` | Vary swoopy curve Y across waypoints (helix-ish 3D path) |
+| `38d0fe7` | Wide tier-2 cells skip InstancedMesh, get colspan-sized texture |
 
-Reverted (kept as no-op pairs in history):
-- `77cf1eb` demote→InstancedMesh conversion — architecture correct,
-  churn killed FPS (41→9). Filed as task #195.
-- `0adde0c` widen tier-2 hysteresis 26²→40² — made things worse,
-  reverted.
+Bundled by theme:
 
-## Perf situation (TL;DR: probably not as broken as I thought)
+- **Tier-1 visibility**: DoubleSide materials at all three tier-1 mount/swap sites — back-facing cells were invisible through opposite tower faces.
+- **Camera continuity**: `_mixed3dUnpark` and `_mixed3dResetCameraTimer` find closest-u on the curve to the current camera position and resume there, seeding `posActual` / `lookAtActual` from the current pose. Eliminates t=0 teleport jolts.
+- **Scan smoothness**: Scan-target bias now points at `cell.position + faceNormal * fitDist` (head-on viewing point), not the cell position itself (oblique glance / tower-clip). Removed the scan-fade-tail (it was creating the very jolt it was meant to fix). New `_mixed3dClampOutsideTowers` helper applied to both `desiredPos` (pre-lerp) and `posActual` (post-lerp) so the smoothed path never crosses a tower interior.
+- **Helix Y path**: Curve waypoints now span Y 4.5 → 14 instead of all at 4.5. Tier-1 LOD is distance-based, so the camera passing through every Y band evens out tier-1 distribution across the tower face. Removed the `desiredPos.y = 4.5 + sin(...)` override that was flattening the helix.
+- **Wide-cell text sizing**: `cs>=2` tier-2 cells skip the InstancedMesh stretch path and use `_mixed3dCellTextureMini` with canvas W scaled by colspan. cell-5027 etc. no longer have giant labels.
+- **Snap cache LRU**: New `_mixed3dSnapCacheGet` bumps insertion order on read — fixes mermaid cells drifting to eviction edge while still displayed.
+- **Substrate rebalance**: `tools/rebalance_cull.py` dropped cells.json 2981 → 2110 (backup at `cells.json.bak-pre-rebalance-cull`). Live quota guard in `classifier.py` + `orchestrator.py` appends an "OVER/UNDER target" block to the classifier user message so new mints converge toward parity instead of re-skewing.
 
-- Final long-task observer over 8s: **0 long tasks** (no >50ms blocking)
-- Steady-state median frame time: **23.2 ms (43 fps)**
-- p90: 34 ms · p99: 51 ms — outlier spikes exist but aren't catastrophic
-- The 8.8 fps and 9.1 fps point samples I took were OUTLIER MOMENTS,
-  probably during snap driver bursts or warmup. Fresh session should
-  re-measure with the longtask observer + per-frame log BEFORE assuming
-  perf is broken.
+## Memories written
 
-## Open issues (left unfinished)
+- `demo_video_encoding_pipeline.md` — never minterpolate screencasts (ghosts UI text), never CFR-cram VFR source (amplifies stutter). Default `-fps_mode passthrough`; RIFE if real interpolation needed; OBS/wf-recorder for new captures.
 
-- **#191 Real content cells skip CSS3DObject mount** — partially
-  understood: tier-1 cells render as Mesh+CanvasTexture, cssScene is
-  empty. cssScene infra exists but isn't being used. May be intentional
-  after a refactor — check before "fixing."
-- **#192 cell-3356 font on tier-1 html callouts** — should match
-  decorative-text aesthetic more closely. Not yet addressed.
-- **#193 R1–R5** — done (in `320096f`).
-- **#194 Swoopy path through tier-1 positions** — user pref: "place
-  cells along the path just ahead of where the camera sees them, then
-  small nudges." Slot-altitude bias (`4ceb2f9`) partly addresses this.
-  Path-aware tower picker exists at index.html:9390+
-  (`pathDistByTower`).
-- **#195 Demote→InstancedMesh conversion (proper)** — `77cf1eb` showed
-  the architecture works (1102 cells instanced, 854→385 draw calls)
-  but naive impl churned. Needs: DEMOTE_BUDGET cap, batched
-  instanceMatrix.needsUpdate flush, wider promote/demote hysteresis.
+## Live state
 
-## Watcher / dashboard live state
+- `cells.json`: 2110 cells. Backup at `cells.json.bak-pre-rebalance-cull`.
+- Substrate distribution: mermaid 24%, html 20%, timeline_ribbon 14%, animated_svg 9%, treemap 7%, vega 6.3%, gauge 5.9%, scene3d 5.3%, force_graph 4.2%, sparkline/text/trajectory under 3%.
+- `STYLE_V` unchanged.
+- Demo videos in `~/Videos/`: `lucida-demo-v2.mp4` (60fps minterpolated — REJECTED), `lucida-demo-v2-30fps.mp4` (30fps CFR), `lucida-demo-v2-vfr.mp4` (VFR passthrough — best current).
 
-- `serve.py` + `watcher.py` running via `scripts/start.sh`
-  (PIDs change across restarts; check
-  `procs --no-header python | rg lucida`).
-- `cells.json` has 2599+ cells (restored from tarball).
-- Tab open at `http://localhost:8766/?theme=hackers&layout=mixed3d`.
-- User has NOT recorded the demo yet — that was the original goal.
+## Next-session priorities, user-ordered: 4 → 5 → 3 → 2
 
-## Suggested next moves
+### 4. Empty animated_svg investigation
 
-1. **Re-measure perf on a fresh page load** — use longtask observer +
-   180-frame median + p90/p99. Don't trust single-point samples.
-2. If perf actually broken: profile via chrome DevTools Performance
-   panel, not Performance API — get an actual flame chart.
-3. If perf is acceptable: address #192 font + record the demo.
-4. #195 is the real architectural win but it's a 2-3hr careful job,
-   not 30min.
+Some recent cells (cell-6320 etc) minted with empty bodies. Likely the animated_svg renderer at `index.html:7558` returning null on certain spec shapes (xlink: handling, malformed SVG root, etc). The null-return path caches a stub forever per the redundant-retry guard at `index.html:8270+`. Need to:
 
-## Untracked files (should NOT be staged)
+- Instrument the renderer to log which specs return null and why.
+- Either fix the specs (specialist regen) or fix the renderer to handle the case.
+- Consider distinguishing stub-cache from real-cache so failed specs can re-attempt with backoff.
 
-- `cells.json.lock` — fcntl sidecar, gitignored.
-- `cells.json.truncated-200-1779663817` — backup of the corrupted state
-  from earlier; can delete once confident.
-- `refs/vigil/00_*.png` — IM2 helmet HUD frames extracted earlier;
-  separate concern from the perf work.
+### 5. Tier-1 demote → InstancedMesh batch (task #195)
 
-## Memories saved this session
+Tier-1 cells currently stay as per-cell meshes even after LOD demotes them — they should fold back into the InstancedMesh path. Perf win when the camera moves past large clusters of tier-1 cells.
 
-- `feedback_no_verbatim_user_quotes` — don't pin chat quotes in code
-  comments.
-- `feedback_branch_protection_toggle` — own-repo toggle is fine under
-  auth.
+### 3. Push the next session's work
 
-## Anti-patterns I fell into
+Just keep stacking + pushing as you go.
 
-- Took point-fps samples and called them "steady state" — should always
-  use median + p90 over 100+ frames.
-- Dismissed user-flagged issues (white-tiles, font, 86 tier-1) as
-  acceptable when user clearly said they weren't. User had to push back.
-- Bulk-reverted between two perf hypotheses without first profiling to
-  know which actually mattered.
+### 2. Re-record the demo video
+
+Tonight's polish (helix Y, viewing-point bias, consistent text sizes, substrate balance) materially changes how the dashboard reads. Use OBS or wf-recorder (CFR-native) — GNOME's built-in screencast is VFR and the encoding pipeline can't compensate cleanly (see memory `demo_video_encoding_pipeline`).
+
+## Other open follow-ups
+
+- `cell-6339` flagged unconditional 1.5MB canvas allocation in snap driver — possible memory accumulation; probe next session.
+- `tier1_slot_hide_investigation` memory still open — tier-1 cells may not fully replace tier-2 decoratives at their slot.
+- Task #138 tier-2 blur fix — referenced earlier; deferred.
+
+## Hot reload checklist
+
+- `?theme=hackers&layout=mixed3d&nocache=1` for full pipeline with snap driver.
+- `?theme=hackers&layout=mixed3d&nocache=1&nowarmup=1` for fast iteration (skips ~1 min pre-render but disables snap driver — no real content on tier-1).
+- Ctrl+Shift+R via Chrome MCP works (verified, memory `feedback_chrome_mcp_hard_reload`).
