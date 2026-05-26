@@ -5814,70 +5814,6 @@ function _mixed3dPickTierForPos(meshPos, camPos, currentTier) {
 // Demote: dispose unique mat+tex. Promote: paint a fresh CanvasTexture
 // + new material; the old shared material is left alone (other cells
 // still reference it).
-// Fold a tier-1 Mesh back into the tier-2 InstancedMesh batch.
-// Reverses _mixed3dPromoteInstanceToTier1 — recovers mount params from
-// the Mesh's current position/rotation/geometry, allocates a slot in
-// the appropriate (substrate, variant) bucket, disposes the unique
-// material+texture, removes the Mesh from the scene, and replaces the
-// cellObjects entry with an instance handle. Returns true on success.
-// Falls through to the legacy "Mesh on shared material" path when:
-//   - wide cell (cs >= 2): InstancedMesh path stretches a single base
-//     texture across all instances, sizing text by per-instance scale,
-//     which makes wide-cell labels render Nx too big. Mount path
-//     already excludes these (index.html:9286); demote must too.
-//   - missing cellEl or shared mat not yet built (chunked drainer)
-//   - bucket overflow at _MIXED3D_INST_CAPACITY
-function _mixed3dDemoteTier1MeshToInstance(obj, id) {
-  const S = _mixed3dState;
-  if (!S) return false;
-  const cs = obj.userData?.colspan || 1;
-  if (cs > 1) return false;
-  const cell = obj.userData?.cellEl;
-  if (!cell) return false;
-  const matInfo = _mixed3dPickSharedMatVariantIdx(S, cell);
-  if (!matInfo) return false;
-  const inst = _mixed3dGetTier2InstMesh(S, matInfo.mat, matInfo.substrate, matInfo.variantIdx);
-  // Recover mount params from the live Mesh — promote didn't stash
-  // them as named fields, but position/rotation/geometry carry the
-  // same data and stay accurate across any reposition.
-  const geo = obj.geometry;
-  const planeW = geo?.parameters?.width;
-  const planeH = geo?.parameters?.height;
-  if (planeW == null || planeH == null) return false;
-  const idx = _mixed3dAddTier2Instance(
-    S, inst, id,
-    obj.position.x, obj.position.y, obj.position.z,
-    obj.rotation.x, obj.rotation.y,
-    planeW, planeH,
-  );
-  if (idx < 0) return false;
-  // Dispose tier-1 unique resources before we lose the Mesh reference.
-  if (obj.material?.map) obj.material.map.dispose();
-  if (obj.material) obj.material.dispose();
-  S.scene.remove(obj);
-  const isTopFromRot = Math.abs(obj.rotation.x + Math.PI / 2) < 0.01;
-  const handle = {
-    isInstanceHandle: true,
-    userData: {
-      tier: 2,
-      cellEl: cell,
-      colspan: cs,
-      canvasW: obj.userData?.canvasW,
-      canvasH: obj.userData?.canvasH,
-    },
-    meshKey: inst.key,
-    idx,
-    mountTx: obj.position.x, mountTy: obj.position.y, mountTz: obj.position.z,
-    mountRotX: obj.rotation.x, mountRotY: obj.rotation.y,
-    mountPlaneW: planeW, mountPlaneH: planeH,
-    mountIsTop: isTopFromRot,
-  };
-  S.cellObjects.set(id, handle);
-  S.cellTier.set(id, 2);
-  S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
-  return true;
-}
-
 function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
   const S = _mixed3dState;
   if (!S) return;
@@ -5888,15 +5824,6 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
   if (oldTier === newTier) return;
   const substrate = cell.dataset.cellType || "html";
   const isTop = Math.abs(obj.rotation.x + Math.PI / 2) < 0.01;
-
-  // For 1→2 demotion: try to fold back into the InstancedMesh batch
-  // before falling through to the legacy "shared mat on a Mesh" path.
-  // Helper handles its own dispose + scene removal + cellObjects swap
-  // on success. Returns false on wide cells, missing shared-mat, or
-  // bucket overflow — in which case we continue to the legacy path.
-  if (oldTier === 1 && newTier === 2) {
-    if (_mixed3dDemoteTier1MeshToInstance(obj, id)) return;
-  }
 
   // Tier 1 holds unique materials, tier 2 holds shared ones. Only
   // dispose when we're moving away from a UNIQUE material (i.e.
