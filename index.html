@@ -5910,7 +5910,10 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     // decorative text". cs=1 cells still pick a shared variant.
     const cs = obj.userData?.colspan || 1;
     if (cs > 1) {
-      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs);
+      // Pass plane dims so the mini canvas matches plane aspect.
+      const pW = obj.geometry?.parameters?.width;
+      const pH = obj.geometry?.parameters?.height;
+      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs, pW, pH);
       obj.material = new T.MeshBasicMaterial({
         map: tex,
         transparent: true,
@@ -6347,18 +6350,29 @@ function _mixed3dRemoveTier2Instance(S, handle) {
 // lets us run tier-2 in the opaque pass — depth-tested, no sort,
 // huge per-frame savings. The glass-tower-behind look is preserved
 // because the tinted bg already approximates that.
-function _mixed3dCellTextureMini(cell, isTop, cyan, pink, colspan) {
+function _mixed3dCellTextureMini(cell, isTop, cyan, pink, colspan, planeW, planeH) {
   const T = window.THREE;
-  // Side cells: 48×144 baseline (cs=1 plane is 0.81×2.78). For wider
-  // cells (cs>=2), the canvas width scales with colspan so text drawn
-  // here renders at consistent screen-pixel size when the wider plane
-  // is presented to the camera. Without this, the InstancedMesh path
-  // stretches a fixed-size texture across wide planes, making text
-  // ~Nx larger on cs=N cells — read as "inconsistently big" text
-  // relative to cs=1 neighbors (user 2026-05-26 cell-5027 case).
+  // Side cells: canvas sized to match the cell's plane aspect at ~80
+  // canvas-px per plane-unit. Was 48*cs × 144 (fixed 2:1 aspect)
+  // regardless of plane shape, which stretched decorative text
+  // vertically on near-square planes (e.g. cs=6 with 3.7×3.7 plane:
+  // 288×144 canvas mapped to square plane → 2x vertical stretch,
+  // text glyphs read as thin vertical bars at distance — user
+  // 2026-05-26 cell-5451 case). When planeW/planeH not provided,
+  // falls back to the old fixed dims.
   const cs = Math.max(1, colspan || 1);
-  const W = isTop ? 96 : 48 * cs;
-  const H = isTop ? 96 : 144;
+  let W, H;
+  if (isTop) {
+    W = 96; H = 96;
+  } else if (planeW && planeH) {
+    // ~80 canvas-px per plane-unit. Clamp dims to keep memory reasonable.
+    const PX_PER_U = 80;
+    W = Math.max(48, Math.min(576, Math.round(planeW * PX_PER_U)));
+    H = Math.max(96, Math.min(576, Math.round(planeH * PX_PER_U)));
+  } else {
+    W = 48 * cs;
+    H = 144;
+  }
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -9432,8 +9446,9 @@ function _mixed3dDrainMountQueue() {
       S.tier1Count = (S.tier1Count || 0) + 1;
     } else {
       // Tier-2 fallback Mesh: shared mat not ready yet OR instance
-      // bucket overflow. Per-cell unique CanvasTexture.
-      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs);
+      // bucket overflow. Per-cell unique CanvasTexture sized to plane
+      // aspect (no vertical-stretch on square-ish planes).
+      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs, planeW, planeH);
       mat = new T.MeshBasicMaterial({
         map: tex, transparent: true, opacity: 1.0,
         side: T.DoubleSide, depthWrite: false,
