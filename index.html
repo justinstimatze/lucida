@@ -6685,13 +6685,23 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
       // leftover space splits above/below the diagram instead of all
       // sitting below it. User 2026-05-21: "lot of whitespace below
       // the diagram although I think the width is good overall".
+      //
+      // MAX_GRAPH_DIM caps the rasterized graph dimensions so wide
+      // cells (cs>=4) don't blow up text size. Mermaid SVG renders at
+      // a natural ~600-800px width with 12px text; if we let the
+      // graph fill a 1152-wide canvas (cs=6), text scales ~1.9x and
+      // reads ~4-5x larger on screen than cs=1 cell text after plane
+      // projection. The 720px cap keeps wide-cell text within ~1.2x
+      // of natural scale, centered with padding. User 2026-05-26
+      // cell-5323 case. cs=1 cells (canvas 192) are unaffected.
+      const MAX_GRAPH_DIM = 720;
       let graphW, graphH;
       if (aspectImg > w / h) {
-        graphW = w;
-        graphH = w / aspectImg;
+        graphW = Math.min(w, MAX_GRAPH_DIM);
+        graphH = graphW / aspectImg;
       } else {
-        graphH = h * 0.95;
-        graphW = h * 0.95 * aspectImg;
+        graphH = Math.min(h * 0.95, MAX_GRAPH_DIM);
+        graphW = graphH * aspectImg;
       }
       const dx = (w - graphW) / 2;
       const dy = (h - graphH) / 2;
