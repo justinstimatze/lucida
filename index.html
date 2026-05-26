@@ -7553,7 +7553,7 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
 // Cache version for animated_svg self-cache. Bump when theme substitution
 // rules change OR the body-canvas layout logic shifts. Independent of
 // STYLE_V (mermaid) since the substrate paint pipelines differ.
-const _ANIMATED_SVG_CACHE_V = "v1";
+const _ANIMATED_SVG_CACHE_V = "v2";
 
 function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
   if (!spec || typeof spec !== "string" || !spec.includes("<svg")) return Promise.resolve(null);
@@ -7619,14 +7619,28 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext("2d");
-      // Top-anchored width-fill — captions removed across all substrate
-      // renderers 2026-05-21 per Gibson aesthetic (terse labels only,
-      // no explanatory prose). SVG fills as much of the body as its
-      // aspect allows.
+      // Aspect-preserving contain-fit centered in the body region.
+      // Top-anchored width-fill (the previous behavior) made wide
+      // animated SVGs (420×160 is a common spec shape) look like a
+      // small floating panel at the top of a tall cell with huge
+      // empty space below — read as "weird filled background"
+      // (user 2026-05-25, cell-4937). Centering at least balances
+      // the empty regions vertically; a future task can fill them
+      // with decorative tokens.
       const aspectImg = img.naturalWidth / img.naturalHeight;
-      const dw = w;
-      const dh = Math.min(h * 0.95, w / aspectImg);
-      ctx.drawImage(img, 0, 0, dw, dh);
+      const availH = h * 0.95;
+      const containerAspect = w / availH;
+      let dw, dh;
+      if (aspectImg > containerAspect) {
+        dw = w;
+        dh = w / aspectImg;
+      } else {
+        dh = availH;
+        dw = dh * aspectImg;
+      }
+      const dx = (w - dw) / 2;
+      const dy = (h - dh) / 2;
+      ctx.drawImage(img, dx, dy, dw, dh);
       URL.revokeObjectURL(img.src);
       resolve(canvas);
       // Fire-and-forget cache write — deferred via requestIdleCallback
