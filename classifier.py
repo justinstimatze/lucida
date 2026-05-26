@@ -327,8 +327,65 @@ class ClassifierResult:
     html_layout: str = "n/a"
 
 
-def classify(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> ClassifierResult:
-    """Classify a snippet via Claude. Raises ClassifierError on failure."""
+SUBSTRATE_TARGET_SHARE = {
+    "mermaid": 0.18,
+    "html": 0.18,
+    "timeline_ribbon": 0.13,
+    "animated_svg": 0.11,
+    "treemap": 0.07,
+    "vega": 0.07,
+    "gauge": 0.06,
+    "scene3d": 0.06,
+    "force_graph": 0.06,
+    "sparkline": 0.04,
+    "trajectory": 0.02,
+    "text": 0.02,
+}
+
+
+def _build_quota_text(quota_state: dict) -> str:
+    """Format a substrate-share status block for the user message.
+
+    `quota_state` is a dict mapping substrate name → current count. The
+    block surfaces which substrates are currently OVER target (avoid)
+    and which are UNDER (prefer). The classifier already has a static
+    "bias against dominant defaults" rule (line 117 of SYSTEM_PROMPT);
+    this gives it live numbers so the rule has real teeth.
+    """
+    total = sum(quota_state.values()) or 1
+    over: list[str] = []
+    under: list[str] = []
+    for sub, target in SUBSTRATE_TARGET_SHARE.items():
+        share = quota_state.get(sub, 0) / total
+        if share > target * 1.2:
+            over.append(f"{sub} ({share * 100:.0f}% vs {target * 100:.0f}% target)")
+        elif share < target * 0.8:
+            under.append(f"{sub} ({share * 100:.0f}% vs {target * 100:.0f}% target)")
+    lines = ["Substrate share check (live tally vs target distribution):"]
+    if over:
+        lines.append(
+            "  OVER target — avoid unless the snippet strongly demands: " + ", ".join(over)
+        )
+    if under:
+        lines.append("  UNDER target — prefer when the snippet plausibly fits: " + ", ".join(under))
+    if not over and not under:
+        lines.append("  All substrates within ±20% of target — proceed normally.")
+    return "\n".join(lines)
+
+
+def classify(
+    snippet: str,
+    context: str = "",
+    model: str = DEFAULT_MODEL,
+    quota_state: dict | None = None,
+) -> ClassifierResult:
+    """Classify a snippet via Claude. Raises ClassifierError on failure.
+
+    Optional `quota_state`: dict of substrate name → current count in
+    cells.json. When provided, a live distribution-vs-target check is
+    appended to the user message so the classifier can bias against
+    over-represented substrates and toward under-represented ones.
+    """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise ClassifierError("ANTHROPIC_API_KEY not set in env or .env")
@@ -341,6 +398,8 @@ def classify(snippet: str, context: str = "", model: str = DEFAULT_MODEL) -> Cla
     client = anthropic.Anthropic(api_key=api_key)
 
     user_msg = f"Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
+    if quota_state:
+        user_msg = f"{user_msg}\n\n{_build_quota_text(quota_state)}"
 
     from tools.anthropic_retry import call_with_retry
 
