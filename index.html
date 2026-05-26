@@ -3591,15 +3591,25 @@ function applyMixed3DLayout(opts) {
     // mounts at most ~3-6 cells/frame before the first variants land.
     _mixed3dState.sharedSubstrateMats = new Map();
     _mixed3dState.matBuilderQueue = [];
+    // Per-cs variant count. cs=1 keeps full variety (12); wide cs gets
+    // fewer because per-instance tint (_mixed3dCellTintSeed) provides
+    // visual variation across instances. Memory: 13 substrates ×
+    // (12×1 + 2×5) = 286 mats. cs=1 ~442KB ea = 69MB. cs=2-6 average
+    // ~885KB ea = ~115MB. Total ~184MB shared (vs prior 300MB+ of
+    // per-cell unique canvases for wide cells).
+    const csVariants = { 1: 12, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2 };
     for (const sub of _MIXED3D_SUBSTRATES) {
-      _mixed3dState.sharedSubstrateMats.set(sub, []);
-      // Interleave variant indexes across substrates so the FIRST tick
-      // gives every substrate at least one variant — eliminates the
-      // window where a whole substrate has no shared mat available.
-      for (let v = 0; v < _MIXED3D_VARIANTS_PER_SUBSTRATE; v++) {
-        _mixed3dState.matBuilderQueue.push({ sub, v });
+      for (const csKey of Object.keys(csVariants)) {
+        const cs = parseInt(csKey, 10);
+        _mixed3dState.sharedSubstrateMats.set(`${sub}:${cs}`, []);
+        for (let v = 0; v < csVariants[csKey]; v++) {
+          _mixed3dState.matBuilderQueue.push({ sub, v, cs });
+        }
       }
     }
+    // Sort by variant index so first tick covers v=0 across all
+    // substrates × cs, giving every (substrate, cs) bucket at least
+    // one variant available immediately.
     _mixed3dState.matBuilderQueue.sort((a, b) => a.v - b.v);
     requestAnimationFrame(() => _mixed3dDrainMatBuilder(_cyan, _pink));
   }
@@ -5929,30 +5939,17 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     });
     S.tier1Count = (S.tier1Count || 0) + 1;
   } else {
-    // Demote 1->2. For wide cells (cs>1), use _mixed3dCellTextureMini —
-    // the same path mount uses for wide tier-2 — so the cell keeps a
-    // proper-aspect texture. The shared variant (192x576) is designed
-    // for cs=1 planes (~0.83u wide) and stretches horizontally when
-    // applied to a cs=N plane (1.5x at cs=2, 2.2x at cs=3). User
-    // 2026-05-26 cell-5722 / cell-5920: "weirdly stretched background
-    // decorative text". cs=1 cells still pick a shared variant.
+    // Demote 1->2. Pick a shared variant from the (substrate, cs)
+    // bucket. The per-cs variant has the right aspect baked in (no
+    // horizontal stretch like the cs=1 variant applied to wide planes
+    // produced) AND uses ctx.scale(2,2) so text weight matches cs=1
+    // shared cells. Replaces the per-cell _mixed3dCellTextureMini path
+    // entirely — that abstraction was the wrong primitive (user
+    // 2026-05-26: "why is a tier 2 cell harder than just filling with
+    // actual decorative cells").
     const cs = obj.userData?.colspan || 1;
-    if (cs > 1) {
-      // Pass plane dims so the mini canvas matches plane aspect.
-      const pW = obj.geometry?.parameters?.width;
-      const pH = obj.geometry?.parameters?.height;
-      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs, pW, pH);
-      obj.material = new T.MeshBasicMaterial({
-        map: tex,
-        transparent: true,
-        opacity: 1.0,
-        side: T.DoubleSide,
-        depthWrite: false,
-      });
-    } else {
-      obj.material = _mixed3dPickSharedMat(S, cell)
-        || S.sharedSubstrateMats?.get("html")?.[0];
-    }
+    obj.material = _mixed3dPickSharedMat(S, cell, cs)
+      || S.sharedSubstrateMats?.get("html:1")?.[0];
     S.tier1Count = Math.max(0, (S.tier1Count || 0) - 1);
   }
   obj.userData.tier = newTier;
@@ -6152,34 +6149,34 @@ const _MIXED3D_SUBSTRATES = [
   "vega", "treemap", "gauge", "sparkline", "trajectory",
   "text", "code", "image",
 ];
-// Build ONE (substrate, variant) shared material. Extracted so the
+// Build ONE (substrate, cs, variant) shared material. Extracted so the
 // chunked drainer below can build them progressively across frames.
-function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v) {
+// cs (colspan) lets wide cells use shared variants too — instead of
+// per-cell unique canvases that drifted to wrong text scales as the
+// canvas dim formula tuned. With per-cs shared variants AND the same
+// ctx.scale(2,2) + same drawCellPreview body proportions, text
+// renders at the same visual weight regardless of cs.
+function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v, cs) {
   const T = window.THREE;
+  cs = Math.max(1, cs || 1);
   const canvas = document.createElement("canvas");
-  // 192x576 (#138) — 2x linear, 4x pixel area vs prior 96×288. ctx.scale(2,2)
-  // below makes the 1px lineWidths and small fillRects render at 2px source,
-  // matching the decorative tier's stroke weight (user 2026-05-19: "tier 2
-  // cells are too blurry, lines should be chunkier, closer to the decorative
-  // cells"). Higher source res also feeds richer mipmaps for far cells.
-  // Memory cost: 156 × 192×576×4B ≈ 69MB before mipmaps (was ~17MB).
-  canvas.width = 192;
+  // 192x576 baseline for cs=1; W scales with cs for wider planes so the
+  // texture aspect tracks the typical wide-cell plane aspect.
+  // ctx.scale(2,2) gives 2px stroke weight at the design level,
+  // matching the decorative tier's stroke weight (user 2026-05-19).
+  canvas.width = 192 * cs;
   canvas.height = 576;
   const ctx = canvas.getContext("2d");
-  // Scale 2x so the existing draw routine (which uses 1-2px lineWidths +
-  // small fillRects sized for 96×288) chunks up to 2-4px source strokes —
-  // visibly bolder at any LOD without rewriting the draw routine.
   ctx.scale(2, 2);
-  // No bg fill — canvas stays fully transparent. Only the
-  // substrate-preview marks paint pixels with alpha > 0. The
-  // alpha-cutout material below discards transparent pixels so
-  // the tower glass behind shows through (etched-glass look).
+  // No bg fill — canvas stays fully transparent.
   const fakeCell = {
-    id: `__shared:${substrate}:${v}`,
+    id: `__shared:${substrate}:c${cs}:${v}`,
     dataset: { cellType: substrate },
     querySelector: () => null,
   };
-  _mixed3dDrawCellPreview(ctx, fakeCell, 4, 4, 88, 280, cyan, pink);
+  // Body region scales horizontally with cs. Design space after
+  // ctx.scale(2,2) is (96*cs) × 288. Pad 4px each side.
+  _mixed3dDrawCellPreview(ctx, fakeCell, 4, 4, 96 * cs - 8, 280, cyan, pink);
   const tex = new T.CanvasTexture(canvas);
   tex.minFilter = T.LinearFilter;
   tex.magFilter = T.LinearFilter;
@@ -6213,9 +6210,9 @@ function _mixed3dDrainMatBuilder(cyan, pink) {
   let built = 0;
   while (S.matBuilderQueue.length > 0) {
     if (built > 0 && performance.now() - start > 5) break;
-    const { sub, v } = S.matBuilderQueue.shift();
-    const mat = _mixed3dBuildOneSharedMat(cyan, pink, sub, v);
-    const arr = S.sharedSubstrateMats.get(sub);
+    const { sub, v, cs } = S.matBuilderQueue.shift();
+    const mat = _mixed3dBuildOneSharedMat(cyan, pink, sub, v, cs);
+    const arr = S.sharedSubstrateMats.get(`${sub}:${cs}`);
     if (arr) arr.push(mat);
     built++;
   }
@@ -6224,32 +6221,48 @@ function _mixed3dDrainMatBuilder(cyan, pink) {
   }
 }
 
-// Pick a deterministic variant from a cell id, so cells with the
-// same id always get the same look (avoids flicker on re-mount).
-function _mixed3dPickSharedMat(S, cell) {
-  const info = _mixed3dPickSharedMatVariantIdx(S, cell);
+// Pick a deterministic variant from a cell id + colspan, so cells with
+// the same id always get the same look (avoids flicker on re-mount).
+function _mixed3dPickSharedMat(S, cell, cs) {
+  const info = _mixed3dPickSharedMatVariantIdx(S, cell, cs);
   return info ? info.mat : null;
 }
 
-// Same as above but returns (substrate, variantIdx) too — needed by
-// the tier-2 instancing path so cells of the same (substrate, variant)
-// group into one InstancedMesh.
-function _mixed3dPickSharedMatVariantIdx(S, cell) {
+// Same as above but returns (substrate, cs, variantIdx) too — needed
+// by the tier-2 instancing path so cells of the same (substrate, cs,
+// variant) group into one InstancedMesh. Wide cells (cs>=2) get their
+// own per-cs variant set so text scale stays consistent with cs=1
+// cells (same ctx.scale(2,2), same drawCellPreview body proportions).
+// Falls back through cs progression and finally to html:1 if a bucket
+// hasn't been built yet (chunked drainer still running).
+function _mixed3dPickSharedMatVariantIdx(S, cell, cs) {
   const requested = cell.dataset?.cellType || "html";
-  let variants = S.sharedSubstrateMats?.get(requested);
-  let substrate = requested;
-  if (!variants || !variants.length) {
-    variants = S.sharedSubstrateMats?.get("html");
-    substrate = "html";
+  const csClamped = Math.max(1, Math.min(6, cs || 1));
+  const tries = [
+    [requested, csClamped],
+    [requested, 1],
+    ["html", csClamped],
+    ["html", 1],
+  ];
+  let variants = null, substrate = requested, csUsed = csClamped;
+  for (const [sub, c] of tries) {
+    const key = `${sub}:${c}`;
+    const arr = S.sharedSubstrateMats?.get(key);
+    if (arr && arr.length) {
+      variants = arr;
+      substrate = sub;
+      csUsed = c;
+      break;
+    }
   }
-  if (!variants || !variants.length) return null;
+  if (!variants) return null;
   let h = 0;
   const id = cell.id || "";
   for (let i = 0; i < id.length; i++) {
     h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   }
   const idx = Math.abs(h) % variants.length;
-  return { mat: variants[idx], variantIdx: idx, substrate };
+  return { mat: variants[idx], variantIdx: idx, substrate, cs: csUsed };
 }
 
 // Tier-2 instancing helpers. Average bucket fill is ~12100/156 ≈ 78
@@ -6259,9 +6272,10 @@ function _mixed3dPickSharedMatVariantIdx(S, cell) {
 // those cells).
 const _MIXED3D_INST_CAPACITY = 300;
 
-function _mixed3dGetTier2InstMesh(S, mat, substrate, variantIdx) {
+function _mixed3dGetTier2InstMesh(S, mat, substrate, variantIdx, cs) {
   const T = window.THREE;
-  const key = substrate + ":" + variantIdx;
+  const csKey = cs || 1;
+  const key = `${substrate}:c${csKey}:${variantIdx}`;
   let inst = S.tier2InstancedMeshes.get(key);
   if (inst) return inst;
   const mesh = new T.InstancedMesh(S.unitPlaneGeo, mat, _MIXED3D_INST_CAPACITY);
@@ -9420,18 +9434,16 @@ function _mixed3dDrainMountQueue() {
     // _MIXED3D_INST_CAPACITY. cellObjects entry is a "handle" (plain
     // object with isInstanceHandle: true) — eviction path detects
     // this and dispatches to swap-and-pop instead of scene.remove.
-    // Wide cells (cs>=2) skip the tier-2 InstancedMesh path: that
-    // path shares one 1u-base plane texture across all instances and
-    // stretches it to the per-instance scale, which makes text on
-    // colspan-N cells render at ~Nx the screen size of text on cs=1
-    // cells. Falling through to the per-cell mini-texture mesh below
-    // (which sizes its canvas by colspan) keeps text size consistent
-    // across the dashboard. Wide cells are the minority (~25%) so
-    // the instancing-perf loss is small.
-    if (tier === 2 && cs <= 1) {
-      const matInfo = _mixed3dPickSharedMatVariantIdx(S, cell);
+    // ALL tier-2 cells (including cs>=2) use the InstancedMesh path
+    // 2026-05-26: shared mat is now per-(substrate, cs), so wide
+    // cells get a texture sized for their colspan and join the
+    // batched draw call. Replaces the earlier _mixed3dCellTextureMini
+    // per-cell unique canvas path (commit 38d0fe7), which drifted to
+    // wrong text scales and 400+ unique draw calls.
+    if (tier === 2) {
+      const matInfo = _mixed3dPickSharedMatVariantIdx(S, cell, cs);
       if (matInfo) {
-        const inst = _mixed3dGetTier2InstMesh(S, matInfo.mat, matInfo.substrate, matInfo.variantIdx);
+        const inst = _mixed3dGetTier2InstMesh(S, matInfo.mat, matInfo.substrate, matInfo.variantIdx, matInfo.cs);
         const idx = _mixed3dAddTier2Instance(S, inst, cell.id, tx, ty, tz, rotX, rotY, planeW, planeH);
         if (idx >= 0) {
           const handle = {
@@ -9495,13 +9507,24 @@ function _mixed3dDrainMountQueue() {
       S.tier1Count = (S.tier1Count || 0) + 1;
     } else {
       // Tier-2 fallback Mesh: shared mat not ready yet OR instance
-      // bucket overflow. Per-cell unique CanvasTexture sized to plane
-      // aspect (no vertical-stretch on square-ish planes).
-      const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs, planeW, planeH);
-      mat = new T.MeshBasicMaterial({
-        map: tex, transparent: true, opacity: 1.0,
-        side: T.DoubleSide, depthWrite: false,
-      });
+      // bucket overflow. Try the per-(substrate, cs) shared variant
+      // first — gives correct text scale and aspect. Falls back to
+      // the cs=1 html variant as last resort.
+      const sharedMat = _mixed3dPickSharedMat(S, cell, cs)
+        || S.sharedSubstrateMats?.get("html:1")?.[0];
+      if (sharedMat) {
+        mat = sharedMat;
+      } else {
+        // Truly nothing built yet (very early boot). Use mini-texture
+        // as deep fallback. The chunked drainer will populate variants
+        // shortly; cells caught in this window will keep their unique
+        // canvas until they next demote/remount.
+        const tex = _mixed3dCellTextureMini(cell, isTop, cyan, pink, cs, planeW, planeH);
+        mat = new T.MeshBasicMaterial({
+          map: tex, transparent: true, opacity: 1.0,
+          side: T.DoubleSide, depthWrite: false,
+        });
+      }
     }
 
     const obj = new T.Mesh(planeGeo, mat);
