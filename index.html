@@ -6378,8 +6378,18 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink, colspan, planeW, plane
   if (isTop) {
     W = 96; H = 96;
   } else if (planeW && planeH) {
-    // ~80 canvas-px per plane-unit. Clamp dims to keep memory reasonable.
-    const PX_PER_U = 80;
+    // 200 canvas-px per plane-unit — matches the shared cs=1 variant's
+    // ratio (192/0.83 ≈ 230 X, 576/2.78 ≈ 207 Y). The first pass at
+    // 80 px/u (commit 54f8c72) gave correct ASPECT but ~3x too low
+    // resolution, so 14px decorative text appeared ~3x larger relative
+    // to plane than its shared cs=1 counterpart. Bumping to 200
+    // matches text-per-plane-unit across narrow and wide tier-2 cells.
+    // Memory: cs=2 cells (plane ~1.25x2.8) → 250x560 = 561KB.
+    // cs=6 cells (plane ~3.7x4.25) → capped at 576x576 = 1.3MB.
+    // ~300 wide-cs2 + ~100 wide-cs6 = ~300MB total worst-case.
+    // User 2026-05-26 cell-5983: "another too big background
+    // decorative cell, you said you fixed these".
+    const PX_PER_U = 200;
     W = Math.max(48, Math.min(576, Math.round(planeW * PX_PER_U)));
     H = Math.max(96, Math.min(576, Math.round(planeH * PX_PER_U)));
   } else {
