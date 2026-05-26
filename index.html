@@ -8505,6 +8505,24 @@ function _mixed3dStartSnapshotDriver() {
     const candidates = [];
     if (!window._snapSkipReasons) window._snapSkipReasons = {};
     const _sr = window._snapSkipReasons;
+    // Camera frustum, computed once per tick. Used only to filter
+    // animated_svg RE-SNAP candidates (cache-hit + tier-1 + over
+    // ANIMATED_RESNAP_MS). Profiling 2026-05-26 found animated_svg
+    // re-snap was ~17% of total CPU (4745 calls × 15.6ms over the
+    // session). Most of those re-snaps target cells that aren't even
+    // in the camera FOV — no visual benefit. Initial snaps + pre-
+    // render lead path don't get frustum-filtered; we still want
+    // cells about to come into view to have their snap ready.
+    const T_ = window.THREE;
+    let snapFrustum = null;
+    if (T_ && S.camera) {
+      snapFrustum = new T_.Frustum();
+      const m = new T_.Matrix4().multiplyMatrices(
+        S.camera.projectionMatrix,
+        S.camera.matrixWorldInverse,
+      );
+      snapFrustum.setFromProjectionMatrix(m);
+    }
     // Eligibility: cell must be cache-miss AND in tier-1 distance OR
     // already tier-1. Including in-range tier-2 cells lets the driver
     // PRE-RENDER cells before they actually promote, so the retier
@@ -8539,6 +8557,19 @@ function _mixed3dStartSnapshotDriver() {
         const ANIMATED_RESNAP_MS = 1500;
         const last = S._snapLastAt?.get(id) || 0;
         if (performance.now() - last < ANIMATED_RESNAP_MS) continue;
+        // Frustum filter: skip re-snap for cells not currently in the
+        // camera's field of view. Animation is invisible to the viewer
+        // for these — re-rendering them wastes CPU. Saves ~60-70% of
+        // animated_svg re-snap work since only ~30-40% of tier-1 cells
+        // are in-frustum at any moment. When the camera rotates toward
+        // a previously-deferred cell, the cell enters the frustum and
+        // re-snap fires on the next snap-driver tick (<= 120ms later)
+        // before the user can fixate. (_sr.outFrustum tracks the skip
+        // count for debug.)
+        if (snapFrustum && !snapFrustum.containsPoint(obj.position)) {
+          _sr.outFrustum = (_sr.outFrustum || 0) + 1;
+          continue;
+        }
       }
       if (_mixed3dSnapInflight.has(id)) { _sr.inflight = (_sr.inflight||0)+1; continue; }
       const el = obj.userData?.cellEl;
