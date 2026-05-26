@@ -5240,6 +5240,21 @@ function _mixed3dDriveSwoopyTour(t) {
   sw.bankActual += (bankTarget - sw.bankActual) * 0.04;
   const bankedUp = new T.Vector3(0, 1, 0).applyAxisAngle(tan, sw.bankActual);
   cam.up.copy(bankedUp);
+  // Altitude-aware downward bias: when the camera is high in the
+  // helix path (yesterday's waypoints climb to Y=14), looking forward
+  // horizontally fills the upper FOV with sky/ceiling. Tilt lookAt
+  // down proportionally to camera height ABOVE a "comfort" altitude
+  // so high passes look INTO the canyon below instead of across at
+  // sky. Low passes (Y <= COMFORT_Y) get no bias and keep their
+  // horizontal forward-look. User 2026-05-26: "spiral up to near top
+  // of towers is fine, just don't stare up at the ceiling for
+  // extended periods."
+  const COMFORT_Y = 7;
+  const TILT_DOWN_PER_Y = 0.45;
+  if (cam.position.y > COMFORT_Y) {
+    const excess = cam.position.y - COMFORT_Y;
+    sw.lookAtActual.y -= excess * TILT_DOWN_PER_Y;
+  }
   // Pitch clamp safety: cap the lookAt y so the resulting pitch never
   // exceeds ±MAX_PITCH_DEG, even if the position-bias lerp above
   // hasn't caught up to a sharply-different scan-target altitude.
