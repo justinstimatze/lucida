@@ -925,9 +925,19 @@ def _append_proposal_locked(
 
     if llm_available and cell_type is None:
         try:
+            # Build the live substrate-share tally so the classifier can
+            # bias against over-represented substrates and toward
+            # under-represented ones. Counts come from the already-loaded
+            # cells.json; cost is one Counter pass over ~2k dicts.
+            from collections import Counter as _Counter
+
             import classifier as _classifier
 
-            llm = _classifier.classify(snippet, context)
+            existing_cells = data.get("cells", []) if isinstance(data, dict) else []
+            quota_state = dict(
+                _Counter(c.get("cell_type") for c in existing_cells if c.get("cell_type"))
+            )
+            llm = _classifier.classify(snippet, context, quota_state=quota_state)
             discourse_move = llm.discourse_move
             confidence = llm.confidence
             classifier_reasoning = llm.reasoning
