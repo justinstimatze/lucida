@@ -4820,23 +4820,43 @@ function _mixed3dClampOutsideTowers(pos) {
   if (G.towerCount == null || G.towerW == null || G.spacing == null) return;
   const gridHalf = (G.towerCount - 1) / 2;
   const hw = G.towerW / 2;
-  const margin = 0.35;
-  const ix = Math.round(pos.x / G.spacing + gridHalf);
-  const iz = Math.round(pos.z / G.spacing + gridHalf);
-  if (ix < 0 || ix >= G.towerCount || iz < 0 || iz >= G.towerCount) return;
-  const cx = (ix - gridHalf) * G.spacing;
-  const cz = (iz - gridHalf) * G.spacing;
-  const dx = pos.x - cx;
-  const dz = pos.z - cz;
+  // Margin bumped 2026-05-26 from 0.35 → 1.0u. User: "flew close to
+  // a corner and slid along it" — the small buffer let the camera
+  // graze tower edges. 1.0u gives visible breathing room.
+  const margin = 1.0;
   const limit = hw + margin;
-  if (Math.abs(dx) >= limit || Math.abs(dz) >= limit) return;
-  const penX = limit - Math.abs(dx);
-  const penZ = limit - Math.abs(dz);
-  if (penX <= penZ) {
-    pos.x = cx + (dx >= 0 ? limit : -limit);
-  } else {
-    pos.z = cz + (dz >= 0 ? limit : -limit);
+  // Check the 2x2 tower lanes surrounding the camera, not just the
+  // rounded-nearest one. At corners (between four towers) the
+  // rounded-nearest check missed adjacent tower edges, producing the
+  // grazing-slide artifact. Iterate over floor and ceil of both axes
+  // to cover all four cells.
+  const fx = pos.x / G.spacing + gridHalf;
+  const fz = pos.z / G.spacing + gridHalf;
+  const xCandidates = [Math.floor(fx), Math.ceil(fx)];
+  const zCandidates = [Math.floor(fz), Math.ceil(fz)];
+  let bestPen = 0;
+  let bestApply = null;
+  for (const ix of xCandidates) {
+    if (ix < 0 || ix >= G.towerCount) continue;
+    for (const iz of zCandidates) {
+      if (iz < 0 || iz >= G.towerCount) continue;
+      const cx = (ix - gridHalf) * G.spacing;
+      const cz = (iz - gridHalf) * G.spacing;
+      const dx = pos.x - cx;
+      const dz = pos.z - cz;
+      if (Math.abs(dx) >= limit || Math.abs(dz) >= limit) continue;
+      const penX = limit - Math.abs(dx);
+      const penZ = limit - Math.abs(dz);
+      const pen = Math.min(penX, penZ);
+      if (pen > bestPen) {
+        bestPen = pen;
+        bestApply = (penX <= penZ)
+          ? () => { pos.x = cx + (dx >= 0 ? limit : -limit); }
+          : () => { pos.z = cz + (dz >= 0 ? limit : -limit); };
+      }
+    }
   }
+  if (bestApply) bestApply();
 }
 
 // Closed-loop tour: ONE Catmull-Rom curve through a fixed set of
