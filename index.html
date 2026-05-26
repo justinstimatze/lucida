@@ -4882,22 +4882,14 @@ function _mixed3dDriveSwoopyTour(t) {
     // produce diagonal sections rather than long climbs/dives.
     // Centripetal Catmull-Rom + closed loop → seamless at every pass.
     const pts = [
-      // Y amplitude tightened 2026-05-26 from 9.5u (4.5-14) to 4u (5-9).
-      // User feedback after a recorded demo: "swoopy tour seems less
-      // swoopy than the movie now." Hackers canyon flythrough stays
-      // close to the floor and only occasionally banks up; yesterday's
-      // helix climbed nearly the full tower height every loop. Keep
-      // the helix shape (so tier-1 cells still distribute across Y
-      // bands across multiple loops) but compress the amplitude so each
-      // individual loop reads more horizontal-dominant.
-      new T.Vector3(lo, 5.0, lo),
-      new T.Vector3(mid, 8.0, lo),
-      new T.Vector3(hi, 6.0, lo),
-      new T.Vector3(hi, 9.0, mid),
-      new T.Vector3(hi, 5.5, hi),
-      new T.Vector3(mid, 8.5, hi),
-      new T.Vector3(lo, 7.5, hi),
-      new T.Vector3(lo, 6.0, mid),
+      new T.Vector3(lo, 4.5, lo),
+      new T.Vector3(mid, 11.0, lo),
+      new T.Vector3(hi, 7.0, lo),
+      new T.Vector3(hi, 13.0, mid),
+      new T.Vector3(hi, 5.0, hi),
+      new T.Vector3(mid, 10.0, hi),
+      new T.Vector3(lo, 14.0, hi),
+      new T.Vector3(lo, 8.0, mid),
     ];
     const curve = new T.CatmullRomCurve3(pts, true, "centripetal", 0.5);
     S.swoopCam = {
