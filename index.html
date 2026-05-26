@@ -7606,10 +7606,20 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
 // Cache version for animated_svg self-cache. Bump when theme substitution
 // rules change OR the body-canvas layout logic shifts. Independent of
 // STYLE_V (mermaid) since the substrate paint pipelines differ.
-const _ANIMATED_SVG_CACHE_V = "v2";
+const _ANIMATED_SVG_CACHE_V = "v3";
 
 function _mixed3dRenderAnimatedSvgToCanvas(spec, w, h, extras) {
-  if (!spec || typeof spec !== "string" || !spec.includes("<svg")) return Promise.resolve(null);
+  if (!spec || typeof spec !== "string" || !spec.includes("<svg")) {
+    const S = _mixed3dState;
+    if (S) {
+      if (!S._animatedSvgNulls) S._animatedSvgNulls = { pre_check: 0, decode_fail: 0, samples: [] };
+      S._animatedSvgNulls.pre_check++;
+      if (S._animatedSvgNulls.samples.length < 5) {
+        S._animatedSvgNulls.samples.push({ id: extras?.id, reason: "pre_check", head: typeof spec === "string" ? spec.slice(0, 80) : `<${typeof spec}>` });
+      }
+    }
+    return Promise.resolve(null);
+  }
   const cellId = extras?.id;
   const cs = Math.max(1, Math.min(3, extras?.colspan || 1));
   const cacheKey = cs > 1
@@ -7650,12 +7660,17 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
   // purple in normal scenes (pink is reserved for tower-attack state);
   // animated SVGs that explicitly want danger framing should re-introduce
   // pink via the danger-state path, not via this default substitution.
+  // $stroke3 was missing from the substitution table — 39 specs used it
+  // and rendered with literal `stroke="$stroke3"` (invalid attribute),
+  // producing invisible/black strokes on the dark theme that read as
+  // empty cells. Maps to purple per themes/hackers.tokens.json palette.
   let themed = spec
     .replace(/\$accent\b/g, "#00ddff")
     .replace(/\$muted\b/g, "#9966ff")
     .replace(/\$pink\b/g, "#9966ff")
     .replace(/\$stroke1\b/g, "#00ddff")
     .replace(/\$stroke2\b/g, "#9966ff")
+    .replace(/\$stroke3\b/g, "#9966ff")
     .replace(/\$bg\b/g, "#0a0e14")
     .replace(/\$panel\b/g, "#0f1620")
     .replace(/\$fg\b/g, "#ccf3ff");
@@ -7720,7 +7735,21 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
         else setTimeout(cacheWrite, 0);
       }
     };
-    img.onerror = () => { URL.revokeObjectURL(img.src); resolve(null); };
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      const S = _mixed3dState;
+      if (S) {
+        if (!S._animatedSvgNulls) S._animatedSvgNulls = { pre_check: 0, decode_fail: 0, samples: [] };
+        S._animatedSvgNulls.decode_fail++;
+        if (S._animatedSvgNulls.samples.length < 5) {
+          S._animatedSvgNulls.samples.push({ id: cellId, reason: "decode_fail", head: themed.slice(0, 200).replace(/\s+/g, " ") });
+        }
+        if (S._animatedSvgNulls.decode_fail === 1) {
+          console.warn(`[mixed3d] animated_svg decode fail cell=${cellId} head="${themed.slice(0, 120).replace(/\s+/g, " ")}"`);
+        }
+      }
+      resolve(null);
+    };
     const blob = new Blob([themed], { type: "image/svg+xml;charset=utf-8" });
     img.src = URL.createObjectURL(blob);
   });
