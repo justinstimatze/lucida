@@ -4990,10 +4990,18 @@ function _mixed3dDriveSwoopyTour(t) {
     // (avgRate, computed downstream from the heading-window) spikes,
     // and at full speed=4 these read as fast yaws. Use the previous
     // frame's avgRate (cached on sw) to slow the arc here.
-    // |avgRate| 0 → 1.0, 0.5 → 0.7, 1.0 → 0.4 floor.
+    // |avgRate| 0 → 1.0, 0.3 → 0.7, 0.7 → 0.3 floor (tightened
+    // 2026-05-26 from coeff 0.6/floor 0.4 → coeff 1.0/floor 0.25).
+    // Big camera swoops were reading as stutter on a 30fps capture
+    // because the per-frame yaw delta exceeded the temporal sampling
+    // window. Slowing the arc more aggressively during high-yaw
+    // segments makes each captured frame's content less different from
+    // the next — smoother apparent motion at any capture framerate.
     // User feedback 2026-05-04: "still a few fast turns too, yawing".
+    // User 2026-05-26: "capture framerate is terrible... especially
+    // during the big camera swoops".
     const lastAvgRate = sw.lastAvgRate || 0;
-    const cornerMult = Math.max(0.4, 1 - Math.abs(lastAvgRate) * 0.6);
+    const cornerMult = Math.max(0.25, 1 - Math.abs(lastAvgRate) * 1.0);
     sw.arcAccum += sw.speed * scanMult * cornerMult * dtReal;
     arc = sw.arcAccum;
   }
@@ -6040,17 +6048,15 @@ function _mixed3dRetierSweep() {
   // CanvasTexture, ~2ms each, and a burst stalls the frame. Walk many
   // cells per frame to catch all demotions, but cap promotions.
   // 2 → 4 (2026-05-24, 28u radius)
-  // 4 → 12 (2026-05-26, 36u radius): cells along the path were getting
-  //   stranded as tier-2 because the dense cluster crossed during a
-  //   single curve segment exceeded 4 promotes/frame; recency-sorted
-  //   sweep didn't always revisit them before the camera moved past.
-  //   User 2026-05-26 cell-5451: "why didn't that tier 2 promote
-  //   earlier into tier 1" — closest curve approach was 7.39u (well
-  //   inside 36u promote radius) but the budget kept missing it.
-  // Worst-case stall: ~24ms/frame during a dense-cluster fly-through,
-  // vs ~8ms previously. Snap-cache hits paint instantly (~0.1ms);
-  // only fresh-snap promotes pay the 2ms cost.
-  const PROMOTE_BUDGET = 12;
+  // 4 → 12 → 6 (2026-05-26): bumped to 12 to chase the 36u promote
+  //   radius but worst-case 24ms/frame stall during dense fly-through
+  //   manifested as visible stutter on screen capture. Compromise at
+  //   6 keeps 50% throughput headroom over the original 4 while
+  //   halving the worst-case stall to ~12ms (under the 16.67ms 60fps
+  //   frame budget). Cells along the path still promote faster than
+  //   pre-bump; cells right at the edge of the 36u radius rely on the
+  //   snap cache being warm (which warmup pre-renders).
+  const PROMOTE_BUDGET = 6;
   let promotesDone = 0;
   let i = S._retierIdx;
   while (i < S._retierKeys.length) {
