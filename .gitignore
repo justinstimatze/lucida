@@ -61,10 +61,12 @@ demo/demo_cells.json
 research/
 
 # Visual reference dumps — ephemeral QA outputs (live-shots) and
-# re-extractable video frames (hackers-video, from YouTube via ffmpeg).
+# re-extractable video frames (hackers-video, from YouTube via ffmpeg;
+# vigil = Iron Man frames extracted via video-vision for theme polish).
 # Methodology lives in code + memory; the binaries themselves are local.
 refs/gibson/live-shots/
 refs/gibson/hackers-video/
+refs/vigil/
 
 # memory dir leaked from auto-memory hook — actual store lives under
 # ~/.claude/projects/.../memory/, not in the project repo.
