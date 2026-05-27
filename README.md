@@ -52,7 +52,7 @@ it passes. The visual lineage is *Hackers* (1995) — Dade Murphy's
 Gibson — with a bit of *Tron Legacy* and *Ghost in the Shell* in the
 mix.
 
-<video src="https://github.com/justinstimatze/lucida/releases/download/demo-2026-05-26/lucida-demo-v4.mp4" controls width="640"></video>
+https://github.com/user-attachments/assets/7faee1aa-e2e8-4f6a-b5e9-b938624c055f
 
 Try it:
 
