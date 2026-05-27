@@ -23,6 +23,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "tools" / "render_mermaid.mjs"
 NODE_MODULES = REPO_ROOT / "node_modules" / "mermaid"
+PUPPETEER_DIR = REPO_ROOT / "node_modules" / "puppeteer"
 
 
 pytestmark = [pytest.mark.subprocess]
@@ -30,6 +31,13 @@ pytestmark = [pytest.mark.subprocess]
 
 def _have_node() -> bool:
     return shutil.which("node") is not None and NODE_MODULES.exists()
+
+
+def _have_puppeteer() -> bool:
+    """render_mermaid.mjs imports puppeteer at module-load time, so even
+    the empty-array validation test needs puppeteer installed or node
+    exits 1 (module-not-found) before the script's validation runs."""
+    return PUPPETEER_DIR.exists()
 
 
 @pytest.fixture
@@ -122,6 +130,7 @@ def test_script_rejects_invalid_stdin() -> None:
     assert b"invalid json" in proc.stderr or b"json" in proc.stderr.lower()
 
 
+@pytest.mark.skipif(not _have_puppeteer(), reason="puppeteer not installed")
 def test_script_rejects_empty_job_array() -> None:
     """Empty array → exit 2 with a clear message; no Chrome launch."""
     proc = subprocess.run(
