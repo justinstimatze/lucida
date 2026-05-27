@@ -33,6 +33,8 @@ cells.json.before-*
 cells.json.pre-*
 cells.json.corrupt-*
 cells.json.tmp
+cells.json.lock*
+cells.json.truncated-*
 cells_*_archive.json
 tools/.system_metrics_state.json
 tools/.system_metrics_state.tmp
