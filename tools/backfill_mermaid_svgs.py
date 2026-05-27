@@ -36,7 +36,7 @@ from pathlib import Path
 
 # Must match STYLE_V in index.html (_mixed3dRenderMermaidToCanvas)
 # and tools/render_mermaid.mjs. Bump all three when CSS changes.
-STYLE_V = "v10"
+STYLE_V = "v12"
 
 
 def target_path(cells_dir: Path, cell_id: str, colspan: int) -> Path:
