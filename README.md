@@ -48,9 +48,9 @@ https://github.com/user-attachments/assets/6da05581-f458-48f4-9044-4ad3795d152f
 The `hackers` theme pairs with a `mixed3d` layout that arranges your
 cells onto the faces of a city of glass towers. A swoopy camera tours
 the canyon, climbing between corridors and pausing on tier-1 cells as
-it passes. The visual lineage is *Hackers* (1995) — Dade Murphy's
-Gibson — with a bit of *Tron Legacy* and *Ghost in the Shell* in the
-mix.
+it passes. The visual lineage is *Hackers* (1995) — Ellingson Mineral
+Company's Gibson — with a bit of *Tron Legacy* and *Ghost in the
+Shell* in the mix.
 
 https://github.com/user-attachments/assets/7faee1aa-e2e8-4f6a-b5e9-b938624c055f
 
