@@ -43,6 +43,32 @@ https://github.com/user-attachments/assets/6da05581-f458-48f4-9044-4ad3795d152f
 
 ---
 
+## mixed3d — the canyon flythrough
+
+The `hackers` theme pairs with a `mixed3d` layout that arranges your
+cells onto the faces of a city of glass towers. A swoopy camera tours
+the canyon, climbing between corridors and pausing on tier-1 cells as
+it passes. The visual lineage is *Hackers* (1995) — Dade Murphy's
+Gibson — with a bit of *Tron Legacy* and *Ghost in the Shell* in the
+mix.
+
+<video src="https://github.com/justinstimatze/lucida/releases/download/demo-2026-05-26/lucida-demo-v4.mp4" controls width="640"></video>
+
+Try it:
+
+```
+http://localhost:8766/?theme=hackers&layout=mixed3d
+```
+
+Cells render in three LOD tiers as the camera approaches: ambient
+decorative bed (tier 2, shared per-substrate textures) → text/title
+snap (tier 1 mid) → full graph render (tier 1 close). Mermaid,
+animated-SVG, treemap, gauge, force-graph, timeline-ribbon, and
+trajectory substrates all render in-place on tower faces. Click any
+cell to park the camera in front of it; press `R` to resume the tour.
+
+---
+
 ## Get running in 5 minutes
 
 **Requirements:** Python 3.11+, Node.js 18+, an Anthropic API key, a
