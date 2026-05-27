@@ -18,7 +18,7 @@
 // runtime fetch of this file from the browser, both of which violate
 // the project's "one big index.html, no build" stance.
 
-export const STYLE_V = "v10";
+export const STYLE_V = "v12";
 
 export const STYLE_CSS = `<style>
     svg, svg * { background: transparent !important; background-color: transparent !important; }
