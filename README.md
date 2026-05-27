@@ -290,14 +290,16 @@ python -m adapters.cli --source aider <chat.md> --out /tmp/transcript.txt
 ```
 lucida/
 ├── index.html             renderer
-├── notebook.css           all 11 themes
+├── notebook.css           all 13 themes
 ├── themes/                per-theme token JSON
+├── serve.py               static server + snap receiver
 ├── orchestrator.py        one-shot entry point
 ├── watcher.py             continuous listener
 ├── specialists.py         visual spec generators
 ├── classifier.py          substrate classifier
 ├── reflect.py             synthesis cells
 ├── adapters/              transcript adapters
+├── scripts/start.sh       launches serve + watcher together
 └── hooks/recent_mints.sh  Claude Code prompt injection hook
 ```
 
