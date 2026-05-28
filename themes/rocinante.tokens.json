@@ -1,0 +1,48 @@
+{
+  "_comment": "The Expanse — MCRN / Rocinante. RE-GROUNDED 2026-05-27 from actual show footage (cockpit tactical screens, 'This is the Warship Rocinante'): deep NAVY base + MUTED blue-white UI (NOT electric cyan), restrained with lots of negative space; red kept rare/small (threat markers). System-color triad still applies (red=danger/green=go/yellow=warn). layout=cockpit, chrome=instrument. See refs/rocinante/NOTES.md + bmg_raw_visual_for_design memory (palette study should use raw frames, not montages).",
+  "accent": {
+    "primary":   "#3eb4dc",
+    "secondary": "#2f6dba",
+    "warning":   "#ffc233",
+    "danger":    "#e23b2e",
+    "ok":        "#3ad14e"
+  },
+  "surface": {
+    "bg":     "#0a1826",
+    "cell":   "rgba(16, 32, 50, 0.55)",
+    "header": "rgba(14, 30, 48, 0.7)",
+    "code":   "rgba(34, 12, 10, 0.72)",
+    "muted":  "#3a5870",
+    "line":   "rgba(62, 180, 220, 0.16)"
+  },
+  "text": {
+    "fg":    "#bcd4e2",
+    "muted": "#5f8198"
+  },
+  "data": {
+    "_comment": "Navy→blue-white ladder, muted to match the restrained cockpit screens. System colors amber[4]/red[5] fire only on 5+ categories so red stays a rare signal (accent-discipline).",
+    "cat": ["#3eb4dc", "#2f6dba", "#6fc8e0", "#9bbcce", "#ffc233", "#e23b2e"]
+  },
+  "type": {
+    "_comment": "Show uses modified DIN Pro; D-DIN not on a clean CDN so Saira (OFL, DIN-adjacent) is the bundled stand-in (notebook.css @font-face). mono = Space Mono for the command-line/telemetry texture.",
+    "body": "\"D-DIN\", \"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
+    "head": "\"D-DIN\", \"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
+    "mono": "\"Space Mono\", \"Overpass Mono\", \"Share Tech Mono\", \"Courier New\", monospace"
+  },
+  "fx": {
+    "glow":      "rgba(62, 180, 220, 0.4)",
+    "glow-line": "rgba(226, 59, 46, 0.38)"
+  },
+  "palette": {
+    "stroke1": "#3eb4dc",
+    "stroke2": "#2f6dba",
+    "stroke3": "#e23b2e",
+    "accent":  "#3eb4dc",
+    "fg":      "#bcd4e2",
+    "muted":   "#5f8198",
+    "bg":      "#0a1826",
+    "panel":   "rgba(16, 32, 50, 0.55)"
+  },
+  "layout": "cockpit",
+  "chrome": "instrument"
+}

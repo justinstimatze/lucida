@@ -17,6 +17,36 @@
   font-display: swap;
 }
 
+/* Saira (OFL, @fontsource) — DIN-adjacent technical sans. The Expanse uses a
+   modified DIN Pro across all factions; D-DIN (the closest free clone) isn't on
+   a clean CDN, so Saira is the bundled stand-in. Theme type tokens name
+   "D-DIN" first then "Saira", so this resolves the rocinante/expanse type
+   stack. 400 = body, 600 = heads. */
+@font-face {
+  font-family: "Saira";
+  src: url("assets/fonts/Saira-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Saira";
+  src: url("assets/fonts/Saira-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Space Mono (OFL, @fontsource) — technical monospace for the Rocinante
+   command-line / telemetry-log texture (type.mono in the expanse themes). */
+@font-face {
+  font-family: "Space Mono";
+  src: url("assets/fonts/SpaceMono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 
 /* Reduced-motion: users with vestibular disorders or motion-sensitivity
    preferences get all decorative animation suppressed. Functional
@@ -494,6 +524,79 @@ main {
 #notebook[data-layout="terminal"] > .cell:first-child {
   /* No hero sizing in terminal — stream is the message */
   grid-row: auto !important;
+}
+
+/* Cockpit layout: command-center — center nav-plot hero flanked by L/R
+   telemetry rails, with a bottom log band below. The Rocinante (MCRN) spatial
+   grammar from Rhys Yorke's renders (refs/rocinante/NOTES.md "Layout skeleton").
+   Pure CSS positioning; grid-auto-flow:dense fills the rails beside the
+   explicitly-placed hero, then flows the band below. A tiny JS pass
+   (applyCockpitRailTags) only TAGS rail cells for the curved-cockpit tilt.
+   Theme-agnostic — rocinante sets it as its default layout token. */
+#notebook[data-layout="cockpit"] {
+  display: grid;
+  grid-template-columns: 22fr 56fr 22fr;   /* L rail | center | R rail */
+  grid-auto-rows: minmax(140px, auto);
+  grid-auto-flow: row dense;
+  align-items: stretch;
+  gap: 0.7rem;
+  perspective: 1600px;                     /* curve context (base #notebook has 1500px) */
+}
+#notebook[data-layout="cockpit"] > .cell {
+  grid-column: auto;
+  width: auto;          /* fill the grid track, not the 380px natural width */
+  min-width: 0;
+  max-width: 100%;
+  max-height: 30vh;
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* Hero = center nav-plot: dominant, tall, dead center. */
+#notebook[data-layout="cockpit"] > .cell:first-child {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: 360px;
+  max-height: 52vh;
+}
+/* Sole cell: take the whole field. */
+#notebook[data-layout="cockpit"] > .cell:first-child:last-child {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+/* Curved-cockpit tilt — side rails angle inward toward the hub. Mild (≤6°) so
+   text stays crisp (readability is a bug if it blurs). Classes set by
+   applyCockpitRailTags(); hero + center-band cells stay flat. If the tilt ever
+   hurts legibility, the fallback is a single uniform container rotateX(3deg). */
+#notebook[data-layout="cockpit"] > .cell.cockpit-rail-left {
+  transform: rotateY(3deg);
+  transform-origin: left center;
+}
+#notebook[data-layout="cockpit"] > .cell.cockpit-rail-right {
+  transform: rotateY(-3deg);
+  transform-origin: right center;
+}
+/* Tablet: two columns (hero spans full width on top), tilt off to avoid skew. */
+@media (max-width: 900px) {
+  #notebook[data-layout="cockpit"] {
+    grid-template-columns: 1fr 1fr;
+  }
+  #notebook[data-layout="cockpit"] > .cell:first-child {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  #notebook[data-layout="cockpit"] > .cell.cockpit-rail-left,
+  #notebook[data-layout="cockpit"] > .cell.cockpit-rail-right {
+    transform: none;
+  }
+}
+/* Mobile: single-column stream. */
+@media (max-width: 700px) {
+  #notebook[data-layout="cockpit"] {
+    grid-template-columns: 1fr;
+  }
+  #notebook[data-layout="cockpit"] > .cell:first-child {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 /* ?layout=treemap and ?layout=organic: cells are absolutely positioned
@@ -2676,6 +2779,242 @@ html.theme-ops::before {
   box-shadow: 4px 0 14px rgba(255, 119, 0, 0.6);
   z-index: 310;
   pointer-events: none;
+}
+
+/* ============================================================
+   ROCINANTE theme — The Expanse, MCRN / Rocinante FUI.
+   Designer Rhys Yorke (Pushing Pixels): system-color triad
+   (red=no/danger, green=go, yellow=warn) on a command-line
+   "under-the-hood" base; cyan→royal-blue tactical readouts;
+   RED reserved as the danger/command-line accent — never sprayed
+   (Yorke's villain-risk warning = accent-discipline). Hairline-
+   outline panels w/ angular top-right corner notch; DIN heads +
+   technical mono. layout=tactical is INTERIM → bespoke cockpit
+   layout (center nav-plot + L/R telemetry rails + bottom log band)
+   is the next build. Refs: refs/rocinante/NOTES.md GUI-grammar.
+   ============================================================ */
+.theme-rocinante {
+  --bg:        #0a1826;
+  --cell-bg:   #101f30;
+  --header-bg: #0c1e30;
+  --code-bg:   #25100e;
+  --accent:    #3eb4dc;
+  --fg:        #bcd4e2;
+  --muted:     #3a5870;
+  --line:      rgba(62, 180, 220, 0.18);
+  --font-body: "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
+  --font-head: "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
+
+  --cell-entrance-anim:     rocinante-boot;
+  --cell-entrance-duration: 0.45s;
+  --cell-entrance-easing:   cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Faint tactical grid — the nav-plot grid motif, kept very low. */
+  --bg-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M44 0H0V44' fill='none' stroke='%233eb4dc' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
+  --bg-size: 44px 44px;
+
+  /* Mermaid: cyan edges, royal-blue cluster glow */
+  --mermaid-edge-stroke-width: 1.5px;
+  --mermaid-edge-color: #3eb4dc;
+  --mermaid-edge-glow: rgba(62, 180, 220, 0.38);
+  --mermaid-node-stroke-width: 1.5px;
+  --mermaid-node-glow: rgba(62, 180, 220, 0.22);
+  --mermaid-node-glow-hover: rgba(62, 180, 220, 0.55);
+  --mermaid-edge-label-bg: #0a161c;
+  --mermaid-edge-label-border: rgba(62, 180, 220, 0.38);
+  --mermaid-cluster-glow: rgba(42, 120, 255, 0.18);
+}
+.theme-rocinante body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  /* The signature MCRN polar NAV-GRID, centered behind everything (a CSS
+     background layer, so it always sits behind cell content; the translucent
+     cells let it show through like the show's panels). Concentric rings +
+     spokes in faint cyan, with a red dashed trajectory-orbit ring + center
+     reticle dot. Replaces the faint tiled square grid (--bg-texture). */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%233eb4dc' stroke-opacity='0.16' stroke-width='0.6'%3E%3Ccircle cx='120' cy='120' r='30'/%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='86'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='4' x2='120' y2='236'/%3E%3Cline x1='4' y1='120' x2='236' y2='120'/%3E%3Cline x1='35' y1='35' x2='205' y2='205'/%3E%3Cline x1='205' y1='35' x2='35' y2='205'/%3E%3C/g%3E%3Ccircle cx='120' cy='120' r='72' fill='none' stroke='%23e23b2e' stroke-opacity='0.22' stroke-width='0.8' stroke-dasharray='3 6'/%3E%3Ccircle cx='120' cy='120' r='2.6' fill='%233eb4dc' fill-opacity='0.4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center 54%;
+  background-size: min(88vmin, 1040px) min(88vmin, 1040px);
+  background-attachment: fixed;
+}
+.theme-rocinante header,
+.theme-rocinante .cell-head,
+.theme-rocinante .cell-type,
+.theme-rocinante .cell-id {
+  font-family: var(--font-head);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.theme-rocinante .hud {
+  border-color: rgba(62, 180, 220, 0.35);
+}
+.theme-rocinante .hud-value {
+  color: #3eb4dc;
+  text-shadow: 0 0 8px rgba(62, 180, 220, 0.5);
+}
+/* Hairline-outline technical panel with a clipped top-right corner notch —
+   the angular panel framing from Yorke's renders. */
+.theme-rocinante .cell {
+  clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 0 100%);
+  border: 1px solid rgba(62, 180, 220, 0.20);
+  background: var(--cell-bg);
+}
+.theme-rocinante .cell.cell-still-warm {
+  filter: drop-shadow(0 0 6px rgba(62, 180, 220, 0.34));
+}
+.theme-rocinante .cell.cell-fresh {
+  filter: drop-shadow(0 0 10px rgba(62, 180, 220, 0.5));
+}
+@keyframes rocinante-boot {
+  0%   { opacity: 0; }
+  18%  { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+/* Red "under-the-hood" command-line surface for code blocks — the signature
+   MCRN red command-line. Red is otherwise reserved for danger states only. */
+.theme-rocinante pre,
+.theme-rocinante code {
+  font-family: var(--type-mono, "Space Mono", "Share Tech Mono", monospace);
+}
+.theme-rocinante .cell pre {
+  background: var(--code-bg);
+  border-left: 2px solid rgba(226, 59, 46, 0.7);
+}
+.theme-rocinante .kill-bloom-hero {
+  border-color: #3eb4dc;
+  box-shadow:
+    0 0 22px rgba(62, 180, 220, 0.5),
+    0 0 60px rgba(62, 180, 220, 0.18),
+    inset 0 0 10px rgba(62, 180, 220, 0.12);
+}
+/* System-color confidence bar — cyan live readout. */
+.theme-rocinante .cell-conf-bar-fill {
+  background: #3eb4dc;
+  box-shadow: 0 0 6px rgba(62, 180, 220, 0.6);
+}
+.theme-rocinante .cell-conf-num {
+  color: #3eb4dc;
+}
+
+/* ── Reusable cell-frame chrome modes (tokens.json "chrome") ───────────────
+   renderCell adds .cell-chrome-<mode> to every cell when a theme declares a
+   "chrome" token. CSS here restructures the FRAME (not just colors) so a theme
+   reads as an instrument panel rather than a uniform card. Generic/opt-in: any
+   theme can select a mode; themes layer specifics via `.theme-X .cell-chrome-*`.
+   Mode "instrument": the cell-head becomes an angled corner-TAB label; the
+   uniform card-header look (the "generic dashboard" tell) is gone. Kept INSET
+   within the cell's overflow:hidden bounds; corners drawn as background-image
+   brackets (no ::before, so no collision with fresh/still-warm pseudo-states). */
+.cell-chrome-instrument .cell-head {
+  display: flex;                 /* full-width header bar (not inline — that squished the title) */
+  align-items: baseline;
+  gap: 0.5rem;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.16rem 1.1rem 0.16rem 0.6rem;
+  margin: 0 0 0.5rem 0;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);  /* angled (notched) right end */
+  border-bottom: 1px solid currentColor;
+}
+/* Title is the panel label — it gets the space and truncates with an ellipsis
+   rather than shrinking to one character. */
+.cell-chrome-instrument .cell-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.cell-chrome-instrument .cell-id,
+.cell-chrome-instrument .cell-conf,
+.cell-chrome-instrument .cell-time {
+  flex: 0 0 auto;
+}
+.cell-chrome-instrument .cell-id,
+.cell-chrome-instrument .cell-time {
+  font-size: 0.78em;
+  opacity: 0.72;
+}
+/* uuid chip, discourse-move, and the reflection-source disclosure are noise in
+   an instrument tab — drop them from the strip (connection arcs still draw). */
+.cell-chrome-instrument .cell-session,
+.cell-chrome-instrument .cell-move,
+.cell-chrome-instrument .cell-source {
+  display: none;
+}
+.cell-chrome-instrument .cell-body {
+  font-size: 0.95em;   /* slightly denser telemetry */
+}
+
+/* Rocinante instrument specifics: cyan corner brackets replace the notch, a
+   cyan tab strip, red command-line accent under the tab. */
+.theme-rocinante .cell-chrome-instrument {
+  clip-path: none;   /* brackets replace the .theme-rocinante .cell corner-notch */
+  background-color: var(--cell-bg, #101f30);
+  padding: 0.5rem 0.72rem;   /* denser — packed-telemetry feel */
+}
+.theme-rocinante .cell-chrome-instrument .cell-head {
+  background: none;                              /* restraint — no bright fill strip */
+  color: #3eb4dc;
+  border-bottom-color: rgba(62, 180, 220, 0.4); /* muted underline; red reserved for danger */
+}
+.theme-rocinante .cell-chrome-instrument .cell-title {
+  color: #d8f4f5;
+}
+
+/* ── Theme furniture / console-overlay layer ───────────────────────────────
+   Fixed, pointer-events:none frame that mountThemeFurniture() fills per theme.
+   z-index 180: above cells (≤119) + connection overlay (50), below HUD (200)
+   and kill-bloom (1000). Generic capability — any theme adds a builder + a
+   `#theme-furniture[data-theme=X]` block. Base layout here; rocinante colors
+   below. All elements live in the MARGINS (HUD-aware top offset) so nothing
+   overlays cell content. */
+#theme-furniture {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 180;
+}
+#theme-furniture .fur-bracket {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+}
+#theme-furniture .fur-tl { top: 58px;  left: 10px;  border-top: 2px solid; border-left: 2px solid; }
+#theme-furniture .fur-tr { top: 58px;  right: 10px; border-top: 2px solid; border-right: 2px solid; }
+#theme-furniture .fur-bl { bottom: 10px; left: 10px;  border-bottom: 2px solid; border-left: 2px solid; }
+#theme-furniture .fur-br { bottom: 10px; right: 10px; border-bottom: 2px solid; border-right: 2px solid; }
+#theme-furniture .fur-scale {
+  position: absolute;
+  top: 70px;
+  bottom: 30px;
+  width: 9px;
+}
+#theme-furniture .fur-scale-l { left: 7px; }
+#theme-furniture .fur-scale-r { right: 7px; }
+#theme-furniture .fur-registry {
+  position: absolute;
+  bottom: 14px;
+  left: 44px;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 9.5px;
+  line-height: 1.55;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+/* Rocinante: MCRN bridge framing — cyan brackets, ticked bearing rails. */
+#theme-furniture[data-theme="rocinante"] .fur-bracket {
+  border-color: rgba(62, 180, 220, 0.5);
+}
+#theme-furniture[data-theme="rocinante"] .fur-scale {
+  background-image: repeating-linear-gradient(
+    180deg, rgba(62, 180, 220, 0.4) 0 1px, transparent 1px 14px);
+}
+#theme-furniture[data-theme="rocinante"] .fur-registry {
+  color: rgba(62, 180, 220, 0.5);
 }
 
 /* ============================================================

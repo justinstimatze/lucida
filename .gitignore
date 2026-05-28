@@ -62,11 +62,15 @@ research/
 
 # Visual reference dumps — ephemeral QA outputs (live-shots) and
 # re-extractable video frames (hackers-video, from YouTube via ffmpeg;
-# vigil = Iron Man frames extracted via video-vision for theme polish).
-# Methodology lives in code + memory; the binaries themselves are local.
+# vigil = Iron Man frames extracted via video-vision for theme polish;
+# rocinante/belter/unn = Expanse MCRN/OPA/UNN frames via yt-dlp+ffmpeg).
+# Methodology lives in the per-dir NOTES.md + memory; the binaries are local.
 refs/gibson/live-shots/
 refs/gibson/hackers-video/
 refs/vigil/
+refs/rocinante/
+refs/belter/
+refs/unn/
 
 # memory dir leaked from auto-memory hook — actual store lives under
 # ~/.claude/projects/.../memory/, not in the project repo.
