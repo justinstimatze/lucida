@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=61" />
+<link rel="stylesheet" href="notebook.css?v=62" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -10919,6 +10919,14 @@ function mountThemeFurniture(theme) {
       el.dataset.theme = "rocinante";
       _buildFurnitureRocinante(el);
       break;
+    case "tachi":
+      // Reuse roci's MCRN bezel + red histogram as-is (same faction, same
+      // visual grammar — the bezel/histogram CSS is `[data-theme=rocinante]`).
+      // _buildFurnitureRocinante + _updateRocinanteHisto pick the registry
+      // label from ACTIVE so tachi reads as "MCRN TACHI", not "ROCINANTE".
+      el.dataset.theme = "rocinante";
+      _buildFurnitureRocinante(el);
+      break;
     case "belter":
       el.dataset.theme = "belter";
       _buildFurnitureBelter(el);
@@ -10949,6 +10957,8 @@ function _buildFurnitureRocinante(el) {
     const delay = (((i * 3) % 11) * 0.13).toFixed(2);
     bars += '<i style="--h:0.1;--dur:' + dur + 's;--delay:' + delay + 's"></i>';
   }
+  // tachi reuses this furniture (same MCRN bezel); ACTIVE picks the registry.
+  const REG = ACTIVE === "tachi" ? "MCRN TACHI · CV-T15" : "MCRN ROCINANTE · CTV-K1W-RCI";
   el.innerHTML =
     '<div class="fur-glass" aria-hidden="true"></div>' +
     '<div class="fur-bracket fur-tl"></div>' +
@@ -10959,7 +10969,7 @@ function _buildFurnitureRocinante(el) {
     '<div class="fur-scale fur-scale-r"></div>' +
     '<div class="fur-topstrip"><span class="fur-topstrip-run"></span></div>' +
     '<div class="fur-histo" title="Mint-activity readout — each bar is a time slice of the session; bar height = cells minted in that slice.">' +
-      '<div class="fur-histo-label">MCRN ROCINANTE · CTV-K1W-RCI<br>MINT ACTIVITY · STANDBY</div>' +
+      '<div class="fur-histo-label">' + REG + '<br>MINT ACTIVITY · STANDBY</div>' +
       '<div class="fur-bars">' + bars + '</div>' +
       '<div class="fur-dials"><span class="fur-dial"></span><span class="fur-dial fur-dial-sm"></span></div>' +
     '</div>';
@@ -10997,9 +11007,10 @@ function _updateRocinanteHisto() {
   }
   const mins = Math.round(span / 60000);
   const window = mins >= 1 ? mins + "M" : "<1M";
+  const REG = ACTIVE === "tachi" ? "MCRN TACHI · CV-T15" : "MCRN ROCINANTE · CTV-K1W-RCI";
   const label = fur.querySelector(".fur-histo-label");
   if (label) {
-    label.innerHTML = "MCRN ROCINANTE · CTV-K1W-RCI<br>MINT ACTIVITY · " +
+    label.innerHTML = REG + "<br>MINT ACTIVITY · " +
       ts.length + " CELLS / " + window.replace("<", "&lt;");
   }
   const histo = fur.querySelector(".fur-histo");

@@ -3725,6 +3725,15 @@ html.theme-ops::before {
   fill: transparent !important;
   stroke: var(--accent) !important;
 }
+/* tachi cell SKIN: uniform RED rail (vs roci's role-color rails — tachi is the
+   harder/simpler "everything in MCRN red mode" register). Marks hidden (the
+   per-role badge glyphs are roci's role-coded vocabulary; tachi doesn't role-code). */
+.theme-tachi .cell.cell-skin-mcrn {
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-left-color: var(--accent);
+}
+.theme-tachi .cell-skin-mark { display: none; }
 
 /* ============================================================
    BELTER theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
@@ -4281,6 +4290,15 @@ html.theme-terminus::before {
   -webkit-line-clamp: unset;
   line-clamp: unset;
   overflow: visible;
+}
+/* Hero cells have plenty of vertical room — let the caption breathe by default
+   instead of clamping to 2 (which is the small-rail/pack cell default). Covers
+   both cockpit's first-child hero (no composition) and composition's promoted
+   .comp-hero (rocinante). The hover-unclamp still expands further if needed. */
+#notebook[data-layout="cockpit"] > .cell:first-child .cell-caption,
+.cell.comp-hero .cell-caption {
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
 }
 .cell-prompt-notes {
   font-size: 0.75rem;

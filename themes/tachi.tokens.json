@@ -44,5 +44,6 @@
     "panel":   "rgba(34, 38, 44, 0.55)"
   },
   "layout": "cockpit",
-  "chrome": "instrument"
+  "chrome": "instrument",
+  "skin": "mcrn"
 }
