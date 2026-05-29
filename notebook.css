@@ -3458,6 +3458,145 @@ html.theme-ops::before {
   #theme-furniture[data-theme="belter"] { animation: none; }
 }
 
+/* UNN furniture: Earth/UN naval SITUATION-BOARD (war-room tactical table)
+   anchored bottom-left. Deliberately DULL/institutional — chunky grey angular
+   console bezel, flat opaque navy screen, head-on blue range-rings + UN
+   globe-laurel seal inlay, NO glow / NO drop-shadow halo / NO flicker (the
+   "boring competent bureaucracy" register, user-confirmed on-character). Wide-
+   short = WWII-naval horizontal emphasis. pointer-events:none (pack fills the
+   viewport — must never block a cell click underneath). Grounded: refs/unn. */
+#theme-furniture[data-theme="unn"] .unn-board {
+  position: absolute;
+  left: 14px;
+  bottom: 16px;
+  width: 344px;
+  height: 150px;
+  pointer-events: none;
+  /* Chunky grey angular console bezel + opaque navy backing (never blurs the
+     cell underneath — readability is a bug). Flat: a hard bevel via stacked
+     box-shadow rings, NO colored glow. */
+  background: #0f1726;
+  border: 1px solid #3a475c;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 1px #1a2536,
+    inset 0 0 0 4px #11192a,
+    0 4px 10px rgba(0, 0, 0, 0.5);
+}
+/* Top placard — formal institutional title bar (no flashing-text excess). */
+#theme-furniture[data-theme="unn"] .unn-board-hd {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  right: 6px;
+  height: 15px;
+  line-height: 15px;
+  padding: 0 4px;
+  background: #1a2538;
+  border: 1px solid #2c3a52;
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  color: #8fa8c8;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* Inset sub-screen (chunky bezel framing the plot, like the bridge consoles). */
+#theme-furniture[data-theme="unn"] .unn-screen {
+  position: absolute;
+  top: 25px;
+  left: 6px;
+  bottom: 8px;
+  width: 190px;
+  background: #07101c;
+  border: 1px solid #2a3344;
+  box-shadow: inset 0 0 0 1px #05080d;
+}
+#theme-furniture[data-theme="unn"] .unn-screen svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* deliberately NO drop-shadow/glow filter — flat institutional plot. */
+}
+/* On-plot contact / ship labels — formal naval register, plain mono. */
+#theme-furniture[data-theme="unn"] .unn-own-lbl,
+#theme-furniture[data-theme="unn"] .unn-contact-lbl {
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  font-size: 6.5px;
+  letter-spacing: 0.08em;
+  fill: #9bb8d8;
+}
+#theme-furniture[data-theme="unn"] .unn-threat-lbl {
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  fill: #d8675c;
+}
+/* Right-side tracking readout — dense, unglamorous, utilitarian text rows. */
+#theme-furniture[data-theme="unn"] .unn-readout {
+  position: absolute;
+  top: 25px;
+  right: 6px;
+  bottom: 8px;
+  width: 134px;
+  background: #0b1322;
+  border: 1px solid #232f44;
+  padding: 4px 6px 26px 5px;
+  overflow: hidden;
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  box-sizing: border-box;
+}
+#theme-furniture[data-theme="unn"] .unn-readout-hd {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  color: #5a6a86;
+  border-bottom: 1px solid #232f44;
+  padding-bottom: 2px;
+  margin-bottom: 3px;
+}
+#theme-furniture[data-theme="unn"] .unn-readout-hd span,
+#theme-furniture[data-theme="unn"] .unn-rrow span { width: 25%; }
+#theme-furniture[data-theme="unn"] .unn-readout-hd span:nth-child(1),
+#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(1) { text-align: left; }
+#theme-furniture[data-theme="unn"] .unn-readout-hd span:nth-child(n+2),
+#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(n+2) { text-align: right; }
+#theme-furniture[data-theme="unn"] .unn-rrow {
+  display: flex;
+  font-size: 7.5px;
+  letter-spacing: 0.04em;
+  line-height: 1.58;
+  color: #9bb1cc;
+}
+#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(1) { color: #5f7390; }
+#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(3) { color: #6f9fd0; }
+#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(4) { color: #6f9fd0; }
+/* Range-solution footer — dense naval readout (the reference's RNG/CPA block). */
+#theme-furniture[data-theme="unn"] .unn-readout-ft {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 3px;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #232f44;
+  padding-top: 2px;
+}
+#theme-furniture[data-theme="unn"] .unn-ft1 {
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  color: #8fa8c8;
+  white-space: nowrap;
+}
+#theme-furniture[data-theme="unn"] .unn-ft2 {
+  font-size: 6.5px;
+  letter-spacing: 0.04em;
+  color: #4f627e;
+  white-space: nowrap;
+}
+
 /* ============================================================
    BELTER theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
    (salvaged, repurposed gear). DUAL amber+cyan accent (vs Mars's single-accent

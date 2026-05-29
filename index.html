@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=55" />
+<link rel="stylesheet" href="notebook.css?v=56" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -10852,6 +10852,10 @@ function mountThemeFurniture(theme) {
       el.dataset.theme = "belter";
       _buildFurnitureBelter(el);
       break;
+    case "unn":
+      el.dataset.theme = "unn";
+      _buildFurnitureUNN(el);
+      break;
     default:
       break; // no furniture for this theme
   }
@@ -11081,6 +11085,168 @@ function _updateBelterOrbital() {
   if (sub) sub.textContent = n + " KONTAKT";
 }
 
+// UN globe-laurel seal — the key Earth-power iconography (refs/unn/NOTES.md).
+// Simplified azimuthal globe grid (concentric circles + radial meridians) flanked
+// by two mirrored laurel branches. Flat single-blue line work, low opacity — it
+// reads as etched into the plot, like the war-room table inlay
+// (00_04_02_un_warroom_seal_table_orbital_lines). Returns an SVG <g> string.
+function _unnSeal(cx, cy, R) {
+  const col = "#7da4d6";
+  let s = '<g class="unn-seal-g" stroke="' + col + '" stroke-opacity="0.5" fill="none" stroke-width="0.6" stroke-linecap="round">';
+  s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R.toFixed(1) + '"/>';
+  s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.62).toFixed(1) + '"/>';
+  s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.28).toFixed(1) + '"/>';
+  // radial meridians (azimuthal-projection look)
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    s += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + R * Math.cos(a)).toFixed(1) +
+      '" y2="' + (cy + R * Math.sin(a)).toFixed(1) + '"/>';
+  }
+  // two mirrored laurel branches curving up around the globe
+  s += '<path d="M' + (cx - R * 0.18).toFixed(1) + ' ' + (cy + R * 1.34).toFixed(1) +
+    ' Q' + (cx - R * 1.62).toFixed(1) + ' ' + (cy + R * 0.5).toFixed(1) +
+    ' ' + (cx - R * 1.22).toFixed(1) + ' ' + (cy - R * 0.78).toFixed(1) + '"/>';
+  s += '<path d="M' + (cx + R * 0.18).toFixed(1) + ' ' + (cy + R * 1.34).toFixed(1) +
+    ' Q' + (cx + R * 1.62).toFixed(1) + ' ' + (cy + R * 0.5).toFixed(1) +
+    ' ' + (cx + R * 1.22).toFixed(1) + ' ' + (cy - R * 0.78).toFixed(1) + '"/>';
+  s += '</g>';
+  return s;
+}
+
+// UNN Earth/UN naval SITUATION-BOARD — the war-room tactical table, the UNN
+// signature furniture. Deliberately NOT like the others: where Belter draws a
+// tilted holo-plane and Roci a radar bezel, this is a flat HEAD-ON range-ring
+// plot (concentric circles = naval-radar grammar, refs unn_tactical_grid_rangerings)
+// with the UN globe-laurel seal inlaid at center (the war-room table), blue
+// friendly range-rings + a dashed red threat ring, framed in a chunky grey angular
+// console bezel (unn_bridge_console_angular). NO glow, NO holo depth, NO flicker —
+// the deliberately-dull "boring competent bureaucracy" register (user-confirmed
+// on-character). Horizontal/wide emphasis (WWII-naval). Contacts data-bound
+// (_updateUNNTactical) so the plot reads as live session tracking
+// (memory feedback_flair_must_inform).
+function _buildFurnitureUNN(el) {
+  // Own ship (UNN) sits at center — concentric blue range-rings = its sensor
+  // envelope. A SECOND, OFFSET red sensor bubble (a designated hostile contact)
+  // overlaps it — the reference's signature composition (UNN Agatha King's blue
+  // bubble overlapping the MCRN threat's red bubble), not a single concentric
+  // radar. Own ship is named by the UN seal + placard; the threat is labeled.
+  const cx = 94, cy = 60;
+  const ringR = [16, 29, 42];
+  let rings = "";
+  ringR.forEach((r) => {
+    rings += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r +
+      '" fill="none" stroke="#2f6fd0" stroke-opacity="0.5" stroke-width="1"/>';
+  });
+  // N-S / E-W bearing graticule through own ship.
+  rings += '<line x1="' + cx + '" y1="' + (cy - 46) + '" x2="' + cx + '" y2="' + (cy + 46) +
+    '" stroke="#2f6fd0" stroke-opacity="0.22" stroke-width="0.6"/>' +
+    '<line x1="' + (cx - 46) + '" y1="' + cy + '" x2="' + (cx + 46) + '" y2="' + cy +
+    '" stroke="#2f6fd0" stroke-opacity="0.22" stroke-width="0.6"/>';
+  // Offset hostile contact — its own dashed red sensor bubble + an open red
+  // threat triangle at its center + a label. Overlaps the blue envelope.
+  const tx = 56, ty = 86, tr = 26;
+  const threat =
+    '<g class="unn-threat">' +
+      '<circle cx="' + tx + '" cy="' + ty + '" r="' + tr + '" fill="none" ' +
+        'stroke="#d83a2e" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>' +
+      '<path d="M' + tx + ' ' + (ty - 4) + ' L' + (tx + 4) + ' ' + (ty + 3) +
+        ' L' + (tx - 4) + ' ' + (ty + 3) + ' Z" fill="none" stroke="#d83a2e" stroke-width="1.2"/>' +
+      '<text class="unn-threat-lbl" x="' + tx + '" y="' + (ty + 14) + '" text-anchor="middle">HOSTILE</text>' +
+    '</g>';
+  el.innerHTML =
+    '<div class="unn-board">' +
+      '<div class="unn-board-hd">UNN COMBINED FLEET · SITUATIONS PLOT</div>' +
+      '<div class="unn-screen">' +
+        '<svg viewBox="0 0 188 124" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
+          _unnSeal(cx, cy, 10) +
+          '<g class="unn-rings">' + rings + '</g>' + threat +
+          '<text class="unn-own-lbl" x="' + (cx + 14) + '" y="' + (cy - 14) + '">UNN</text>' +
+          '<g class="unn-contacts"></g>' +
+        '</svg>' +
+      '</div>' +
+      '<div class="unn-readout">' +
+        '<div class="unn-readout-hd"><span>TRK</span><span>TYP</span><span>BRG</span><span>RNG</span></div>' +
+        '<div class="unn-readout-rows"></div>' +
+        '<div class="unn-readout-ft">' +
+          '<span class="unn-ft1">SEL · STANDBY</span>' +
+          '<span class="unn-ft2">STATUS · MONITORING</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+// Formal naval track abbreviation for a substrate type — institutional register
+// (plain uppercase, not Belter creole).
+function _unnTag(type) {
+  const m = {
+    vega: "PLOT", treemap: "AREA", gauge: "GAUG", sparkline: "TRND",
+    coord_plot: "COOR", mermaid: "FLOW", force_graph: "NET", trajectory: "TRAJ",
+    timeline_ribbon: "TIME", html: "DATA", code: "CODE", ascii: "TEXT",
+    scene3d: "VOL", image: "IMG", animated_svg: "ANIM",
+  };
+  return m[type] || (type ? type.slice(0, 4).toUpperCase() : "SIG");
+}
+
+// Bind the situation-plot to REAL data: the most-recent cells become tracked
+// friendly contacts (blue) on the range-rings — newest innermost — and populate
+// the right-side tracking readout. Deterministic bearings (no jitter) keep it
+// dignified/institutional. Called from applyActiveLayout.
+function _updateUNNTactical() {
+  const fur = document.getElementById("theme-furniture");
+  if (!fur || fur.dataset.theme !== "unn") return;
+  const g = fur.querySelector(".unn-contacts");
+  const rowsEl = fur.querySelector(".unn-readout-rows");
+  if (!g) return;
+  const cells = [...document.querySelectorAll("#notebook .cell[data-timestamp]")]
+    .map((c) => ({ t: Date.parse(c.dataset.timestamp), type: c.dataset.cellType || "" }))
+    .filter((c) => Number.isFinite(c.t))
+    .sort((a, b) => b.t - a.t)
+    .slice(0, 6);
+  const cx = 94, cy = 60, ringR = [16, 29, 42];
+  let out = "", rows = "";
+  cells.forEach((c, i) => {
+    const r = ringR[Math.min(ringR.length - 1, Math.floor(i / 2))]; // newest inner, 2 per ring
+    const deg = (i * 67 + 28) % 360;                                // deterministic bearing
+    const a = ((deg - 90) * Math.PI) / 180;                         // 0° = North
+    const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+    const px = x.toFixed(1), py = y.toFixed(1);
+    out +=
+      '<g class="unn-contact">' +
+        // short radial tick from the ring + a square friendly marker (naval plot).
+        '<line x1="' + cx + '" y1="' + cy + '" x2="' + px + '" y2="' + py +
+          '" stroke="#2f6fd0" stroke-opacity="0.28" stroke-width="0.6"/>' +
+        '<rect x="' + (x - 2).toFixed(1) + '" y="' + (y - 2).toFixed(1) +
+          '" width="4" height="4" fill="none" stroke="#6f9fd0" stroke-width="1"/>' +
+        // the lead (newest) track gets a selection box + an on-plot designator
+        // label — the reference names its contacts directly on the plane.
+        (i === 0 ? '<rect x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
+          '" width="7.2" height="7.2" fill="none" stroke="#9bb8d8" stroke-opacity="0.75" stroke-width="0.6"/>' +
+          '<text class="unn-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
+          '">UNN ' + _unnTag(c.type) + '</text>' : "") +
+      '</g>';
+    const brg = String(deg).padStart(3, "0");
+    const ringIdx = Math.min(ringR.length - 1, Math.floor(i / 2));
+    const rng = String(4 + ringIdx * 8 + (i % 2) * 2).padStart(2, "0"); // recency→range
+    rows += '<div class="unn-rrow"><span>' + String(i + 1).padStart(2, "0") +
+      '</span><span>' + _unnTag(c.type) + '</span><span>' + brg +
+      '</span><span>' + rng + '</span></div>';
+  });
+  g.innerHTML = out;
+  if (rowsEl) rowsEl.innerHTML = rows;
+  // Range-solution footer for the selected (lead) track — the reference's dense
+  // naval readout (RNG / CPA / units). On-character institutional density.
+  const ft1 = fur.querySelector(".unn-ft1");
+  const ft2 = fur.querySelector(".unn-ft2");
+  if (cells.length) {
+    const lead = cells[0];
+    if (ft1) ft1.textContent = "SEL · UNN " + _unnTag(lead.type) + " · BRG 028";
+    if (ft2) ft2.textContent = "RNG 06NM · CPA 04 · " + cells.length + " TRK";
+  } else {
+    if (ft1) ft1.textContent = "SEL · STANDBY";
+    if (ft2) ft2.textContent = "STATUS · STANDBY";
+  }
+}
+
 // Apply the active layout mode, if any. Called after load() and on
 // window resize. No-op for grid mode (the CSS auto-fit handles it).
 function applyActiveLayout() {
@@ -11103,6 +11269,8 @@ function applyActiveLayout() {
   _updateRocinanteHisto();
   // Refresh the data-bound Belter orbital plot (recent cells as contacts).
   _updateBelterOrbital();
+  // Refresh the data-bound UNN situation-plot (recent cells as tracked contacts).
+  _updateUNNTactical();
   // Track the live HUD height so the rocinante cockpit panel (height:calc with
   // --hud-h) always ends just above the bottom band — the HUD can grow to a
   // second kill-meter row, which a hardcoded offset wouldn't survive.
