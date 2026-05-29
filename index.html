@@ -257,6 +257,23 @@ window.mermaid = mermaid;
 // Active theme is set by the inline head script -> window.__LUCIDA_THEME.
 const ACTIVE = window.__LUCIDA_THEME || "lab";
 
+// LOG shim: log levels for browser console.  console.log is noisy in
+// production (boot diagnostics, snap-driver lifecycle, mixed3d state
+// changes); gate it behind `?debug=1` so a normal user's console stays
+// quiet.  warn/error always fire — those are genuine user-visible
+// problems.  Audit-flagged: 19 console.log calls used to ship
+// unconditionally; this is the centralized hook to gate them.
+const _LOG_DEBUG = (() => {
+  try { return new URLSearchParams(window.location.search).has("debug"); }
+  catch (e) { return false; }
+})();
+const LOG = {
+  debug: _LOG_DEBUG ? console.log.bind(console)  : () => {},
+  info:  _LOG_DEBUG ? console.info.bind(console) : () => {},
+  warn:  console.warn.bind(console),
+  error: console.error.bind(console),
+};
+
 // Centralized mutable state. Pre-2026-04-28 the renderer had ~15
 // disconnected `let` variables scattered through the module —
 // state.rendering.renderedIds / state.hud.lastTyped / state.conn.renderer / state.hud.killHistory etc.
@@ -938,8 +955,15 @@ function ensurePrismLoaded(language) {
   }
   if (!_prismLoad) {
     _prismLoad = new Promise((resolve, reject) => {
+      // Prism core + autoloader pinned + SRI'd to match the SRI discipline
+      // applied to every other CDN script in the head.  Without this, a
+      // jsdelivr republish or prismjs npm takeover would execute attacker
+      // JS in the same origin as DOMPurify.  Hashes computed against
+      // prismjs@1.29.0 (openssl dgst -sha384 -binary | openssl base64).
       const core = document.createElement("script");
       core.src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js";
+      core.integrity = "sha384-ZM8fDxYm+GXOWeJcxDetoRImNnEAS7XwVFH5kv0pT6RXNy92Nemw/Sj7NfciXpqg";
+      core.crossOrigin = "anonymous";
       core.onload = () => {
         // Disable Prism's default auto-highlight on DOM ready — we trigger
         // highlightElement manually per cell so lazy-mounted cells get
@@ -947,6 +971,8 @@ function ensurePrismLoaded(language) {
         if (window.Prism) window.Prism.manual = true;
         const auto = document.createElement("script");
         auto.src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js";
+        auto.integrity = "sha384-Uq05+JLko69eOiPr39ta9bh7kld5PKZoU+fF7g0EXTAriEollhZ+DrN8Q/Oi8J2Q";
+        auto.crossOrigin = "anonymous";
         auto.onload = () => {
           try {
             window.Prism.plugins.autoloader.languages_path =
@@ -2560,7 +2586,7 @@ async function load() {
   const _PERF = new URLSearchParams(window.location.search).get("perf") === "1";
   const _pT0 = performance.now();
   const _pLog = (label) => {
-    if (_PERF) console.log(`[load.perf] +${(performance.now() - _pT0).toFixed(0)}ms ${label}`);
+    if (_PERF) LOG.debug(`[load.perf] +${(performance.now() - _pT0).toFixed(0)}ms ${label}`);
   };
   _pLog("load() start");
   const res = await fetch("cells.json", { cache: "no-store" });
@@ -2656,7 +2682,7 @@ async function load() {
       _renderedSinceMark++;
       if (_PERF && _renderedSinceMark >= 1000) {
         const _now = performance.now();
-        console.log(`[load.perf] +${(_now - _pT0).toFixed(0)}ms rendered ${_renderedSinceMark} cells in ${(_now - _lastMarkT).toFixed(0)}ms (avg ${((_now - _lastMarkT) / _renderedSinceMark).toFixed(2)}ms/cell)`);
+        LOG.debug(`[load.perf] +${(_now - _pT0).toFixed(0)}ms rendered ${_renderedSinceMark} cells in ${(_now - _lastMarkT).toFixed(0)}ms (avg ${((_now - _lastMarkT) / _renderedSinceMark).toFixed(2)}ms/cell)`);
         _renderedSinceMark = 0;
         _lastMarkT = _now;
       }
@@ -3034,7 +3060,7 @@ function applyMixed3DLayout(opts) {
     if (!_bootDebug) return;
     const t = performance.now();
     const dt = (t - _bootT0).toFixed(0);
-    console.log(`[mixed3d.boot] +${dt}ms ${label}`);
+    LOG.debug(`[mixed3d.boot] +${dt}ms ${label}`);
   };
   _bootMark("applyMixed3DLayout start");
 
@@ -3126,7 +3152,7 @@ function applyMixed3DLayout(opts) {
       if (o === hits[0].object) { hitId = id; break; }
     }
     if (!hitId) return;
-    console.log("[mixed3d] park", window._mixed3dParkAt(hitId));
+    LOG.debug("[mixed3d] park", window._mixed3dParkAt(hitId));
     // Also copy id + metadata to clipboard so the user can paste it
     // to the assistant. Includes the bits needed to look up the cell
     // in cells.json + understand its rendering state.
@@ -3968,7 +3994,7 @@ function applyMixed3DLayout(opts) {
       const dt = now - _lastFrameTs;
       if (dt > 50 && _mixed3dDebug) {
         // log (not warn) so devtools doesn't append a stack trace per stall.
-        console.log(`[mixed3d] frame stall: ${dt.toFixed(0)}ms gap @ ${now.toFixed(0)}ms`);
+        LOG.debug(`[mixed3d] frame stall: ${dt.toFixed(0)}ms gap @ ${now.toFixed(0)}ms`);
       }
       // Long-pause safety net: only fire on genuinely long pauses
       // (tab background unthrottle, OS sleep/wake) — bumped from
@@ -4000,7 +4026,7 @@ function applyMixed3DLayout(opts) {
       if (snap && _diagLast) {
         for (const k of Object.keys(snap)) {
           if (snap[k] !== _diagLast[k]) {
-            console.log(`[mixed3d] state-change @ ${now.toFixed(0)}ms: ${k} ${_diagLast[k]} → ${snap[k]}`);
+            LOG.debug(`[mixed3d] state-change @ ${now.toFixed(0)}ms: ${k} ${_diagLast[k]} → ${snap[k]}`);
           }
         }
       }
@@ -4257,7 +4283,7 @@ function applyMixed3DLayout(opts) {
       // A/B compare tier-1 + decorative against the full mix.
       if (new URLSearchParams(window.location.search).get("notier2") === "1") {
         if (typeof window.toggleMixed3dTier2 === "function") {
-          console.log(window.toggleMixed3dTier2(false));
+          LOG.debug(window.toggleMixed3dTier2(false));
         }
       }
       // Path warmup (#152c): pre-render every cell the camera will
@@ -4419,7 +4445,7 @@ function _mixed3dToggleDebugOverlay() {
       _mixed3dPaintDebugOverlay(c, id, obj);
       if (obj?.material?.map) { obj.material.map.needsUpdate = true; }
     }
-    console.log("[mixed3d] debug overlay: ON");
+    LOG.debug("[mixed3d] debug overlay: ON");
   } else {
     // Off: wipe the snap cache so the driver re-renders every cell
     // without the badge. Visible cells repaint within ~10-20s as the
@@ -4443,7 +4469,7 @@ function _mixed3dToggleDebugOverlay() {
       }
       cache.clear();
     }
-    console.log("[mixed3d] debug overlay: OFF (cache wiped; cells repaint via snap driver)");
+    LOG.debug("[mixed3d] debug overlay: OFF (cache wiped; cells repaint via snap driver)");
   }
 }
 async function _mixed3dDumpContactSheet() {
@@ -4484,7 +4510,7 @@ async function _mixed3dDumpContactSheet() {
     const r = await fetch("http://127.0.0.1:8767/" + name, {
       method: "POST", body: arr, headers: { "content-type": "image/png" }
     });
-    console.log(`[mixed3d] contact sheet -> refs/gibson/live-shots/${name}`, r.ok ? "OK" : "FAIL");
+    LOG.debug(`[mixed3d] contact sheet -> refs/gibson/live-shots/${name}`, r.ok ? "OK" : "FAIL");
   } catch (e) {
     console.warn("[mixed3d] contact sheet upload failed:", e);
   }
@@ -4695,7 +4721,7 @@ function _mixed3dDriveCamera(t) {
   // DevTools — quick way to confirm new tokens loaded vs. stale
   // browser-cached JS using an old policy.
   if (!_mixed3dState._cameraAnnounced) {
-    console.log("[mixed3d] camera mode:", policy);
+    LOG.debug("[mixed3d] camera mode:", policy);
     _mixed3dState._cameraAnnounced = true;
   }
   if (policy === "swoopy-tour") {
@@ -8741,7 +8767,7 @@ function _mixed3dUpdateRenderHud(S) {
 
 function _mixed3dStartSnapshotDriver() {
   if (_mixed3dSnapInterval) return;
-  console.log("[mixed3d] tier-1 snapshot driver started (substrates: " + Object.keys(_MIXED3D_RENDERERS).join(",") + ")");
+  LOG.debug("[mixed3d] tier-1 snapshot driver started (substrates: " + Object.keys(_MIXED3D_RENDERERS).join(",") + ")");
   _mixed3dSnapInterval = setInterval(() => {
     const S = _mixed3dState;
     if (!S || !S.cellObjects) return;
@@ -8943,7 +8969,7 @@ function _mixed3dRunPathWarmup(S) {
     fetch("http://127.0.0.1:8767/cells-index.json").then(r => r.ok ? r.json() : null).then(j => {
       if (j && Array.isArray(j.files)) {
         for (const f of j.files) window._mixed3dSvgManifest.add(f);
-        console.log(`[mixed3d] svg cache manifest: ${window._mixed3dSvgManifest.size} entries`);
+        LOG.debug(`[mixed3d] svg cache manifest: ${window._mixed3dSvgManifest.size} entries`);
       }
     }).catch(() => {});
   }
@@ -8992,7 +9018,7 @@ function _mixed3dRunPathWarmup(S) {
   if (typeof window._mixed3dCancelSafetyBoot === "function") {
     window._mixed3dCancelSafetyBoot();
   }
-  console.log(`[mixed3d] path warmup: ${warmupSet.size} cells to pre-render`);
+  LOG.debug(`[mixed3d] path warmup: ${warmupSet.size} cells to pre-render`);
   _mixed3dUpdateWarmupProgress(S);
   // Sort by camera-distance — render visible cells first so when boot
   // dismisses (or HARD_CAP_MS trips) the cells the camera can see are
@@ -9046,7 +9072,7 @@ function _mixed3dRunPathWarmup(S) {
     if (!S._warmupBootReady && S._warmupCount >= BOOT_READY_QUOTA) {
       S._warmupBootReady = true;
       const wall = performance.now() - S._warmupStart;
-      console.log(`[mixed3d] boot-ready: ${S._warmupCount}/${S._warmupTotal} cells warm in ${wall.toFixed(0)}ms (quota=${BOOT_READY_QUOTA})`);
+      LOG.debug(`[mixed3d] boot-ready: ${S._warmupCount}/${S._warmupTotal} cells warm in ${wall.toFixed(0)}ms (quota=${BOOT_READY_QUOTA})`);
       if (_bootReadyResolve) _bootReadyResolve();
     }
   };
@@ -9054,7 +9080,7 @@ function _mixed3dRunPathWarmup(S) {
     const finish = (reason) => {
       const wall = performance.now() - S._warmupStart;
       S._warmupFinishReason = reason || "natural";
-      console.log(`[mixed3d] path warmup done: ${S._warmupCount}/${S._warmupTotal} in ${wall.toFixed(0)}ms (reason=${S._warmupFinishReason}, inflight=${inflight.size}, nextIdx=${nextIdx}/${todo.length}, skips=${JSON.stringify(S._warmupSkipCounts)})`);
+      LOG.debug(`[mixed3d] path warmup done: ${S._warmupCount}/${S._warmupTotal} in ${wall.toFixed(0)}ms (reason=${S._warmupFinishReason}, inflight=${inflight.size}, nextIdx=${nextIdx}/${todo.length}, skips=${JSON.stringify(S._warmupSkipCounts)})`);
       S._warmupActive = false;
       S._warmupComplete = true;
       // If we got here without crossing the boot-ready quota (e.g.
@@ -9519,7 +9545,7 @@ function _mixed3dSyncCells() {
 
   const _syncMs = performance.now() - _syncStart;
   if (fresh.length > 0 || _syncMs > 5) {
-    console.log(`[mixed3d] syncCells: +${fresh.length} queued in ${_syncMs.toFixed(0)}ms (queue: ${_mixed3dState.mountQueue.length}) @ ${performance.now().toFixed(0)}ms`);
+    LOG.debug(`[mixed3d] syncCells: +${fresh.length} queued in ${_syncMs.toFixed(0)}ms (queue: ${_mixed3dState.mountQueue.length}) @ ${performance.now().toFixed(0)}ms`);
   }
   if (!_mixed3dState.mountDraining && _mixed3dState.mountQueue.length > 0) {
     _mixed3dState.mountDraining = true;
@@ -9890,7 +9916,7 @@ function _mixed3dDrainMountQueue() {
   } else {
     S.mountDraining = false;
     const wall = performance.now() - (S.mountDrainStart || start);
-    console.log(`[mixed3d] mount drain done: ${S.mountDrainTotal} cells in ${wall.toFixed(0)}ms wall @ ${performance.now().toFixed(0)}ms`);
+    LOG.debug(`[mixed3d] mount drain done: ${S.mountDrainTotal} cells in ${wall.toFixed(0)}ms wall @ ${performance.now().toFixed(0)}ms`);
   }
 }
 
@@ -10274,7 +10300,7 @@ function _mixed3dBuildDecorativeLayer() {
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
     totalCount += m.count;
   }
-  console.log(`[mixed3d] decorative layer built: ${totalCount} instances across ${N_TEXTURES} textures`);
+  LOG.debug(`[mixed3d] decorative layer built: ${totalCount} instances across ${N_TEXTURES} textures`);
 }
 
 // Per-frame animation step for decoratives. User 2026-05-19: 'in the
@@ -11667,8 +11693,13 @@ function setupCellZoom() {
       cloneVegaTarget.innerHTML = "";
       requestAnimationFrame(() => {
         try {
-          const spec = JSON.parse(cloneVegaTarget.dataset.vegaSpec);
-          window.vegaEmbed(cloneVegaTarget, spec, { actions: false, ...TC.vega }).catch(err => {
+          const rawSpec = JSON.parse(cloneVegaTarget.dataset.vegaSpec);
+          // Re-strip URL-bearing fields and literal colors here too —
+          // the dataset.vegaSpec carries the ORIGINAL spec, not the
+          // already-stripped one used in the main render.
+          const safeSpec = window.stripVegaLiteralColors
+            ? window.stripVegaLiteralColors(rawSpec) : rawSpec;
+          window.vegaEmbed(cloneVegaTarget, safeSpec, { actions: false, ...TC.vega }).catch(err => {
             cloneVegaTarget.textContent = "vega render error: " + err.message;
           });
         } catch (err) {
@@ -11821,6 +11852,15 @@ function _scopeCellStyles(container, scopeSel, _retry) {
   if (anyUnparsed && !_retry) {
     requestAnimationFrame(() => _scopeCellStyles(container, scopeSel, true));
   }
+}
+
+// Expose sanitizers on window for dev probes + the puppeteer-driven
+// sanitization unit tests (tools/test_sanitization.mjs).  Same pattern
+// as _debugTHEME_REGISTRY above.
+if (typeof window !== "undefined") {
+  window._purifyHtml = _purifyHtml;
+  window._purifySvg = _purifySvg;
+  window._scopeCellStyles = _scopeCellStyles;
 }
 
 // MutationObserver: when a cell is removed from #notebook (layout
@@ -12106,6 +12146,35 @@ function renderCell(c, snippetGroups, cellsById, opts) {
           return m;
         };
         if (clone.mark) clone.mark = stripMarkColors(clone.mark);
+        // Strip URL-bearing fields from the spec.  Vega's loader honors
+        // data.url, data.format.url, and image-mark url fields by issuing
+        // GETs from the browser — a poisoned spec could exfil to attacker
+        // or hit cloud-metadata services (169.254.169.254).  Specs in
+        // cells.json are LLM-generated; we don't allow them to control
+        // the loader.  Allowlist: data.values inline is fine; data.name
+        // (named-dataset reference) is fine; data.url / data.format.url
+        // / image-mark url are stripped.  Replace data.url with an empty
+        // inline values array so the spec still parses.
+        const URL_KEYS = ["url", "href", "src"];
+        const stripUrls = (node, parent) => {
+          if (!node || typeof node !== "object") return;
+          if (Array.isArray(node)) { node.forEach(c => stripUrls(c, parent)); return; }
+          for (const k of URL_KEYS) {
+            if (k in node) {
+              // Image mark / pattern: delete the field; the mark just
+              // won't paint the image but the spec still renders.
+              delete node[k];
+            }
+          }
+          if ("data" in node && node.data && typeof node.data === "object" && !Array.isArray(node.data)) {
+            // Vega data block — replace any url/format.url with inline empty values.
+            if ("url" in node.data || (node.data.format && "url" in node.data.format)) {
+              node.data = { values: [] };
+            }
+          }
+          for (const k of Object.keys(node)) stripUrls(node[k], node);
+        };
+        stripUrls(clone, null);
         // Also strip scale.range arrays of hex literals from any encoding.
         const walk = obj => {
           if (!obj || typeof obj !== "object") return;
