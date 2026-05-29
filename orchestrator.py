@@ -294,9 +294,17 @@ def build_prompt(cell_type: str, snippet: str, context: str = "") -> str:
     """).strip()
 
 
+# cells.json wire-format version.  Bump when the schema changes in a way
+# the JS reader can't infer (renamed fields, dropped fields, new required
+# keys).  The reader at index.html `_normalizeCellsPayload` reads this and
+# warns on mismatch so silent drift can't bite anymore — pre-versioning,
+# the spec === 'None' literal-string was already a residual of that drift.
+CELLS_SCHEMA_VERSION = 1
+
+
 def load_cells() -> dict:
     if not CELLS_PATH.exists():
-        return {"session_id": "leg5-v0", "cells": []}
+        return {"session_id": "leg5-v0", "cells": [], "schema_version": CELLS_SCHEMA_VERSION}
     try:
         return json.loads(CELLS_PATH.read_text())  # type: ignore[no-any-return]
     except json.JSONDecodeError as e:
@@ -380,6 +388,9 @@ def save_cells(data: dict) -> None:
     cap = 0 if raw in ("0", "all", "none", "off") else max(1, int(raw))
     if cap and len(data.get("cells", [])) > cap:
         data["cells"] = data["cells"][-cap:]
+    # Stamp the schema version on every write so the JS reader can warn on
+    # mismatch.  Idempotent — overwrites whatever's there with the current.
+    data["schema_version"] = CELLS_SCHEMA_VERSION
     tmp = CELLS_PATH.with_suffix(".json.tmp")
     bak = CELLS_PATH.with_suffix(".json.bak")
     tmp.write_text(json.dumps(data, indent=2) + "\n")

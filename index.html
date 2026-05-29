@@ -1026,6 +1026,15 @@ function disposeCellState(cellEl) {
       t._lazyObserver = null;
     }
   }
+  // Pack-layout ResizeObserver: a single module-scope observer watches
+  // every pack cell so substrates that hydrate-late (mermaid, vega,
+  // animated_svg) can trigger a re-pack. Per-column eviction is the load-
+  // bearing RAM mechanism (memory perf_ram_cap), but the observer was
+  // retaining evicted cells — both as GC roots and as continued layout
+  // work. Unobserve here so disposeCellState fully releases the cell.
+  if (_packResizeObserver) {
+    try { _packResizeObserver.unobserve(cellEl); } catch (e) { /* swallow */ }
+  }
 }
 
 // Lazy mount/unmount for SVG-heavy substrates (mermaid, vega, animated_svg).
@@ -1342,6 +1351,35 @@ function typeInto(elId, text, perChar = 18, maxChars = 200) {
 // through to null only when there's no cache yet.
 const _fetchJSONLastGood = new Map();
 
+// cells.json wire-format version the JS reader was authored for. Must
+// match orchestrator.py CELLS_SCHEMA_VERSION. Mismatch is a warn-and-
+// degrade, not an abort — the renderer is forward-tolerant of unknown
+// keys but the operator should know the source has drifted.
+const EXPECTED_CELLS_SCHEMA_VERSION = 1;
+const _schemaVersionWarned = new Set();
+function _checkCellsSchemaVersion(path, data) {
+  if (path !== "cells.json" || !data || typeof data !== "object") return;
+  const v = data.schema_version;
+  if (v === EXPECTED_CELLS_SCHEMA_VERSION) return;
+  const key = v == null ? "missing" : String(v);
+  if (_schemaVersionWarned.has(key)) return;
+  _schemaVersionWarned.add(key);
+  if (v == null) {
+    console.warn(
+      `[fetchJSON] cells.json has no schema_version field. ` +
+      `Reader expects v${EXPECTED_CELLS_SCHEMA_VERSION}. ` +
+      `Writer may be pre-versioning (orchestrator.py < 2026-05-29) — ` +
+      `unknown fields will be ignored, missing fields will read as undefined.`,
+    );
+  } else {
+    console.warn(
+      `[fetchJSON] cells.json schema_version=${v} but reader expects ` +
+      `${EXPECTED_CELLS_SCHEMA_VERSION}. Rendering with best-effort tolerance; ` +
+      `confirm the JS bundle and the Python writer are on the same release.`,
+    );
+  }
+}
+
 async function fetchJSON(path) {
   try {
     const r = await fetch(path, { cache: "no-store" });
@@ -1349,6 +1387,7 @@ async function fetchJSON(path) {
     const text = await r.text();
     try {
       const data = JSON.parse(text);
+      _checkCellsSchemaVersion(path, data);
       _fetchJSONLastGood.set(path, data);
       return data;
     } catch (parseErr) {
@@ -2839,6 +2878,14 @@ function applyPackLayout() {
       dbg.incrementalError = String(e);
       try { _muuriGrid.destroy(); } catch (e2) {}
       _muuriGrid = null;
+      // Disconnect the ResizeObserver too — the new grid will create a
+      // fresh one via _packGetObserver().observe(...). Otherwise the
+      // surviving observer fires against detached elements from the
+      // destroyed grid (already audit-flagged as a leak vector).
+      if (_packResizeObserver) {
+        try { _packResizeObserver.disconnect(); } catch (e3) {}
+        _packResizeObserver = null;
+      }
     }
   }
   dbg.path = "create";

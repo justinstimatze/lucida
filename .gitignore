@@ -36,8 +36,16 @@ cells.json.tmp
 cells.json.lock*
 cells.json.truncated-*
 cells_*_archive.json
+# Old-snapshot quarantine — orchestrator writes timestamped backups before
+# destructive operations (cull, rebalance, sysmetric resampling); accumulates
+# 100s of MB over months. tools/cleanup_cells_snapshots.py moves stale ones
+# here on demand; deletes are the user's call.
+.cells-snapshots/
 tools/.system_metrics_state.json
 tools/.system_metrics_state.tmp
+
+# plancheck MCP debug spill — overwritten every plan check; never source
+.plancheck-debug.json
 
 # scratch notes / drafts not for the repo
 VR.md

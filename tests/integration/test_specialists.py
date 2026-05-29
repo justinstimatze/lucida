@@ -33,29 +33,39 @@ HTML_SNIPPET = (
 
 
 def test_generate_vega_spec_returns_valid_json():
-    from specialists import generate_vega_spec
+    from specialists import SpecialistResult, generate_vega_spec
 
-    spec = generate_vega_spec(NUMERIC_SNIPPET, context="")
-    # spec must be JSON-parseable
+    result = generate_vega_spec(NUMERIC_SNIPPET, context="")
+    assert isinstance(result, SpecialistResult), (
+        f"generate_vega_spec must return SpecialistResult, got {type(result).__name__}"
+    )
+    spec = result.spec
     parsed = json.loads(json.dumps(spec)) if isinstance(spec, dict) else json.loads(spec)
     assert isinstance(parsed, dict)
     assert "mark" in parsed or "$schema" in parsed or "layer" in parsed
 
 
 def test_generate_mermaid_spec_returns_graph_syntax():
-    from specialists import generate_mermaid_spec
+    from specialists import SpecialistResult, generate_mermaid_spec
 
-    spec = generate_mermaid_spec(RELATIONAL_SNIPPET, context="")
+    result = generate_mermaid_spec(RELATIONAL_SNIPPET, context="")
+    assert isinstance(result, SpecialistResult), (
+        f"generate_mermaid_spec must return SpecialistResult, got {type(result).__name__}"
+    )
+    spec = result.spec
     assert isinstance(spec, str)
     # Must contain at least one arrow (edge)
     assert "-->" in spec or "---" in spec or "-.->" in spec
 
 
 def test_generate_html_spec_returns_table_markup():
-    from specialists import generate_html_spec
+    from specialists import SpecialistResult, generate_html_spec
 
-    result = generate_html_spec(HTML_SNIPPET, context="", html_layout="table")
-    html = result if isinstance(result, str) else result.get("html", "")
+    result = generate_html_spec(HTML_SNIPPET, context="", layout_hint="table")
+    assert isinstance(result, SpecialistResult), (
+        f"generate_html_spec must return SpecialistResult, got {type(result).__name__}"
+    )
+    html = result.spec if isinstance(result.spec, str) else ""
     assert "<table" in html.lower() or "<tr" in html.lower()
 
 
@@ -63,7 +73,8 @@ def test_generate_vega_spec_has_data_values():
     """Vega specialist must ground the spec in actual data.values rows."""
     from specialists import generate_vega_spec
 
-    spec = generate_vega_spec(NUMERIC_SNIPPET, context="")
+    result = generate_vega_spec(NUMERIC_SNIPPET, context="")
+    spec = result.spec
     raw = json.dumps(spec) if isinstance(spec, dict) else spec
     # data.values must appear somewhere in the serialized spec
     assert "values" in raw
@@ -73,7 +84,8 @@ def test_generate_mermaid_spec_names_entities_from_snippet():
     """Mermaid nodes should reference entities from the snippet."""
     from specialists import generate_mermaid_spec
 
-    spec = generate_mermaid_spec(RELATIONAL_SNIPPET, context="")
+    result = generate_mermaid_spec(RELATIONAL_SNIPPET, context="")
+    spec = result.spec
     # At least one of the key entities should appear in the graph
     key_terms = ["dopamine", "VTA", "D1", "D2", "accumbens", "nucleus", "reward"]
     found = any(term.lower() in spec.lower() for term in key_terms)
