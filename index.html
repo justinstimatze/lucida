@@ -2428,8 +2428,14 @@ const LAYOUT_REGISTRY = {
     // Cells ring a reserved center where the unn situations-board is centered +
     // enlarged. One ring fit-to-viewport (no scroll). Few, large, readable cells
     // (like cockpit); the full corpus lives in pack. unn's default layout.
+    // Cap 4: cells placed at diagonal corners (NW/NE/SE/SW). Earlier 6-at-60°
+    // layout had right/left flank cells at sin±30° that overlapped (vertical
+    // spacing = ry, but cellH > ry post-HUD-clamp). Diagonal corners give
+    // vertical spacing ry·√2 ≈ 1.414·ry — much more generous, no overlap at
+    // realistic cellH. 4 stations also reads as the canonical UN war-room
+    // (command / weapons / sensors / comms around a holo-table).
     apply: () => applyWarroomLayout(),
-    cap: 6,
+    cap: 4,
   },
   pack: {
     id: "pack",
@@ -10827,9 +10833,13 @@ function applyWarroomLayout() {
   // ring stays geometrically valid. Floor at 140 so substrates remain
   // readable; below that the layout has genuinely too little space.
   const cellHFit = Math.max(140, Math.min(cellH, Math.round(ry)));
-  const n = cells.length; // registry cap holds this to one clean ring
+  const n = cells.length; // registry cap=4 (diagonal-corners layout)
+  // Diagonal corners: NW (-3π/4), NE (-π/4), SE (π/4), SW (3π/4). Adjacent
+  // cells are now corner-to-corner, with vertical spacing ry·√2 (much more
+  // generous than the prior 60° ring's ry spacing).
+  const CORNER_ANGLES = [-3 * Math.PI / 4, -Math.PI / 4, Math.PI / 4, 3 * Math.PI / 4];
   cells.forEach((cell, i) => {
-    const angle = -Math.PI / 2 + (i / n) * Math.PI * 2; // top, clockwise
+    const angle = CORNER_ANGLES[i % CORNER_ANGLES.length];
     const x = cx + Math.cos(angle) * rx - cellW / 2;
     const y = cy + Math.sin(angle) * ry - cellHFit / 2;
     Object.assign(cell.style, {
