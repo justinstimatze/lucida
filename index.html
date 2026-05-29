@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=71" />
+<link rel="stylesheet" href="notebook.css?v=74" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -154,6 +154,11 @@
        consistently useful content should remain on the viz page".
        The browser tab's <title> says "Lucida" so window-switching
        identification is preserved. -->
+  <!-- Edge-trigger activation zone for the HUD. 32px tall (generous —
+       friendly), top-pinned, pointer-events on. Slow-pulsing accent
+       line gives a discoverable hint that there is something above the
+       fold without occupying visible header space.  See #setupHudEdgeTrigger. -->
+  <div id="hud-edge-hint" aria-hidden="true"></div>
   <div id="hud" class="hud" aria-live="polite">
     <div class="hud-row hud-row-top">
       <span class="hud-cell hud-status">
@@ -829,124 +834,83 @@ function applyFactionHUDLabels(theme) {
   // a watch number, not a session-slug stub. Leave alone if no match
   // so non-sess ids still display correctly.
   const sessionTrim = (v) => String(v).replace(/sess(?:-.*)?$/i, "");
-  // Per-theme layout value remap — `cockpit`/`pack`/`warroom`/`scatter`
-  // are renderer-internal layout ids; transform to faction-native words
-  // so the chip reads as a naval term, not an engine setting.
-  const layoutMap = (map) => (v) => map[String(v).trim().toLowerCase()] ?? String(v);
+  // Layout chip stays canonical ("LAYOUT: PACK" etc.) across themes —
+  // the previous per-theme value remap (pack→CONVOY, pack→COND-3, …)
+  // hid the renderer-internal id the dropdown still showed, so the chip
+  // and dropdown disagreed. User 2026-05-29: "I don't like RIG: CONVOY
+  // instead of LAYOUT: PACK, that's bad UX." Faction flavor stays in
+  // the other chip labels (status/cells/since/render/session/theme)
+  // where the value IS the real id (sessions are real ids, theme is the
+  // real theme id) so there's no chip-vs-dropdown conflict.
   const TABLE = {
     rocinante: {
-      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "POST", theme: "SHIP" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", tactical: "BATTLE", terminal: "CLI", mixed3d: "HOLO" }),
-      },
+      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "SHIP" },
+      values: { "hud-session-val": sessionTrim },
     },
     tachi: {
-      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "POST", theme: "SHIP" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", tactical: "BATTLE", terminal: "CLI", mixed3d: "HOLO" }),
-      },
+      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "SHIP" },
+      values: { "hud-session-val": sessionTrim },
     },
     belter: {
-      labels: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH",  layout: "ROOM",  theme: "FAKSON" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "PILOT", pack: "ROCKS", scatter: "VLOM", warroom: "PLOT", organic: "SWARM", tactical: "STRIKE", terminal: "TERM", mixed3d: "HOLO" }),
-      },
+      labels: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH",  layout: "LAYOUT",  theme: "FAKSON" },
+      values: { "hud-session-val": sessionTrim },
     },
     unn: {
-      labels: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "ALERT", theme: "FLAG" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "COND-3", scatter: "DISPERSED", warroom: "GENERAL Q", organic: "RECON", tactical: "TACTICAL", terminal: "TTY", mixed3d: "HOLO" }),
-      },
+      labels: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "FLAG" },
+      values: { "hud-session-val": sessionTrim },
     },
     // ── Backfill from Expanse polish: non-Expanse themes opt into the same
     // mechanism so every theme has a voice instead of the dev-tooling defaults.
     // lab + minimal stay default (baseline / spartan registers). All values
     // are in-universe to the theme's aesthetic.
     conclave: {
-      labels: { status: "STATE", since: "OFFICE", cells: "NODES", render: "SACRAMENT", session: "COUNCIL", layout: "CHAMBER", theme: "SEE" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "ALTAR", pack: "FLOCK", scatter: "PROCESSION", warroom: "CONCLAVE", organic: "GARDEN", tactical: "INQUISITION", terminal: "SCRIPTORIUM", mixed3d: "NAVE" }),
-      },
+      labels: { status: "STATE", since: "OFFICE", cells: "NODES", render: "SACRAMENT", session: "COUNCIL", layout: "LAYOUT", theme: "SEE" },
+      values: { "hud-session-val": sessionTrim },
     },
     gastown: {
       // Yegge's Gas Town (his Jan-2026 multi-agent coding system) leans
       // Mad Max for culture/wording and Vancouver-Gastown-steampunk for
       // legal-safe visuals.  Match: HUD vocabulary takes the Mad Max
       // road-warrior register (CHROME / REVS / GUZZ / ROAR / CONVOY /
-      // RIG / V8), and palette stays brass+cream per the tokens.
-      labels: { status: "CHROME", since: "REVS", cells: "GUZZ", render: "ROAR", session: "CONVOY", layout: "RIG", theme: "V8" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "DRIVER", pack: "CONVOY", scatter: "STAMPEDE", warroom: "CITADEL", organic: "SWARM", tactical: "WAR PARTY", terminal: "RADIO", mixed3d: "POLE CATS" }),
-      },
+      // V8), and palette stays brass+cream per the tokens.
+      labels: { status: "CHROME", since: "REVS", cells: "GUZZ", render: "ROAR", session: "CONVOY", layout: "LAYOUT", theme: "V8" },
+      values: { "hud-session-val": sessionTrim },
     },
     ops: {
-      labels: { status: "COND", since: "T+", cells: "CONTACTS", render: "COMPUTING", session: "WATCH", layout: "STATION", theme: "REGISTRY" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "GRID", scatter: "SCAN", warroom: "OPS-SIM", organic: "BIOME", tactical: "RED-ALERT", terminal: "ASCII", mixed3d: "HOLO" }),
-      },
+      labels: { status: "COND", since: "T+", cells: "CONTACTS", render: "COMPUTING", session: "WATCH", layout: "LAYOUT", theme: "REGISTRY" },
+      values: { "hud-session-val": sessionTrim },
     },
     vigil: {
-      labels: { status: "VITAL", since: "UPTIME", cells: "TARGETS", render: "COMP", session: "WATCH", layout: "MODE", theme: "SUIT" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "HUD", pack: "GRID", scatter: "DISPERSED", warroom: "BRIEF", organic: "FLOW", tactical: "COMBAT", terminal: "CLI", mixed3d: "PROJ" }),
-      },
+      labels: { status: "VITAL", since: "UPTIME", cells: "TARGETS", render: "COMP", session: "WATCH", layout: "LAYOUT", theme: "SUIT" },
+      values: { "hud-session-val": sessionTrim },
     },
     circuit: {
-      labels: { status: "PWR", since: "CYCLE", cells: "BITS", render: "RENDER", session: "CONN", layout: "BUS", theme: "PATCH" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "CORE", pack: "GRID", scatter: "FRAG", warroom: "FORK", organic: "TREE", tactical: "STRIKE", terminal: "REPL", mixed3d: "VOL" }),
-      },
+      labels: { status: "PWR", since: "CYCLE", cells: "BITS", render: "RENDER", session: "CONN", layout: "LAYOUT", theme: "PATCH" },
+      values: { "hud-session-val": sessionTrim },
     },
     noir: {
-      labels: { status: "PULSE", since: "T+", cells: "LEADS", render: "INK", session: "CASE", layout: "BEAT", theme: "FILE" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "DESK", pack: "DOSSIER", scatter: "PAPERS", warroom: "OFFICE", organic: "TRAIL", tactical: "STAKEOUT", terminal: "TELEX", mixed3d: "MORGUE" }),
-      },
+      labels: { status: "PULSE", since: "T+", cells: "LEADS", render: "INK", session: "CASE", layout: "LAYOUT", theme: "FILE" },
+      values: { "hud-session-val": sessionTrim },
     },
     renegade: {
-      labels: { status: "CON", since: "ETA", cells: "CONTACTS", render: "OMNI", session: "WATCH", layout: "POST", theme: "FRAME" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "CIC", pack: "CARGO", scatter: "SCAN", warroom: "WAR ROOM", organic: "ARMORY", tactical: "TACTICAL", terminal: "OMNITOOL", mixed3d: "HOLO" }),
-      },
+      labels: { status: "CON", since: "ETA", cells: "CONTACTS", render: "OMNI", session: "WATCH", layout: "LAYOUT", theme: "FRAME" },
+      values: { "hud-session-val": sessionTrim },
     },
     mainframe: {
-      labels: { status: "STAT", since: "UP", cells: "RECORDS", render: "EXEC", session: "JOB", layout: "MODE", theme: "BATCH" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "TTY", pack: "QUEUE", scatter: "SPOOL", warroom: "OPCEN", organic: "DIR", tactical: "PRIORITY", terminal: "TSO", mixed3d: "VTAM" }),
-      },
+      labels: { status: "STAT", since: "UP", cells: "RECORDS", render: "EXEC", session: "JOB", layout: "LAYOUT", theme: "BATCH" },
+      values: { "hud-session-val": sessionTrim },
     },
     terminus: {
-      labels: { status: "PWR", since: "T+", cells: "LINES", render: "ECHO", session: "SESSION", layout: "MODE", theme: "TERM" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "SHELL", pack: "QUEUE", scatter: "PIPE", warroom: "VT100", organic: "FORK", tactical: "TARGET", terminal: "TERM", mixed3d: "PTY" }),
-      },
+      labels: { status: "PWR", since: "T+", cells: "LINES", render: "ECHO", session: "SESSION", layout: "LAYOUT", theme: "TERM" },
+      values: { "hud-session-val": sessionTrim },
     },
     hackers: {
-      labels: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN", layout: "TOWER", theme: "RIG" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "DECK", pack: "VAULT", scatter: "DROP", warroom: "FLOOR", organic: "VINE", tactical: "RAID", terminal: "TTY", mixed3d: "CANYON" }),
-      },
+      labels: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN", layout: "LAYOUT", theme: "RIG" },
+      values: { "hud-session-val": sessionTrim },
     },
     hailmary: {
-      labels: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG", layout: "BAY", theme: "CRAFT" },
-      values: {
-        "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "LAB", scatter: "DRIFT", warroom: "PLANNING", organic: "CULTURE", tactical: "INTERCEPT", terminal: "LOG", mixed3d: "AVIONICS" }),
-      },
+      labels: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG", layout: "LAYOUT", theme: "CRAFT" },
+      values: { "hud-session-val": sessionTrim },
     },
   };
   // Always clear prior transforms so theme switches don't leak. The
@@ -14105,6 +14069,62 @@ hudEl?.addEventListener("keydown", (e) => {
     toggleHudExpanded({ currentTarget: hudEl, target: hudEl });
   }
 });
+
+// Edge-trigger HUD: the top strip is the highest-real-estate slot a
+// theme has for instrument-grade chrome, so the HUD slides offscreen
+// when not in use and reveals when the mouse approaches the viewport
+// top.  The `data-hud-revealed` body attribute is the single source of
+// truth (CSS handles the transform).  An initial grace window keeps
+// the HUD visible long enough for first-time visitors to notice it.
+(function setupHudEdgeTrigger() {
+  const body = document.body;
+  const hud = document.getElementById("hud");
+  const hint = document.getElementById("hud-edge-hint");
+  if (!body || !hud) return;
+  const ACTIVATION_PX = 32;     // top-edge zone height (friendly, generous)
+  const HIDE_AFTER_MS = 1400;   // idle time before re-hide
+  const INITIAL_HINT_MS = 30000; // grace window on first paint — long enough for the first-time visitor to actually notice the HUD
+  let hideTimer = null;
+  let isOverHud = false;
+  let isOverHint = false;
+  function reveal() {
+    body.dataset.hudRevealed = "1";
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+  }
+  function scheduleHide(delay) {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      hideTimer = null;
+      // Don't hide if any dropdown is open, mouse is still in the
+      // active region, or a HUD descendant has focus.
+      const dropdownOpen = !!document.querySelector(".session-dropdown:not([hidden])");
+      const hudFocused = document.activeElement && hud.contains(document.activeElement);
+      if (dropdownOpen || isOverHud || isOverHint || hudFocused) {
+        scheduleHide(HIDE_AFTER_MS);
+        return;
+      }
+      body.dataset.hudRevealed = "0";
+    }, delay);
+  }
+  reveal();
+  scheduleHide(INITIAL_HINT_MS);
+  window.addEventListener("mousemove", (e) => {
+    if (e.clientY <= ACTIVATION_PX) {
+      reveal();
+      scheduleHide(HIDE_AFTER_MS);
+    }
+  }, { passive: true });
+  hud.addEventListener("mouseenter", () => { isOverHud = true; reveal(); });
+  hud.addEventListener("mouseleave", () => { isOverHud = false; scheduleHide(HIDE_AFTER_MS); });
+  if (hint) {
+    hint.addEventListener("mouseenter", () => { isOverHint = true; reveal(); });
+    hint.addEventListener("mouseleave", () => { isOverHint = false; scheduleHide(HIDE_AFTER_MS); });
+    // Click the hint to pin the HUD open until the user moves away.
+    hint.addEventListener("click", () => { reveal(); scheduleHide(HIDE_AFTER_MS * 3); });
+  }
+  hud.addEventListener("focusin", reveal);
+  hud.addEventListener("focusout", () => scheduleHide(HIDE_AFTER_MS));
+})();
 
 // HUD bootstraps and polls fast. Hackertyper-feel reveal happens
 // inside typeInto() but only on actual value changes (cached), so the
