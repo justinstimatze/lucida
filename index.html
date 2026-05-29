@@ -11289,7 +11289,7 @@ function _buildFurnitureRocinante(el) {
     '<div class="fur-scale fur-scale-r"></div>' +
     '<div class="fur-topstrip"><span class="fur-topstrip-run"></span></div>' +
     '<div class="fur-histo" title="Mint-activity readout — each bar is a time slice of the session; bar height = cells minted in that slice.">' +
-      '<div class="fur-histo-label">' + REG + '<br>MINT ACTIVITY · STANDBY</div>' +
+      '<div class="fur-histo-label">' + REG + '<br>TRAFFIC · STANDBY</div>' +
       '<div class="fur-bars">' + bars + '</div>' +
       '<div class="fur-dials"><span class="fur-dial"></span><span class="fur-dial fur-dial-sm"></span></div>' +
     '</div>';
@@ -11330,8 +11330,11 @@ function _updateRocinanteHisto() {
   const REG = ACTIVE === "tachi" ? "MCRN TACHI · CV-T15" : "MCRN ROCINANTE · CTV-K1W-RCI";
   const label = fur.querySelector(".fur-histo-label");
   if (label) {
-    label.innerHTML = REG + "<br>MINT ACTIVITY · " +
-      ts.length + " CELLS / " + window.replace("<", "&lt;");
+    // "MINT ACTIVITY · N CELLS" read as dev-tooling on an MCRN warship
+    // status line.  TRAFFIC + CONTACTS matches the HUD chip vocabulary
+    // (CONTACTS / WATCH / POST / SHIP) so the footer reads in-register.
+    label.innerHTML = REG + "<br>TRAFFIC · " +
+      ts.length + " CONTACTS / " + window.replace("<", "&lt;");
   }
   const histo = fur.querySelector(".fur-histo");
   if (histo) {

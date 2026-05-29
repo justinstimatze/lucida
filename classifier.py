@@ -328,10 +328,18 @@ class ClassifierResult:
 
 
 SUBSTRATE_TARGET_SHARE = {
-    "mermaid": 0.18,
-    "html": 0.18,
+    # Per user feedback 2026-05-29: animated_svg cells are some of the
+    # strongest visual elements in 2D dashboards (especially under hackers /
+    # mixed3d) but rarely show up — the 0.11 baseline + strict "motion
+    # encodes load-bearing info" content gate combined to underrepresent
+    # them.  Bumped to 0.15 (still below mermaid/html but in the leading
+    # tier with timeline_ribbon).  Cost paid out of mermaid and html, the
+    # documented "dominant defaults the classifier biases against" anyway
+    # (line 117 of SYSTEM_PROMPT).
+    "mermaid": 0.16,
+    "html": 0.16,
+    "animated_svg": 0.15,
     "timeline_ribbon": 0.13,
-    "animated_svg": 0.11,
     "treemap": 0.07,
     "vega": 0.07,
     "gauge": 0.06,
