@@ -14728,6 +14728,80 @@ function _buildTransientGeneric(body) {
   }, 90);
 }
 
+// --- Expanse factions: faction-flavored ambient filler (was generic glyph
+// stream). Self-contained inline styling so no CSS-cache bump. Each refreshes
+// like a console still ticking over; interval self-clears when the cell is
+// removed (body.isConnected goes false). Belter shows by default (pack); roci/
+// unn only when switched to pack (their default cockpit/warroom layouts are
+// capped, no gaps to fill). -----------------------------------------------
+function _buildTransientBelter(body) {
+  // Salvaged OPA terminal — Lang-Belta-register rows, dual amber+cyan, scrappy.
+  const wrap = el("div", "transient-belter");
+  wrap.style.cssText = "padding:5px 7px;font-family:'Space Mono','Share Tech Mono',monospace;font-size:8px;letter-spacing:0.08em;line-height:1.7;";
+  const labels = ["DEFO", "LOK", "KOMMA", "PROX", "OYE", "IMBOBO", "BERATNA", "WALOWDA"];
+  const amber = "#e8902a", cyan = "#1aa6b0";
+  const mk = () => {
+    let html = "";
+    for (let i = 0; i < 4; i++) {
+      const lab = labels[(Math.random() * labels.length) | 0];
+      const col = Math.random() < 0.5 ? amber : cyan;
+      const val = ((Math.random() * 4096) | 0).toString(16).toUpperCase().padStart(3, "0");
+      html += '<div style="display:flex;justify-content:space-between;color:' + col + '"><span>' + lab + '</span><span>' + val + '</span></div>';
+    }
+    return html;
+  };
+  wrap.innerHTML = mk();
+  body.appendChild(wrap);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    wrap.innerHTML = mk();
+  }, 700);
+}
+function _buildTransientRocinante(body) {
+  // MCRN telemetry strip — muted cyan rows with occasional system-color tick
+  // (green ok / amber alert), restrained (Mars discipline).
+  const wrap = el("div", "transient-roci");
+  wrap.style.cssText = "padding:5px 7px;font-family:'D-DIN','Saira',sans-serif;font-size:8.5px;letter-spacing:0.1em;line-height:1.75;";
+  const labels = ["THRST", "RCS", "REACTR", "NAV", "EPSTEIN", "TRIM", "ATT", "PDC"];
+  const cyan = "#5a96aa", ok = "#3ad14e", warn = "#ffc233";
+  const mk = () => {
+    let html = "";
+    for (let i = 0; i < 4; i++) {
+      const lab = labels[(Math.random() * labels.length) | 0];
+      const r = Math.random();
+      const col = r < 0.12 ? warn : (r < 0.28 ? ok : cyan);
+      html += '<div style="display:flex;justify-content:space-between;color:' + col + '"><span>' + lab + '</span><span>' + String((Math.random() * 100) | 0).padStart(3, "0") + '%</span></div>';
+    }
+    return html;
+  };
+  wrap.innerHTML = mk();
+  body.appendChild(wrap);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    wrap.innerHTML = mk();
+  }, 800);
+}
+function _buildTransientUNN(body) {
+  // Institutional readout — flat navy data rows, formal, NO flicker; a SLOW,
+  // dignified value tick (UNN motion is slow/weighty, not frantic).
+  const wrap = el("div", "transient-unn");
+  wrap.style.cssText = "padding:5px 7px;font-family:'Share Tech Mono','Courier New',monospace;font-size:8px;letter-spacing:0.06em;line-height:1.8;color:#9bb1cc;";
+  const labels = ["TRK", "BRG", "RNG", "CPA", "SEC", "GRID", "VRM"];
+  const mk = () => {
+    let html = '<div style="color:#5a6a86;border-bottom:1px solid rgba(47,111,208,0.22);margin-bottom:2px;padding-bottom:1px">UNN · STATUS</div>';
+    for (let i = 0; i < 5; i++) {
+      html += '<div style="display:flex;justify-content:space-between"><span style="color:#5f7390">' + labels[i % labels.length] + '</span><span style="color:#6f9fd0">' + String((Math.random() * 360) | 0).padStart(3, "0") + '</span></div>';
+    }
+    return html;
+  };
+  wrap.innerHTML = mk();
+  body.appendChild(wrap);
+  const ivl = setInterval(() => {
+    if (!body.isConnected) { clearInterval(ivl); return; }
+    wrap.innerHTML = mk();
+  }, 2200);
+}
+
 function _buildTransientBody(body, theme) {
   body.classList.add("transient-body");
   switch (theme) {
@@ -14742,6 +14816,9 @@ function _buildTransientBody(body, theme) {
     case "mainframe": return _buildTransientMainframe(body);
     case "renegade":  return _buildTransientRenegade(body);
     case "minimal":   return _buildTransientMinimal(body);
+    case "rocinante": return _buildTransientRocinante(body);
+    case "belter":    return _buildTransientBelter(body);
+    case "unn":       return _buildTransientUNN(body);
     default:          return _buildTransientGeneric(body);
   }
 }
