@@ -2978,8 +2978,14 @@ html.theme-ops::before {
   padding-left: 0.5rem;
   border-left: 2px solid var(--accent);
 }
+/* MCRN command strip — a cyan instrument top-rail + a faint cyan wash over the
+   default left accent; restrained (Mars discipline), reads as a bridge readout. */
 .theme-rocinante .hud {
   border-color: rgba(90, 150, 170, 0.35);
+  border-top: 1px solid rgba(90, 150, 170, 0.5);
+  background:
+    linear-gradient(180deg, rgba(40, 70, 84, 0.32), rgba(0, 0, 0, 0) 70%),
+    var(--code-bg);
 }
 .theme-rocinante .hud-value {
   color: #5a96aa;
@@ -3457,6 +3463,16 @@ html.theme-ops::before {
 @media (prefers-reduced-motion: reduce) {
   #theme-furniture[data-theme="belter"] { animation: none; }
 }
+/* Newest orbital contact = the LIVE/active track: a slow radar-style pulse on
+   its footprint ring so the plot reads as a live feed (flair-must-inform —
+   recency made legible). Reduced-motion gated. */
+@keyframes bel-contact-ping { 0%, 100% { stroke-opacity: 0.22; } 50% { stroke-opacity: 0.85; } }
+#theme-furniture[data-theme="belter"] .bel-live ellipse {
+  animation: bel-contact-ping 2.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  #theme-furniture[data-theme="belter"] .bel-live ellipse { animation: none; }
+}
 
 /* UNN furniture: Earth/UN naval SITUATION-BOARD (war-room tactical table)
    anchored bottom-left. Deliberately DULL/institutional — chunky grey angular
@@ -3609,6 +3625,16 @@ html.theme-ops::before {
   transform: translate(-50%, -50%) scale(1.32);
   transform-origin: center center;
 }
+/* Lead track = the active contact: a SLOW, dignified pulse on its selection box
+   (NOTES: UNN motion is slow/weighty — no frantic flicker). flair-must-inform:
+   the live track is the newest cell. Reduced-motion gated. */
+@keyframes unn-sel-pulse { 0%, 100% { stroke-opacity: 0.32; } 50% { stroke-opacity: 0.95; } }
+#theme-furniture[data-theme="unn"] .unn-sel-live {
+  animation: unn-sel-pulse 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  #theme-furniture[data-theme="unn"] .unn-sel-live { animation: none; }
+}
 
 /* ============================================================
    BELTER theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
@@ -3662,7 +3688,17 @@ html.theme-ops::before {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.theme-belter .hud { border-color: rgba(232, 144, 42, 0.35); }
+/* Salvaged OPA strip — the dual amber+cyan brand: amber left edge (default
+   --accent) + a scrappy CYAN DASHED bottom seam (a bolted-on repurposed look),
+   warm wash. The dashed seam is the Belter "exposed join" tell vs the clean
+   MCRN/UNN rails. */
+.theme-belter .hud {
+  border-color: rgba(232, 144, 42, 0.35);
+  border-bottom: 1px dashed rgba(26, 166, 176, 0.45);
+  background:
+    linear-gradient(180deg, rgba(40, 28, 14, 0.4), rgba(0, 0, 0, 0) 70%),
+    var(--code-bg);
+}
 .theme-belter .hud-value {
   color: #e8902a;
   text-shadow: 0 0 8px rgba(232, 144, 42, 0.5);
@@ -3819,7 +3855,19 @@ html.theme-ops::before {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.theme-unn .hud { border-color: rgba(47, 111, 208, 0.4); }
+/* UN naval command header — deliberately the HEAVIEST/most formal of the three:
+   a navy double-rule (top + bottom) + cool wash + wider letter-spacing. The
+   chunky framing reads as institutional gravitas (matches the console bezel) —
+   the establishment's official header, not a scrappy or sharp one. */
+.theme-unn .hud {
+  border-color: rgba(47, 111, 208, 0.4);
+  border-top: 2px solid rgba(47, 111, 208, 0.55);
+  border-bottom: 2px solid rgba(47, 111, 208, 0.28);
+  background:
+    linear-gradient(180deg, rgba(26, 38, 56, 0.5), rgba(14, 22, 40, 0.3)),
+    var(--code-bg);
+  letter-spacing: 0.07em;
+}
 .theme-unn .hud-value { color: #4a86d8; }
 /* Flat institutional panel: plain near-square border, NO glow, NO notch — the
    deliberately-boring establishment look (the contrast that makes roci/belter

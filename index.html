@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=58" />
+<link rel="stylesheet" href="notebook.css?v=60" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -11136,7 +11136,7 @@ function _updateBelterOrbital() {
       " L" + (pxN + 3).toFixed(1) + " " + (tyN - 1).toFixed(1) +
       " L" + px + " " + (tyN + 3).toFixed(1) + " Z";
     out +=
-      '<g class="bel-contact">' +
+      '<g class="bel-contact' + (i === 0 ? ' bel-live' : '') + '">' +
         // Footprint ellipse on the plane — grounds the contact so the vertical
         // riser reads as a 3D pin standing on the tilted surface (depth cue).
         '<ellipse cx="' + px + '" cy="' + py + '" rx="4" ry="1.4" fill="none" ' +
@@ -11289,7 +11289,7 @@ function _updateUNNTactical() {
           '" width="4" height="4" fill="none" stroke="#6f9fd0" stroke-width="1"/>' +
         // the lead (newest) track gets a selection box + an on-plot designator
         // label — the reference names its contacts directly on the plane.
-        (i === 0 ? '<rect x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
+        (i === 0 ? '<rect class="unn-sel-live" x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
           '" width="7.2" height="7.2" fill="none" stroke="#9bb8d8" stroke-opacity="0.75" stroke-width="0.6"/>' +
           '<text class="unn-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
           '">UNN ' + _unnTag(c.type) + '</text>' : "") +
