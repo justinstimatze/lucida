@@ -838,28 +838,109 @@ function applyFactionHUDLabels(theme) {
       labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "POST", theme: "SHIP" },
       values: {
         "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", mixed3d: "HOLO" }),
+        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", tactical: "BATTLE", terminal: "CLI", mixed3d: "HOLO" }),
       },
     },
     tachi: {
       labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "POST", theme: "SHIP" },
       values: {
         "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", mixed3d: "HOLO" }),
+        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", tactical: "BATTLE", terminal: "CLI", mixed3d: "HOLO" }),
       },
     },
     belter: {
       labels: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH",  layout: "ROOM",  theme: "FAKSON" },
       values: {
         "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "PILOT", pack: "ROCKS", scatter: "VLOM", warroom: "PLOT", organic: "SWARM", mixed3d: "HOLO" }),
+        "hud-layout-val":  layoutMap({ cockpit: "PILOT", pack: "ROCKS", scatter: "VLOM", warroom: "PLOT", organic: "SWARM", tactical: "STRIKE", terminal: "TERM", mixed3d: "HOLO" }),
       },
     },
     unn: {
       labels: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "ALERT", theme: "FLAG" },
       values: {
         "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "COND-3", scatter: "DISPERSED", warroom: "GENERAL Q", organic: "RECON", mixed3d: "HOLO" }),
+        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "COND-3", scatter: "DISPERSED", warroom: "GENERAL Q", organic: "RECON", tactical: "TACTICAL", terminal: "TTY", mixed3d: "HOLO" }),
+      },
+    },
+    // ── Backfill from Expanse polish: non-Expanse themes opt into the same
+    // mechanism so every theme has a voice instead of the dev-tooling defaults.
+    // lab + minimal stay default (baseline / spartan registers). All values
+    // are in-universe to the theme's aesthetic.
+    conclave: {
+      labels: { status: "STATE", since: "OFFICE", cells: "NODES", render: "SACRAMENT", session: "COUNCIL", layout: "CHAMBER", theme: "SEE" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "ALTAR", pack: "FLOCK", scatter: "PROCESSION", warroom: "CONCLAVE", organic: "GARDEN", tactical: "INQUISITION", terminal: "SCRIPTORIUM", mixed3d: "NAVE" }),
+      },
+    },
+    gastown: {
+      labels: { status: "VALVE", since: "RUN-TIME", cells: "PISTONS", render: "FORGE", session: "SHIFT", layout: "WORKS", theme: "ENGINE" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "YARD", scatter: "DEPOT", warroom: "FOUNDRY", organic: "GROVE", tactical: "BATTLEMENT", terminal: "TICKER", mixed3d: "ATRIUM" }),
+      },
+    },
+    ops: {
+      labels: { status: "COND", since: "T+", cells: "CONTACTS", render: "COMPUTING", session: "WATCH", layout: "STATION", theme: "REGISTRY" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "GRID", scatter: "SCAN", warroom: "OPS-SIM", organic: "BIOME", tactical: "RED-ALERT", terminal: "ASCII", mixed3d: "HOLO" }),
+      },
+    },
+    vigil: {
+      labels: { status: "VITAL", since: "UPTIME", cells: "TARGETS", render: "COMP", session: "WATCH", layout: "MODE", theme: "SUIT" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "HUD", pack: "GRID", scatter: "DISPERSED", warroom: "BRIEF", organic: "FLOW", tactical: "COMBAT", terminal: "CLI", mixed3d: "PROJ" }),
+      },
+    },
+    circuit: {
+      labels: { status: "PWR", since: "CYCLE", cells: "BITS", render: "RENDER", session: "CONN", layout: "BUS", theme: "PATCH" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "CORE", pack: "GRID", scatter: "FRAG", warroom: "FORK", organic: "TREE", tactical: "STRIKE", terminal: "REPL", mixed3d: "VOL" }),
+      },
+    },
+    noir: {
+      labels: { status: "PULSE", since: "T+", cells: "LEADS", render: "INK", session: "CASE", layout: "BEAT", theme: "FILE" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "DESK", pack: "DOSSIER", scatter: "PAPERS", warroom: "OFFICE", organic: "TRAIL", tactical: "STAKEOUT", terminal: "TELEX", mixed3d: "MORGUE" }),
+      },
+    },
+    renegade: {
+      labels: { status: "CON", since: "ETA", cells: "CONTACTS", render: "OMNI", session: "WATCH", layout: "POST", theme: "FRAME" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "CIC", pack: "CARGO", scatter: "SCAN", warroom: "WAR ROOM", organic: "ARMORY", tactical: "TACTICAL", terminal: "OMNITOOL", mixed3d: "HOLO" }),
+      },
+    },
+    mainframe: {
+      labels: { status: "STAT", since: "UP", cells: "RECORDS", render: "EXEC", session: "JOB", layout: "MODE", theme: "BATCH" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "TTY", pack: "QUEUE", scatter: "SPOOL", warroom: "OPCEN", organic: "DIR", tactical: "PRIORITY", terminal: "TSO", mixed3d: "VTAM" }),
+      },
+    },
+    terminus: {
+      labels: { status: "PWR", since: "T+", cells: "LINES", render: "ECHO", session: "SESSION", layout: "MODE", theme: "TERM" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "SHELL", pack: "QUEUE", scatter: "PIPE", warroom: "VT100", organic: "FORK", tactical: "TARGET", terminal: "TERM", mixed3d: "PTY" }),
+      },
+    },
+    hackers: {
+      labels: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN", layout: "TOWER", theme: "RIG" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "DECK", pack: "VAULT", scatter: "DROP", warroom: "FLOOR", organic: "VINE", tactical: "RAID", terminal: "TTY", mixed3d: "CANYON" }),
+      },
+    },
+    hailmary: {
+      labels: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG", layout: "BAY", theme: "CRAFT" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "LAB", scatter: "DRIFT", warroom: "PLANNING", organic: "CULTURE", tactical: "INTERCEPT", terminal: "LOG", mixed3d: "AVIONICS" }),
       },
     },
   };
