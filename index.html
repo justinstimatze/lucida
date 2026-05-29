@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=62" />
+<link rel="stylesheet" href="notebook.css?v=70" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -582,9 +582,16 @@ function initLayoutDropdownTrigger() {
   const trigger = document.getElementById("hud-layout-cell");
   const dropdown = document.getElementById("layout-dropdown");
   if (!trigger || !dropdown) return;
-  // Reflect the current mode on the chip on load.
+  // Reflect the current mode on the chip on load. Route through the
+  // per-theme value transform so layouts like `cockpit` render as faction-
+  // native words (e.g. `HELM` under MCRN) instead of the engine id.
   const valEl = document.getElementById("hud-layout-val");
-  if (valEl) valEl.textContent = getLayoutMode().toUpperCase();
+  if (valEl) {
+    const raw = getLayoutMode().toUpperCase();
+    const xf = _HUD_VALUE_TRANSFORMS["hud-layout-val"];
+    valEl.textContent = xf ? xf(raw) : raw;
+    _hudChipMaybeHide("hud-layout-val", valEl.textContent);
+  }
   const open = () => {
     buildLayoutDropdown();
     dropdown.hidden = false;
@@ -766,7 +773,118 @@ function applyTokensToCSSVars(t) {
 const TOKENS = await loadTokens(ACTIVE);
 applyTokensToCSSVars(TOKENS);
 mountThemeFurniture(ACTIVE);  // theme console-overlay furniture (no-op for themes without a builder)
+// Per-theme HUD value transforms: themes register a fn keyed by chip
+// elId (e.g. strip "38sess" → "38"). System level — typeInto routes
+// every value through this. Empty for default themes; populated for
+// Expanse themes. Module-level mutable so theme switches can replace.
+const _HUD_VALUE_TRANSFORMS = {};
+// Empty-chip values that auto-hide their parent chip. Universal.
+const _HUD_EMPTY_VALUES = new Set(["", "—", "-", "None", "null", "undefined"]);
+function _hudChipMaybeHide(elId, value) {
+  const e = document.getElementById(elId);
+  if (!e) return;
+  const chip = e.closest(".hud-cell");
+  if (!chip) return;
+  // Triggers stay clickable — the dropdown should still open even when
+  // the chip currently shows no data. Only hide non-trigger chips.
+  if (chip.classList.contains("hud-session-trigger") ||
+      chip.classList.contains("hud-layout-trigger") ||
+      chip.classList.contains("hud-theme-trigger")) return;
+  chip.classList.toggle("hud-empty", _HUD_EMPTY_VALUES.has(String(value).trim()));
+}
+applyFactionHUDLabels(ACTIVE);  // swap HUD chip labels to faction-native naval words
 const TC = buildThemeConfig(TOKENS);
+
+// Faction-native HUD chip labels + value transforms — replaces dev-tooling
+// words (`SESSION`, `LAYOUT`, `THEME`, `CELLS`) with in-universe naval
+// labels AND transforms displayed values where the raw form breaks the
+// register (e.g. layout=COCKPIT under POST reads as a mixed metaphor;
+// transforming to HELM fixes it). System level — populates
+// `_HUD_VALUE_TRANSFORMS` so future themes register the same way.
+// Per fan-mode review 2026-05-29: "POST COCKPIT" was the canonical
+// example of MCRN-flavored label but generic-coded value.
+function applyFactionHUDLabels(theme) {
+  // Identity transform: pass-through. Used so every chip has an entry
+  // (sparse maps would mean future code can't assume coverage).
+  const id = (v) => v;
+  // Strip the trailing literal "sess" from session ids — the multi-stream
+  // arc produces ids like "38sess" / "38sess-xyz"; the chip should read as
+  // a watch number, not a session-slug stub. Leave alone if no match
+  // so non-sess ids still display correctly.
+  const sessionTrim = (v) => String(v).replace(/sess(?:-.*)?$/i, "");
+  // Per-theme layout value remap — `cockpit`/`pack`/`warroom`/`scatter`
+  // are renderer-internal layout ids; transform to faction-native words
+  // so the chip reads as a naval term, not an engine setting.
+  const layoutMap = (map) => (v) => map[String(v).trim().toLowerCase()] ?? String(v);
+  const TABLE = {
+    rocinante: {
+      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "POST", theme: "SHIP" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", mixed3d: "HOLO" }),
+      },
+    },
+    tachi: {
+      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "POST", theme: "SHIP" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "HELM", pack: "DRIFT", scatter: "FLOAT", warroom: "OPS", organic: "FLOW", mixed3d: "HOLO" }),
+      },
+    },
+    belter: {
+      labels: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH",  layout: "ROOM",  theme: "FAKSON" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "PILOT", pack: "ROCKS", scatter: "VLOM", warroom: "PLOT", organic: "SWARM", mixed3d: "HOLO" }),
+      },
+    },
+    unn: {
+      labels: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "ALERT", theme: "FLAG" },
+      values: {
+        "hud-session-val": sessionTrim,
+        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "COND-3", scatter: "DISPERSED", warroom: "GENERAL Q", organic: "RECON", mixed3d: "HOLO" }),
+      },
+    },
+  };
+  // Always clear prior transforms so theme switches don't leak. The
+  // transforms registry is module-level mutable — single source of truth
+  // for typeInto's pre-display formatting hook.
+  for (const k of Object.keys(_HUD_VALUE_TRANSFORMS)) delete _HUD_VALUE_TRANSFORMS[k];
+  const entry = TABLE[theme];
+  if (!entry) return;
+  const setLabel = (sel, txt) => {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = txt;
+  };
+  const { labels, values } = entry;
+  setLabel(".hud-status .hud-label",   labels.status);
+  setLabel(".hud-elapsed .hud-label",  labels.since);
+  setLabel(".hud-cells-cell .hud-label", labels.cells);
+  setLabel("#hud-render-cell .hud-label", labels.render);
+  setLabel("#hud-session-cell .hud-label", labels.session);
+  setLabel("#hud-layout-cell .hud-label",  labels.layout);
+  setLabel("#hud-theme-cell .hud-label",   labels.theme);
+  Object.assign(_HUD_VALUE_TRANSFORMS, values || {});
+  // Re-flow already-typed values through new transforms so the chip
+  // updates immediately on theme switch (without waiting for the next
+  // loadHud tick). The lastTyped cache is cleared so typeInto re-runs.
+  for (const elId of Object.keys(values || {})) {
+    const el = document.getElementById(elId);
+    if (!el) continue;
+    const raw = state.hud.lastTyped.get(elId);
+    if (raw == null) continue;
+    state.hud.lastTyped.delete(elId);
+    typeInto(elId, raw);
+  }
+  // The static `hud-layout-val` is set by wireLayoutHUD when the dropdown
+  // initializes; nudge it through the new transform too.
+  const lv = document.getElementById("hud-layout-val");
+  if (lv) {
+    const raw = lv.textContent.replace(/▾/g, "").trim();
+    const xf = _HUD_VALUE_TRANSFORMS["hud-layout-val"];
+    if (xf && raw) lv.textContent = xf(raw);
+  }
+}
 
 // Token-declared layout preference applied after LAYOUT_REGISTRY is defined
 // (see applyTokenLayout call below the registry).
@@ -1201,7 +1319,10 @@ function resolveColor(c) {
 function typeInto(elId, text, perChar = 18, maxChars = 200) {
   const e = document.getElementById(elId);
   if (!e) return;
-  const t = String(text).slice(0, maxChars);
+  const xform = _HUD_VALUE_TRANSFORMS[elId];
+  const raw = String(text).slice(0, maxChars);
+  const t = xform ? String(xform(raw)).slice(0, maxChars) : raw;
+  _hudChipMaybeHide(elId, t);
   if (state.hud.lastTyped.get(elId) === t) return;  // unchanged → leave it alone
   state.hud.lastTyped.set(elId, t);
   e.textContent = "";
@@ -10680,6 +10801,18 @@ function applyWarroomLayout() {
   const availHalfH = (vh - rootRect.top) / 2 - margin;
   let rx = Math.max(availHalfW - cellW / 2, tableHalfW + cellW / 2 + gap);
   let ry = Math.max(availHalfH - cellH / 2, tableHalfH + cellH / 2 + gap);
+  // Asymmetric clamp: the ring is centered on viewport-center (cy), but
+  // the notebook starts BELOW the HUD strip, so the space available above
+  // cy (cy itself) is smaller than the space below cy. Without an explicit
+  // top-clearance check, the topmost cell at angle -π/2 (y = cy - ry -
+  // cellH/2) can render with a negative y, pushing it behind the HUD —
+  // user-visible on UNN war-room top cells. Clamp ry so the topmost cell
+  // top edge stays >= margin (= HUD bottom + margin in viewport coords).
+  // Generic to any ring layout — not unn/warroom-specific.
+  const topClearance = cy - cellH / 2 - margin;
+  const botClearance = (vh - rootRect.top) - cy - cellH / 2 - margin;
+  const ryMax = Math.min(topClearance, botClearance);
+  if (ryMax > 0) ry = Math.min(ry, ryMax);
   const n = cells.length; // registry cap holds this to one clean ring
   cells.forEach((cell, i) => {
     const angle = -Math.PI / 2 + (i / n) * Math.PI * 2; // top, clockwise

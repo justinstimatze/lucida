@@ -1220,6 +1220,25 @@ main {
   overflow: hidden;
   position: relative;  /* establish containing block for transformed children */
 }
+/* Narrow cockpit rails — mermaid/timeline/trajectory SVGs render at their
+   intrinsic size, which for a typical spec ends up ~280×470. In a 309×216
+   rail cell that overflows top+bottom; cell `overflow:hidden` then clips
+   the lower half of text-row glyphs into illegible strokes. Comp-hero
+   already scales to fit (line ~3250); rails need parity. Scale-to-fit
+   both axes — small-but-coherent beats glyph-half-fragments. */
+.cockpit-rail-left .mermaid-target svg,
+.cockpit-rail-right .mermaid-target svg,
+.cockpit-rail-left .timeline-ribbon-target svg,
+.cockpit-rail-right .timeline-ribbon-target svg,
+.cockpit-rail-left .trajectory-target svg,
+.cockpit-rail-right .trajectory-target svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
 /* Auto-pan wrap: wrapper inside .html-target whose transform is animated
    when the inner content overflows the cell. Keeps the target itself
    stable (overflow-clipping context) while panning the wrap.
@@ -2948,7 +2967,7 @@ html.theme-ops::before {
      the grounded calm-ops cues (violet orbital ellipse + a single yellow target
      pip). The red dashed orbit ring was removed — red is the histogram band +
      threat reticles, never inert structure (accent discipline). */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%235a96aa' stroke-opacity='0.08' stroke-width='0.6'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%238b6cff' stroke-opacity='0.13' stroke-width='0.8' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='168' cy='150' r='2.4' fill='%23ffc233' fill-opacity='0.5'/%3E%3Cpath d='M168 142v16M160 150h16' stroke='%23ffc233' stroke-opacity='0.3' stroke-width='0.6'/%3E%3Ccircle cx='120' cy='120' r='2.4' fill='%235a96aa' fill-opacity='0.3'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%235a96aa' stroke-opacity='0.24' stroke-width='0.7'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%238b6cff' stroke-opacity='0.22' stroke-width='0.9' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='168' cy='150' r='2.6' fill='%23ffc233' fill-opacity='0.7'/%3E%3Cpath d='M168 142v16M160 150h16' stroke='%23ffc233' stroke-opacity='0.5' stroke-width='0.7'/%3E%3Ccircle cx='120' cy='120' r='2.8' fill='%235a96aa' fill-opacity='0.6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center 54%;
   background-size: min(88vmin, 1040px) min(88vmin, 1040px);
@@ -3678,7 +3697,7 @@ html.theme-ops::before {
   font-family: var(--font-body);
   /* RED-forward concentric nav-plot (the MCRN motif): red rings + crosshair +
      a steel-cyan secondary ellipse. Harder/grittier than roci's muted version. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23d8362a' stroke-opacity='0.09' stroke-width='0.7'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%234a9ec0' stroke-opacity='0.13' stroke-width='0.8' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='120' cy='120' r='2.6' fill='%23d8362a' fill-opacity='0.45'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23d8362a' stroke-opacity='0.26' stroke-width='0.8'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%234a9ec0' stroke-opacity='0.22' stroke-width='0.9' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='120' cy='120' r='3' fill='%23d8362a' fill-opacity='0.75'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center 54%;
   background-size: min(88vmin, 1040px) min(88vmin, 1040px);
@@ -3713,10 +3732,65 @@ html.theme-ops::before {
 }
 /* Hard angular GUNMETAL hull panel — a deeper corner notch + grey edge (harder,
    grittier than roci's softer blue panel). */
+/* Tachi chrome — HARD-edged early-MCRN industrial frame (vs roci's softer
+   chamfered cyan version). The era split should *read* in 1s:
+   – Hard 0° corners (no chamfer): early-Syfy MCRN bezels were right-angle;
+     the smooth top-right notch is the late-Amazon look (kept on roci).
+   – 2px gunmetal border: a visibly chunky steel bezel, not a hairline.
+   – Inset shadow: gives the cell a bowed-steel depth, like a panel screwed
+     into a console rack.
+   – Top-right red panel-screw mark via ::before: see the
+     CELL CORNER ACCENT SYSTEM block below. */
 .theme-tachi .cell {
-  clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%);
-  border: 1px solid rgba(132, 142, 152, 0.24);
+  clip-path: none;
+  border: 2px solid rgba(132, 142, 152, 0.32);
+  border-radius: 0;
   background: var(--cell-bg);
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 24, 28, 0.7),
+    inset 0 1px 0 rgba(180, 188, 196, 0.06);
+  position: relative;
+}
+
+/* ── CELL CORNER ACCENT SYSTEM ─────────────────────────────────────────────
+   Reusable mechanism: any theme that sets the `--cell-corner-*` CSS vars
+   gets a corner accent on every cell. The accent uses `::before` (the base
+   `.cell::after` is reserved for the edge-fade gradient — overriding it
+   broke tachi's bottom-edge fade in v1). Themes that already claim
+   `.cell::before` for another purpose (ops, hackers) won't conflict
+   because their theme-class selector has higher specificity.
+
+   Vars (each has a sensible default; omit any you don't need):
+     --cell-corner-content    none (default — accent absent) or ""
+     --cell-corner-size       14px
+     --cell-corner-top/right/bottom/left   default 0 / 0 / auto / auto = top-right
+     --cell-corner-bg         linear-gradient(...) or solid color
+     --cell-corner-opacity    0.85
+     --cell-corner-z          3 (above edge-fade .cell::after at z 2)
+
+   Future themes (renegade N7 corner mark, ops LCARS corner pip, etc.)
+   plug in by setting these vars in their theme block — no new selectors
+   needed at the system level. */
+.cell::before {
+  content: var(--cell-corner-content, none);
+  position: absolute;
+  width: var(--cell-corner-size, 14px);
+  height: var(--cell-corner-size, 14px);
+  top:    var(--cell-corner-top,    0);
+  right:  var(--cell-corner-right,  0);
+  bottom: var(--cell-corner-bottom, auto);
+  left:   var(--cell-corner-left,   auto);
+  background: var(--cell-corner-bg, none);
+  opacity: var(--cell-corner-opacity, 0.85);
+  z-index: var(--cell-corner-z, 3);
+  pointer-events: none;
+}
+/* Tachi: opt in to a red diagonal panel-screw mark at top-right (the
+   early-MCRN industrial detail replacing roci's chamfer). */
+.theme-tachi {
+  --cell-corner-content: "";
+  --cell-corner-size: 14px;
+  --cell-corner-bg: linear-gradient(225deg, var(--accent) 50%, transparent 50%);
 }
 .theme-tachi .mermaid-target .node rect,
 .theme-tachi .mermaid-target .node polygon,
@@ -3725,13 +3799,14 @@ html.theme-ops::before {
   fill: transparent !important;
   stroke: var(--accent) !important;
 }
-/* tachi cell SKIN: uniform RED rail (vs roci's role-color rails — tachi is the
-   harder/simpler "everything in MCRN red mode" register). Marks hidden (the
-   per-role badge glyphs are roci's role-coded vocabulary; tachi doesn't role-code). */
+/* tachi cell SKIN: NO rail — early-era MCRN cells use the gunmetal bezel
+   uniformly + a single red corner accent (above) as the MCRN signal.
+   Two red marks (rail + corner) read as busy and dilute the panel-screw
+   detail. Cell-skin-mark also hidden (the role glyphs are roci's
+   role-coded vocabulary; tachi doesn't role-code). */
 .theme-tachi .cell.cell-skin-mcrn {
-  border-left-width: 3px;
-  border-left-style: solid;
-  border-left-color: var(--accent);
+  border-left-width: 2px;
+  border-left-color: rgba(132, 142, 152, 0.32);
 }
 .theme-tachi .cell-skin-mark { display: none; }
 
@@ -3983,6 +4058,43 @@ html.theme-ops::before {
 .theme-unn .mermaid-target .node ellipse {
   fill: transparent !important;
   stroke: var(--accent) !important;
+}
+
+/* Expanse chrome cleanup — cell-id pills (`cell-6920`), cell-session
+   UUID stubs (`613de990-f350-`), and 12-hour timestamps (`12:38`) read
+   as JIRA-card metadata on every faction screen. opacity:0 alone
+   doesn't free row width — title was getting compressed to 31px
+   (truncated to 2 chars: `TA…`, `DO…`) because hidden siblings still
+   consumed flex space. Collapse-out via display:none in the resting
+   state; hover restores so the zoom-tap target stays accessible. */
+.theme-rocinante .cell-head > .cell-id,
+.theme-tachi     .cell-head > .cell-id,
+.theme-belter    .cell-head > .cell-id,
+.theme-unn       .cell-head > .cell-id,
+.theme-rocinante .cell-head > .cell-session,
+.theme-tachi     .cell-head > .cell-session,
+.theme-belter    .cell-head > .cell-session,
+.theme-unn       .cell-head > .cell-session,
+.theme-rocinante .cell-head > .cell-time,
+.theme-tachi     .cell-head > .cell-time,
+.theme-belter    .cell-head > .cell-time,
+.theme-unn       .cell-head > .cell-time {
+  display: none;
+}
+.theme-rocinante .cell:hover .cell-head > .cell-id,
+.theme-tachi     .cell:hover .cell-head > .cell-id,
+.theme-belter    .cell:hover .cell-head > .cell-id,
+.theme-unn       .cell:hover .cell-head > .cell-id,
+.theme-rocinante .cell:hover .cell-head > .cell-session,
+.theme-tachi     .cell:hover .cell-head > .cell-session,
+.theme-belter    .cell:hover .cell-head > .cell-session,
+.theme-unn       .cell:hover .cell-head > .cell-session,
+.theme-rocinante .cell:hover .cell-head > .cell-time,
+.theme-tachi     .cell:hover .cell-head > .cell-time,
+.theme-belter    .cell:hover .cell-head > .cell-time,
+.theme-unn       .cell:hover .cell-head > .cell-time {
+  display: inline-flex;
+  opacity: 0.7;
 }
 
 /* ── Cell SKIN: MCRN archetype roles (tokens.json "skin":"mcrn") ───────────
@@ -4441,6 +4553,18 @@ th, td {
   gap: 0.45rem;
   white-space: nowrap;
 }
+/* Respect the HTML `hidden` attribute on chips. `.hud-cell { display:
+   inline-flex }` was beating the UA default `[hidden] { display: none }`
+   so chips marked hidden in markup still rendered (the RENDR — chip was
+   the visible symptom). Single rule, applies to every current + future
+   chip — themes don't need to know about this. */
+.hud-cell[hidden] { display: none !important; }
+/* Auto-hide chips whose value is empty or the placeholder em-dash.
+   Modern :has() lets us declare it once, theme-agnostic. Chips with
+   actual data render; placeholder/unhooked chips disappear so the HUD
+   compresses to only loaded telemetry. */
+.hud-cell:has(.hud-value:empty) { display: none; }
+.hud-cell.hud-empty { display: none; }
 .hud-label {
   text-transform: uppercase;
   color: var(--muted);
