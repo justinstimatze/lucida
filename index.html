@@ -2511,6 +2511,14 @@ const LAYOUT_REGISTRY = {
 };
 // Apply token-declared layout preference as default when no ?layout= override.
 // Runs here so LAYOUT_REGISTRY is already defined above.
+// Expose registries on window for the puppeteer smoke runner
+// (tools/smoke_themes.mjs).  Dev-only probe — same shape as
+// window._debugState above.  Adding a theme/layout doesn't require
+// updating the smoke runner; it re-reads on each launch.
+if (typeof window !== "undefined") {
+  window._debugTHEME_REGISTRY = THEME_REGISTRY;
+  window._debugLAYOUT_REGISTRY = LAYOUT_REGISTRY;
+}
 (function applyTokenLayout() {
   const urlLayout = new URLSearchParams(window.location.search).get("layout");
   if (!urlLayout && TOKENS.layout && LAYOUT_REGISTRY[TOKENS.layout]) {
