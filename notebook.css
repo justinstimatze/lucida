@@ -3637,6 +3637,96 @@ html.theme-ops::before {
 }
 
 /* ============================================================
+   TACHI theme — The Expanse, EARLY/CLASSIC MCRN (the Tachi / Donnager, Syfy
+   era). The grey+red sibling of `roci` (late/Amazon blue). Dark INDUSTRIAL
+   gunmetal hull + RED as a CO-PRIMARY (red concentric tactical plots, not just
+   danger) + steel-cyan secondary; grittier/harder/less-glow than roci. Reuses
+   roci's machinery (cockpit layout, instrument chrome, D-DIN). Grounded:
+   refs/tachi/NOTES.md (Donnager). tachi=grey+red / roci=blue is a curatorial
+   conceit (memory roci_tachi_era_split). v1 = palette + cell chrome + hud +
+   nav-grid; skin/furniture + Gemini critique loop are the refine pass.
+   ============================================================ */
+.theme-tachi {
+  --bg:        #16191e;
+  --cell-bg:   rgba(34, 38, 44, 0.55);
+  --header-bg: rgba(28, 32, 38, 0.66);
+  --code-bg:   #2a100e;
+  --accent:    #d8362a;
+  --fg:        #cdd3d8;
+  --muted:     #6a7178;
+  --line:      rgba(216, 54, 42, 0.18);
+  --font-body: "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
+  --font-head: "D-DIN Condensed", "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
+  --cell-entrance-anim:     rocinante-boot;
+  --cell-entrance-duration: 0.45s;
+  --cell-entrance-easing:   cubic-bezier(0.2, 0.7, 0.2, 1);
+  --bg-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M44 0H0V44' fill='none' stroke='%23d8362a' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
+  --bg-size: 44px 44px;
+  --mermaid-edge-stroke-width: 1px;
+  --mermaid-edge-color: #d8362a;
+  --mermaid-edge-glow: rgba(216, 54, 42, 0.28);
+  --mermaid-node-stroke-width: 1px;
+  --mermaid-node-glow: rgba(216, 54, 42, 0.2);
+  --mermaid-node-glow-hover: rgba(216, 54, 42, 0.5);
+  --mermaid-edge-label-bg: #16191e;
+  --mermaid-edge-label-border: rgba(216, 54, 42, 0.38);
+  --mermaid-cluster-glow: rgba(74, 158, 192, 0.18);
+}
+.theme-tachi body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  /* RED-forward concentric nav-plot (the MCRN motif): red rings + crosshair +
+     a steel-cyan secondary ellipse. Harder/grittier than roci's muted version. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23d8362a' stroke-opacity='0.09' stroke-width='0.7'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%234a9ec0' stroke-opacity='0.13' stroke-width='0.8' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='120' cy='120' r='2.6' fill='%23d8362a' fill-opacity='0.45'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center 54%;
+  background-size: min(88vmin, 1040px) min(88vmin, 1040px);
+  background-attachment: fixed;
+}
+.theme-tachi header,
+.theme-tachi .cell-head,
+.theme-tachi .cell-type,
+.theme-tachi .cell-id {
+  font-family: var(--font-head);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.theme-tachi .cell .cell-head {
+  border-bottom: 1px solid rgba(216, 54, 42, 0.18);
+  padding-bottom: 0.28rem;
+}
+.theme-tachi .cell .cell-title {
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--accent);
+}
+.theme-tachi .hud {
+  border-color: rgba(216, 54, 42, 0.4);
+  border-top: 1px solid rgba(216, 54, 42, 0.55);
+  background:
+    linear-gradient(180deg, rgba(60, 24, 20, 0.34), rgba(0, 0, 0, 0) 70%),
+    var(--code-bg);
+}
+.theme-tachi .hud-value {
+  color: #e0685a;
+  text-shadow: 0 0 8px rgba(216, 54, 42, 0.5);
+}
+/* Hard angular GUNMETAL hull panel — a deeper corner notch + grey edge (harder,
+   grittier than roci's softer blue panel). */
+.theme-tachi .cell {
+  clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%);
+  border: 1px solid rgba(132, 142, 152, 0.24);
+  background: var(--cell-bg);
+}
+.theme-tachi .mermaid-target .node rect,
+.theme-tachi .mermaid-target .node polygon,
+.theme-tachi .mermaid-target .node circle,
+.theme-tachi .mermaid-target .node ellipse {
+  fill: transparent !important;
+  stroke: var(--accent) !important;
+}
+
+/* ============================================================
    BELTER theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
    (salvaged, repurposed gear). DUAL amber+cyan accent (vs Mars's single-accent
    discipline), warm-brown surface to separate it from the cool MCRN/UNN themes,
