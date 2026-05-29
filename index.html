@@ -874,10 +874,15 @@ function applyFactionHUDLabels(theme) {
       },
     },
     gastown: {
-      labels: { status: "VALVE", since: "RUN-TIME", cells: "PISTONS", render: "FORGE", session: "SHIFT", layout: "WORKS", theme: "ENGINE" },
+      // Yegge's Gas Town (his Jan-2026 multi-agent coding system) leans
+      // Mad Max for culture/wording and Vancouver-Gastown-steampunk for
+      // legal-safe visuals.  Match: HUD vocabulary takes the Mad Max
+      // road-warrior register (CHROME / REVS / GUZZ / ROAR / CONVOY /
+      // RIG / V8), and palette stays brass+cream per the tokens.
+      labels: { status: "CHROME", since: "REVS", cells: "GUZZ", render: "ROAR", session: "CONVOY", layout: "RIG", theme: "V8" },
       values: {
         "hud-session-val": sessionTrim,
-        "hud-layout-val":  layoutMap({ cockpit: "BRIDGE", pack: "YARD", scatter: "DEPOT", warroom: "FOUNDRY", organic: "GROVE", tactical: "BATTLEMENT", terminal: "TICKER", mixed3d: "ATRIUM" }),
+        "hud-layout-val":  layoutMap({ cockpit: "DRIVER", pack: "CONVOY", scatter: "STAMPEDE", warroom: "CITADEL", organic: "SWARM", tactical: "WAR PARTY", terminal: "RADIO", mixed3d: "POLE CATS" }),
       },
     },
     ops: {

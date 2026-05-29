@@ -1,52 +1,54 @@
-# refs/gastown/ identity mismatch — flag for resolution
+# refs/gastown/ — Gas Town source context
 
-Surfaced during the 2026-05-29 multi-theme fan review.
+Resolved 2026-05-29 after the multi-theme fan review surfaced an apparent
+mismatch between the visual identity and the reference materials.
 
-## What the THEME is
+## The actual source
 
-`THEME_REGISTRY.gastown.description` in index.html says:
+The lucida `gastown` theme is named after **Steve Yegge's Gas Town**, his
+January 2026 multi-agent coding system (Go-based; orchestrates 20-30
+parallel Claude Code instances under specialised roles).  Per Yegge's
+launch post and follow-up coverage, the project is:
 
-> "steampunk brass on cream serif"
+- **Primarily Mad Max-themed** — culture, vocabulary, agent role names
+  ("war boys", "smart-octopus shapeshift", etc.) lean into the Fury Road
+  road-warrior register.
+- **Vancouver-Gastown as a legal-safe fallback** — Yegge explicitly notes
+  that if anyone sends a cease-and-desist over the Mad Max naming, the
+  project "smart-octopus shapeshifts" into Gastown-after-Vancouver-BC.
+  Both names are correct.
 
-That's **Vancouver's Gastown district** — the steampunk steam-clock,
-brass-on-cream typography, Victorian industrial aesthetic.
+So the apparent mismatch isn't one — Gas Town as a project is *itself*
+hybrid by design.
 
-When you load `?theme=gastown` the page actually renders with this
-palette: cream body, orange-brass accents.
+## How the lucida theme reflects this
 
-## What the REFS are
+- **Visual (palette, fonts, surfaces)** sits on the Vancouver-Gastown
+  side: brass `#cd7f32` on cream `#e8dcc8`, Crimson Text + Cinzel serifs,
+  aged-metal categorical palette.  Steampunk-Victorian-industrial.
+  Matches the legal-safe fallback aesthetic.
+- **HUD vocabulary** sits on the Mad Max side (as of 2026-05-29):
+  `CHROME / REVS / GUZZ / ROAR / CONVOY / RIG / V8`, with layout values
+  `DRIVER / CONVOY / STAMPEDE / CITADEL / SWARM / WAR PARTY / RADIO /
+  POLE CATS`.  Matches the road-warrior register.
 
-`refs/gastown/` (this directory) contains Mad Max Fury Road stills:
+The refs in this directory (`war_boys_chrome_grey_scrap`, `furiosa_*`,
+`red_rock_dust_landscape`, `orange_firestorm_explosion`,
+`george_miller_storyboards_hand`) are Fury Road stills — they ground
+the Mad Max half of the identity.  Vancouver-Gastown visual reference
+isn't strictly needed because Yegge's project's visual side leans on
+generative AI (Gemini Nano Banana) for the actual diagrams rather than
+on movie stills.
 
-- `00_00_36_war_boys_chrome_grey_scrap.png`
-- `00_01_12_furiosa_blue_fog_silhouette.png`
-- `00_02_24_red_rock_dust_landscape.png`
-- `00_05_24_orange_firestorm_explosion.png`
-- `00_06_00_george_miller_storyboards_hand.png`
+## Don't try to "resolve" this
 
-That's the *Citadel / Gastown* wasteland — chrome+rust on rock — not
-Vancouver-Gastown.
+A future contributor opening this dir might think the refs and the
+theme description disagree.  They don't — Gas Town is hybrid by design.
+Leave it.
 
-## Why it matters
+## Sources
 
-If a future contributor opens this dir to validate the theme against
-references, they'll be staring at the wrong source material.  The
-rendered theme will look "wrong" against these refs even though it
-matches its own intent.
-
-## Resolution options (pick one when the gastown polish session happens)
-
-A. **Stay Vancouver-steampunk**, remove the Mad Max refs (mv elsewhere
-   or rm).  Re-shoot proper refs of steampunk / Vancouver Gastown /
-   brass-and-cream Victorian industrial.
-
-B. **Pivot to Mad Max-Gastown**, rewrite the theme tokens for chrome
-   on rust + dust-orange palette + war-boys typography.  Re-author
-   the THEME_REGISTRY description.
-
-C. **Split into two themes** — `gastown` (Vancouver) and `wasteland`
-   (Mad Max) — both palettes are strong enough to stand alone.
-
-Until decided, both halves live: the theme is steampunk-Vancouver and
-the refs are Mad Max wasteland.  Don't take either as authoritative
-without checking the other.
+- [Steve Yegge — Welcome to Gas Town (Medium, Jan 2026)](https://steve-yegge.medium.com/welcome-to-gas-town-4f25ee16dd04)
+- [Steve Yegge — Welcome to Gas City (Medium, Apr 2026)](https://steve-yegge.medium.com/welcome-to-gas-city-57f564bb3607)
+- [Maggie Appleton — Gas Town's Agent Patterns, Design Bottlenecks, and Vibecoding at Scale](https://maggieappleton.com/gastown)
+- [Leo Simons — Understanding Yegge's Gas Town](https://leosimons.com/2026/01/02/understanding-yegges-gas-town/)
