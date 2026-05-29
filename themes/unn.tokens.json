@@ -1,0 +1,47 @@
+{
+  "_comment": "The Expanse — Earth / United Nations Navy. Grounded from refs/unn/NOTES.md. ROYAL/NAVY blue primary, deliberately deeper/more saturated than Roci's cyan (faction separation). DESIGN INTENT (user-confirmed): UNN is deliberately CLUNKY / BORING / INSTITUTIONAL / UTILITARIAN — the 'boring competent bureaucracy' register. Do NOT make it slick like roci/belter. Flat plain panels, no glow, no grit, no angular flourish — the dull weight of the establishment. Red = incoming-threat accent, green = diplomatic. Slightly cooler/architectural surface (Earth has buildings). Showrunner banned flashing-text-box excess. layout=pack.",
+  "accent": {
+    "primary":   "#2f6fd0",
+    "secondary": "#3a7bb8",
+    "warning":   "#ffc233",
+    "danger":    "#d83a2e",
+    "ok":        "#3ad17e"
+  },
+  "surface": {
+    "bg":     "#0e1420",
+    "cell":   "rgba(22, 32, 50, 0.62)",
+    "header": "rgba(18, 28, 46, 0.72)",
+    "code":   "rgba(14, 22, 40, 0.74)",
+    "muted":  "#5a6a86",
+    "line":   "rgba(47, 111, 208, 0.24)"
+  },
+  "text": {
+    "fg":    "#cdd6e4",
+    "muted": "#647892"
+  },
+  "data": {
+    "_comment": "Royal→light-blue ladder, institutional. System amber[4]/red[5] stay rare signals.",
+    "cat": ["#2f6fd0", "#3a7bb8", "#6f9fd0", "#9bb8d8", "#ffc233", "#d83a2e"]
+  },
+  "type": {
+    "_comment": "Plain, gov/corporate register (no command-line or grit). Saira (DIN-adjacent, bundled) with a plain-sans fallback; a plain mono. No D-DIN (that's MCRN).",
+    "body": "\"Saira\", \"Arial\", \"Helvetica Neue\", sans-serif",
+    "head": "\"Saira\", \"Arial\", \"Helvetica Neue\", sans-serif",
+    "mono": "\"Share Tech Mono\", \"Courier New\", monospace"
+  },
+  "fx": {
+    "glow":      "rgba(47, 111, 208, 0.3)",
+    "glow-line": "rgba(216, 58, 46, 0.36)"
+  },
+  "palette": {
+    "stroke1": "#2f6fd0",
+    "stroke2": "#3a7bb8",
+    "stroke3": "#d83a2e",
+    "accent":  "#2f6fd0",
+    "fg":      "#cdd6e4",
+    "muted":   "#5a6a86",
+    "bg":      "#0e1420",
+    "panel":   "rgba(22, 32, 50, 0.62)"
+  },
+  "layout": "pack"
+}

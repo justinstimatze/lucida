@@ -32,8 +32,21 @@ sys.path.insert(0, TOOLS_DIR)
 from snap_receiver import Handler as SnapHandler  # noqa: E402
 
 
+class NoCacheHandler(SimpleHTTPRequestHandler):
+    """Dev server: tell the browser never to cache, so edits show on a plain
+    reload. index.html has no ?v= cache-bust, so without this the browser
+    serves a stale index (and its inline JS) until a manual hard-reload —
+    which is exactly the "I'm not seeing my changes" trap."""
+
+    def end_headers(self) -> None:
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
+
 def _serve_static(port: int) -> None:
-    handler = functools.partial(SimpleHTTPRequestHandler, directory=THIS_DIR)
+    handler = functools.partial(NoCacheHandler, directory=THIS_DIR)
     server = ThreadingHTTPServer(("127.0.0.1", port), handler)
     print(f"[serve] static -> http://127.0.0.1:{port}/  (root={THIS_DIR})", flush=True)
     server.serve_forever()
