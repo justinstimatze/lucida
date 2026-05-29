@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=56" />
+<link rel="stylesheet" href="notebook.css?v=58" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -2298,6 +2298,16 @@ const LAYOUT_REGISTRY = {
     // the rest are 2 rails per side. Few, large, fully-readable cells, no scroll
     // and no vertical clipping. Full corpus lives in the pack layout.
     cap: 5,
+  },
+  warroom: {
+    id: "warroom",
+    label: "warroom",
+    description: "UN situation room — cells ring a central holo-table",
+    // Cells ring a reserved center where the unn situations-board is centered +
+    // enlarged. One ring fit-to-viewport (no scroll). Few, large, readable cells
+    // (like cockpit); the full corpus lives in pack. unn's default layout.
+    apply: () => applyWarroomLayout(),
+    cap: 6,
   },
   pack: {
     id: "pack",
@@ -10638,6 +10648,66 @@ function applyOrganicLayout() {
   }
 }
 
+// UNN war-room ring: a few large readout cells ring a RESERVED CENTER where the
+// unn situations-board furniture is centered + enlarged (the literal holo-table
+// the room is built around — refs/unn war-room). A single ELLIPTICAL ring
+// (wide-short, matching the table's footprint), fit-to-viewport (no scroll) so
+// the ring center aligns with the fixed, centered furniture. Theme-agnostic
+// layout; unn adopts it via its `layout` token and the board centers via the
+// `.fur-warroom` class (toggled in applyActiveLayout). Distinct from `organic`
+// (no center hero — the centerpiece is the holo-table, not a cell) and the most
+// grounded/horizontal of the three faction compositions (NOTES: situation-room).
+function applyWarroomLayout() {
+  const root = document.getElementById("notebook");
+  if (!root) return;
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const rootRect = root.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const margin = 28;
+  // Ring center = viewport center expressed in notebook-relative coords (the
+  // furniture is fixed at viewport 50%/50%, so they coincide).
+  const cx = vw / 2 - rootRect.left;
+  const cy = vh / 2 - rootRect.top;
+  // A few large, fully-readable readouts (cap 6 in the registry).
+  const cellW = Math.min(330, vw * 0.24);
+  const cellH = Math.min(232, vh * 0.30);
+  // Reserve the centered holo-table (scaled unn-board ≈ 460×200): cells must
+  // clear its half-extents so they ring the table rather than cover it.
+  const tableHalfW = 248, tableHalfH = 118, gap = 26;
+  const availHalfW = vw / 2 - margin;
+  const availHalfH = (vh - rootRect.top) / 2 - margin;
+  let rx = Math.max(availHalfW - cellW / 2, tableHalfW + cellW / 2 + gap);
+  let ry = Math.max(availHalfH - cellH / 2, tableHalfH + cellH / 2 + gap);
+  const n = cells.length; // registry cap holds this to one clean ring
+  cells.forEach((cell, i) => {
+    const angle = -Math.PI / 2 + (i / n) * Math.PI * 2; // top, clockwise
+    const x = cx + Math.cos(angle) * rx - cellW / 2;
+    const y = cy + Math.sin(angle) * ry - cellH / 2;
+    Object.assign(cell.style, {
+      position: "absolute",
+      display: "",
+      left: Math.round(x) + "px",
+      top: Math.round(y) + "px",
+      width: Math.round(cellW) + "px",
+      // Cap at the slot height so a tall cell stays centered on its ring point
+      // (grows from y by at most cellH → never overruns into the centered table).
+      height: "auto",
+      minHeight: Math.round(cellH * 0.6) + "px",
+      maxHeight: Math.round(cellH) + "px",
+      maxWidth: "none",
+      zIndex: String(100 + (n - i)),
+    });
+  });
+  // No scroll: the notebook exactly fills the field below the HUD so the ring
+  // stays put around the fixed centered table.
+  Object.assign(root.style, {
+    position: "relative",
+    height: Math.round(vh - rootRect.top) + "px",
+    minHeight: "0px",
+  });
+}
+
 // ----------------------------------------------------------------
 // Scatter v0: each cell drops at a pseudo-random position in the
 // viewport (deterministic hash from cell id so positions are stable
@@ -11251,6 +11321,10 @@ function _updateUNNTactical() {
 // window resize. No-op for grid mode (the CSS auto-fit handles it).
 function applyActiveLayout() {
   const mode = getLayoutMode();
+  // Center + enlarge the unn situations-board into the holo-table only in the
+  // war-room ring layout (the ring is built around it); bottom-left otherwise.
+  const _fur = document.getElementById("theme-furniture");
+  if (_fur) _fur.classList.toggle("fur-warroom", mode === "warroom");
   // Tear down Muuri before applying any non-pack layout, so its
   // absolute-positioned items don't fight the next mode's CSS / JS.
   if (mode !== "pack" && _muuriGrid) teardownPackLayout();

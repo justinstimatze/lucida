@@ -43,5 +43,6 @@
     "bg":      "#0e1420",
     "panel":   "rgba(22, 32, 50, 0.62)"
   },
-  "layout": "pack"
+  "layout": "warroom",
+  "skin": "institutional"
 }

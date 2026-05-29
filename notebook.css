@@ -3596,6 +3596,19 @@ html.theme-ops::before {
   color: #4f627e;
   white-space: nowrap;
 }
+/* War-room ring layout: the situations-board becomes the CENTERED holo-table
+   the room is built around (applyWarroomLayout rings cells around it). Scale
+   the whole board so all its children scale together (vs resizing, which would
+   leave the fixed-px children gapped). Flat/institutional still — just centered
+   and larger. Toggled by .fur-warroom in applyActiveLayout. */
+#theme-furniture[data-theme="unn"].fur-warroom .unn-board {
+  left: 50%;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%) scale(1.32);
+  transform-origin: center center;
+}
 
 /* ============================================================
    BELTER theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
@@ -3729,6 +3742,37 @@ html.theme-ops::before {
   background-color: rgba(168, 196, 62, 0.9);
 }
 .theme-belter .cell-skin-salvage.cell-role-text .cell-skin-mark { display: none; }
+
+/* ── Cell SKIN: UNN institutional UNIFORMITY (tokens.json "skin":"institutional")
+   The conceptual inverse of Belter's eclectic per-cell variety AND Rocinante's
+   role-coding: EVERY unn cell gets the SAME flat navy header rule + the SAME
+   clean stencil hull-plate corner mark (no rivets — that's Belter's salvage
+   tell; no nth-child register; no role color). Bureaucratic SAMENESS is the
+   faction signal — deliberately dull, but clearly INTENTIONAL: each cell reads
+   as a standard-issue UN naval readout panel, not a default card. Stays on the
+   header rule + one corner; never over substrate content (readability). */
+.theme-unn .cell-skin-institutional .cell-head {
+  border-left: 2px solid rgba(47, 111, 208, 0.55);
+  border-bottom: 1px solid rgba(47, 111, 208, 0.2);
+  padding-left: 6px;
+}
+.theme-unn .cell-skin-institutional .cell-skin-mark {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  width: 17px;
+  height: 11px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.5;
+  background-color: rgba(47, 111, 208, 0.85);
+  -webkit-mask: var(--unn-plate) center / contain no-repeat;
+  mask: var(--unn-plate) center / contain no-repeat;
+  /* Clean naval hull-classification placard: outer rect + filled label strip +
+     two stencil data lines. Flat/institutional — NOT Belter's riveted plate. */
+  --unn-plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 11'%3E%3Crect x='0.5' y='0.5' width='16' height='10' fill='none' stroke='black' stroke-width='1'/%3E%3Crect x='0.5' y='0.5' width='16' height='3' fill='black'/%3E%3Cline x1='3' y1='6.5' x2='14' y2='6.5' stroke='black' stroke-width='1'/%3E%3Cline x1='3' y1='8.5' x2='11' y2='8.5' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+}
+.theme-unn .cell-skin-institutional.cell-role-text .cell-skin-mark { display: none; }
 
 /* ============================================================
    UNN theme — The Expanse, Earth / UN Navy. Deliberately CLUNKY / BORING /
