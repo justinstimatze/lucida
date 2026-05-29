@@ -3792,6 +3792,17 @@ html.theme-ops::before {
   --cell-corner-size: 14px;
   --cell-corner-bg: linear-gradient(225deg, var(--accent) 50%, transparent 50%);
 }
+/* Renegade: N7 diagonal stripe at top-right (Mass Effect Shepard's frame).
+   N7 in-canon is white text on a red bar; the corner accent here is the
+   bar's red half — the smallest possible N7 signal that fits the corner
+   slot without needing text rendering.  Per fan-mode review 2026-05-29:
+   "N7 stripe is missing" was the most-load-bearing fix on renegade. */
+.theme-renegade {
+  --cell-corner-content: "";
+  --cell-corner-size: 16px;
+  --cell-corner-bg: linear-gradient(225deg, var(--accent-danger, #ff3344) 50%, transparent 50%);
+  --cell-corner-opacity: 0.92;
+}
 .theme-tachi .mermaid-target .node rect,
 .theme-tachi .mermaid-target .node polygon,
 .theme-tachi .mermaid-target .node circle,
@@ -4060,41 +4071,34 @@ html.theme-ops::before {
   stroke: var(--accent) !important;
 }
 
-/* Expanse chrome cleanup — cell-id pills (`cell-6920`), cell-session
-   UUID stubs (`613de990-f350-`), and 12-hour timestamps (`12:38`) read
-   as JIRA-card metadata on every faction screen. opacity:0 alone
-   doesn't free row width — title was getting compressed to 31px
-   (truncated to 2 chars: `TA…`, `DO…`) because hidden siblings still
-   consumed flex space. Collapse-out via display:none in the resting
-   state; hover restores so the zoom-tap target stays accessible. */
-.theme-rocinante .cell-head > .cell-id,
-.theme-tachi     .cell-head > .cell-id,
-.theme-belter    .cell-head > .cell-id,
-.theme-unn       .cell-head > .cell-id,
-.theme-rocinante .cell-head > .cell-session,
-.theme-tachi     .cell-head > .cell-session,
-.theme-belter    .cell-head > .cell-session,
-.theme-unn       .cell-head > .cell-session,
-.theme-rocinante .cell-head > .cell-time,
-.theme-tachi     .cell-head > .cell-time,
-.theme-belter    .cell-head > .cell-time,
-.theme-unn       .cell-head > .cell-time {
+/* Cell-head JIRA chrome cleanup — universal across all themes (was Expanse-
+   only).  cell-id pills (`cell-6920`), cell-session UUID stubs
+   (`613de990-f350-`), and 12-hour timestamps (`12:38`) read as JIRA-card
+   metadata on every theme regardless of palette.  Per fan-mode review
+   2026-05-29: the chrome registered as dev tooling on hackers/vigil/
+   conclave/ops/renegade etc. just as much as on the Expanse themes.
+   opacity:0 alone doesn't free row width — title was getting compressed
+   to 31px (truncated to 2 chars: `TA…`, `DO…`) because hidden siblings
+   still consumed flex space.  Collapse-out via display:none in the
+   resting state; hover restores so the zoom-tap target stays accessible.
+   `lab` (default development register) keeps the pills visible — opt-out
+   via `.theme-lab` re-asserting display so the developer-mode dashboard
+   keeps its zoom-tap chrome at rest. */
+.cell-head > .cell-id,
+.cell-head > .cell-session,
+.cell-head > .cell-time {
   display: none;
 }
-.theme-rocinante .cell:hover .cell-head > .cell-id,
-.theme-tachi     .cell:hover .cell-head > .cell-id,
-.theme-belter    .cell:hover .cell-head > .cell-id,
-.theme-unn       .cell:hover .cell-head > .cell-id,
-.theme-rocinante .cell:hover .cell-head > .cell-session,
-.theme-tachi     .cell:hover .cell-head > .cell-session,
-.theme-belter    .cell:hover .cell-head > .cell-session,
-.theme-unn       .cell:hover .cell-head > .cell-session,
-.theme-rocinante .cell:hover .cell-head > .cell-time,
-.theme-tachi     .cell:hover .cell-head > .cell-time,
-.theme-belter    .cell:hover .cell-head > .cell-time,
-.theme-unn       .cell:hover .cell-head > .cell-time {
+.cell:hover .cell-head > .cell-id,
+.cell:hover .cell-head > .cell-session,
+.cell:hover .cell-head > .cell-time {
   display: inline-flex;
   opacity: 0.7;
+}
+.theme-lab .cell-head > .cell-id,
+.theme-lab .cell-head > .cell-session,
+.theme-lab .cell-head > .cell-time {
+  display: inline-flex;
 }
 
 /* ── Cell SKIN: MCRN archetype roles (tokens.json "skin":"mcrn") ───────────
