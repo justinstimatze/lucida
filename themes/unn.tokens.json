@@ -44,5 +44,14 @@
     "panel":   "rgba(22, 32, 50, 0.62)"
   },
   "layout": "warroom",
-  "skin": "institutional"
+  "skin": "institutional",
+  "mixed3d": {
+    "_comment": "?theme=unn&layout=mixed3d — UNN holo-table war-room: flat holographic disc with concentric rings/spokes/sweep + drifting contacts; cells ring the disc periphery. Extrudes the warroom 2D layout into 3D.",
+    "arrangement": "war-room",
+    "camera": "orbit-down",
+    "world": {
+      "tower_tint": "#3a7bb8",
+      "floor": "warroom"
+    }
+  }
 }

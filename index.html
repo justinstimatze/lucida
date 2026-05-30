@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=74" />
+<link rel="stylesheet" href="notebook.css?v=76" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -3098,6 +3098,20 @@ function applyMixed3DLayout(opts) {
   const root = document.getElementById("notebook");
   if (!root) return;
   const O = _mixed3dResolveOpts(opts);
+  // Arrangement dispatch: war-room (UNN holo-table) is a separate
+  // world (flat disc + ring of cells around its periphery) — too
+  // different from the canyon-of-towers to share the body of this
+  // function. Sibling owns its own renderer/scene/camera/loop and
+  // writes into the same _mixed3dState slot so teardown remains
+  // uniform.  Idempotent on poll: if war-room state already exists,
+  // skip rebuild (the rAF loop is already animating; the ring is a
+  // one-time placement and new cells stream in via future _sync work
+  // not implemented in v1).
+  if (O.arrangement === "war-room") {
+    if (_mixed3dState && _mixed3dState._arrangement === "war-room") return;
+    applyMixed3DWarRoom(O);
+    return;
+  }
   // Boot-time perf checkpoints. Each phase logs its wall-clock
   // duration in ms so we can spot which part of init dominates the
   // loading-screen-to-interactive gap (user 2026-05-04: "took like
@@ -4374,6 +4388,293 @@ function applyMixed3DLayout(opts) {
   };
   tick();
   _bootMark("applyMixed3DLayout complete (rAF loop running)");
+}
+
+// ----------------------------------------------------------------
+// mixed3d: war-room arrangement — UNN holo-table.  A flat
+// holographic disc at scene origin with concentric rings, radial
+// spokes, a slow radar sweep, and drifting friendly/hostile
+// contacts.  Cells mount as CSS3DObjects in a single floating ring
+// around the disc periphery (extrudes the warroom 2D layout into
+// 3D).  Camera slow-orbits at ~22u altitude looking inward.
+//
+// Sibling of applyMixed3DLayout (tower-arrangement) — too different
+// in geometry/camera/cells to share the body.  Writes into the same
+// _mixed3dState slot so teardownMixed3DLayout cleans up uniformly.
+// Skips snap-driver/warmup/occlusion for v1: cells stay live HTML
+// via CSS3DObject (no canvas baking).
+// ----------------------------------------------------------------
+function applyMixed3DWarRoom(O) {
+  const T = window.THREE;
+  const root = document.getElementById("notebook");
+  if (_mixed3dState) teardownMixed3DLayout();
+
+  const wrap = el("div");
+  wrap.id = "mixed3d-wrap";
+  document.body.appendChild(wrap);
+  const webglMount = el("div");
+  webglMount.id = "mixed3d-webgl";
+  const cssMount = el("div");
+  cssMount.id = "mixed3d-css";
+  wrap.appendChild(webglMount);
+  wrap.appendChild(cssMount);
+
+  const w0 = window.innerWidth;
+  const h0 = window.innerHeight;
+
+  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w0, h0);
+  renderer.setClearColor(0x000000, 0);
+  webglMount.appendChild(renderer.domElement);
+
+  const cssRenderer = new T.CSS3DRenderer();
+  cssRenderer.setSize(w0, h0);
+  cssMount.appendChild(cssRenderer.domElement);
+
+  const scene = new T.Scene();
+  scene.fog = new T.FogExp2(0x040814, 0.018);
+  const cssScene = new T.Scene();
+
+  // Camera: orbit at low altitude with a strong down-tilt — the
+  // canonical war-room overhead read.  Aspect tied to viewport.
+  const camera = new T.PerspectiveCamera(48, w0 / h0, 0.1, 200);
+  camera.position.set(0, 22, 32);
+  camera.lookAt(0, 0, 0);
+
+  // Lights: low ambient + cyan-blue key from above, hemisphere fill.
+  // No sun — the disc itself is the brightest thing in the room.
+  const tint = new T.Color(O.world.tower_tint || "#2f6fd0");
+  scene.add(new T.AmbientLight(0xffffff, 0.36));
+  const key = new T.PointLight(tint.getHex(), 1.0, 80);
+  key.position.set(0, 22, 0);
+  scene.add(key);
+  scene.add(new T.HemisphereLight(0x000814, tint.getHex(), 0.4));
+
+  // The holo-disc itself.  Cylinder geometry: 18u radius, ~0.18u
+  // thick, faintly emissive blue.  Sits at y=0 so cells ring it
+  // floating slightly above.
+  const discRadius = 18;
+  const discGeo = new T.CylinderGeometry(discRadius, discRadius, 0.18, 96);
+  const discMat = new T.MeshBasicMaterial({
+    color: tint,
+    transparent: true,
+    opacity: 0.16,
+    side: T.DoubleSide,
+  });
+  const disc = new T.Mesh(discGeo, discMat);
+  disc.position.y = 0;
+  scene.add(disc);
+
+  // Concentric range rings (5).  Thin tori laid flat just above the
+  // disc surface so they don't z-fight with it.  Opacity falls off
+  // with radius for depth-of-table cue.
+  for (let i = 1; i <= 5; i++) {
+    const r = (discRadius / 5) * i - 0.6;
+    const ringGeo = new T.TorusGeometry(r, 0.045, 6, 96);
+    const ringMat = new T.MeshBasicMaterial({
+      color: tint,
+      transparent: true,
+      opacity: 0.55 - i * 0.06,
+    });
+    const ring = new T.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.12;
+    scene.add(ring);
+  }
+
+  // 12 radial spokes (clock-face).  Thin bars across the disc,
+  // faintly visible — the navigation grid you read off a tactical
+  // plot.  Translated by half-radius and rotated so each spans the
+  // disc center to its edge along its compass bearing.
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const spokeGeo = new T.BoxGeometry(discRadius * 0.96, 0.025, 0.05);
+    const spokeMat = new T.MeshBasicMaterial({
+      color: tint,
+      transparent: true,
+      opacity: 0.14,
+    });
+    const spoke = new T.Mesh(spokeGeo, spokeMat);
+    spoke.position.y = 0.13;
+    spoke.position.x = Math.cos(angle) * discRadius * 0.5;
+    spoke.position.z = Math.sin(angle) * discRadius * 0.5;
+    spoke.rotation.y = -angle;
+    scene.add(spoke);
+  }
+
+  // Radar sweep: a thin amber bar rotating from the disc center to
+  // edge, with a faint trailing fan implied by its alpha.  Single
+  // mesh on a Group at origin so we just rotate the group.
+  const sweepGeo = new T.BoxGeometry(discRadius * 0.96, 0.06, 0.12);
+  const sweepMat = new T.MeshBasicMaterial({
+    color: 0xffc233,
+    transparent: true,
+    opacity: 0.32,
+  });
+  const sweep = new T.Mesh(sweepGeo, sweepMat);
+  sweep.position.x = discRadius * 0.48;
+  sweep.position.y = 0.16;
+  const sweepGroup = new T.Group();
+  sweepGroup.add(sweep);
+  scene.add(sweepGroup);
+
+  // Tactical contacts: a handful of friendly/hostile points drifting
+  // in slow arcs over the disc surface.  Friendly = green, hostile =
+  // red — matches the data.cat[4]/[5] system colors.  Small spheres
+  // sit just above the disc; rendered with depthTest:false so the
+  // disc's translucent surface never occludes them.
+  const contacts = [];
+  const contactCount = 9;
+  for (let i = 0; i < contactCount; i++) {
+    const r = 3 + (i / contactCount) * discRadius * 0.78;
+    const a0 = (i / contactCount) * Math.PI * 2 + Math.random() * 0.4;
+    const friendly = i < contactCount - 3;
+    const dotGeo = new T.SphereGeometry(0.16, 10, 10);
+    const dotMat = new T.MeshBasicMaterial({
+      color: friendly ? 0x3ad17e : 0xd83a2e,
+      transparent: true,
+      opacity: 0.92,
+      depthTest: false,
+    });
+    const dot = new T.Mesh(dotGeo, dotMat);
+    dot.renderOrder = 5;
+    dot.position.set(Math.cos(a0) * r, 0.28, Math.sin(a0) * r);
+    scene.add(dot);
+    contacts.push({
+      mesh: dot,
+      theta0: a0,
+      r: r,
+      omega: (friendly ? 0.00018 : 0.00028) * (i % 2 ? -1 : 1),
+    });
+  }
+
+  // Cell mount: each notebook cell becomes a CSS3DObject placed
+  // around the disc periphery.  Ring radius is 1.65× disc to give
+  // the floor breathing room.  Y staggers every other cell so a
+  // crowded ring doesn't read as a flat fence.  Cells face the disc
+  // center (rotation.y = -angle + π/2).  Scale (0.024) tuned so a
+  // 360px cell reads ~9u wide in scene space — sized to the disc.
+  // Hide the 2D UNN situations-board furniture while mixed3d is the
+  // active layout — the holo-disc IS the situations-board in 3D, so
+  // the CSS-fixed bottom-left widget would be a redundant duplicate
+  // overlapping the disc.  Restored on teardown.
+  const themeFurniture = document.getElementById("theme-furniture");
+  let _prevFurnitureDisplay = null;
+  if (themeFurniture) {
+    _prevFurnitureDisplay = themeFurniture.style.display;
+    themeFurniture.style.display = "none";
+  }
+
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  const cellObjects = new Map();
+  const cellSlotKeys = new Map();
+  const cellRingR = discRadius * 1.55;
+  const ringN = Math.max(6, Math.min(14, cells.length));
+  cells.forEach((cell, i) => {
+    if (i >= ringN) {
+      // Excess cells hide off-stage.  v1 caps the visible ring at 14
+      // for legibility; the rest of the notebook stays mounted but
+      // invisible until a future "second tier" pass.
+      cell.style.display = "none";
+      return;
+    }
+    const a = (i / ringN) * Math.PI * 2;
+    const obj = new T.CSS3DObject(cell);
+    obj.position.set(
+      Math.cos(a) * cellRingR,
+      3.6 + (i % 2 ? 1.4 : 0),
+      Math.sin(a) * cellRingR,
+    );
+    // lookAt the disc-axis at the cell's own height — face inward
+    // without tipping forward/back.  Math-derived rotations were
+    // mirroring text on half the ring; lookAt is the canonical
+    // Three.js facing call.
+    obj.lookAt(0, obj.position.y, 0);
+    obj.scale.set(0.028, 0.028, 1);
+    cssScene.add(obj);
+    const id = cell.dataset.cellId || `cell-${i}`;
+    cellObjects.set(id, obj);
+    cellSlotKeys.set(id, `ring:${i}`);
+  });
+
+  // Resize
+  function onResize() {
+    const W = window.innerWidth, H = window.innerHeight;
+    camera.aspect = W / H;
+    camera.updateProjectionMatrix();
+    renderer.setSize(W, H);
+    cssRenderer.setSize(W, H);
+  }
+  window.addEventListener("resize", onResize);
+
+  _mixed3dState = {
+    opts: O,
+    renderer,
+    cssRenderer,
+    scene,
+    cssScene,
+    camera,
+    wrap,
+    cellObjects,
+    cellSlotKeys,
+    animation: { running: true, danger: false, t0: performance.now() },
+    onResize,
+    _booted: false,
+    _stableFrames: 0,
+    _arrangement: "war-room",
+    _warroomState: { sweepGroup, contacts, disc },
+    _restoreThemeFurniture: () => {
+      if (themeFurniture) themeFurniture.style.display = _prevFurnitureDisplay || "";
+    },
+  };
+
+  let lastT = performance.now();
+  const tick = () => {
+    if (!_mixed3dState || !_mixed3dState.animation.running) return;
+    requestAnimationFrame(tick);
+    const t = performance.now();
+    const dt = t - lastT;
+    lastT = t;
+    if (dt < 33) _mixed3dState._stableFrames = (_mixed3dState._stableFrames || 0) + 1;
+    else _mixed3dState._stableFrames = 0;
+
+    // Slow camera orbit — full revolution every ~62 s.  Held at
+    // y=22 so the cell ring stays in frame while the disc rotates
+    // visually beneath.
+    const u = (t * 0.0000162) % 1;
+    const ang = u * Math.PI * 2;
+    const camR = 36;
+    camera.position.x = Math.cos(ang) * camR;
+    camera.position.z = Math.sin(ang) * camR;
+    camera.position.y = 22;
+    camera.lookAt(0, 1.5, 0);
+
+    // Sweep — full rotation every ~5.3 s.
+    sweepGroup.rotation.y = -t * 0.00118;
+
+    // Contacts drift on their own arcs.
+    const t0 = _mixed3dState.animation.t0;
+    for (const c of contacts) {
+      const a = c.theta0 + (t - t0) * c.omega;
+      c.mesh.position.x = Math.cos(a) * c.r;
+      c.mesh.position.z = Math.sin(a) * c.r;
+    }
+
+    renderer.render(scene, camera);
+    cssRenderer.render(cssScene, camera);
+
+    // Boot signal — same gate as the tower path: 30 stable frames
+    // OR document.hidden (rAF runs at 1Hz on hidden tabs and would
+    // otherwise never reach the stable-frame threshold).
+    if (!_mixed3dState._booted
+        && (document.hidden || (_mixed3dState._stableFrames || 0) >= 30)) {
+      _mixed3dState._booted = true;
+      document.body.classList.add("booted");
+      if (window._mixed3dCancelSafetyBoot) window._mixed3dCancelSafetyBoot();
+    }
+  };
+  tick();
 }
 
 // Toggle the danger phase. Idempotent if `on` matches current state.
@@ -10778,6 +11079,12 @@ function teardownMixed3DLayout() {
   try { S.renderer.dispose(); } catch (e) { /* swallow */ }
   if (S.wrap && S.wrap.parentElement) S.wrap.parentElement.removeChild(S.wrap);
   if (S.onResize) window.removeEventListener("resize", S.onResize);
+  // war-room sibling hides #theme-furniture while live; restore it
+  // here so a subsequent switch back to layout=warroom shows the 2D
+  // situations-board.
+  if (S._restoreThemeFurniture) {
+    try { S._restoreThemeFurniture(); } catch (e) { /* swallow */ }
+  }
   if (S.onKey) window.removeEventListener("keydown", S.onKey);
   if (window.lucidaToggleDanger) delete window.lucidaToggleDanger;
   document.body.classList.remove("layout-mixed3d");
