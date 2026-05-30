@@ -2373,6 +2373,18 @@ html.theme-ops::before {
 }
 .theme-vigil body {
   font-family: "DIN Condensed", "Avenir Next Condensed", "Helvetica Neue Condensed", "Arial Narrow", sans-serif;
+  /* Holographic ambient haze — three faint cyan radial pools so cells
+     sit on JARVIS light rather than flat void.  Pools placed at canonical
+     HUD focal points (center-low + two offset higher-foci) and one warm
+     ember at top-right hint at the arc reactor.  Per parked_theme_polish
+     2026-05-29: "add a faint cyan haze so cells sit on holographic light,
+     not flat black". */
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 50% 70%, rgba(0, 191, 255, 0.10) 0%, transparent 55%),
+    radial-gradient(circle at 18% 28%, rgba(0, 216, 232, 0.07) 0%, transparent 45%),
+    radial-gradient(circle at 84% 24%, rgba(255, 80, 64, 0.05) 0%, transparent 40%);
+  background-attachment: fixed, fixed, fixed;
 }
 .theme-vigil header,
 .theme-vigil .cell-head,
@@ -3794,6 +3806,22 @@ html.theme-ops::before {
   --cell-corner-content: "";
   --cell-corner-size: 14px;
   --cell-corner-bg: linear-gradient(225deg, var(--accent) 50%, transparent 50%);
+}
+/* Vigil: arc-reactor circle marker at top-right (Iron Man chest reactor —
+   refs/vigil/00_00_30).  Bright cyan core with a thin ring, fading to a
+   subtle halo.  Reads as the suit's running light without crowding the
+   wireframe header.  The clip-path on .theme-vigil .cell cuts the top-
+   right at 14px, so we inset the corner accent so the reactor sits
+   inside the clipped region.  Per parked_theme_polish 2026-05-29. */
+.theme-vigil {
+  --cell-corner-content: "";
+  --cell-corner-size: 11px;
+  --cell-corner-top: 5px;
+  --cell-corner-right: 18px;
+  --cell-corner-bg:
+    radial-gradient(circle at center, #d0f7ff 0% 18%, #00d8e8 18% 38%, transparent 38% 65%, rgba(0, 216, 232, 0.55) 65% 78%, transparent 80%);
+  --cell-corner-opacity: 0.95;
+  --cell-corner-z: 4;
 }
 /* Renegade: N7 diagonal stripe at top-right (Mass Effect Shepard's frame).
    N7 in-canon is white text on a red bar; the corner accent here is the
