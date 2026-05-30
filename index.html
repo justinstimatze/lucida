@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=85" />
+<link rel="stylesheet" href="notebook.css?v=89" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -4740,6 +4740,98 @@ function applyMixed3DWarRoom(O) {
     scene.add(glyph);
   }
 
+  // ── Orbiting moons / co-bodies ──
+  // Per refs/unn/00_06_04 the war-room hologram showed a "solar system
+  // model" — multiple bodies, not just one planet.  Two smaller
+  // wireframe spheres orbit the central globe at varied inclinations
+  // and rates, giving the centerpiece a sense of system rather than
+  // single planet.  Updated each frame from their phase / orbit radius
+  // / inclination so they don't need per-body Group rotations.
+  const moonGeo = new T.SphereGeometry(0.7, 10, 8);
+  const moonMatA = new T.MeshBasicMaterial({
+    color: 0xaad8e8, wireframe: true, transparent: true, opacity: 0.5,
+  });
+  const moonMatB = new T.MeshBasicMaterial({
+    color: 0x6f9fd0, wireframe: true, transparent: true, opacity: 0.45,
+  });
+  const moonA = new T.Mesh(moonGeo, moonMatA);
+  const moonB = new T.Mesh(moonGeo, moonMatB);
+  scene.add(moonA);
+  scene.add(moonB);
+  const moons = [
+    { mesh: moonA, r: 7.2, phase: 0,       incl: 0.4, speed: 0.00018 },
+    { mesh: moonB, r: 8.8, phase: 1.7,     incl: -0.3, speed: 0.00012 },
+  ];
+
+  // ── Wall readout panels at outer distance ──
+  // Per NOTES.md: "wall readout screens — left-wall panels, red-tinted
+  // + blue, supporting the table".  3 floating planes beyond the cell
+  // ring with stylized abstract chart imagery — reads as "operations-
+  // center wall displays at distance" without needing real data.  Each
+  // CanvasTexture is 128x96; teardown disposes via material.map path.
+  function _makeReadoutTex(kind) {
+    const c = document.createElement("canvas");
+    c.width = 128; c.height = 96;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "rgba(8, 16, 32, 0.92)";
+    ctx.fillRect(0, 0, 128, 96);
+    // Frame
+    ctx.strokeStyle = kind === "threat" ? "rgba(216, 58, 46, 0.7)" : "rgba(58, 123, 184, 0.7)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(2, 2, 124, 92);
+    // Header bar
+    ctx.fillStyle = kind === "threat" ? "rgba(216, 58, 46, 0.3)" : "rgba(58, 123, 184, 0.3)";
+    ctx.fillRect(4, 4, 120, 10);
+    // Content: abstract chart imagery
+    ctx.strokeStyle = kind === "threat" ? "rgba(255, 120, 100, 0.85)" : "rgba(140, 200, 255, 0.85)";
+    ctx.lineWidth = 1.2;
+    if (kind === "linegraph") {
+      ctx.beginPath(); ctx.moveTo(8, 70);
+      for (let x = 8; x <= 120; x += 8) {
+        const y = 50 - Math.sin(x * 0.25) * 12 - (x - 8) * 0.18;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    } else if (kind === "bars") {
+      const heights = [22, 38, 18, 50, 30, 44, 28, 36, 18, 42];
+      for (let i = 0; i < heights.length; i++) {
+        ctx.fillStyle = "rgba(140, 200, 255, 0.75)";
+        ctx.fillRect(8 + i * 11, 80 - heights[i], 8, heights[i]);
+      }
+    } else {  // threat — concentric arcs (range plot)
+      for (let i = 1; i <= 4; i++) {
+        ctx.beginPath();
+        ctx.arc(64, 54, i * 10, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(255, 90, 70, 0.9)";
+      ctx.fillRect(76, 50, 5, 5);
+      ctx.fillRect(45, 38, 5, 5);
+    }
+    const tex = new T.CanvasTexture(c);
+    tex.anisotropy = 2;
+    return tex;
+  }
+  const wallPanels = [
+    { tex: _makeReadoutTex("linegraph"), pos: [-26, 13, -18], rotY: Math.PI * 0.18 },
+    { tex: _makeReadoutTex("bars"),      pos: [ 28, 11, -16], rotY: -Math.PI * 0.22 },
+    { tex: _makeReadoutTex("threat"),    pos: [  0, 16,  30], rotY: Math.PI },
+  ];
+  const panelGeo = new T.PlaneGeometry(6.4, 4.8);
+  for (const wp of wallPanels) {
+    const mat = new T.MeshBasicMaterial({
+      map: wp.tex,
+      transparent: true,
+      opacity: 0.7,
+      side: T.DoubleSide,
+      depthWrite: false,
+    });
+    const panel = new T.Mesh(panelGeo, mat);
+    panel.position.set(wp.pos[0], wp.pos[1], wp.pos[2]);
+    panel.rotation.y = wp.rotY;
+    scene.add(panel);
+  }
+
   // ── Trajectory connector lines ──
   // Per refs/unn/00_08_05: yellow lines connect points of interest on
   // the tactical plot — the trajectory-overlay vocabulary.  Three pairs
@@ -4890,9 +4982,23 @@ function applyMixed3DWarRoom(O) {
     // Globe slow spin — full revolution every ~36 s.
     globe.rotation.y = t * 0.000175;
 
+    // Animation epoch — used by moon orbits + arc markers below.
+    const t0 = _mixed3dState.animation.t0;
+
+    // Orbiting moons — XZ orbit with constant Y inclination tilt.
+    for (let i = 0; i < moons.length; i++) {
+      const m = moons[i];
+      const a = m.phase + (t - t0) * m.speed;
+      m.mesh.position.set(
+        Math.cos(a) * m.r,
+        6 + Math.sin(a) * m.incl * m.r * 0.5,
+        Math.sin(a) * m.r,
+      );
+      m.mesh.rotation.y = t * 0.0003 * (i % 2 ? -1 : 1);
+    }
+
     // Per-arc: rotate group slowly so inclinations evolve (subtle —
     // 80s per revolution), and slide marker along the arc tangent.
-    const t0 = _mixed3dState.animation.t0;
     for (let i = 0; i < arcs.length; i++) {
       const a = arcs[i];
       a.group.rotation.y += dt * 0.000022 * (i % 2 ? -1 : 1);

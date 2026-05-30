@@ -7095,6 +7095,17 @@ body.layout-mixed3d .cell {
   overflow: hidden !important;
   box-sizing: border-box;
 }
+/* CSS3D doesn't cull backfaces by default — cells across the scene
+   from the camera render with mirrored/reversed text. CSS3DRenderer
+   wraps each cell in a transformed parent div; backface-visibility
+   needs to live on THAT wrapper (the .cell itself is untransformed).
+   Hides far-side cells when their back faces the camera so they don't
+   read as mirrored text bleeding through the foreground.
+   User 2026-05-30 holo-table v2 polish. */
+body.layout-mixed3d #mixed3d-css > div > div {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
 body.layout-mixed3d .cell svg,
 body.layout-mixed3d .cell canvas,
 body.layout-mixed3d .cell img,
