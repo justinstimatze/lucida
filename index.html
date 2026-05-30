@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=77" />
+<link rel="stylesheet" href="notebook.css?v=78" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -2648,10 +2648,22 @@ async function load() {
     if (_PERF) LOG.debug(`[load.perf] +${(performance.now() - _pT0).toFixed(0)}ms ${label}`);
   };
   _pLog("load() start");
+  // Boot-overlay phase narration for ALL themes (mixed3d gets its own
+  // per-phase text via _bootMark; this covers pack/scatter/cockpit/etc).
+  // The previous flow showed "INITIALIZING" for 5-10s with no movement
+  // while cells.json fetched + 60+ cells rendered — user reported as
+  // a stall on first impression (parked_theme_polish: "fan loading the
+  // URL sees no data for 10-15s, may close the tab").
+  const _bootTitleSet = (txt) => {
+    const el = document.querySelector("#boot-overlay .boot-title");
+    if (el) el.textContent = txt;
+  };
+  if (getLayoutMode() !== "mixed3d") _bootTitleSet("FETCHING CELLS");
   const res = await fetch("cells.json", { cache: "no-store" });
   _pLog(`fetch returned (status=${res.status})`);
   const data = await res.json();
   _pLog(`json parsed (cells=${(data.cells || []).length})`);
+  if (getLayoutMode() !== "mixed3d") _bootTitleSet("MOUNTING CELLS");
   // ?session=auto: discover every distinct session_id in the corpus and
   // mount one column per session. Cells without a session_id collapse
   // into the "untagged" pseudo-column.
@@ -2774,6 +2786,17 @@ async function load() {
   // gradient renders only where needed.
   scheduleCheckOverflow();
   _pLog("load() complete");
+  // Early-dismiss the boot overlay for non-mixed3d themes as soon as
+  // first render completes — was waiting for window.load (which can
+  // take 5-10s on the 60-cell default while vega/mermaid subresources
+  // settle in the background, even though the dashboard is already
+  // visually ready).  Idempotent: only fires if not already booted.
+  // mixed3d themes still gate boot on the WebGL stable-frame counter
+  // (see applyMixed3DLayout tick), so this branch leaves them alone.
+  if (!document.body.classList.contains("booted")
+      && getLayoutMode() !== "mixed3d") {
+    requestAnimationFrame(() => document.body.classList.add("booted"));
+  }
   // Catch async-loaded content (vega/mermaid/scene3d) that resolves
   // after first layout — re-check at intervals during the first
   // few seconds of page life.
@@ -3129,13 +3152,20 @@ function applyMixed3DLayout(opts) {
   const _bootDebug =
     new URLSearchParams(window.location.search).get("debug") === "1" ||
     new URLSearchParams(window.location.search).get("perf") === "1";
-  const _bootMark = (label) => {
+  // Update the boot-overlay title with a phase-appropriate phrase so
+  // the user sees movement during the ~14s scene-construction gap
+  // (was dead-air "INITIALIZING" the whole time — first-impression
+  // killer for fans who load ?theme=hackers and see no progress).
+  // overlayTitle is null for non-mixed3d themes; the call is safe.
+  const _bootTitleEl = document.querySelector("#boot-overlay .boot-title");
+  const _bootMark = (label, displayTitle) => {
+    if (_bootTitleEl && displayTitle) _bootTitleEl.textContent = displayTitle;
     if (!_bootDebug) return;
     const t = performance.now();
     const dt = (t - _bootT0).toFixed(0);
     LOG.debug(`[mixed3d.boot] +${dt}ms ${label}`);
   };
-  _bootMark("applyMixed3DLayout start");
+  _bootMark("applyMixed3DLayout start", "WARMING CANYON");
 
   // Incremental: scene already exists for the same arrangement → just
   // sync cell placements (add fresh / drop stale). Mirrors Muuri's
@@ -3415,7 +3445,7 @@ function applyMixed3DLayout(opts) {
   const towerD = 5.0;
   const spacing = 12.0;
   const towerMeshes = [];
-  _bootMark("renderer/scene/camera ready");
+  _bootMark("renderer/scene/camera ready", "RAISING SCAFFOLD");
   const sharedBox = new T.BoxGeometry(towerW, towerH, towerD);
   // Edge-tube architecture: LineBasicMaterial.linewidth is clamped to
   // 1px in WebGL on most browsers, which made the previous wireframe
@@ -3679,7 +3709,7 @@ function applyMixed3DLayout(opts) {
   floor.position.y = -0.08;
   floor.frustumCulled = false;
   scene.add(floor);
-  _bootMark("towers/edges/cones/floor built");
+  _bootMark("towers/edges/cones/floor built", "POURING FLOOR");
   // (Floor PCB codegen — A* router, role graph, lane buses,
   // chip-pad stubs — REMOVED 2026-05-03 in favor of static-baked
   // texture loaded above. Source: tools/gen_floor.py. Iterate by
@@ -3984,11 +4014,11 @@ function applyMixed3DLayout(opts) {
   _mixed3dState._retierKeys = null;
   _mixed3dState._retierIdx = 0;
 
-  _bootMark("state ready, before first syncCells");
+  _bootMark("state ready, before first syncCells", "WIRING CELLS");
   _mixed3dSyncCells();
-  _bootMark("syncCells returned (cells queued)");
+  _bootMark("syncCells returned (cells queued)", "DRAWING SURFACES");
   _mixed3dBuildDecorativeLayer();
-  _bootMark("decorative layer built");
+  _bootMark("decorative layer built", "FIRING UP");
 
   const onResize = () => {
     const w2 = window.innerWidth;
