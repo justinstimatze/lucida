@@ -4185,6 +4185,38 @@ html.theme-ops::before {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
+  /* Megabyte tower city motif (refs/mainframe/00_00_26):
+     - lit-window grid (faint amber dots in a regular pattern) reads
+       as "wall of lit office windows at distance"
+     - stepped angular skyline silhouette at viewport bottom-back
+     Both pointer-events-immaterial and behind every cell.  The
+     existing 3px bracket bars on body::before / body::after still
+     paint above.  Per parked_theme_polish 2026-05-29. */
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(212, 137, 42, 0.20) 0 0.6px, transparent 0.7px),
+    linear-gradient(180deg, transparent 0 70%, rgba(123, 63, 191, 0.06) 70% 100%);
+  background-size: 14px 18px, 100% 100%;
+  background-position: 0 0, 0 0;
+  background-repeat: repeat, no-repeat;
+  background-attachment: fixed, fixed;
+}
+/* Stepped city skyline silhouette, fixed at viewport bottom.  Inline
+   SVG so it scales with viewport width without distorting tile dots.
+   Buildings step at 4 heights — read as Mainframe's angular cube-
+   city skyline without imitating a specific landmark. */
+.theme-mainframe::before {
+  content: "";
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 4px;
+  height: 96px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 96' preserveAspectRatio='xMidYMax slice'><path d='M0,96 L0,60 L60,60 L60,42 L130,42 L130,60 L200,60 L200,30 L270,30 L270,60 L350,60 L350,18 L420,18 L420,60 L500,60 L500,38 L580,38 L580,60 L660,60 L660,24 L740,24 L740,60 L820,60 L820,46 L900,46 L900,60 L970,60 L970,30 L1050,30 L1050,60 L1120,60 L1120,52 L1200,52 L1200,96 Z' fill='%23061026'/></svg>");
+  background-position: bottom center;
+  background-repeat: no-repeat;
+  background-size: 100% 96px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.62;
 }
 .theme-mainframe header,
 .theme-mainframe .cell-head,
@@ -4202,8 +4234,11 @@ html.theme-ops::before {
   text-shadow: 0 0 8px rgba(0, 229, 204, 0.55);
 }
 .theme-mainframe .cell {
-  border: 1px solid rgba(0, 229, 204, 0.18);
+  border: 1px solid rgba(0, 229, 204, 0.28);
   background: var(--cell-bg);
+  box-shadow:
+    0 0 0 1px rgba(0, 229, 204, 0.06) inset,
+    0 0 14px rgba(0, 229, 204, 0.10);
 }
 .theme-mainframe .cell.cell-still-warm {
   border-color: rgba(0, 229, 204, 0.55);
