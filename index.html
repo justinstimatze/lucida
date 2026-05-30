@@ -4460,6 +4460,12 @@ function applyMixed3DWarRoom(O) {
   const T = window.THREE;
   const root = document.getElementById("notebook");
   if (_mixed3dState) teardownMixed3DLayout();
+  // Set state sentinel IMMEDIATELY so re-entry from the poll loop (which
+  // fires every ~3 s) is caught by the dispatch guard while the multi-
+  // second build runs.  Without this the second poll sees state===null,
+  // calls the builder again, and we get duplicated scenes / mode flips.
+  // The full state object overwrites this at the end.
+  _mixed3dState = { _arrangement: "war-room", _building: true, animation: { running: true } };
 
   const wrap = el("div");
   wrap.id = "mixed3d-wrap";
@@ -4488,11 +4494,15 @@ function applyMixed3DWarRoom(O) {
   scene.fog = new T.FogExp2(0x040814, 0.018);
   const cssScene = new T.Scene();
 
-  // Camera: orbit at low altitude with a strong down-tilt — the
-  // canonical war-room overhead read.  Aspect tied to viewport.
+  // Camera: standing-INSIDE-the-hologram framing.  User 2026-05-30:
+  // "you can get even closer to the center 3d viz, it's ok if you're
+  // close because in the show people are basically standing inside
+  // the extended hologram."  At z=13 the camera sits just outside the
+  // largest orbital arc (R=9.4) so the arcs sweep around the viewer;
+  // y=6 = globe equator so the globe centerpiece dominates the FOV.
   const camera = new T.PerspectiveCamera(48, w0 / h0, 0.1, 200);
-  camera.position.set(0, 22, 32);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0, 6, 13);
+  camera.lookAt(0, 6, 0);
 
   // Lights: low ambient + cyan-blue key from above, hemisphere fill.
   // No sun — the disc itself is the brightest thing in the room.
@@ -4534,95 +4544,207 @@ function applyMixed3DWarRoom(O) {
     scene.add(ring);
   }
 
-  // ── Centerpiece: WIREFRAME PLANETARY SPHERE ──
-  // Slow Y rotation; royal-blue lat/lon wireframe.  Per refs/unn/
-  // 00_04_02 the volumetric projection shows a planetary body (Jupiter
-  // in the Agatha-King operation).  Radius 4.2u so it dominates the
-  // disc without overflowing.  Low segment count (16, 12) keeps the
-  // wireframe legible AND cheap (192 wireframe edges total).
-  const globeRadius = 4.2;
-  const globeGeo = new T.SphereGeometry(globeRadius, 16, 12);
-  const globeMat = new T.MeshBasicMaterial({
-    color: tint,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.58,
-  });
-  const globe = new T.Mesh(globeGeo, globeMat);
-  globe.position.y = 6;
-  scene.add(globe);
-  // Faint inner glow — a slightly smaller solid sphere with low opacity
-  // gives the wireframe a glowing core.
-  const globeInnerGeo = new T.SphereGeometry(globeRadius * 0.94, 12, 8);
-  const globeInnerMat = new T.MeshBasicMaterial({
-    color: tint,
-    transparent: true,
-    opacity: 0.06,
-  });
-  const globeInner = new T.Mesh(globeInnerGeo, globeInnerMat);
-  globeInner.position.y = 6;
-  scene.add(globeInner);
+  // ── Centerpiece MODE selection ──
+  // Per refs/unn the war-room hologram varies across council scenes:
+  // sometimes a single planet (00_04_02), sometimes a solar-system
+  // model (00_06_04), sometimes purely trajectories or 3D tactical
+  // markers without any central body.  User 2026-05-30: "it's not
+  // always a planetary sphere, sometimes it's trajectories or 3d
+  // locations" + "more variety than just the globe" + "should slowly
+  // iterate through the options unless the mode is set via url".
+  //
+  // All 4 modes build their centerpiece geometry into the scene; the
+  // per-mode containers below let setActiveMode() toggle visibility +
+  // re-bind the animation-loop's globe/moons/arcs to the active mode.
+  // ?warmode=<one-of> locks that mode permanently; no override =
+  // auto-iterate every ~28 s.  Disc, UN seal, projection beams, wall
+  // readouts, and cell wall are SHARED across modes.
+  const WAR_MODES = ["planet", "solar", "trajectory", "tactical"];
+  const _urlMode = new URLSearchParams(window.location.search).get("warmode");
+  const _cellCount = root.querySelectorAll(":scope > .cell").length;
+  const initialMode = (_urlMode && WAR_MODES.includes(_urlMode))
+    ? _urlMode
+    : WAR_MODES[Math.floor((_cellCount + 7) / 20) % WAR_MODES.length];
+  console.info(`[mixed3d.warroom] initialMode=${initialMode} (override=${_urlMode || "auto-cycle"}, cells=${_cellCount})`);
 
-  // ── Orbital arcs ──
-  // 5 arcs at varied inclinations around the globe.  Each arc is a
-  // closed Line drawn from points sampled around a circle, then the
-  // arc's Group gets a euler rotation to incline it relative to the
-  // globe's equator.  Colors split friendly-cyan / threat-red so the
-  // tactical situation is readable at a glance.
-  // Marker travels along each arc — small cone, color-matched, pivoted
-  // to face along its direction of travel.
-  const ARC_SPECS = [
-    { r: 5.6, color: 0x3a7bb8, tilt: [0.05, 0, 0.10],  marker: "cone", speed: 0.00022, threat: false },
-    { r: 6.4, color: 0x88c8ff, tilt: [-0.18, 0.4, 0.02], marker: "cone", speed: 0.00018, threat: false },
-    { r: 7.3, color: 0xd83a2e, tilt: [0.7, 0.0, 0.4],  marker: "cone", speed: 0.00028, threat: true  },
-    { r: 8.2, color: 0x2f6fd0, tilt: [0.2, 0.9, -0.15], marker: "cone", speed: 0.00020, threat: false },
-    { r: 9.4, color: 0xff6a4a, tilt: [1.0, 0.3, 0.6],  marker: "cone", speed: 0.00024, threat: true  },
-  ];
-  const SEG = 96;   // sample points per arc — line draws sharp at 96
-  const arcs = [];
-  // Shared cone geometry for every marker (tiny perf win + one less
-  // dispose call on teardown).  ConeGeometry has its tip along +Y;
-  // we rotate it so +Y aligns with the arc's tangent each frame.
-  const sharedMarkerGeo = new T.ConeGeometry(0.18, 0.5, 5);
-  for (let i = 0; i < ARC_SPECS.length; i++) {
-    const spec = ARC_SPECS[i];
-    // Build line geometry around an XZ circle at radius spec.r.  Group
-    // tilt rotates the whole arc to incline it relative to the equator.
-    const pts = new Float32Array((SEG + 1) * 3);
-    for (let s = 0; s <= SEG; s++) {
-      const a = (s / SEG) * Math.PI * 2;
-      pts[s * 3 + 0] = Math.cos(a) * spec.r;
-      pts[s * 3 + 1] = 0;
-      pts[s * 3 + 2] = Math.sin(a) * spec.r;
+  // Per-mode containers populated below.  scene.addCenterpiece() helper
+  // pushes objects to the right bin AND adds them to the scene so the
+  // active-mode visibility flip is just a loop over the right bin.
+  const centerpieceObjects = { planet: [], solar: [], trajectory: [], tactical: [] };
+  const globeByMode = { planet: null, solar: null, trajectory: null, tactical: null };
+  const moonsByMode = { planet: [], solar: [], trajectory: [], tactical: [] };
+  const arcsByMode  = { planet: [], solar: [], trajectory: [], tactical: [] };
+  const addToMode = (m, obj) => { centerpieceObjects[m].push(obj); scene.add(obj); };
+  // Active-mode handles, re-bound by setActiveMode().  Animation reads
+  // these directly each frame (null-safe for globe).
+  let globe = null;
+  let moons = [];
+  let arcs = [];
+
+  // ── PLANET mode: single wireframe globe + 2 small orbiting moons ──
+  {
+    const globeRadius = 4.2;
+    const globeGeo = new T.SphereGeometry(globeRadius, 16, 12);
+    const globeMat = new T.MeshBasicMaterial({
+      color: tint, wireframe: true, transparent: true, opacity: 0.58,
+    });
+    const planetGlobe = new T.Mesh(globeGeo, globeMat);
+    planetGlobe.position.y = 6;
+    addToMode("planet", planetGlobe);
+    globeByMode.planet = planetGlobe;
+    const globeInnerGeo = new T.SphereGeometry(globeRadius * 0.94, 12, 8);
+    const globeInnerMat = new T.MeshBasicMaterial({
+      color: tint, transparent: true, opacity: 0.06,
+    });
+    const globeInner = new T.Mesh(globeInnerGeo, globeInnerMat);
+    globeInner.position.y = 6;
+    addToMode("planet", globeInner);
+    const moonGeo = new T.SphereGeometry(0.7, 10, 8);
+    const moonMatA = new T.MeshBasicMaterial({ color: 0xaad8e8, wireframe: true, transparent: true, opacity: 0.5 });
+    const moonMatB = new T.MeshBasicMaterial({ color: 0x6f9fd0, wireframe: true, transparent: true, opacity: 0.45 });
+    const moonA = new T.Mesh(moonGeo, moonMatA);
+    const moonB = new T.Mesh(moonGeo, moonMatB);
+    addToMode("planet", moonA); addToMode("planet", moonB);
+    moonsByMode.planet.push({ mesh: moonA, r: 7.2, phase: 0,   incl: 0.4,  speed: 0.00018 });
+    moonsByMode.planet.push({ mesh: moonB, r: 8.8, phase: 1.7, incl: -0.3, speed: 0.00012 });
+  }
+
+  // ── SOLAR mode: four smaller bodies orbiting an empty center ──
+  {
+    const bodyGeo1 = new T.SphereGeometry(1.6, 12, 9);
+    const bodyGeo2 = new T.SphereGeometry(1.2, 10, 8);
+    const bodyGeo3 = new T.SphereGeometry(0.9, 10, 8);
+    const bodyGeo4 = new T.SphereGeometry(1.8, 14, 10);
+    const bodySpecs = [
+      { geo: bodyGeo1, color: 0x88c8ff, r: 4.2, phase: 0.0, incl:  0.18, speed: 0.00026 },
+      { geo: bodyGeo2, color: 0xaad8e8, r: 6.2, phase: 1.4, incl: -0.30, speed: 0.00020 },
+      { geo: bodyGeo3, color: 0xc0e0f0, r: 8.0, phase: 2.8, incl:  0.55, speed: 0.00016 },
+      { geo: bodyGeo4, color: 0x3a7bb8, r: 9.6, phase: 4.2, incl: -0.10, speed: 0.00013 },
+    ];
+    for (const spec of bodySpecs) {
+      const mat = new T.MeshBasicMaterial({
+        color: spec.color, wireframe: true, transparent: true, opacity: 0.55,
+      });
+      const m = new T.Mesh(spec.geo, mat);
+      addToMode("solar", m);
+      moonsByMode.solar.push({ mesh: m, r: spec.r, phase: spec.phase, incl: spec.incl, speed: spec.speed });
     }
-    const lineGeo = new T.BufferGeometry();
-    lineGeo.setAttribute("position", new T.BufferAttribute(pts, 3));
-    const lineMat = new T.LineBasicMaterial({
-      color: spec.color,
-      transparent: true,
-      opacity: spec.threat ? 0.75 : 0.65,
+    const crossPts = new Float32Array([
+      -0.6, 6, 0,  0.6, 6, 0,
+       0, 6-0.6, 0,  0, 6+0.6, 0,
+       0, 6, -0.6,  0, 6, 0.6,
+    ]);
+    const crossGeo = new T.BufferGeometry();
+    crossGeo.setAttribute("position", new T.BufferAttribute(crossPts, 3));
+    const crossMat = new T.LineBasicMaterial({ color: tint, transparent: true, opacity: 0.6 });
+    addToMode("solar", new T.LineSegments(crossGeo, crossMat));
+  }
+
+  // ── Orbital / trajectory arcs ──
+  // Mode-conditional geometry.  PLANET + SOLAR + TRAJECTORY all use
+  // arcs (closed orbits in planet/solar; open parabolic paths in
+  // trajectory).  TACTICAL mode skips arcs entirely.
+  // Each arc is a Line; in animated modes a cone marker travels along
+  // it, re-oriented to the tangent every frame.
+  // Shared cone geometry for every marker (across all modes).
+  const sharedMarkerGeo = new T.ConeGeometry(0.18, 0.5, 5);
+  const ARC_PRESETS = {
+    planet: { kind: "closed", specs: [
+      { r: 5.6, color: 0x3a7bb8, tilt: [0.05, 0, 0.10],   speed: 0.00022, threat: false },
+      { r: 6.4, color: 0x88c8ff, tilt: [-0.18, 0.4, 0.02],speed: 0.00018, threat: false },
+      { r: 7.3, color: 0xd83a2e, tilt: [0.7, 0.0, 0.4],   speed: 0.00028, threat: true  },
+      { r: 8.2, color: 0x2f6fd0, tilt: [0.2, 0.9, -0.15], speed: 0.00020, threat: false },
+      { r: 9.4, color: 0xff6a4a, tilt: [1.0, 0.3, 0.6],   speed: 0.00024, threat: true  },
+    ]},
+    solar: { kind: "closed", specs: [
+      { r: 4.2, color: 0x88c8ff, tilt: [ 0.18, 0,    0   ], speed: 0, threat: false, noMarker: true },
+      { r: 6.2, color: 0xaad8e8, tilt: [-0.30, 0.3,  0   ], speed: 0, threat: false, noMarker: true },
+      { r: 8.0, color: 0xc0e0f0, tilt: [ 0.55, 0.7,  0   ], speed: 0, threat: false, noMarker: true },
+      { r: 9.6, color: 0x3a7bb8, tilt: [-0.10, 1.2,  0.2 ], speed: 0, threat: false, noMarker: true },
+    ]},
+    trajectory: { kind: "parabolic", specs: [
+      { color: 0x88c8ff, theta: 0.0,        height: 4, span: 22, speed: 0.00026, threat: false },
+      { color: 0xaad8e8, theta: Math.PI/3,  height: 6, span: 26, speed: 0.00022, threat: false },
+      { color: 0xd83a2e, theta: 2*Math.PI/3,height: 5, span: 18, speed: 0.00030, threat: true  },
+      { color: 0x6f9fd0, theta: Math.PI,    height: 7, span: 24, speed: 0.00020, threat: false },
+      { color: 0xff6a4a, theta: 4*Math.PI/3,height: 4, span: 20, speed: 0.00028, threat: true  },
+      { color: 0x3a7bb8, theta: 5*Math.PI/3,height: 6, span: 22, speed: 0.00018, threat: false },
+    ]},
+    tactical: null,   // no arcs
+  };
+  const SEG = 96;
+  for (const [modeName, preset] of Object.entries(ARC_PRESETS)) {
+    if (!preset) continue;
+    for (let i = 0; i < preset.specs.length; i++) {
+      const spec = preset.specs[i];
+      const pts = new Float32Array((SEG + 1) * 3);
+      if (preset.kind === "parabolic") {
+        const sin = Math.sin(spec.theta), cos = Math.cos(spec.theta);
+        for (let s = 0; s <= SEG; s++) {
+          const u = s / SEG;
+          const lx = (u - 0.5) * spec.span;
+          const ly = spec.height * (1 - (2 * (u - 0.5)) ** 2);
+          pts[s * 3 + 0] = cos * lx;
+          pts[s * 3 + 1] = ly;
+          pts[s * 3 + 2] = sin * lx;
+        }
+      } else {
+        for (let s = 0; s <= SEG; s++) {
+          const a = (s / SEG) * Math.PI * 2;
+          pts[s * 3 + 0] = Math.cos(a) * spec.r;
+          pts[s * 3 + 1] = 0;
+          pts[s * 3 + 2] = Math.sin(a) * spec.r;
+        }
+      }
+      const lineGeo = new T.BufferGeometry();
+      lineGeo.setAttribute("position", new T.BufferAttribute(pts, 3));
+      const lineMat = new T.LineBasicMaterial({
+        color: spec.color,
+        transparent: true,
+        opacity: spec.threat ? 0.75 : (modeName === "solar" ? 0.32 : 0.6),
+      });
+      const line = new T.Line(lineGeo, lineMat);
+      const arcGroup = new T.Group();
+      if (preset.kind === "parabolic") arcGroup.position.y = 4;
+      else { arcGroup.rotation.set(spec.tilt[0], spec.tilt[1], spec.tilt[2]); arcGroup.position.y = 6; }
+      arcGroup.add(line);
+      let marker = null;
+      if (!spec.noMarker) {
+        const markerMat = new T.MeshBasicMaterial({
+          color: spec.color, transparent: true, opacity: 0.95, depthTest: false,
+        });
+        marker = new T.Mesh(sharedMarkerGeo, markerMat);
+        marker.renderOrder = 5;
+        arcGroup.add(marker);
+      }
+      addToMode(modeName, arcGroup);
+      arcsByMode[modeName].push({
+        group: arcGroup, line, marker, spec,
+        kind: preset.kind,
+        phase: (i / preset.specs.length) * Math.PI * 2,
+      });
+    }
+  }
+
+  // ── TACTICAL central anchor (reticle + axis cross) ──
+  {
+    const reticleGeo = new T.TorusGeometry(1.4, 0.05, 8, 48);
+    const reticleMat = new T.MeshBasicMaterial({
+      color: tint, transparent: true, opacity: 0.55,
     });
-    const line = new T.Line(lineGeo, lineMat);
-    const arcGroup = new T.Group();
-    arcGroup.rotation.set(spec.tilt[0], spec.tilt[1], spec.tilt[2]);
-    arcGroup.position.y = 6;  // centered on globe
-    arcGroup.add(line);
-    // Marker on the arc — bright color, tip along +Y by default.  We
-    // re-orient it each frame so it points along the arc's tangent.
-    const markerMat = new T.MeshBasicMaterial({
-      color: spec.color,
-      transparent: true,
-      opacity: 0.95,
-      depthTest: false,
+    const reticle = new T.Mesh(reticleGeo, reticleMat);
+    reticle.position.y = 6;
+    reticle.rotation.x = Math.PI / 2;
+    addToMode("tactical", reticle);
+    const axisGeo = new T.BufferGeometry();
+    axisGeo.setAttribute("position", new T.BufferAttribute(new Float32Array([
+      -2.4, 6, 0,  2.4, 6, 0,
+       0, 6, -2.4,  0, 6, 2.4,
+    ]), 3));
+    const axisMat = new T.LineBasicMaterial({
+      color: tint, transparent: true, opacity: 0.42,
     });
-    const marker = new T.Mesh(sharedMarkerGeo, markerMat);
-    marker.renderOrder = 5;
-    arcGroup.add(marker);
-    scene.add(arcGroup);
-    arcs.push({
-      group: arcGroup, line, marker, spec,
-      phase: (i / ARC_SPECS.length) * Math.PI * 2,
-    });
+    addToMode("tactical", new T.LineSegments(axisGeo, axisMat));
   }
 
   // ── Vertical caustics / projection beams ──
@@ -4709,7 +4831,11 @@ function applyMixed3DWarRoom(O) {
   // reference footage" + "council tactical meetings are probably the
   // richest" — drawing on refs/unn/00_06_04 (solar-system + trajectory
   // arc) and 00_08_05 (plus-glyphs + trajectory lines).
-  const contactPositions = [
+  // Plus-glyph count + position generator varies by mode.  Tactical
+  // mode gets a denser 3D grid (25 positions); trajectory gets 14
+  // waypoints sprinkled along the parabolic field; planet/solar get
+  // the canonical 10 markers.
+  const _contactBase = [
     // Friendly contacts (light cyan plus-glyphs)
     [ 7.5,  4.5, -3.0, false], [-6.0,  7.5,  4.5, false],
     [ 3.0,  9.0,  6.0, false], [-9.0,  3.0, -5.0, false],
@@ -4718,8 +4844,34 @@ function applyMixed3DWarRoom(O) {
     [ 9.5,  8.0,  2.0, true],  [-7.5,  5.5, -7.5, true],
     [ 4.0,  3.0, -9.0, true],  [-4.5, 10.0,  3.5, true],
   ];
-  // Shared plus-glyph geometry: three line segments crossed at origin,
-  // axis-aligned to X, Y, Z.  6 vertices = 3 GL_LINES segments.
+  function _tacticalGrid() {
+    // 5x5 grid stretched across the central volume, varied Y so it
+    // reads as a 3D cloud not a flat sheet.  Half flagged threat.
+    const out = [];
+    for (let i = 0; i < 25; i++) {
+      const u = (i % 5) - 2;       // -2..+2
+      const v = Math.floor(i / 5) - 2;
+      const wob = ((i * 7919) % 17) / 17 * 1.8;  // deterministic jitter
+      out.push([u * 3.4, 5 + (i * 421 % 9) * 0.45, v * 3.4 + wob, (i * 13) % 5 === 0]);
+    }
+    return out;
+  }
+  function _trajectoryWaypoints() {
+    // 14 markers, half placed near parabolic-arc apexes (visual waypoints
+    // along the converging paths), half scattered for context.
+    return [
+      // Apex points roughly above the focal area at y=8-10
+      [ 0,   9.5,  0, false], [ 2.0, 8.5,  1.5, false],
+      [-2.0, 8.5, -1.5, false], [ 1.5, 9.0, -2.5, true],
+      [-1.5, 9.0,  2.5, false], [ 0,   7.5,  3.0, false],
+      [ 0,   7.5, -3.0, true],
+      // Outer trajectory endpoints (entries/exits to the focal field)
+      [ 9.0, 4.5,  0,   false], [-9.0, 4.5,  0,   false],
+      [ 0,   4.5,  9.0, true],  [ 0,   4.5, -9.0, true],
+      [ 6.5, 4.5,  6.5, false], [-6.5, 4.5, -6.5, false],
+      [ 6.5, 4.5, -6.5, true],
+    ];
+  }
   const _plusG = new Float32Array([
     -0.35, 0, 0,  0.35, 0, 0,
      0, -0.35, 0,  0, 0.35, 0,
@@ -4727,41 +4879,26 @@ function applyMixed3DWarRoom(O) {
   ]);
   const sharedPlusGeo = new T.BufferGeometry();
   sharedPlusGeo.setAttribute("position", new T.BufferAttribute(_plusG, 3));
-  for (const [x, y, z, isThreat] of contactPositions) {
-    const mat = new T.LineBasicMaterial({
-      color: isThreat ? 0xff4030 : 0x88c8ff,
-      transparent: true,
-      opacity: 0.92,
-      depthTest: false,
-    });
-    const glyph = new T.LineSegments(sharedPlusGeo, mat);
-    glyph.renderOrder = 6;
-    glyph.position.set(x, y, z);
-    scene.add(glyph);
+  const _GLYPH_POSITIONS_BY_MODE = {
+    planet:     _contactBase,
+    solar:      _contactBase,
+    trajectory: _trajectoryWaypoints(),
+    tactical:   _tacticalGrid(),
+  };
+  for (const [modeName, positions] of Object.entries(_GLYPH_POSITIONS_BY_MODE)) {
+    for (const [x, y, z, isThreat] of positions) {
+      const mat = new T.LineBasicMaterial({
+        color: isThreat ? 0xff4030 : 0x88c8ff,
+        transparent: true,
+        opacity: 0.92,
+        depthTest: false,
+      });
+      const glyph = new T.LineSegments(sharedPlusGeo, mat);
+      glyph.renderOrder = 6;
+      glyph.position.set(x, y, z);
+      addToMode(modeName, glyph);
+    }
   }
-
-  // ── Orbiting moons / co-bodies ──
-  // Per refs/unn/00_06_04 the war-room hologram showed a "solar system
-  // model" — multiple bodies, not just one planet.  Two smaller
-  // wireframe spheres orbit the central globe at varied inclinations
-  // and rates, giving the centerpiece a sense of system rather than
-  // single planet.  Updated each frame from their phase / orbit radius
-  // / inclination so they don't need per-body Group rotations.
-  const moonGeo = new T.SphereGeometry(0.7, 10, 8);
-  const moonMatA = new T.MeshBasicMaterial({
-    color: 0xaad8e8, wireframe: true, transparent: true, opacity: 0.5,
-  });
-  const moonMatB = new T.MeshBasicMaterial({
-    color: 0x6f9fd0, wireframe: true, transparent: true, opacity: 0.45,
-  });
-  const moonA = new T.Mesh(moonGeo, moonMatA);
-  const moonB = new T.Mesh(moonGeo, moonMatB);
-  scene.add(moonA);
-  scene.add(moonB);
-  const moons = [
-    { mesh: moonA, r: 7.2, phase: 0,       incl: 0.4, speed: 0.00018 },
-    { mesh: moonB, r: 8.8, phase: 1.7,     incl: -0.3, speed: 0.00012 },
-  ];
 
   // ── Wall readout panels at outer distance ──
   // Per NOTES.md: "wall readout screens — left-wall panels, red-tinted
@@ -4832,38 +4969,43 @@ function applyMixed3DWarRoom(O) {
     scene.add(panel);
   }
 
-  // ── Trajectory connector lines ──
+  // ── Trajectory connector lines (per mode) ──
   // Per refs/unn/00_08_05: yellow lines connect points of interest on
-  // the tactical plot — the trajectory-overlay vocabulary.  Three pairs
-  // here connect friendly→friendly and friendly→threat across the
-  // scene, giving the volumetric content a sense of relations rather
-  // than isolated points.  Per-line BufferGeometry (only 6 lines total
-  // → cheap).
-  const trajectoryPairs = [
-    [0, 6], // friendly → threat
-    [2, 8], // friendly → threat
-    [1, 4], // friendly → friendly
-  ];
-  for (const [aIdx, bIdx] of trajectoryPairs) {
-    const a = contactPositions[aIdx];
-    const b = contactPositions[bIdx];
-    const trajGeo = new T.BufferGeometry();
-    trajGeo.setAttribute("position", new T.BufferAttribute(new Float32Array([
-      a[0], a[1], a[2],
-      b[0], b[1], b[2],
-    ]), 3));
-    const trajMat = new T.LineDashedMaterial({
-      color: 0xffc233,
-      dashSize: 0.4,
-      gapSize: 0.3,
-      transparent: true,
-      opacity: 0.6,
-      depthTest: false,
-    });
-    const traj = new T.Line(trajGeo, trajMat);
-    traj.computeLineDistances();   // required for LineDashedMaterial
-    traj.renderOrder = 5;
-    scene.add(traj);
+  // the tactical plot — the trajectory-overlay vocabulary.  Each mode
+  // gets a few connectors between its own contact positions so the
+  // visual makes sense per mode.  Connector pairs are picked at
+  // friendly→threat / friendly→friendly indices within each mode's
+  // contact list.
+  const _connectorPairsByMode = {
+    planet:     [[0, 6], [2, 8], [1, 4]],
+    solar:      [[0, 6], [2, 8], [1, 4]],
+    trajectory: [[0, 7], [2, 9], [3, 11]],
+    tactical:   [[0, 6], [4, 14], [10, 20]],
+  };
+  for (const [connModeName, pairs] of Object.entries(_connectorPairsByMode)) {
+    const positions = _GLYPH_POSITIONS_BY_MODE[connModeName] || [];
+    for (const [aIdx, bIdx] of pairs) {
+      const a = positions[aIdx];
+      const b = positions[bIdx];
+      if (!a || !b) continue;
+      const trajGeo = new T.BufferGeometry();
+      trajGeo.setAttribute("position", new T.BufferAttribute(new Float32Array([
+        a[0], a[1], a[2],
+        b[0], b[1], b[2],
+      ]), 3));
+      const trajMat = new T.LineDashedMaterial({
+        color: 0xffc233,
+        dashSize: 0.4,
+        gapSize: 0.3,
+        transparent: true,
+        opacity: 0.6,
+        depthTest: false,
+      });
+      const traj = new T.Line(trajGeo, trajMat);
+      traj.computeLineDistances();   // required for LineDashedMaterial
+      traj.renderOrder = 5;
+      addToMode(connModeName, traj);
+    }
   }
 
   // Cell mount: each notebook cell becomes a CSS3DObject placed
@@ -4889,35 +5031,48 @@ function applyMixed3DWarRoom(O) {
   // staggers Y per index so adjacent windows don't read as a flat
   // fence. Per User 2026-05-30: "a lot more colored lines and
   // wireframes in 3d with some floating windows."
+  // Cells form a CURVED WALL on the FAR SIDE of the globe relative to
+  // camera (which sits near +Z eye level).  Two rows stacked vertically;
+  // each row arranges cells along an arc in the -Z hemisphere so the
+  // hero viz (globe + arcs + plus glyphs) is foreground centerpiece
+  // and the cells are a backdrop wall.  Per User 2026-05-30: "the
+  // central 3d viz should be front and centered with the cells behind
+  // it."  Cells face the world origin via lookAt so they read flat to
+  // the camera looking through them.
   const cells = [...root.querySelectorAll(":scope > .cell")];
   const cellObjects = new Map();
   const cellSlotKeys = new Map();
-  const INNER_N = 5;
-  const OUTER_N = 9;
-  const TOTAL_N = INNER_N + OUTER_N;
+  const ROW1_N = 5;  // upper row (top of wall)
+  const ROW2_N = 7;  // lower row (bottom of wall)
+  const TOTAL_N = ROW1_N + ROW2_N;
+  // Arc spans the back hemisphere: angles π/2 .. 3π/2 (≈ 90° to 270°
+  // around the XZ plane, so cells fill the half opposite the camera).
+  const WALL_R = 22;   // brought in from 26 since camera now closer (z=13)
+  const ARC_START = Math.PI / 2 + 0.35;     // a bit narrower than full π
+  const ARC_END   = 3 * Math.PI / 2 - 0.35;
+  const ARC_SPAN = ARC_END - ARC_START;
   cells.forEach((cell, i) => {
     if (i >= TOTAL_N) {
       cell.style.display = "none";
       return;
     }
-    const isInner = i < INNER_N;
-    const idxInTier = isInner ? i : i - INNER_N;
-    const tierN = isInner ? INNER_N : OUTER_N;
-    // Offset the outer ring by half-step so it doesn't sit directly
-    // behind the inner ring positions.
-    const a = (idxInTier / tierN) * Math.PI * 2 + (isInner ? 0 : Math.PI / OUTER_N);
-    const r = isInner ? discRadius * 1.25 : discRadius * 1.75;
-    const yBase = isInner ? 3.4 : 8.2;
-    const yStagger = (idxInTier % 2) * 1.8;
+    const isRow1 = i < ROW1_N;
+    const idxInRow = isRow1 ? i : i - ROW1_N;
+    const rowN = isRow1 ? ROW1_N : ROW2_N;
+    // Even spacing across the back arc (slight margin from edges).
+    const aFrac = rowN === 1 ? 0.5 : idxInRow / (rowN - 1);
+    const a = ARC_START + aFrac * ARC_SPAN;
+    const yRow = isRow1 ? 11 : 5;
     const obj = new T.CSS3DObject(cell);
-    obj.position.set(Math.cos(a) * r, yBase + yStagger, Math.sin(a) * r);
-    // lookAt the central column at the cell's own height — face inward.
-    obj.lookAt(0, obj.position.y, 0);
-    obj.scale.set(isInner ? 0.026 : 0.030, isInner ? 0.026 : 0.030, 1);
+    obj.position.set(Math.cos(a) * WALL_R, yRow, Math.sin(a) * WALL_R);
+    // Face the world center axis at the cell's own height so each cell
+    // reads flat-on to the camera (which is also looking at center).
+    obj.lookAt(0, yRow, 0);
+    obj.scale.set(0.029, 0.029, 1);
     cssScene.add(obj);
     const id = cell.dataset.cellId || `cell-${i}`;
     cellObjects.set(id, obj);
-    cellSlotKeys.set(id, isInner ? `inner:${idxInTier}` : `outer:${idxInTier}`);
+    cellSlotKeys.set(id, isRow1 ? `wall1:${idxInRow}` : `wall2:${idxInRow}`);
   });
 
   // Resize
@@ -4929,6 +5084,34 @@ function applyMixed3DWarRoom(O) {
     cssRenderer.setSize(W, H);
   }
   window.addEventListener("resize", onResize);
+
+  // Active-mode setup + auto-cycle.  setActiveMode flips visibility on
+  // every centerpiece object AND re-binds the animation loop's globe /
+  // moons / arcs to the active mode's containers.  Without URL override,
+  // setInterval rotates through WAR_MODES every 28 s.
+  let activeMode = initialMode;
+  function setActiveMode(next) {
+    activeMode = next;
+    globe = globeByMode[next];
+    moons = moonsByMode[next];
+    arcs  = arcsByMode[next];
+    for (const m of WAR_MODES) {
+      const vis = m === next;
+      for (const obj of centerpieceObjects[m]) obj.visible = vis;
+    }
+    console.info(`[mixed3d.warroom] active mode → ${next}`);
+  }
+  setActiveMode(initialMode);
+  let _warroomCycleId = null;
+  if (!_urlMode) {
+    // ~28s per mode → full cycle ~112s.  Long enough for the user to
+    // settle into each mode; short enough to feel like the holo-table
+    // is alive between visits.
+    _warroomCycleId = setInterval(() => {
+      const idx = WAR_MODES.indexOf(activeMode);
+      setActiveMode(WAR_MODES[(idx + 1) % WAR_MODES.length]);
+    }, 28000);
+  }
 
   _mixed3dState = {
     opts: O,
@@ -4945,11 +5128,14 @@ function applyMixed3DWarRoom(O) {
     _booted: false,
     _stableFrames: 0,
     _arrangement: "war-room",
-    _warroomState: { globe, arcs, disc },
+    _warroomState: { centerpieceObjects, globeByMode, moonsByMode, arcsByMode, disc, getMode: () => activeMode },
+    _warroomCycleId,
     _restoreThemeFurniture: () => {
       if (themeFurniture) themeFurniture.style.display = _prevFurnitureDisplay || "";
     },
   };
+  // Expose state for diagnostics (chrome MCP probes, devtools).
+  window._mixed3dState = _mixed3dState;
 
   // Pre-allocated work vectors so the rAF tick allocates zero per
   // frame.  Reused across marker tangent computations.
@@ -4968,24 +5154,27 @@ function applyMixed3DWarRoom(O) {
     if (dt < 33) _mixed3dState._stableFrames = (_mixed3dState._stableFrames || 0) + 1;
     else _mixed3dState._stableFrames = 0;
 
-    // Slow camera orbit — full revolution every ~62 s.  Held at
-    // y=14 so the volumetric content above the disc reads in frame
-    // alongside the cells around it.
-    const u = (t * 0.0000162) % 1;
-    const ang = u * Math.PI * 2;
-    const camR = 38;
-    camera.position.x = Math.cos(ang) * camR;
-    camera.position.z = Math.sin(ang) * camR;
-    camera.position.y = 14;
+    // Close standing-in-hologram parallax sweep — ±25° at R=13, full
+    // sweep every ~38s.  Camera sits just outside the largest orbital
+    // arc so the volumetric content surrounds the viewer; the cell
+    // wall (R=22) stays comfortably behind the globe.
+    const u = (t * 0.0000263) % 1;
+    const sweep = Math.sin(u * Math.PI * 2) * (Math.PI / 7);  // ±~25°
+    const camR = 13;
+    camera.position.x = Math.sin(sweep) * camR;
+    camera.position.z = Math.cos(sweep) * camR;
+    camera.position.y = 6 + Math.cos(u * Math.PI * 2) * 0.4;
     camera.lookAt(0, 6, 0);
 
-    // Globe slow spin — full revolution every ~36 s.
-    globe.rotation.y = t * 0.000175;
+    // Globe slow spin — full revolution every ~36 s.  Skipped when
+    // the active mode has no centerpiece globe (trajectory / tactical).
+    if (globe) globe.rotation.y = t * 0.000175;
 
     // Animation epoch — used by moon orbits + arc markers below.
     const t0 = _mixed3dState.animation.t0;
 
-    // Orbiting moons — XZ orbit with constant Y inclination tilt.
+    // Orbiting bodies (moons in planet mode; system bodies in solar
+    // mode).  Each carries r / phase / incl / speed.
     for (let i = 0; i < moons.length; i++) {
       const m = moons[i];
       const a = m.phase + (t - t0) * m.speed;
@@ -4997,27 +5186,40 @@ function applyMixed3DWarRoom(O) {
       m.mesh.rotation.y = t * 0.0003 * (i % 2 ? -1 : 1);
     }
 
-    // Per-arc: rotate group slowly so inclinations evolve (subtle —
-    // 80s per revolution), and slide marker along the arc tangent.
+    // Per-arc: group rotation + marker travel.
+    // CLOSED arcs (planet/solar): marker phase walks XZ unit circle.
+    // PARABOLIC arcs (trajectory): marker walks the polyline u=0..1,
+    //   ping-ponging so it traces each path back and forth.
     for (let i = 0; i < arcs.length; i++) {
       const a = arcs[i];
       a.group.rotation.y += dt * 0.000022 * (i % 2 ? -1 : 1);
-      // Marker position: walk by phase along the XZ arc.
-      const phase = a.phase + (t - t0) * a.spec.speed;
-      const r = a.spec.r;
-      a.marker.position.set(Math.cos(phase) * r, 0, Math.sin(phase) * r);
-      // Marker orientation: tangent direction is the derivative of
-      // (cos, 0, sin) → (-sin, 0, cos).  Re-use _pTangent (no alloc).
-      _pTangent.set(-Math.sin(phase), 0, Math.cos(phase));
-      // ConeGeometry tip points along +Y; rotate so +Y aligns with
-      // the tangent direction via lookAt.  lookAt expects a target
-      // point, so compute marker_pos + tangent.
-      _pCurr.copy(a.marker.position).add(_pTangent);
-      a.marker.lookAt(_pCurr);
-      // After lookAt, the cone's +Z faces _pCurr; rotate by -π/2 on
-      // X to align +Y with the original +Z.  Cumulative rotate is fine
-      // because lookAt resets each frame.
-      a.marker.rotateX(-Math.PI / 2);
+      if (!a.marker) continue;     // solar mode: arcs are decorative only
+      if (a.kind === "parabolic") {
+        // Ping-pong u along the parabola; tangent comes from the
+        // derivative of the polyline param.
+        const period = 1 / a.spec.speed * 0.5;
+        const cyc = ((t - t0) % (period * 2)) / period;
+        const u = cyc < 1 ? cyc : 2 - cyc;
+        const lx = (u - 0.5) * a.spec.span;
+        const ly = a.spec.height * (1 - (2 * (u - 0.5)) ** 2);
+        const sin = Math.sin(a.spec.theta), cos = Math.cos(a.spec.theta);
+        a.marker.position.set(cos * lx, ly, sin * lx);
+        // dy/dx = -8*peak*(u-0.5)/span; pick reasonable tangent magnitude.
+        const dy = a.spec.height * -8 * (u - 0.5) / a.spec.span;
+        _pTangent.set(cos, dy, sin).normalize();
+        if (cyc >= 1) _pTangent.multiplyScalar(-1);  // reverse on return leg
+        _pCurr.copy(a.marker.position).add(_pTangent);
+        a.marker.lookAt(_pCurr);
+        a.marker.rotateX(-Math.PI / 2);
+      } else {
+        const phase = a.phase + (t - t0) * a.spec.speed;
+        const r = a.spec.r;
+        a.marker.position.set(Math.cos(phase) * r, 0, Math.sin(phase) * r);
+        _pTangent.set(-Math.sin(phase), 0, Math.cos(phase));
+        _pCurr.copy(a.marker.position).add(_pTangent);
+        a.marker.lookAt(_pCurr);
+        a.marker.rotateX(-Math.PI / 2);
+      }
     }
 
     renderer.render(scene, camera);
@@ -11443,6 +11645,10 @@ function teardownMixed3DLayout() {
   // situations-board.
   if (S._restoreThemeFurniture) {
     try { S._restoreThemeFurniture(); } catch (e) { /* swallow */ }
+  }
+  if (S._warroomCycleId) {
+    clearInterval(S._warroomCycleId);
+    S._warroomCycleId = null;
   }
   if (S.onKey) window.removeEventListener("keydown", S.onKey);
   if (window.lucidaToggleDanger) delete window.lucidaToggleDanger;
