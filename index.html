@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=76" />
+<link rel="stylesheet" href="notebook.css?v=77" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -187,7 +187,6 @@
         <span class="hud-value" id="hud-session-val">—</span>
         <span class="hud-caret" aria-hidden="true">▾</span>
       </span>
-      <div id="session-dropdown" class="session-dropdown" hidden></div>
       <span class="hud-cell hud-layout-trigger" id="hud-layout-cell"
             role="button" tabindex="0" aria-haspopup="true"
             aria-controls="layout-dropdown"
@@ -196,7 +195,6 @@
         <span class="hud-value" id="hud-layout-val">GRID</span>
         <span class="hud-caret" aria-hidden="true">▾</span>
       </span>
-      <div id="layout-dropdown" class="session-dropdown" hidden></div>
       <span class="hud-cell hud-theme-trigger" id="hud-theme-cell"
             role="button" tabindex="0" aria-haspopup="true"
             aria-controls="theme-dropdown"
@@ -205,7 +203,6 @@
         <span class="hud-value" id="hud-theme-val">—</span>
         <span class="hud-caret" aria-hidden="true">▾</span>
       </span>
-      <div id="theme-dropdown" class="session-dropdown" hidden></div>
     </div>
     <div class="hud-row hud-row-bot">
       <span class="hud-cell hud-kills" id="hud-kill1-slot" data-state="ok">
@@ -231,6 +228,16 @@
     <div class="hud-scanline" aria-hidden="true"></div>
   </div>
 </header>
+<!-- HUD-trigger dropdowns hoisted out of #hud so their position:fixed +
+     z-index work against the viewport instead of the HUD's clipped
+     stacking context.  When the dropdowns were #hud children, the HUD's
+     overflow:hidden + max-height:192px chopped the dropdown rows off below
+     the strip (only the header was visible).  The edge-trigger IIFE's
+     dropdownOpen guard already keeps the HUD revealed while any dropdown is
+     open. -->
+<div id="session-dropdown" class="session-dropdown" hidden></div>
+<div id="layout-dropdown"  class="session-dropdown" hidden></div>
+<div id="theme-dropdown"   class="session-dropdown" hidden></div>
 <main id="notebook"></main>
 <!-- Inter-cell connections overlay (WebGL via Three.js).
      Replaces the prior SVG implementation. Fixed-position canvas;
@@ -834,29 +841,31 @@ function applyFactionHUDLabels(theme) {
   // a watch number, not a session-slug stub. Leave alone if no match
   // so non-sess ids still display correctly.
   const sessionTrim = (v) => String(v).replace(/sess(?:-.*)?$/i, "");
-  // Layout chip stays canonical ("LAYOUT: PACK" etc.) across themes —
-  // the previous per-theme value remap (pack→CONVOY, pack→COND-3, …)
-  // hid the renderer-internal id the dropdown still showed, so the chip
-  // and dropdown disagreed. User 2026-05-29: "I don't like RIG: CONVOY
-  // instead of LAYOUT: PACK, that's bad UX." Faction flavor stays in
-  // the other chip labels (status/cells/since/render/session/theme)
-  // where the value IS the real id (sessions are real ids, theme is the
-  // real theme id) so there's no chip-vs-dropdown conflict.
+  // Layout AND theme chips stay canonical ("LAYOUT: PACK", "THEME: UNN")
+  // across themes — per-theme remaps (layout pack→CONVOY, theme unn→FLAG …)
+  // hid the renderer-internal id the corresponding dropdown still showed,
+  // so chip and dropdown disagreed.  Layout revert landed first (User
+  // 2026-05-29: "I don't like RIG: CONVOY instead of LAYOUT: PACK, that's
+  // bad UX"); theme revert follows the same rule (User 2026-05-29: "the
+  // unn still uses the 'flag' name instead of 'theme' — correct that for
+  // all themes").  Faction flavor stays in the other chip labels
+  // (status/cells/since/render/session) where the value IS the real id
+  // and no chip-vs-dropdown conflict exists.
   const TABLE = {
     rocinante: {
-      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "SHIP" },
+      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     tachi: {
-      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "SHIP" },
+      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     belter: {
-      labels: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH",  layout: "LAYOUT",  theme: "FAKSON" },
+      labels: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH",  layout: "LAYOUT",  theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     unn: {
-      labels: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "FLAG" },
+      labels: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     // ── Backfill from Expanse polish: non-Expanse themes opt into the same
@@ -864,52 +873,52 @@ function applyFactionHUDLabels(theme) {
     // lab + minimal stay default (baseline / spartan registers). All values
     // are in-universe to the theme's aesthetic.
     conclave: {
-      labels: { status: "STATE", since: "OFFICE", cells: "NODES", render: "SACRAMENT", session: "COUNCIL", layout: "LAYOUT", theme: "SEE" },
+      labels: { status: "STATE", since: "OFFICE", cells: "NODES", render: "SACRAMENT", session: "COUNCIL", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     gastown: {
       // Yegge's Gas Town (his Jan-2026 multi-agent coding system) leans
       // Mad Max for culture/wording and Vancouver-Gastown-steampunk for
       // legal-safe visuals.  Match: HUD vocabulary takes the Mad Max
-      // road-warrior register (CHROME / REVS / GUZZ / ROAR / CONVOY /
-      // V8), and palette stays brass+cream per the tokens.
-      labels: { status: "CHROME", since: "REVS", cells: "GUZZ", render: "ROAR", session: "CONVOY", layout: "LAYOUT", theme: "V8" },
+      // road-warrior register (CHROME / REVS / GUZZ / ROAR / CONVOY),
+      // and palette stays brass+cream per the tokens.
+      labels: { status: "CHROME", since: "REVS", cells: "GUZZ", render: "ROAR", session: "CONVOY", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     ops: {
-      labels: { status: "COND", since: "T+", cells: "CONTACTS", render: "COMPUTING", session: "WATCH", layout: "LAYOUT", theme: "REGISTRY" },
+      labels: { status: "COND", since: "T+", cells: "CONTACTS", render: "COMPUTING", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     vigil: {
-      labels: { status: "VITAL", since: "UPTIME", cells: "TARGETS", render: "COMP", session: "WATCH", layout: "LAYOUT", theme: "SUIT" },
+      labels: { status: "VITAL", since: "UPTIME", cells: "TARGETS", render: "COMP", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     circuit: {
-      labels: { status: "PWR", since: "CYCLE", cells: "BITS", render: "RENDER", session: "CONN", layout: "LAYOUT", theme: "PATCH" },
+      labels: { status: "PWR", since: "CYCLE", cells: "BITS", render: "RENDER", session: "CONN", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     noir: {
-      labels: { status: "PULSE", since: "T+", cells: "LEADS", render: "INK", session: "CASE", layout: "LAYOUT", theme: "FILE" },
+      labels: { status: "PULSE", since: "T+", cells: "LEADS", render: "INK", session: "CASE", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     renegade: {
-      labels: { status: "CON", since: "ETA", cells: "CONTACTS", render: "OMNI", session: "WATCH", layout: "LAYOUT", theme: "FRAME" },
+      labels: { status: "CON", since: "ETA", cells: "CONTACTS", render: "OMNI", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     mainframe: {
-      labels: { status: "STAT", since: "UP", cells: "RECORDS", render: "EXEC", session: "JOB", layout: "LAYOUT", theme: "BATCH" },
+      labels: { status: "STAT", since: "UP", cells: "RECORDS", render: "EXEC", session: "JOB", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     terminus: {
-      labels: { status: "PWR", since: "T+", cells: "LINES", render: "ECHO", session: "SESSION", layout: "LAYOUT", theme: "TERM" },
+      labels: { status: "PWR", since: "T+", cells: "LINES", render: "ECHO", session: "SESSION", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     hackers: {
-      labels: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN", layout: "LAYOUT", theme: "RIG" },
+      labels: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     hailmary: {
-      labels: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG", layout: "LAYOUT", theme: "CRAFT" },
+      labels: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
   };
