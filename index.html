@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=82" />
+<link rel="stylesheet" href="notebook.css?v=83" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -873,7 +873,13 @@ function applyFactionHUDLabels(theme) {
     // lab + minimal stay default (baseline / spartan registers). All values
     // are in-universe to the theme's aesthetic.
     conclave: {
-      labels: { status: "STATE", since: "OFFICE", cells: "NODES", render: "SACRAMENT", session: "COUNCIL", layout: "LAYOUT", theme: "THEME" },
+      // NERV / MAGI triad (Evangelion).  Tokens + CSS are NERV-styled
+      // (amber primary on black, green accent, NERV unit rail at left,
+      // monospace) since the theme was created — the previous papal
+      // labels (SACRAMENT/COUNCIL/CHAMBER/SEE) were a mis-fit.  User
+      // 2026-05-30: "Conclave was intended to be nerv magi eva stuff."
+      // CYCLE/SOULS/RITUAL are the Evangelion-canonical register.
+      labels: { status: "MAGI", since: "CYCLE", cells: "SOULS", render: "ANALYSIS", session: "RITUAL", layout: "LAYOUT", theme: "THEME" },
       values: { "hud-session-val": sessionTrim },
     },
     gastown: {

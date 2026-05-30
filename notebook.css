@@ -1559,6 +1559,16 @@ main {
   --vis-ok: #00ff41;
   --vis-warn: #ffaa00;
   --vis-tripped: #ff2020;
+  /* NERV Eva-unit chevron — a sharp red triangle at top-right of every
+     cell, the canonical Evangelion section-tag glyph.  Same --cell-corner-*
+     mechanism as the renegade N7 stripe / vigil arc-reactor / hailmary
+     active pip; conclave's is angular red because NERV is angular red.
+     User 2026-05-30: "Conclave was intended to be nerv magi eva stuff." */
+  --cell-corner-content: "";
+  --cell-corner-size: 14px;
+  --cell-corner-bg: linear-gradient(225deg, #ff2020 50%, transparent 50%);
+  --cell-corner-opacity: 0.9;
+  --cell-corner-z: 4;
 }
 .theme-conclave body {
   font-family: "Courier New", "Lucida Console", monospace;
