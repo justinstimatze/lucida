@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=83" />
+<link rel="stylesheet" href="notebook.css?v=85" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -4436,18 +4436,25 @@ function applyMixed3DLayout(opts) {
 }
 
 // ----------------------------------------------------------------
-// mixed3d: war-room arrangement — UNN holo-table.  A flat
-// holographic disc at scene origin with concentric rings, radial
-// spokes, a slow radar sweep, and drifting friendly/hostile
-// contacts.  Cells mount as CSS3DObjects in a single floating ring
-// around the disc periphery (extrudes the warroom 2D layout into
-// 3D).  Camera slow-orbits at ~22u altitude looking inward.
+// mixed3d: war-room arrangement — UNN holo-table v2.
+// VOLUMETRIC HOLOGRAM rebuild after v1 was called out as "a bad copy
+// of the reference" (User 2026-05-30: "rethink the whole thing based
+// on the 3d holograms in the reference videos / it's a lot more
+// colored lines and wireframes in 3d with some floating windows").
 //
-// Sibling of applyMixed3DLayout (tower-arrangement) — too different
-// in geometry/camera/cells to share the body.  Writes into the same
-// _mixed3dState slot so teardownMixed3DLayout cleans up uniformly.
-// Skips snap-driver/warmup/occlusion for v1: cells stay live HTML
-// via CSS3DObject (no canvas baking).
+// Scene composition matches refs/unn/00_04_02_un_warroom_seal_table
+// _orbital_lines:
+//   - Faint disc base at y=0 (the table surface, very subtle)
+//   - WIREFRAME PLANETARY SPHERE rising from center, slow rotation
+//   - Multiple ORBITAL ARCS at varied inclinations around the globe
+//     (Line geometries with bright cyan/red coloring, drawn as 3D
+//     curves rather than flat-disc circles)
+//   - Traveling MARKERS (friendly cyan / threat red triangles or
+//     spheres) sliding along each arc — the "tactical contacts"
+//   - Cells distributed in TWO floating tiers at varied heights —
+//     "floating windows" not "ring around a coffee table"
+// Sibling of applyMixed3DLayout (tower-arrangement): writes into the
+// same _mixed3dState slot so teardownMixed3DLayout cleans up uniformly.
 // ----------------------------------------------------------------
 function applyMixed3DWarRoom(O) {
   const T = window.THREE;
@@ -4496,31 +4503,30 @@ function applyMixed3DWarRoom(O) {
   scene.add(key);
   scene.add(new T.HemisphereLight(0x000814, tint.getHex(), 0.4));
 
-  // The holo-disc itself.  Cylinder geometry: 18u radius, ~0.18u
-  // thick, faintly emissive blue.  Sits at y=0 so cells ring it
-  // floating slightly above.
-  const discRadius = 18;
-  const discGeo = new T.CylinderGeometry(discRadius, discRadius, 0.18, 96);
+  // The holo-table base disc.  Faint emissive surface at y=0.  Smaller
+  // and dimmer than v1 (16u radius, opacity 0.10) so the volumetric
+  // content above dominates the read.
+  const discRadius = 16;
+  const discGeo = new T.CylinderGeometry(discRadius, discRadius, 0.18, 64);
   const discMat = new T.MeshBasicMaterial({
     color: tint,
     transparent: true,
-    opacity: 0.16,
+    opacity: 0.10,
     side: T.DoubleSide,
   });
   const disc = new T.Mesh(discGeo, discMat);
   disc.position.y = 0;
   scene.add(disc);
 
-  // Concentric range rings (5).  Thin tori laid flat just above the
-  // disc surface so they don't z-fight with it.  Opacity falls off
-  // with radius for depth-of-table cue.
-  for (let i = 1; i <= 5; i++) {
-    const r = (discRadius / 5) * i - 0.6;
-    const ringGeo = new T.TorusGeometry(r, 0.045, 6, 96);
+  // 3 faint range rings inscribed on the disc — kept minimal so the
+  // disc reads as a base, not the centerpiece.
+  for (let i = 1; i <= 3; i++) {
+    const r = (discRadius / 3) * i - 0.4;
+    const ringGeo = new T.TorusGeometry(r, 0.04, 6, 64);
     const ringMat = new T.MeshBasicMaterial({
       color: tint,
       transparent: true,
-      opacity: 0.55 - i * 0.06,
+      opacity: 0.32 - i * 0.05,
     });
     const ring = new T.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2;
@@ -4528,70 +4534,244 @@ function applyMixed3DWarRoom(O) {
     scene.add(ring);
   }
 
-  // 12 radial spokes (clock-face).  Thin bars across the disc,
-  // faintly visible — the navigation grid you read off a tactical
-  // plot.  Translated by half-radius and rotated so each spans the
-  // disc center to its edge along its compass bearing.
-  for (let i = 0; i < 12; i++) {
-    const angle = (i / 12) * Math.PI * 2;
-    const spokeGeo = new T.BoxGeometry(discRadius * 0.96, 0.025, 0.05);
-    const spokeMat = new T.MeshBasicMaterial({
-      color: tint,
+  // ── Centerpiece: WIREFRAME PLANETARY SPHERE ──
+  // Slow Y rotation; royal-blue lat/lon wireframe.  Per refs/unn/
+  // 00_04_02 the volumetric projection shows a planetary body (Jupiter
+  // in the Agatha-King operation).  Radius 4.2u so it dominates the
+  // disc without overflowing.  Low segment count (16, 12) keeps the
+  // wireframe legible AND cheap (192 wireframe edges total).
+  const globeRadius = 4.2;
+  const globeGeo = new T.SphereGeometry(globeRadius, 16, 12);
+  const globeMat = new T.MeshBasicMaterial({
+    color: tint,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.58,
+  });
+  const globe = new T.Mesh(globeGeo, globeMat);
+  globe.position.y = 6;
+  scene.add(globe);
+  // Faint inner glow — a slightly smaller solid sphere with low opacity
+  // gives the wireframe a glowing core.
+  const globeInnerGeo = new T.SphereGeometry(globeRadius * 0.94, 12, 8);
+  const globeInnerMat = new T.MeshBasicMaterial({
+    color: tint,
+    transparent: true,
+    opacity: 0.06,
+  });
+  const globeInner = new T.Mesh(globeInnerGeo, globeInnerMat);
+  globeInner.position.y = 6;
+  scene.add(globeInner);
+
+  // ── Orbital arcs ──
+  // 5 arcs at varied inclinations around the globe.  Each arc is a
+  // closed Line drawn from points sampled around a circle, then the
+  // arc's Group gets a euler rotation to incline it relative to the
+  // globe's equator.  Colors split friendly-cyan / threat-red so the
+  // tactical situation is readable at a glance.
+  // Marker travels along each arc — small cone, color-matched, pivoted
+  // to face along its direction of travel.
+  const ARC_SPECS = [
+    { r: 5.6, color: 0x3a7bb8, tilt: [0.05, 0, 0.10],  marker: "cone", speed: 0.00022, threat: false },
+    { r: 6.4, color: 0x88c8ff, tilt: [-0.18, 0.4, 0.02], marker: "cone", speed: 0.00018, threat: false },
+    { r: 7.3, color: 0xd83a2e, tilt: [0.7, 0.0, 0.4],  marker: "cone", speed: 0.00028, threat: true  },
+    { r: 8.2, color: 0x2f6fd0, tilt: [0.2, 0.9, -0.15], marker: "cone", speed: 0.00020, threat: false },
+    { r: 9.4, color: 0xff6a4a, tilt: [1.0, 0.3, 0.6],  marker: "cone", speed: 0.00024, threat: true  },
+  ];
+  const SEG = 96;   // sample points per arc — line draws sharp at 96
+  const arcs = [];
+  // Shared cone geometry for every marker (tiny perf win + one less
+  // dispose call on teardown).  ConeGeometry has its tip along +Y;
+  // we rotate it so +Y aligns with the arc's tangent each frame.
+  const sharedMarkerGeo = new T.ConeGeometry(0.18, 0.5, 5);
+  for (let i = 0; i < ARC_SPECS.length; i++) {
+    const spec = ARC_SPECS[i];
+    // Build line geometry around an XZ circle at radius spec.r.  Group
+    // tilt rotates the whole arc to incline it relative to the equator.
+    const pts = new Float32Array((SEG + 1) * 3);
+    for (let s = 0; s <= SEG; s++) {
+      const a = (s / SEG) * Math.PI * 2;
+      pts[s * 3 + 0] = Math.cos(a) * spec.r;
+      pts[s * 3 + 1] = 0;
+      pts[s * 3 + 2] = Math.sin(a) * spec.r;
+    }
+    const lineGeo = new T.BufferGeometry();
+    lineGeo.setAttribute("position", new T.BufferAttribute(pts, 3));
+    const lineMat = new T.LineBasicMaterial({
+      color: spec.color,
       transparent: true,
-      opacity: 0.14,
+      opacity: spec.threat ? 0.75 : 0.65,
     });
-    const spoke = new T.Mesh(spokeGeo, spokeMat);
-    spoke.position.y = 0.13;
-    spoke.position.x = Math.cos(angle) * discRadius * 0.5;
-    spoke.position.z = Math.sin(angle) * discRadius * 0.5;
-    spoke.rotation.y = -angle;
-    scene.add(spoke);
+    const line = new T.Line(lineGeo, lineMat);
+    const arcGroup = new T.Group();
+    arcGroup.rotation.set(spec.tilt[0], spec.tilt[1], spec.tilt[2]);
+    arcGroup.position.y = 6;  // centered on globe
+    arcGroup.add(line);
+    // Marker on the arc — bright color, tip along +Y by default.  We
+    // re-orient it each frame so it points along the arc's tangent.
+    const markerMat = new T.MeshBasicMaterial({
+      color: spec.color,
+      transparent: true,
+      opacity: 0.95,
+      depthTest: false,
+    });
+    const marker = new T.Mesh(sharedMarkerGeo, markerMat);
+    marker.renderOrder = 5;
+    arcGroup.add(marker);
+    scene.add(arcGroup);
+    arcs.push({
+      group: arcGroup, line, marker, spec,
+      phase: (i / ARC_SPECS.length) * Math.PI * 2,
+    });
   }
 
-  // Radar sweep: a thin amber bar rotating from the disc center to
-  // edge, with a faint trailing fan implied by its alpha.  Single
-  // mesh on a Group at origin so we just rotate the group.
-  const sweepGeo = new T.BoxGeometry(discRadius * 0.96, 0.06, 0.12);
-  const sweepMat = new T.MeshBasicMaterial({
-    color: 0xffc233,
-    transparent: true,
-    opacity: 0.32,
-  });
-  const sweep = new T.Mesh(sweepGeo, sweepMat);
-  sweep.position.x = discRadius * 0.48;
-  sweep.position.y = 0.16;
-  const sweepGroup = new T.Group();
-  sweepGroup.add(sweep);
-  scene.add(sweepGroup);
+  // ── Vertical caustics / projection beams ──
+  // Three faint vertical lines anchored at table to globe altitude —
+  // reads as "the hologram is projecting upward from the table". Very
+  // subtle; not the centerpiece.
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.4;
+    const x = Math.cos(a) * 1.8;
+    const z = Math.sin(a) * 1.8;
+    const beamGeo = new T.BufferGeometry();
+    beamGeo.setAttribute("position", new T.BufferAttribute(new Float32Array([
+      x, 0.18, z,
+      x, 11, z,
+    ]), 3));
+    const beamMat = new T.LineBasicMaterial({
+      color: tint,
+      transparent: true,
+      opacity: 0.18,
+    });
+    scene.add(new T.Line(beamGeo, beamMat));
+  }
 
-  // Tactical contacts: a handful of friendly/hostile points drifting
-  // in slow arcs over the disc surface.  Friendly = green, hostile =
-  // red — matches the data.cat[4]/[5] system colors.  Small spheres
-  // sit just above the disc; rendered with depthTest:false so the
-  // disc's translucent surface never occludes them.
-  const contacts = [];
-  const contactCount = 9;
-  for (let i = 0; i < contactCount; i++) {
-    const r = 3 + (i / contactCount) * discRadius * 0.78;
-    const a0 = (i / contactCount) * Math.PI * 2 + Math.random() * 0.4;
-    const friendly = i < contactCount - 3;
-    const dotGeo = new T.SphereGeometry(0.16, 10, 10);
-    const dotMat = new T.MeshBasicMaterial({
-      color: friendly ? 0x3ad17e : 0xd83a2e,
+  // ── UN globe-laurel seal etched at disc center ──
+  // Per refs/unn/00_04_02 the disc surface has the UN seal inlaid as
+  // the visual anchor of the holo-table.  CanvasTexture (256x256) →
+  // disposed in teardown via scene.traverse picking up material.map.
+  // Drawn as concentric circles + radial laurel ticks; abstract
+  // enough to read as "UN insignia" without imitating the actual
+  // mark.  Disposed with material on teardown.
+  const _sealCanvas = document.createElement("canvas");
+  _sealCanvas.width = 256;
+  _sealCanvas.height = 256;
+  const _sCtx = _sealCanvas.getContext("2d");
+  _sCtx.clearRect(0, 0, 256, 256);
+  _sCtx.strokeStyle = "rgba(58, 123, 184, 0.6)";
+  _sCtx.lineWidth = 1.5;
+  // Outer + inner laurel frames
+  _sCtx.beginPath(); _sCtx.arc(128, 128, 110, 0, Math.PI * 2); _sCtx.stroke();
+  _sCtx.beginPath(); _sCtx.arc(128, 128, 100, 0, Math.PI * 2); _sCtx.stroke();
+  // Globe meridians + equator
+  _sCtx.strokeStyle = "rgba(96, 158, 215, 0.75)";
+  _sCtx.lineWidth = 1.2;
+  _sCtx.beginPath(); _sCtx.arc(128, 128, 60, 0, Math.PI * 2); _sCtx.stroke();
+  _sCtx.beginPath(); _sCtx.ellipse(128, 128, 60, 22, 0, 0, Math.PI * 2); _sCtx.stroke();
+  _sCtx.beginPath(); _sCtx.ellipse(128, 128, 22, 60, 0, 0, Math.PI * 2); _sCtx.stroke();
+  // Latitude lines (3 horizontal arcs across the inner globe)
+  for (const y of [-30, 0, 30]) {
+    _sCtx.beginPath();
+    _sCtx.ellipse(128, 128 + y, 60 * Math.cos(y / 60 * Math.PI / 2), 6, 0, 0, Math.PI * 2);
+    _sCtx.stroke();
+  }
+  // Laurel ticks — 16 short radial ticks between the two outer frames
+  _sCtx.strokeStyle = "rgba(58, 123, 184, 0.55)";
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const x1 = 128 + Math.cos(a) * 100;
+    const y1 = 128 + Math.sin(a) * 100;
+    const x2 = 128 + Math.cos(a) * 110;
+    const y2 = 128 + Math.sin(a) * 110;
+    _sCtx.beginPath(); _sCtx.moveTo(x1, y1); _sCtx.lineTo(x2, y2); _sCtx.stroke();
+  }
+  const sealTex = new T.CanvasTexture(_sealCanvas);
+  sealTex.anisotropy = 2;
+  const sealGeo = new T.PlaneGeometry(7.2, 7.2);
+  const sealMat = new T.MeshBasicMaterial({
+    map: sealTex,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+  });
+  const seal = new T.Mesh(sealGeo, sealMat);
+  seal.rotation.x = -Math.PI / 2;
+  seal.position.y = 0.16;
+  scene.add(seal);
+
+  // ── Tactical contacts at 3D positions: "+" glyphs (NOT spheres) ──
+  // Per refs/unn/00_08_05 the war-room holograms read as plus-shaped
+  // markers in 3D space, not solid spheres or cones.  Each glyph is
+  // three line segments crossed at origin; shared BufferGeometry
+  // across all glyphs so we only allocate one.
+  // User 2026-05-30: "it's not always a planetary sphere, sometimes
+  // it's trajectories or 3d locations" + "we have an absolute ton of
+  // reference footage" + "council tactical meetings are probably the
+  // richest" — drawing on refs/unn/00_06_04 (solar-system + trajectory
+  // arc) and 00_08_05 (plus-glyphs + trajectory lines).
+  const contactPositions = [
+    // Friendly contacts (light cyan plus-glyphs)
+    [ 7.5,  4.5, -3.0, false], [-6.0,  7.5,  4.5, false],
+    [ 3.0,  9.0,  6.0, false], [-9.0,  3.0, -5.0, false],
+    [ 5.5,  7.0,  7.0, false], [-2.5,  5.0,  8.5, false],
+    // Threats (red plus-glyphs)
+    [ 9.5,  8.0,  2.0, true],  [-7.5,  5.5, -7.5, true],
+    [ 4.0,  3.0, -9.0, true],  [-4.5, 10.0,  3.5, true],
+  ];
+  // Shared plus-glyph geometry: three line segments crossed at origin,
+  // axis-aligned to X, Y, Z.  6 vertices = 3 GL_LINES segments.
+  const _plusG = new Float32Array([
+    -0.35, 0, 0,  0.35, 0, 0,
+     0, -0.35, 0,  0, 0.35, 0,
+     0, 0, -0.35,  0, 0, 0.35,
+  ]);
+  const sharedPlusGeo = new T.BufferGeometry();
+  sharedPlusGeo.setAttribute("position", new T.BufferAttribute(_plusG, 3));
+  for (const [x, y, z, isThreat] of contactPositions) {
+    const mat = new T.LineBasicMaterial({
+      color: isThreat ? 0xff4030 : 0x88c8ff,
       transparent: true,
       opacity: 0.92,
       depthTest: false,
     });
-    const dot = new T.Mesh(dotGeo, dotMat);
-    dot.renderOrder = 5;
-    dot.position.set(Math.cos(a0) * r, 0.28, Math.sin(a0) * r);
-    scene.add(dot);
-    contacts.push({
-      mesh: dot,
-      theta0: a0,
-      r: r,
-      omega: (friendly ? 0.00018 : 0.00028) * (i % 2 ? -1 : 1),
+    const glyph = new T.LineSegments(sharedPlusGeo, mat);
+    glyph.renderOrder = 6;
+    glyph.position.set(x, y, z);
+    scene.add(glyph);
+  }
+
+  // ── Trajectory connector lines ──
+  // Per refs/unn/00_08_05: yellow lines connect points of interest on
+  // the tactical plot — the trajectory-overlay vocabulary.  Three pairs
+  // here connect friendly→friendly and friendly→threat across the
+  // scene, giving the volumetric content a sense of relations rather
+  // than isolated points.  Per-line BufferGeometry (only 6 lines total
+  // → cheap).
+  const trajectoryPairs = [
+    [0, 6], // friendly → threat
+    [2, 8], // friendly → threat
+    [1, 4], // friendly → friendly
+  ];
+  for (const [aIdx, bIdx] of trajectoryPairs) {
+    const a = contactPositions[aIdx];
+    const b = contactPositions[bIdx];
+    const trajGeo = new T.BufferGeometry();
+    trajGeo.setAttribute("position", new T.BufferAttribute(new Float32Array([
+      a[0], a[1], a[2],
+      b[0], b[1], b[2],
+    ]), 3));
+    const trajMat = new T.LineDashedMaterial({
+      color: 0xffc233,
+      dashSize: 0.4,
+      gapSize: 0.3,
+      transparent: true,
+      opacity: 0.6,
+      depthTest: false,
     });
+    const traj = new T.Line(trajGeo, trajMat);
+    traj.computeLineDistances();   // required for LineDashedMaterial
+    traj.renderOrder = 5;
+    scene.add(traj);
   }
 
   // Cell mount: each notebook cell becomes a CSS3DObject placed
@@ -4611,36 +4791,41 @@ function applyMixed3DWarRoom(O) {
     themeFurniture.style.display = "none";
   }
 
+  // Cells: two-tier floating windows, NOT a single ring around the
+  // disc edge. Inner tier at lower altitude + shorter radius (~5
+  // cells); outer tier higher up + wider radius (~9 cells). Each tier
+  // staggers Y per index so adjacent windows don't read as a flat
+  // fence. Per User 2026-05-30: "a lot more colored lines and
+  // wireframes in 3d with some floating windows."
   const cells = [...root.querySelectorAll(":scope > .cell")];
   const cellObjects = new Map();
   const cellSlotKeys = new Map();
-  const cellRingR = discRadius * 1.55;
-  const ringN = Math.max(6, Math.min(14, cells.length));
+  const INNER_N = 5;
+  const OUTER_N = 9;
+  const TOTAL_N = INNER_N + OUTER_N;
   cells.forEach((cell, i) => {
-    if (i >= ringN) {
-      // Excess cells hide off-stage.  v1 caps the visible ring at 14
-      // for legibility; the rest of the notebook stays mounted but
-      // invisible until a future "second tier" pass.
+    if (i >= TOTAL_N) {
       cell.style.display = "none";
       return;
     }
-    const a = (i / ringN) * Math.PI * 2;
+    const isInner = i < INNER_N;
+    const idxInTier = isInner ? i : i - INNER_N;
+    const tierN = isInner ? INNER_N : OUTER_N;
+    // Offset the outer ring by half-step so it doesn't sit directly
+    // behind the inner ring positions.
+    const a = (idxInTier / tierN) * Math.PI * 2 + (isInner ? 0 : Math.PI / OUTER_N);
+    const r = isInner ? discRadius * 1.25 : discRadius * 1.75;
+    const yBase = isInner ? 3.4 : 8.2;
+    const yStagger = (idxInTier % 2) * 1.8;
     const obj = new T.CSS3DObject(cell);
-    obj.position.set(
-      Math.cos(a) * cellRingR,
-      3.6 + (i % 2 ? 1.4 : 0),
-      Math.sin(a) * cellRingR,
-    );
-    // lookAt the disc-axis at the cell's own height — face inward
-    // without tipping forward/back.  Math-derived rotations were
-    // mirroring text on half the ring; lookAt is the canonical
-    // Three.js facing call.
+    obj.position.set(Math.cos(a) * r, yBase + yStagger, Math.sin(a) * r);
+    // lookAt the central column at the cell's own height — face inward.
     obj.lookAt(0, obj.position.y, 0);
-    obj.scale.set(0.028, 0.028, 1);
+    obj.scale.set(isInner ? 0.026 : 0.030, isInner ? 0.026 : 0.030, 1);
     cssScene.add(obj);
     const id = cell.dataset.cellId || `cell-${i}`;
     cellObjects.set(id, obj);
-    cellSlotKeys.set(id, `ring:${i}`);
+    cellSlotKeys.set(id, isInner ? `inner:${idxInTier}` : `outer:${idxInTier}`);
   });
 
   // Resize
@@ -4668,11 +4853,18 @@ function applyMixed3DWarRoom(O) {
     _booted: false,
     _stableFrames: 0,
     _arrangement: "war-room",
-    _warroomState: { sweepGroup, contacts, disc },
+    _warroomState: { globe, arcs, disc },
     _restoreThemeFurniture: () => {
       if (themeFurniture) themeFurniture.style.display = _prevFurnitureDisplay || "";
     },
   };
+
+  // Pre-allocated work vectors so the rAF tick allocates zero per
+  // frame.  Reused across marker tangent computations.
+  const _pPrev = new T.Vector3();
+  const _pCurr = new T.Vector3();
+  const _pTangent = new T.Vector3();
+  const _pUp = new T.Vector3(0, 1, 0);
 
   let lastT = performance.now();
   const tick = () => {
@@ -4685,25 +4877,41 @@ function applyMixed3DWarRoom(O) {
     else _mixed3dState._stableFrames = 0;
 
     // Slow camera orbit — full revolution every ~62 s.  Held at
-    // y=22 so the cell ring stays in frame while the disc rotates
-    // visually beneath.
+    // y=14 so the volumetric content above the disc reads in frame
+    // alongside the cells around it.
     const u = (t * 0.0000162) % 1;
     const ang = u * Math.PI * 2;
-    const camR = 36;
+    const camR = 38;
     camera.position.x = Math.cos(ang) * camR;
     camera.position.z = Math.sin(ang) * camR;
-    camera.position.y = 22;
-    camera.lookAt(0, 1.5, 0);
+    camera.position.y = 14;
+    camera.lookAt(0, 6, 0);
 
-    // Sweep — full rotation every ~5.3 s.
-    sweepGroup.rotation.y = -t * 0.00118;
+    // Globe slow spin — full revolution every ~36 s.
+    globe.rotation.y = t * 0.000175;
 
-    // Contacts drift on their own arcs.
+    // Per-arc: rotate group slowly so inclinations evolve (subtle —
+    // 80s per revolution), and slide marker along the arc tangent.
     const t0 = _mixed3dState.animation.t0;
-    for (const c of contacts) {
-      const a = c.theta0 + (t - t0) * c.omega;
-      c.mesh.position.x = Math.cos(a) * c.r;
-      c.mesh.position.z = Math.sin(a) * c.r;
+    for (let i = 0; i < arcs.length; i++) {
+      const a = arcs[i];
+      a.group.rotation.y += dt * 0.000022 * (i % 2 ? -1 : 1);
+      // Marker position: walk by phase along the XZ arc.
+      const phase = a.phase + (t - t0) * a.spec.speed;
+      const r = a.spec.r;
+      a.marker.position.set(Math.cos(phase) * r, 0, Math.sin(phase) * r);
+      // Marker orientation: tangent direction is the derivative of
+      // (cos, 0, sin) → (-sin, 0, cos).  Re-use _pTangent (no alloc).
+      _pTangent.set(-Math.sin(phase), 0, Math.cos(phase));
+      // ConeGeometry tip points along +Y; rotate so +Y aligns with
+      // the tangent direction via lookAt.  lookAt expects a target
+      // point, so compute marker_pos + tangent.
+      _pCurr.copy(a.marker.position).add(_pTangent);
+      a.marker.lookAt(_pCurr);
+      // After lookAt, the cone's +Z faces _pCurr; rotate by -π/2 on
+      // X to align +Y with the original +Z.  Cumulative rotate is fine
+      // because lookAt resets each frame.
+      a.marker.rotateX(-Math.PI / 2);
     }
 
     renderer.render(scene, camera);
