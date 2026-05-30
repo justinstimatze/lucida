@@ -1633,6 +1633,19 @@ main {
   --vis-ok: #5e8e7e;
   --vis-warn: #b8860b;
   --vis-tripped: #8b2500;
+  /* Steam-valve stencil at top-right of every cell — a brass dot ringed
+     by a darker brass halo, the smallest possible "industrial gauge
+     fitting" signal that fits the corner slot.  Uses the same
+     --cell-corner-* mechanism as renegade/vigil/hailmary; gastown gets
+     the brass treatment so the cream cells read as fitted-with-fittings.
+     Per parked_theme_polish 2026-05-29. */
+  --cell-corner-content: "";
+  --cell-corner-size: 10px;
+  --cell-corner-top: 6px;
+  --cell-corner-right: 8px;
+  --cell-corner-bg: radial-gradient(circle at center, #cd7f32 0% 35%, #a86a25 35% 60%, transparent 70%);
+  --cell-corner-opacity: 0.85;
+  --cell-corner-z: 4;
 }
 .theme-gastown .hud-scanline { display: none; }
 .theme-gastown body {
