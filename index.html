@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=90" />
+<link rel="stylesheet" href="notebook.css?v=92" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -5085,6 +5085,64 @@ function applyMixed3DWarRoom(O) {
   }
   window.addEventListener("resize", onResize);
 
+  // scene3d cells routed into the holo space. Scene3d cells are
+  // skipped from the cell wall (_MIXED3D_SKIP_SUBSTRATES) — each owns
+  // its own WebGLRenderer + GL context, so 50+ on a wall would
+  // saturate the ~16-context cap. Instead, parse a few specs and drop
+  // their meshes directly into the war-room scene at small scale.
+  // The geometry IS the holo, not a textured screen of holos. Bound to
+  // tactical mode because it's the only centerpiece without a globe —
+  // empty holo space gets populated with sampled session geometry.
+  //
+  // Holder placement: only the right-hemisphere arc (-π/2 .. +π/2).
+  // CSS3D cells are stacked on top of the WebGL layer (z-index 2 vs 1
+  // in notebook.css), so cells permanently occlude any holder that
+  // projects to the same screen region — and the cell wall fills the
+  // LEFT half of the viewport. Restricting to the right hemisphere
+  // keeps every holder in clear space.
+  const _holoScene3DHolders = [];
+  (() => {
+    const targets = [...root.querySelectorAll(".scene3d-target[data-scene3d-spec]")]
+      .slice(0, 6);
+    if (!targets.length) return;
+    const ringR = 7.5;
+    const targetSize = 1.5;  // absolute world-units per holder bbox
+    const arcStart = -Math.PI / 2;
+    const arcSpan  =  Math.PI;       // 180° right hemisphere
+    targets.forEach((target, i) => {
+      let spec = null;
+      try { spec = JSON.parse(target.dataset.scene3dSpec); }
+      catch (err) { console.warn("[mixed3d.warroom] scene3d parse failed", err); return; }
+      const built = _buildScene3DMeshes(spec, T);
+      if (!built || !built.root.children.length) return;
+      // Normalize so any spec (regardless of native scale) becomes a
+      // bounded ~targetSize-unit object. Recenter to origin first so
+      // holder.position controls the visible center of the spec.
+      const bbox = new T.Box3().setFromObject(built.root);
+      const sz = bbox.getSize(new T.Vector3());
+      const maxDim = Math.max(sz.x, sz.y, sz.z) || 1;
+      const fit = targetSize / maxDim;
+      const center = bbox.getCenter(new T.Vector3());
+      built.root.position.sub(center).multiplyScalar(fit);
+      built.root.scale.setScalar(fit);
+      // Even distribution across the right-hemisphere arc.
+      const angle = arcStart + (targets.length === 1 ? 0.5 : i / (targets.length - 1)) * arcSpan;
+      const holder = new T.Group();
+      holder.position.set(Math.cos(angle) * ringR, 6.5, Math.sin(angle) * ringR);
+      // Slow self-spin baseline so even specs without rotation_speed
+      // feel alive. Phase offset per holder so the ring doesn't pulse
+      // in lockstep.
+      holder.userData._spinSpeed = 0.00018 * (i % 2 ? -1 : 1);
+      holder.userData._spinPhase = i * 0.7;
+      holder.add(built.root);
+      addToMode("tactical", holder);
+      _holoScene3DHolders.push({ holder, animatables: built.animatables });
+    });
+    if (_holoScene3DHolders.length) {
+      console.info(`[mixed3d.warroom] scene3d holo ring: ${_holoScene3DHolders.length} cells routed into tactical mode`);
+    }
+  })();
+
   // Active-mode setup + auto-cycle.  setActiveMode starts a 1.5 s
   // opacity crossfade between the outgoing and incoming mode (rather
   // than hard-toggling visibility) and re-binds the animation loop's
@@ -5238,6 +5296,22 @@ function applyMixed3DWarRoom(O) {
     // Globe slow spin — full revolution every ~36 s.  Skipped when
     // the active mode has no centerpiece globe (trajectory / tactical).
     if (globe) globe.rotation.y = t * 0.000175;
+
+    // scene3d holo-ring: per-cell self-spin + any rotation_speed from
+    // the source spec. Cheap to drive every frame regardless of which
+    // mode is active — when tactical isn't visible, the holders are
+    // invisible too via the crossfade factor, but their rotation keeps
+    // advancing so a mode switch reveals them mid-motion (not frozen).
+    for (let i = 0; i < _holoScene3DHolders.length; i++) {
+      const h = _holoScene3DHolders[i];
+      h.holder.rotation.y = h.holder.userData._spinPhase + t * h.holder.userData._spinSpeed;
+      for (let j = 0; j < h.animatables.length; j++) {
+        const a = h.animatables[j];
+        a.mesh.rotation.x += a.speed[0] || 0;
+        a.mesh.rotation.y += a.speed[1] || 0;
+        a.mesh.rotation.z += a.speed[2] || 0;
+      }
+    }
 
     // Animation epoch — used by moon orbits + arc markers below.
     const t0 = _mixed3dState.animation.t0;
@@ -14682,6 +14756,149 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   }
 
   return card;
+}
+
+// Build the meshes from a scene3d spec into a detached T.Group, with
+// no renderer or camera attached. Used by the mixed3d war-room to drop
+// scene3d-cell geometry directly into the holo scene at small scale.
+// Caller adopts via `parent.add(root)`.
+//
+// KIND-SWITCH-MIRROR: this switch is intentionally duplicated from
+// initScene3D below. If you add a new kind there, mirror it here too.
+// Pure-function-shape (no closure deps) makes this safer than a brace
+// refactor inside initScene3D.
+function _buildScene3DMeshes(spec, T) {
+  const root = new T.Group();
+  const animatables = [];
+  for (const obj of (spec.objects || [])) {
+    let mesh = null;
+    const color = new T.Color(resolveColor(obj.color) || "#ffffff");
+    const size = obj.size || 1;
+    if (obj.kind === "wireframe_cube") {
+      const geo = new T.BoxGeometry(size, size, size);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "wireframe_sphere") {
+      const geo = new T.SphereGeometry(size, 16, 12);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "torus") {
+      const geo = new T.TorusGeometry(size, size * 0.3, 8, 24);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "icosahedron") {
+      const geo = new T.IcosahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "tetrahedron") {
+      const geo = new T.TetrahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "octahedron") {
+      const geo = new T.OctahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "dodecahedron") {
+      const geo = new T.DodecahedronGeometry(size, 0);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+    } else if (obj.kind === "box") {
+      const w_ = size;
+      const h_ = (typeof obj.height === "number") ? obj.height : size;
+      const d_ = (typeof obj.depth === "number") ? obj.depth : size;
+      const geo = new T.BoxGeometry(w_, h_, d_);
+      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
+        new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "tube") {
+      const path = Array.isArray(obj.path) ? obj.path.filter(p => Array.isArray(p) && p.length === 3) : [];
+      if (path.length >= 2) {
+        const points = path.map(p => new T.Vector3(p[0], p[1], p[2]));
+        const curve = new T.CatmullRomCurve3(points, false, "catmullrom", 0.5);
+        const tubularSegments = Math.max(20, path.length * 8);
+        const radius = size || 0.05;
+        const geo = new T.TubeGeometry(curve, tubularSegments, radius, 8, false);
+        mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+      }
+    } else if (obj.kind === "axis_helper") {
+      mesh = new T.AxesHelper(size);
+    } else if (obj.kind === "particle_cloud") {
+      const geo = new T.BufferGeometry();
+      const positions = [];
+      const count = obj.count || 100;
+      const spread = obj.spread || 3;
+      for (let i = 0; i < count; i++) {
+        positions.push((Math.random() - 0.5) * spread * 2);
+        positions.push((Math.random() - 0.5) * spread * 2);
+        positions.push((Math.random() - 0.5) * spread * 2);
+      }
+      geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
+      mesh = new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
+    } else if (obj.kind === "cylinder") {
+      const radius = size;
+      const height = (typeof obj.height === "number") ? obj.height : size * 2;
+      const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
+      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.4,
+      }));
+      const edges = new T.LineSegments(
+        new T.EdgesGeometry(geo, 1),
+        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+      );
+      mesh = new T.Group();
+      mesh.add(fill);
+      mesh.add(edges);
+    } else if (obj.kind === "cone") {
+      const radius = size;
+      const height = (typeof obj.height === "number") ? obj.height : size * 2;
+      const geo = new T.ConeGeometry(radius, height, 16, 1, false);
+      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.4,
+      }));
+      const edges = new T.LineSegments(
+        new T.EdgesGeometry(geo, 1),
+        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+      );
+      mesh = new T.Group();
+      mesh.add(fill);
+      mesh.add(edges);
+    } else if (obj.kind === "plane") {
+      const w_ = size;
+      const h_ = (typeof obj.height === "number") ? obj.height : size;
+      const geo = new T.PlaneGeometry(w_, h_, 1, 1);
+      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({
+        color, wireframe: true, side: T.DoubleSide,
+      }));
+    } else if (obj.kind === "line") {
+      const from = Array.isArray(obj.from) ? obj.from : [0, 0, 0];
+      const to = Array.isArray(obj.to) ? obj.to : [1, 0, 0];
+      const geo = new T.BufferGeometry().setFromPoints([
+        new T.Vector3(...from),
+        new T.Vector3(...to),
+      ]);
+      mesh = new T.Line(geo, new T.LineBasicMaterial({ color }));
+    } else if (obj.kind === "label") {
+      const text = String(obj.text || "");
+      const cnv = document.createElement("canvas");
+      const ctx = cnv.getContext("2d");
+      const fontPx = 64;
+      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+      const metrics = ctx.measureText(text);
+      cnv.width = Math.max(64, Math.ceil(metrics.width) + 20);
+      cnv.height = fontPx + 20;
+      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+      ctx.fillStyle = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      ctx.fillText(text, cnv.width / 2, cnv.height / 2);
+      const tex = new T.CanvasTexture(cnv);
+      const mat = new T.SpriteMaterial({ map: tex, transparent: true });
+      mesh = new T.Sprite(mat);
+      const scale = size || 0.5;
+      mesh.scale.set(scale * (cnv.width / cnv.height), scale, 1);
+    }
+    if (!mesh) continue;
+    if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
+    root.add(mesh);
+    if (Array.isArray(obj.rotation_speed)) {
+      animatables.push({ mesh, speed: obj.rotation_speed });
+    }
+  }
+  return { root, animatables };
 }
 
 function initScene3D(container, spec) {
