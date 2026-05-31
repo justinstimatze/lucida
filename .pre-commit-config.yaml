@@ -11,3 +11,25 @@ repos:
   # Keeping mypy here would make pre-commit stricter than CI, blocking
   # local commits on pre-existing anthropic-SDK overload mismatches that
   # don't block CI. Run mypy on demand: `uv run mypy .`
+
+  # Biome lint on the extracted JS module + tooling .mjs files.
+  # Formatter intentionally disabled in biome.json — running it
+  # retroactively against the 16k-line lucida.mjs would be ~5k lines of
+  # whitespace churn. Lint catches actual bugs (use-before-define-class,
+  # accidental implicit returns, etc.).
+  - repo: local
+    hooks:
+      - id: biome-lint
+        name: Biome lint (JS)
+        entry: npx biome lint
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false
+
+  # gitleaks: scan for accidentally committed secrets (API keys, tokens).
+  # Matches the sibling-repo pattern (undercity / tttc-light-js); CI also
+  # runs the full-history scan separately.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.0
+    hooks:
+      - id: gitleaks

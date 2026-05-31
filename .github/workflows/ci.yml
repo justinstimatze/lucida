@@ -1,4 +1,4 @@
-# CI: three jobs — lint, test, security.
+# CI: five jobs — lint (Python), lint-js, test, security, secrets-scan.
 name: CI
 
 on:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint (Python)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +22,33 @@ jobs:
       - run: pip install ruff
       - run: ruff check .
       - run: ruff format --check .
+
+  lint-js:
+    name: Lint (JS — Biome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+        # package-lock.json is gitignored (regenerable per .gitignore note),
+        # so `npm ci` (which requires the lockfile) is replaced with `npm install`.
+      - run: npx biome lint
+        # biome.json restricts the lint surface to lucida.mjs + tools/*.mjs
+        # + validate_mermaid.mjs. Globals (THREE / DOMPurify / vegaEmbed /
+        # vega / vegaLite / d3 / Muuri / Prism) are declared there too.
+
+  secrets-scan:
+    name: Secrets scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for the scan
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test:
     name: Test
