@@ -60,7 +60,7 @@ const state = {
     // liveAppendNewCells() grows it when a fresh cell arrives with a new
     // session_id. The URL stays `?session=auto` so the share link doesn't
     // freeze a snapshot of session ids.
-    active: (function () {
+    active: (() => {
       try {
         const v = new URLSearchParams(window.location.search).get("session");
         if (!v || v.trim() === "auto") return new Set();
@@ -71,7 +71,7 @@ const state = {
     // every active session out of the box, then narrow down via the
     // SESSION dropdown if they want to focus. No-param, empty-string,
     // and explicit ?session=auto all resolve to autoMode=true.
-    autoMode: (function () {
+    autoMode: (() => {
       try {
         const v = new URLSearchParams(window.location.search).get("session");
         return v == null || v.trim() === "" || v.trim() === "auto";
@@ -516,7 +516,9 @@ function buildThemeConfig(t) {
 // and could fully replace the CSS chrome blocks in a follow-up pass.
 function applyTokensToCSSVars(t) {
   const root = document.documentElement;
-  (t.data?.cat || []).forEach((c, i) => root.style.setProperty(`--data-cat-${i}`, c));
+  (t.data?.cat || []).forEach((c, i) => {
+    root.style.setProperty(`--data-cat-${i}`, c);
+  });
   root.style.setProperty("--accent-primary",   t.accent.primary);
   root.style.setProperty("--accent-secondary", t.accent.secondary);
   root.style.setProperty("--accent-warning",   t.accent.warning);
@@ -1224,7 +1226,7 @@ function computeHud(data, substrateAudit, mintLog) {
     const now = Date.now();
     const recent = mintLog.filter(m => {
       const t = Date.parse(m.timestamp || "");
-      return !isNaN(t) && (now - t) < 60 * 60 * 1000;
+      return !Number.isNaN(t) && (now - t) < 60 * 60 * 1000;
     });
     if (recent.length) status = "ACTIVE";
     lastMint = mintLog[mintLog.length - 1];
@@ -1689,7 +1691,7 @@ function bloomKillTrip(slot, pct) {
 // Console-accessible demo: window.lucidaBloomDemo() fakes a tripped
 // transition on KILL.HALLUC so the bloom can be eyeballed without
 // waiting for a real kill-criteria trip.
-window.lucidaBloomDemo = function (slotId = "hud-kill3-slot") {
+window.lucidaBloomDemo = (slotId = "hud-kill3-slot") => {
   const slot = document.getElementById(slotId);
   if (slot) bloomKillTrip(slot, 99);
 };
@@ -2079,7 +2081,7 @@ function tickSinceLast() {
   if (!e) return;
   if (!state.hud.lastMintTs) { e.textContent = "—"; return; }
   const t = Date.parse(state.hud.lastMintTs);
-  if (isNaN(t)) { e.textContent = "—"; return; }
+  if (Number.isNaN(t)) { e.textContent = "—"; return; }
   const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
   e.textContent = formatElapsed(sec);
 }
@@ -2618,7 +2620,9 @@ function applyPackLayout() {
         // existing siblings may have grown into their natural sizes
         // since the last layout pass (substrates lazy-mount async).
         _muuriGrid.refreshItems();
-        const _unprepFresh = () => fresh.forEach(el => el.classList.remove("pack-prep"));
+        const _unprepFresh = () => fresh.forEach(el => {
+          el.classList.remove("pack-prep");
+        });
         _muuriGrid.layout(false, _unprepFresh);
         requestAnimationFrame(_unprepFresh);
         setTimeout(_unprepFresh, 300);
@@ -3995,7 +3999,7 @@ function applyMixed3DLayout(opts) {
           }
           blockCount++;
         }
-        const occFactor = Math.pow(0.55, blockCount);
+        const occFactor = 0.55 ** blockCount;
         obj.material.opacity = fogFactor * occFactor;
       }
     }
@@ -5875,7 +5879,7 @@ function _mixed3dDriveSwoopyTour(t) {
   // and throw — freezing the renderer without freezing the mount
   // drain, which manifests as "lots of cells minted but only the
   // first ~3500 visible" because childN grows but no frame repaints.
-  if (!isFinite(t) || t < 0) t = 0;
+  if (!Number.isFinite(t) || t < 0) t = 0;
   if (!S.swoopCam) {
     const G = S.geometry;
     const gridHalf = (G.towerCount - 1) / 2;
@@ -5916,7 +5920,7 @@ function _mixed3dDriveSwoopyTour(t) {
     };
   }
   const sw = S.swoopCam;
-  if (!sw || !isFinite(sw.totalLen) || sw.totalLen <= 0) return;
+  if (!sw || !Number.isFinite(sw.totalLen) || sw.totalLen <= 0) return;
   // Arc-length parameterization plus a 10-second boot ease-in. The
   // speed multiplier ramps linearly from 0.3 to 1.0 over τ ∈ [0, 10],
   // then stays at 1.0. Closed-form integral of speed × multiplier
@@ -6022,7 +6026,7 @@ function _mixed3dDriveSwoopyTour(t) {
     arc = sw.arcAccum;
   }
   const u = (arc % sw.totalLen) / sw.totalLen;
-  if (!isFinite(u)) return;
+  if (!Number.isFinite(u)) return;
   let desiredPos;
   try {
     desiredPos = sw.curve.getPointAt(u);
@@ -6666,7 +6670,7 @@ function _mixed3dResetCameraTimer() {
   // Fresh-boot path: no curve yet → fall back to the old null-state
   // reset. The swoopy driver builds the curve on first call and the
   // boot ease-in (t<10) absorbs any initial cam-pose mismatch.
-  if (!sw || !sw.curve || !isFinite(sw.totalLen) || sw.totalLen <= 0) {
+  if (!sw || !sw.curve || !Number.isFinite(sw.totalLen) || sw.totalLen <= 0) {
     S.animation.t0 = performance.now();
     if (sw) {
       sw.posActual = null;
@@ -6769,7 +6773,7 @@ function _mixed3dPickScanTarget(S, camPos, tan, perpX, perpZ) {
 // true for the page session and the swoopy never re-engages — exactly
 // the trap reported 2026-05-23 ("entered free-flying mode, can't
 // exit"). Bound to R key, Escape, and exposed on window for JS callers.
-window._mixed3dResetSwoopy = function () {
+window._mixed3dResetSwoopy = () => {
   const S = _mixed3dState;
   if (!S) return;
   S._userTookCamera = false;
@@ -7035,7 +7039,7 @@ function _mixed3dRetierSweep() {
       const ts = el.dataset && el.dataset.timestamp;
       if (!ts) return -Infinity;
       const n = Date.parse(ts);
-      return isFinite(n) ? n : -Infinity;
+      return Number.isFinite(n) ? n : -Infinity;
     };
     keys.sort((a, b) => recencyOf(b) - recencyOf(a));
     S._retierKeys = keys;
@@ -7829,7 +7833,7 @@ function _mixed3dMaybeFlipMermaidDirection(spec, svg, cellW, cellH) {
   // Only flowchart/graph have a flippable direction.
   if (!/^\s*(flowchart|graph)\b/m.test(spec)) return null;
   // Parse SVG viewBox to get the graph's natural aspect.
-  const m = svg.match(/viewBox="[\d.\-]+\s+[\d.\-]+\s+([\d.\-]+)\s+([\d.\-]+)"/);
+  const m = svg.match(/viewBox="[\d.-]+\s+[\d.-]+\s+([\d.-]+)\s+([\d.-]+)"/);
   if (!m) return null;
   const svgW = parseFloat(m[1]);
   const svgH = parseFloat(m[2]);
@@ -8033,7 +8037,7 @@ function _mixed3dApplyTier2Visibility(visible) {
   }
   return n;
 }
-window.toggleMixed3dTier2 = function(visible) {
+window.toggleMixed3dTier2 = (visible) => {
   _mixed3dTier2Suppressed = !visible;
   const n = _mixed3dApplyTier2Visibility(visible);
   return `tier-2 visible: ${visible} (${n} updated)`;
@@ -8051,7 +8055,7 @@ function _mixed3dRenderGaugeToCanvas(spec, w, h, extras) {
     const s = typeof spec === "string" ? JSON.parse(spec) : spec;
     value = +s.value; min = +s.min; max = +s.max; label = s.label;
   } catch (e) { return Promise.resolve(null); }
-  if (!isFinite(value) || !isFinite(min) || !isFinite(max) || max <= min) return Promise.resolve(null);
+  if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) return Promise.resolve(null);
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
@@ -8281,7 +8285,7 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
   // alpha hierarchy — decorative discipline. 2026-05-24 substrate sweep.
   const colors = ["rgba(0,221,255,1)", "rgba(0,221,255,0.6)"];
   let curX = x0, curY = y0, remW = x1 - x0, remH = y1 - y0;
-  let horizontal = remW > remH;
+  const horizontal = remW > remH;
   let i = 0;
   for (const it of items.slice(0, 12)) {
     const v = Math.max(0, +(it.value ?? it.size ?? 1));
@@ -9007,7 +9011,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   const ctx = canvas.getContext("2d");
   const html = cellData.html || "";
   const layout = cellData.html_layout || "";
-  let rows = _mixed3dExtractHtmlRows(html, layout);
+  const rows = _mixed3dExtractHtmlRows(html, layout);
   // No structured content → return null. Substrate driver will keep
   // the title-only stub. Matches [[feedback_text_cells_uninteresting]]:
   // silence > caption-prose for html cells that aren't actually tables/
@@ -9948,7 +9952,7 @@ function _mixed3dUpdateWarmupProgress(S) {
 // drive lerps toward target each frame and looks at the cell center.
 // Call _mixed3dUnpark() to release. Used by the canvas click handler
 // (registered in applyMixed3DLayout) and from console for diagnostics.
-window._mixed3dParkAt = function(cellId, offset) {
+window._mixed3dParkAt = (cellId, offset) => {
   const S = _mixed3dState;
   if (!S) return null;
   const T = window.THREE;
@@ -9993,7 +9997,7 @@ window._mixed3dParkAt = function(cellId, offset) {
   S._park = { target, lookAt, cellId };
   return { parked: cellId, at: { x: target.x.toFixed(2), y: target.y.toFixed(2), z: target.z.toFixed(2) }, planeH: +planeH.toFixed(2), offset: +parkOffset.toFixed(2) };
 };
-window._mixed3dUnpark = function() {
+window._mixed3dUnpark = () => {
   const S = _mixed3dState;
   if (!S) return "unparked";
   S._park = null;
@@ -10003,7 +10007,7 @@ window._mixed3dUnpark = function() {
   // frames, so re-entry reads as a smooth lerp instead of a teleport.
   const T = window.THREE;
   const sw = S.swoopCam;
-  if (!T || !sw || !sw.curve || !isFinite(sw.totalLen) || sw.totalLen <= 0) {
+  if (!T || !sw || !sw.curve || !Number.isFinite(sw.totalLen) || sw.totalLen <= 0) {
     // Curve not built yet (parked before tour ever ran) — fall back to
     // the full reset so the next frame can boot the swoopy state.
     _mixed3dResetCameraTimer();
@@ -10057,15 +10061,13 @@ window._mixed3dUnpark = function() {
   return "unparked";
 };
 
-window._mixed3dSnapDebug = function() {
-  return {
+window._mixed3dSnapDebug = () => ({
     intervalActive: _mixed3dSnapInterval !== null,
     inflightSize: _mixed3dSnapInflight.size,
     inflightIds: Array.from(_mixed3dSnapInflight),
     cap: _MIXED3D_SNAP_MAX_INFLIGHT,
     batch: _MIXED3D_SNAP_BATCH,
-  };
-};
+  });
 window._mixed3dStartSnapshotDriver = _mixed3dStartSnapshotDriver;
 
 function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
@@ -10969,7 +10971,7 @@ function _mixed3dBuildDecorativeLayer() {
           // Pick which of the N decorative textures this slot uses.
           // Deterministic hash so the same slot always gets the same
           // texture; spread keys ensure adjacent slots usually differ.
-          let h = ((towerIdx * 1009) ^ (face * 113) ^ (col * 47) ^ (p * 31)) >>> 0;
+          const h = ((towerIdx * 1009) ^ (face * 113) ^ (col * 47) ^ (p * 31)) >>> 0;
           const meshIdx = h % N_TEXTURES;
           const targetMesh = meshes[meshIdx];
           const instIdx = targetMesh.count;
@@ -11599,7 +11601,7 @@ function applyWarroomLayout() {
   const tableHalfW = 248, tableHalfH = 118, gap = 26;
   const availHalfW = vw / 2 - margin;
   const availHalfH = (vh - rootRect.top) / 2 - margin;
-  let rx = Math.max(availHalfW - cellW / 2, tableHalfW + cellW / 2 + gap);
+  const rx = Math.max(availHalfW - cellW / 2, tableHalfW + cellW / 2 + gap);
   let ry = Math.max(availHalfH - cellH / 2, tableHalfH + cellH / 2 + gap);
   // Asymmetric clamp: the ring is centered on viewport-center (cy), but
   // the notebook starts BELOW the HUD strip, so the space available above
@@ -11787,7 +11789,9 @@ function applyCockpitRailTags() {
   const cells = [...root.querySelectorAll(":scope > .cell")];
   if (!cells.length) return;
   // 1) clear prior tilt so rects are read in the untilted state
-  cells.forEach((c) => c.classList.remove("cockpit-rail-left", "cockpit-rail-right"));
+  cells.forEach((c) => {
+    c.classList.remove("cockpit-rail-left", "cockpit-rail-right");
+  });
   // 2) force one reflow so the cleared geometry is current before measuring
   void root.offsetWidth;
   // 3) container center + a center-column dead band that stays flat
@@ -12449,7 +12453,9 @@ function setupCellZoom() {
 }
 
 function applyStillWarmToLatest() {
-  document.querySelectorAll(".cell.cell-still-warm").forEach(n => n.classList.remove("cell-still-warm"));
+  document.querySelectorAll(".cell.cell-still-warm").forEach(n => {
+    n.classList.remove("cell-still-warm");
+  });
   if (isMultiStream()) {
     // Each column glows its own most-recent cell — independent
     // mission-control feeds, each with its own "live" indicator.
@@ -12804,7 +12810,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   const timeStr = (() => {
     if (!c.timestamp) return "";
     const d = new Date(c.timestamp);
-    if (isNaN(d.getTime())) return c.timestamp;
+    if (Number.isNaN(d.getTime())) return c.timestamp;
     const hh = String(d.getHours()).padStart(2, "0");
     const mm = String(d.getMinutes()).padStart(2, "0");
     return `${hh}:${mm}`;
@@ -12842,7 +12848,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
     // Touches mark.color/fill/stroke and scale.range arrays whose entries
     // are all hex strings.
     if (typeof window.stripVegaLiteralColors !== "function") {
-      window.stripVegaLiteralColors = function (spec) {
+      window.stripVegaLiteralColors = (spec) => {
         if (!spec || typeof spec !== "object") return spec;
         const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
         const isHex = v => typeof v === "string" && HEX_RE.test(v.trim());
@@ -12867,7 +12873,10 @@ function renderCell(c, snippetGroups, cellsById, opts) {
         const URL_KEYS = ["url", "href", "src"];
         const stripUrls = (node, parent) => {
           if (!node || typeof node !== "object") return;
-          if (Array.isArray(node)) { node.forEach(c => stripUrls(c, parent)); return; }
+          if (Array.isArray(node)) {
+            node.forEach(c => { stripUrls(c, parent); });
+            return;
+          }
           for (const k of URL_KEYS) {
             if (k in node) {
               // Image mark / pattern: delete the field; the mark just
@@ -14816,7 +14825,7 @@ function initScene3D(container, spec) {
       scene.traverse(obj => {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
-          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          if (Array.isArray(obj.material)) obj.material.forEach(m => { m.dispose(); });
           else obj.material.dispose();
         }
       });
@@ -15726,7 +15735,7 @@ function _buildTransientCircuit(body) {
     let x = Math.floor(Math.random() * 90 + 5);
     let y = Math.floor(Math.random() * 90 + 5);
     const segs = ["M " + x + " " + y];
-    let segCount = 3 + Math.floor(Math.random() * 4);
+    const segCount = 3 + Math.floor(Math.random() * 4);
     for (let s = 0; s < segCount; s++) {
       if (s % 2 === 0) {
         const dx = (Math.random() - 0.5) * 60;

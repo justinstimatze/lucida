@@ -5,11 +5,16 @@
   "description": "node deps for validate_mermaid.mjs — mermaid lint+fix gate invoked by orchestrator.py before persisting mermaid cells",
   "type": "commonjs",
   "scripts": {
-    "validate": "node validate_mermaid.mjs"
+    "validate": "node validate_mermaid.mjs",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --write"
   },
   "dependencies": {
     "jsdom": "^29.1.1",
     "mermaid": "10.9.6",
     "puppeteer": "^25.0.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16"
   }
 }

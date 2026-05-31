@@ -1,0 +1,73 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
+  },
+  "formatter": {
+    "enabled": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": {
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
+        "noUndeclaredVariables": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noConsole": "off",
+        "noAssignInExpressions": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
+      },
+      "complexity": {
+        "useOptionalChain": "warn"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    },
+    "globals": [
+      "THREE",
+      "DOMPurify",
+      "vegaEmbed",
+      "vega",
+      "vegaLite",
+      "d3",
+      "Muuri",
+      "Prism"
+    ]
+  },
+  "files": {
+    "includes": [
+      "lucida.mjs",
+      "tools/**/*.mjs",
+      "tools/**/*.js",
+      "validate_mermaid.mjs",
+      "!**/node_modules",
+      "!**/__pycache__",
+      "!**/.venv",
+      "!**/dist",
+      "!**/coverage",
+      "!**/*.min.js",
+      "!**/*.map"
+    ]
+  }
+}
