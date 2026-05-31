@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=89" />
+<link rel="stylesheet" href="notebook.css?v=90" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -5085,23 +5085,90 @@ function applyMixed3DWarRoom(O) {
   }
   window.addEventListener("resize", onResize);
 
-  // Active-mode setup + auto-cycle.  setActiveMode flips visibility on
-  // every centerpiece object AND re-binds the animation loop's globe /
-  // moons / arcs to the active mode's containers.  Without URL override,
-  // setInterval rotates through WAR_MODES every 28 s.
+  // Active-mode setup + auto-cycle.  setActiveMode starts a 1.5 s
+  // opacity crossfade between the outgoing and incoming mode (rather
+  // than hard-toggling visibility) and re-binds the animation loop's
+  // globe / moons / arcs to the active mode's containers.  Both modes
+  // stay .visible=true during the tween; outgoing flips false at end.
+  // Without URL override, setInterval rotates through WAR_MODES every 28 s.
+
+  // Stash each centerpiece material's natural opacity once so the
+  // crossfade can lerp toward it. Forces transparent:true defensively
+  // (LineBasicMaterial defaults to false; would clip the fade).
+  const _xfStashed = new WeakSet();
+  function _stashNaturalOpacities() {
+    for (const m of WAR_MODES) {
+      for (const obj of centerpieceObjects[m]) {
+        obj.traverse(child => {
+          const mat = child.material;
+          if (!mat) return;
+          const mats = Array.isArray(mat) ? mat : [mat];
+          for (const x of mats) {
+            if (_xfStashed.has(x)) continue;
+            x.userData._naturalOpacity = x.opacity;
+            x.transparent = true;
+            _xfStashed.add(x);
+          }
+        });
+      }
+    }
+  }
+  _stashNaturalOpacities();
+
+  const _modeFactors = { planet: 0, solar: 0, trajectory: 0, tactical: 0 };
+  let _crossfade = null;   // { from, to, start, duration }
+  const _XFADE_MS = 1500;
+
+  function _applyModeFactor(modeName, factor) {
+    _modeFactors[modeName] = factor;
+    const vis = factor > 0.001;
+    for (const obj of centerpieceObjects[modeName]) {
+      obj.visible = vis;
+      obj.traverse(child => {
+        const mat = child.material;
+        if (!mat) return;
+        const mats = Array.isArray(mat) ? mat : [mat];
+        for (const x of mats) {
+          const nat = x.userData._naturalOpacity;
+          if (nat != null) x.opacity = nat * factor;
+        }
+      });
+    }
+  }
+
+  function _tickCrossfade(now) {
+    if (!_crossfade) return;
+    const u = Math.min(1, (now - _crossfade.start) / _crossfade.duration);
+    // smoothstep ease so the cross isn't linear-mushy at the midpoint
+    const e = u * u * (3 - 2 * u);
+    _applyModeFactor(_crossfade.from, 1 - e);
+    _applyModeFactor(_crossfade.to, e);
+    if (u >= 1) {
+      _applyModeFactor(_crossfade.from, 0);
+      _applyModeFactor(_crossfade.to, 1);
+      _crossfade = null;
+    }
+  }
+
   let activeMode = initialMode;
   function setActiveMode(next) {
+    if (next === activeMode && !_crossfade) return;
+    const prev = activeMode;
     activeMode = next;
     globe = globeByMode[next];
     moons = moonsByMode[next];
     arcs  = arcsByMode[next];
-    for (const m of WAR_MODES) {
-      const vis = m === next;
-      for (const obj of centerpieceObjects[m]) obj.visible = vis;
-    }
-    console.info(`[mixed3d.warroom] active mode → ${next}`);
+    if (prev === next) { _crossfade = null; return; }
+    _crossfade = { from: prev, to: next, start: performance.now(), duration: _XFADE_MS };
+    console.info(`[mixed3d.warroom] active mode → ${next} (crossfade ${prev}→${next})`);
   }
-  setActiveMode(initialMode);
+
+  // Paint initial state without a tween: chosen mode full, others zero.
+  for (const m of WAR_MODES) _applyModeFactor(m, m === initialMode ? 1 : 0);
+  globe = globeByMode[initialMode];
+  moons = moonsByMode[initialMode];
+  arcs  = arcsByMode[initialMode];
+
   let _warroomCycleId = null;
   if (!_urlMode) {
     // ~28s per mode → full cycle ~112s.  Long enough for the user to
@@ -5153,6 +5220,8 @@ function applyMixed3DWarRoom(O) {
     lastT = t;
     if (dt < 33) _mixed3dState._stableFrames = (_mixed3dState._stableFrames || 0) + 1;
     else _mixed3dState._stableFrames = 0;
+
+    _tickCrossfade(t);
 
     // Close standing-in-hologram parallax sweep — ±25° at R=13, full
     // sweep every ~38s.  Camera sits just outside the largest orbital
