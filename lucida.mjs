@@ -4343,18 +4343,39 @@ function applyMixed3DWarRoom(O) {
           pts[s * 3 + 2] = Math.sin(a) * spec.r;
         }
       }
-      const lineGeo = new T.BufferGeometry();
-      lineGeo.setAttribute("position", new T.BufferAttribute(pts, 3));
-      const lineMat = new T.LineBasicMaterial({
+      // Arcs as tube + additive-halo (LineBasicMaterial.linewidth clamps to 1px
+      // in WebGL). Per refs/unn the show's orbital arcs read with visible
+      // weight + emission glow off the holo-table; the previous hairline lines
+      // were undersold against that reference. Core tube = solid line, halo
+      // tube = soft outer glow via additive blending.
+      const curveClosed = preset.kind !== "parabolic";
+      const ptsVec = new Array(curveClosed ? SEG : SEG + 1);
+      for (let s = 0; s < ptsVec.length; s++) {
+        ptsVec[s] = new T.Vector3(pts[s * 3], pts[s * 3 + 1], pts[s * 3 + 2]);
+      }
+      const curve = new T.CatmullRomCurve3(ptsVec, curveClosed);
+      const coreGeo = new T.TubeGeometry(curve, SEG, 0.045, 6, curveClosed);
+      const haloGeo = new T.TubeGeometry(curve, SEG, 0.130, 6, curveClosed);
+      const coreMat = new T.MeshBasicMaterial({
         color: spec.color,
         transparent: true,
-        opacity: spec.threat ? 0.75 : (modeName === "solar" ? 0.32 : 0.6),
+        opacity: spec.threat ? 0.85 : (modeName === "solar" ? 0.42 : 0.72),
+        depthWrite: false,
       });
-      const line = new T.Line(lineGeo, lineMat);
+      const haloMat = new T.MeshBasicMaterial({
+        color: spec.color,
+        transparent: true,
+        opacity: spec.threat ? 0.38 : (modeName === "solar" ? 0.14 : 0.26),
+        blending: T.AdditiveBlending,
+        depthWrite: false,
+      });
+      const core = new T.Mesh(coreGeo, coreMat);
+      const halo = new T.Mesh(haloGeo, haloMat);
       const arcGroup = new T.Group();
       if (preset.kind === "parabolic") arcGroup.position.y = 4;
       else { arcGroup.rotation.set(spec.tilt[0], spec.tilt[1], spec.tilt[2]); arcGroup.position.y = 6; }
-      arcGroup.add(line);
+      arcGroup.add(halo);
+      arcGroup.add(core);
       let marker = null;
       if (!spec.noMarker) {
         const markerMat = new T.MeshBasicMaterial({
@@ -4366,7 +4387,7 @@ function applyMixed3DWarRoom(O) {
       }
       addToMode(modeName, arcGroup);
       arcsByMode[modeName].push({
-        group: arcGroup, line, marker, spec,
+        group: arcGroup, core, halo, marker, spec,
         kind: preset.kind,
         phase: (i / preset.specs.length) * Math.PI * 2,
       });
