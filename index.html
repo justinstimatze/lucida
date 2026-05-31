@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=92" />
+<link rel="stylesheet" href="notebook.css?v=93" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -75,11 +75,81 @@
         integrity="sha384-pjx/ohA+FGGT1DkH8NeTscW3x2H82LwvD4gfQIvtJ8JY5UjIdU82eel4/J5pCj8D"
         crossorigin="anonymous"></script>
 <script>
+  // Single source of truth for themes. Defined in head so the bootstrap
+  // below (and any subsequent head/deferred-module code) can derive both
+  // the URL/cookie allowlist AND the dropdown rows from one object.
+  // Closes the prior "add a theme, forget to update the bootstrap valid[]"
+  // tripwire. Per-theme fields (hud / furniture / transient / motion) are
+  // attached by the main module after function declarations land.
+  // Per-theme fields:
+  //   id, label, description       — dropdown / HUD chip text
+  //   hud                          — faction-flavored HUD chip labels
+  //                                  (status / since / cells / render / session).
+  //                                  Missing → defaults stay. layout/theme labels
+  //                                  are always canonical "LAYOUT"/"THEME".
+  //   furniture                    — name of a _buildFurniture* function (mapped
+  //                                  via FURNITURE_BUILDERS in main module).
+  //                                  Themes can share a builder (tachi reuses
+  //                                  rocinante's MCRN bezel). Missing → no-op.
+  //   transient                    — name of a _buildTransient* function (mapped
+  //                                  via TRANSIENT_BUILDERS). Missing → generic.
+  //   motion                       — transient cell motion mode ("pack" default).
+  window.THEME_REGISTRY = {
+    lab:       { id: "lab",       label: "LAB",       description: "cyan/magenta on near-black; default",
+                 transient: "lab" },
+    conclave:  { id: "conclave",  label: "CONCLAVE",  description: "amber + green three-machine consensus",
+                 hud: { status: "MAGI", since: "CYCLE", cells: "SOULS", render: "ANALYSIS", session: "RITUAL" },
+                 transient: "conclave" },
+    minimal:   { id: "minimal",   label: "MINIMAL",   description: "Vercel/Linear clean light",
+                 transient: "minimal" },
+    gastown:   { id: "gastown",   label: "GASTOWN",   description: "steampunk brass on cream serif",
+                 hud: { status: "CHROME", since: "REVS", cells: "GUZZ", render: "ROAR", session: "CONVOY" },
+                 transient: "gastown" },
+    ops:       { id: "ops",       label: "OPS",       description: "color-band operations board, condensed display",
+                 hud: { status: "COND", since: "T+", cells: "CONTACTS", render: "COMPUTING", session: "WATCH" },
+                 transient: "ops" },
+    vigil:     { id: "vigil",     label: "VIGIL",     description: "cold electric cyan on void black — always watching",
+                 hud: { status: "VITAL", since: "UPTIME", cells: "TARGETS", render: "COMP", session: "WATCH" },
+                 transient: "vigil" },
+    circuit:   { id: "circuit",   label: "CIRCUIT",   description: "teal-blue + orange binary on pure black",
+                 hud: { status: "PWR", since: "CYCLE", cells: "BITS", render: "RENDER", session: "CONN" },
+                 transient: "circuit" },
+    noir:      { id: "noir",      label: "NOIR",      description: "amber hologram on rain-soaked blue-black",
+                 hud: { status: "PULSE", since: "T+", cells: "LEADS", render: "INK", session: "CASE" },
+                 transient: "noir" },
+    renegade:  { id: "renegade",  label: "RENEGADE",  description: "omnitool orange + nav cyan on warm-black",
+                 hud: { status: "CON", since: "ETA", cells: "CONTACTS", render: "OMNI", session: "WATCH" },
+                 transient: "renegade" },
+    mainframe: { id: "mainframe", label: "MAINFRAME", description: "neon aqua city grid, Game Cube purple accent",
+                 hud: { status: "STAT", since: "UP", cells: "RECORDS", render: "EXEC", session: "JOB" },
+                 transient: "mainframe" },
+    terminus:  { id: "terminus",  label: "TERMINUS",  description: "phosphor on black — end of the line",
+                 hud: { status: "PWR", since: "T+", cells: "LINES", render: "ECHO", session: "SESSION" },
+                 transient: "terminus" },
+    hackers:   { id: "hackers",   label: "HACKERS",   description: "Gibson canyon — cyan glass towers, void beneath",
+                 hud: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN" } },
+    hailmary:  { id: "hailmary",  label: "HAILMARY",  description: "Project Hail Mary blueprint — wireframe ship + pill chips",
+                 hud: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG" } },
+    rocinante: { id: "rocinante", label: "ROCINANTE", description: "MCRN command-line — system-color triad, cyan tactical, red under-the-hood",
+                 hud: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH" },
+                 furniture: "rocinante", transient: "rocinante" },
+    tachi:     { id: "tachi",     label: "TACHI",     description: "Classic MCRN (early/Syfy) — gunmetal grey hull, red-primary tactical, hard angular",
+                 hud: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH" },
+                 furniture: "rocinante" },
+    belter:    { id: "belter",    label: "BELTER",    description: "OPA salvage — amber+cyan dual accent, warm-brown, eclectic/improvised",
+                 hud: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH" },
+                 furniture: "belter", transient: "belter" },
+    unn:       { id: "unn",       label: "UNN",       description: "Earth/UN navy — institutional royal-blue, deliberately plain/utilitarian",
+                 hud: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH" },
+                 furniture: "unn", transient: "unn" },
+  };
+</script>
+<script>
   // Theme bootstrap -- runs synchronously in head to avoid FOUC.
   // Order: ?theme=<name>  >  cookie lucida_theme=<name>  >  "lab" (default).
   // Adapted from gemotvis/frontend/src/stores/theme.ts.
   (function () {
-    var valid = ["lab", "conclave", "minimal", "gastown", "ops", "vigil", "circuit", "noir", "renegade", "mainframe", "terminus", "hackers", "hailmary", "rocinante", "tachi", "belter", "unn"];
+    var valid = Object.keys(window.THEME_REGISTRY);
     var theme = "lab";
     try {
       var url = new URLSearchParams(window.location.search).get("theme");
@@ -510,30 +580,15 @@ function buildLayoutDropdown() {
     });
   });
 }
-// THEME_REGISTRY mirrors LAYOUT_REGISTRY: adding a new theme means adding
-// one entry here and one themes/<id>.tokens.json file. The label shows in
-// the HUD chip and dropdown rows; description is the dropdown subtitle.
-// Theme selection writes the cookie via the head bootstrap script and the
-// ?theme= URL param; both are read on next load.
-const THEME_REGISTRY = {
-  lab:       { id: "lab",       label: "LAB",       description: "cyan/magenta on near-black; default" },
-  conclave:  { id: "conclave",  label: "CONCLAVE",  description: "amber + green three-machine consensus" },
-  minimal:   { id: "minimal",   label: "MINIMAL",   description: "Vercel/Linear clean light" },
-  gastown:   { id: "gastown",   label: "GASTOWN",   description: "steampunk brass on cream serif" },
-  ops:       { id: "ops",       label: "OPS",       description: "color-band operations board, condensed display" },
-  vigil:     { id: "vigil",     label: "VIGIL",     description: "cold electric cyan on void black — always watching" },
-  circuit:   { id: "circuit",   label: "CIRCUIT",   description: "teal-blue + orange binary on pure black" },
-  noir:      { id: "noir",      label: "NOIR",      description: "amber hologram on rain-soaked blue-black" },
-  renegade:  { id: "renegade",  label: "RENEGADE",  description: "omnitool orange + nav cyan on warm-black" },
-  mainframe: { id: "mainframe", label: "MAINFRAME", description: "neon aqua city grid, Game Cube purple accent" },
-  terminus:  { id: "terminus",  label: "TERMINUS",  description: "phosphor on black — end of the line" },
-  hackers:   { id: "hackers",   label: "HACKERS",   description: "Gibson canyon — cyan glass towers, void beneath" },
-  hailmary:  { id: "hailmary",  label: "HAILMARY",  description: "Project Hail Mary blueprint — wireframe ship + pill chips" },
-  rocinante: { id: "rocinante", label: "ROCINANTE", description: "MCRN command-line — system-color triad, cyan tactical, red under-the-hood" },
-  tachi:     { id: "tachi",     label: "TACHI",     description: "Classic MCRN (early/Syfy) — gunmetal grey hull, red-primary tactical, hard angular" },
-  belter:    { id: "belter",    label: "BELTER",    description: "OPA salvage — amber+cyan dual accent, warm-brown, eclectic/improvised" },
-  unn:       { id: "unn",       label: "UNN",       description: "Earth/UN navy — institutional royal-blue, deliberately plain/utilitarian" },
-};
+// THEME_REGISTRY is the single source of truth for themes, defined in the
+// head <script> block so the bootstrap can derive its URL/cookie allowlist
+// from it AND every per-theme switch (HUD labels, furniture, transient
+// builders) reads from the same place. Adding a theme means: add one
+// registry entry + one themes/<id>.tokens.json file. (The handful of
+// builder functions referenced as strings — furniture / transient — still
+// need their function declarations in this module, mapped at the dispatch
+// site via FURNITURE_BUILDERS / TRANSIENT_BUILDERS.)
+const THEME_REGISTRY = window.THEME_REGISTRY;
 
 function buildThemeDropdown() {
   const dropdown = document.getElementById("theme-dropdown");
@@ -833,138 +888,46 @@ const TC = buildThemeConfig(TOKENS);
 // Per fan-mode review 2026-05-29: "POST COCKPIT" was the canonical
 // example of MCRN-flavored label but generic-coded value.
 function applyFactionHUDLabels(theme) {
-  // Identity transform: pass-through. Used so every chip has an entry
-  // (sparse maps would mean future code can't assume coverage).
-  const id = (v) => v;
-  // Strip the trailing literal "sess" from session ids — the multi-stream
+  // Trims the trailing literal "sess" from session ids — the multi-stream
   // arc produces ids like "38sess" / "38sess-xyz"; the chip should read as
-  // a watch number, not a session-slug stub. Leave alone if no match
-  // so non-sess ids still display correctly.
-  const sessionTrim = (v) => String(v).replace(/sess(?:-.*)?$/i, "");
+  // a watch number, not a session-slug stub. Universal across themes.
+  // Defined locally so the const can't be in TDZ at first-call time (this
+  // function may run before any top-level const initializer below it).
+  const _sessionTrim = (v) => String(v).replace(/sess(?:-.*)?$/i, "");
   // Layout AND theme chips stay canonical ("LAYOUT: PACK", "THEME: UNN")
   // across themes — per-theme remaps (layout pack→CONVOY, theme unn→FLAG …)
   // hid the renderer-internal id the corresponding dropdown still showed,
-  // so chip and dropdown disagreed.  Layout revert landed first (User
-  // 2026-05-29: "I don't like RIG: CONVOY instead of LAYOUT: PACK, that's
-  // bad UX"); theme revert follows the same rule (User 2026-05-29: "the
+  // so chip and dropdown disagreed. Reverted per user 2026-05-29: "the
   // unn still uses the 'flag' name instead of 'theme' — correct that for
-  // all themes").  Faction flavor stays in the other chip labels
-  // (status/cells/since/render/session) where the value IS the real id
-  // and no chip-vs-dropdown conflict exists.
-  const TABLE = {
-    rocinante: {
-      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    tachi: {
-      labels: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    belter: {
-      labels: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH",  layout: "LAYOUT",  theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    unn: {
-      labels: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    // ── Backfill from Expanse polish: non-Expanse themes opt into the same
-    // mechanism so every theme has a voice instead of the dev-tooling defaults.
-    // lab + minimal stay default (baseline / spartan registers). All values
-    // are in-universe to the theme's aesthetic.
-    conclave: {
-      // NERV / MAGI triad (Evangelion).  Tokens + CSS are NERV-styled
-      // (amber primary on black, green accent, NERV unit rail at left,
-      // monospace) since the theme was created — the previous papal
-      // labels (SACRAMENT/COUNCIL/CHAMBER/SEE) were a mis-fit.  User
-      // 2026-05-30: "Conclave was intended to be nerv magi eva stuff."
-      // CYCLE/SOULS/RITUAL are the Evangelion-canonical register.
-      labels: { status: "MAGI", since: "CYCLE", cells: "SOULS", render: "ANALYSIS", session: "RITUAL", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    gastown: {
-      // Yegge's Gas Town (his Jan-2026 multi-agent coding system) leans
-      // Mad Max for culture/wording and Vancouver-Gastown-steampunk for
-      // legal-safe visuals.  Match: HUD vocabulary takes the Mad Max
-      // road-warrior register (CHROME / REVS / GUZZ / ROAR / CONVOY),
-      // and palette stays brass+cream per the tokens.
-      labels: { status: "CHROME", since: "REVS", cells: "GUZZ", render: "ROAR", session: "CONVOY", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    ops: {
-      labels: { status: "COND", since: "T+", cells: "CONTACTS", render: "COMPUTING", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    vigil: {
-      labels: { status: "VITAL", since: "UPTIME", cells: "TARGETS", render: "COMP", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    circuit: {
-      labels: { status: "PWR", since: "CYCLE", cells: "BITS", render: "RENDER", session: "CONN", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    noir: {
-      labels: { status: "PULSE", since: "T+", cells: "LEADS", render: "INK", session: "CASE", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    renegade: {
-      labels: { status: "CON", since: "ETA", cells: "CONTACTS", render: "OMNI", session: "WATCH", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    mainframe: {
-      labels: { status: "STAT", since: "UP", cells: "RECORDS", render: "EXEC", session: "JOB", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    terminus: {
-      labels: { status: "PWR", since: "T+", cells: "LINES", render: "ECHO", session: "SESSION", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    hackers: {
-      labels: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-    hailmary: {
-      labels: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG", layout: "LAYOUT", theme: "THEME" },
-      values: { "hud-session-val": sessionTrim },
-    },
-  };
+  // all themes". Faction flavor stays in the other chip labels
+  // (status/cells/since/render/session).
+  //
+  // Per-theme labels live in THEME_REGISTRY[theme].hud. Themes without an
+  // entry keep the default chip labels (lab + minimal).
+  const entry = THEME_REGISTRY[theme];
   // Always clear prior transforms so theme switches don't leak. The
-  // transforms registry is module-level mutable — single source of truth
-  // for typeInto's pre-display formatting hook.
+  // sessionTrim value transform is universal across themes that have a
+  // HUD entry — applied once, not per-theme.
   for (const k of Object.keys(_HUD_VALUE_TRANSFORMS)) delete _HUD_VALUE_TRANSFORMS[k];
-  const entry = TABLE[theme];
-  if (!entry) return;
+  if (!entry?.hud) return;
   const setLabel = (sel, txt) => {
     const el = document.querySelector(sel);
-    if (el) el.textContent = txt;
+    if (el && txt != null) el.textContent = txt;
   };
-  const { labels, values } = entry;
+  const labels = entry.hud;
   setLabel(".hud-status .hud-label",   labels.status);
   setLabel(".hud-elapsed .hud-label",  labels.since);
   setLabel(".hud-cells-cell .hud-label", labels.cells);
   setLabel("#hud-render-cell .hud-label", labels.render);
   setLabel("#hud-session-cell .hud-label", labels.session);
-  setLabel("#hud-layout-cell .hud-label",  labels.layout);
-  setLabel("#hud-theme-cell .hud-label",   labels.theme);
-  Object.assign(_HUD_VALUE_TRANSFORMS, values || {});
-  // Re-flow already-typed values through new transforms so the chip
-  // updates immediately on theme switch (without waiting for the next
-  // loadHud tick). The lastTyped cache is cleared so typeInto re-runs.
-  for (const elId of Object.keys(values || {})) {
-    const el = document.getElementById(elId);
-    if (!el) continue;
-    const raw = state.hud.lastTyped.get(elId);
-    if (raw == null) continue;
-    state.hud.lastTyped.delete(elId);
-    typeInto(elId, raw);
-  }
-  // The static `hud-layout-val` is set by wireLayoutHUD when the dropdown
-  // initializes; nudge it through the new transform too.
-  const lv = document.getElementById("hud-layout-val");
-  if (lv) {
-    const raw = lv.textContent.replace(/▾/g, "").trim();
-    const xf = _HUD_VALUE_TRANSFORMS["hud-layout-val"];
-    if (xf && raw) lv.textContent = xf(raw);
+  _HUD_VALUE_TRANSFORMS["hud-session-val"] = _sessionTrim;
+  // Re-flow the session value through the transform so the chip updates
+  // immediately on theme switch (without waiting for the next loadHud
+  // tick). The lastTyped cache is cleared so typeInto re-runs.
+  const raw = state.hud.lastTyped.get("hud-session-val");
+  if (raw != null) {
+    state.hud.lastTyped.delete("hud-session-val");
+    typeInto("hud-session-val", raw);
   }
 }
 
@@ -12218,30 +12181,28 @@ function mountThemeFurniture(theme) {
   if (!el) return;
   el.innerHTML = "";
   el.removeAttribute("data-theme");
-  switch (theme) {
-    case "rocinante":
-      el.dataset.theme = "rocinante";
-      _buildFurnitureRocinante(el);
-      break;
-    case "tachi":
-      // Reuse roci's MCRN bezel + red histogram as-is (same faction, same
-      // visual grammar — the bezel/histogram CSS is `[data-theme=rocinante]`).
-      // _buildFurnitureRocinante + _updateRocinanteHisto pick the registry
-      // label from ACTIVE so tachi reads as "MCRN TACHI", not "ROCINANTE".
-      el.dataset.theme = "rocinante";
-      _buildFurnitureRocinante(el);
-      break;
-    case "belter":
-      el.dataset.theme = "belter";
-      _buildFurnitureBelter(el);
-      break;
-    case "unn":
-      el.dataset.theme = "unn";
-      _buildFurnitureUNN(el);
-      break;
-    default:
-      break; // no furniture for this theme
+  // Furniture builder registry. THEME_REGISTRY[theme].furniture names the
+  // builder key — themes can share a builder by naming the same key (tachi
+  // reuses rocinante's MCRN bezel, so _both_ entries' furniture field reads
+  // "rocinante"). _buildFurnitureRocinante reads ACTIVE off the theme
+  // registry so "MCRN TACHI" / "MCRN ROCINANTE" labels stay correct
+  // regardless of which entry triggered the build. Defined locally so
+  // the const can't be in TDZ — mountThemeFurniture(ACTIVE) is called at
+  // top level before this file position is reached.
+  const FURNITURE_BUILDERS = {
+    rocinante: _buildFurnitureRocinante,
+    belter:    _buildFurnitureBelter,
+    unn:       _buildFurnitureUNN,
+  };
+  const furnitureKey = THEME_REGISTRY[theme]?.furniture;
+  if (!furnitureKey) return;
+  const builder = FURNITURE_BUILDERS[furnitureKey];
+  if (!builder) {
+    console.warn(`[lucida] theme '${theme}' references furniture '${furnitureKey}' but no builder is registered`);
+    return;
   }
+  el.dataset.theme = furnitureKey;
+  builder(el);
 }
 function _buildFurnitureRocinante(el) {
   // MCRN bridge-console BEZEL: corner brackets, L/R bearing tick scales, a top
@@ -16363,51 +16324,39 @@ function _buildTransientUNN(body) {
   }, 2200);
 }
 
+// Transient cell body builders. THEME_REGISTRY[theme].transient names
+// the builder; missing entries fall through to the generic builder.
+const TRANSIENT_BUILDERS = {
+  conclave:  _buildTransientConclave,
+  gastown:   _buildTransientGastown,
+  lab:       _buildTransientLab,
+  vigil:     _buildTransientVigil,
+  ops:       _buildTransientOps,
+  noir:      _buildTransientNoir,
+  terminus:  _buildTransientTerminus,
+  circuit:   _buildTransientCircuit,
+  mainframe: _buildTransientMainframe,
+  renegade:  _buildTransientRenegade,
+  minimal:   _buildTransientMinimal,
+  rocinante: _buildTransientRocinante,
+  belter:    _buildTransientBelter,
+  unn:       _buildTransientUNN,
+};
+
 function _buildTransientBody(body, theme) {
   body.classList.add("transient-body");
-  switch (theme) {
-    case "conclave":  return _buildTransientConclave(body);
-    case "gastown":   return _buildTransientGastown(body);
-    case "lab":       return _buildTransientLab(body);
-    case "vigil":     return _buildTransientVigil(body);
-    case "ops":       return _buildTransientOps(body);
-    case "noir":      return _buildTransientNoir(body);
-    case "terminus":  return _buildTransientTerminus(body);
-    case "circuit":   return _buildTransientCircuit(body);
-    case "mainframe": return _buildTransientMainframe(body);
-    case "renegade":  return _buildTransientRenegade(body);
-    case "minimal":   return _buildTransientMinimal(body);
-    case "rocinante": return _buildTransientRocinante(body);
-    case "belter":    return _buildTransientBelter(body);
-    case "unn":       return _buildTransientUNN(body);
-    default:          return _buildTransientGeneric(body);
-  }
+  const key = THEME_REGISTRY[theme]?.transient;
+  const builder = key ? TRANSIENT_BUILDERS[key] : null;
+  return (builder || _buildTransientGeneric)(body);
 }
 
-// Per-theme motion: all "pack" as of 2026-05-24. Edge-overlay was
+// Per-theme motion default: "pack" since 2026-05-24. Edge-overlay was
 // originally per-theme aesthetic (LCARS-style frame slide-ins, surveillance
 // camera popups) but it covered real cells while flying over them — user
 // 2026-05-24: "I don't know if the ephemeral cells should overlap real
 // cells" + "more like tier-2 cells." Pack motion treats transients as
 // peer Muuri items (small footprint, slot into gaps) instead of overlays.
-// Real cells stay readable; transients still get their themed chrome and
-// entrance animation, just inline. Edge CSS retained for now in case we
-// want to bring it back behind a toggle.
-const _TRANSIENT_MOTION = {
-  conclave: "pack",
-  gastown:  "pack",
-  lab:      "pack",
-  noir:     "pack",
-  vigil:    "pack",
-  terminus: "pack",
-  ops:      "pack",
-  circuit:  "pack",
-  mainframe:"pack",
-  renegade: "pack",
-  minimal:  "pack",
-  hailmary: "pack",
-  hackers:  "pack",
-};
+// Themes can override via THEME_REGISTRY[theme].motion when needed.
 
 function spawnTransientCell(opts) {
   // opts.mode: "active" (default — fires during active dashboard work)
@@ -16423,7 +16372,7 @@ function spawnTransientCell(opts) {
   if (!root) return;
 
   const theme = _transientThemeName();
-  const motion = _TRANSIENT_MOTION[theme] || "pack";
+  const motion = THEME_REGISTRY[theme]?.motion || "pack";
   // Pack-mode requires Muuri; alternate layouts (treemap, scatter,
   // organic) skip the pack variant entirely. Edge-slide is overlay-
   // positioned so it works in any layout mode.
