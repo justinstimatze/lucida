@@ -14434,134 +14434,160 @@ function renderCell(c, snippetGroups, cellsById, opts) {
 // scene3d-cell geometry directly into the holo scene at small scale.
 // Caller adopts via `parent.add(root)`.
 //
-// KIND-SWITCH-MIRROR: this switch is intentionally duplicated from
-// initScene3D below. If you add a new kind there, mirror it here too.
-// Pure-function-shape (no closure deps) makes this safer than a brace
-// refactor inside initScene3D.
+// Shared kind-switch for scene3d specs. Pure function: takes one spec
+// object + THREE namespace, returns a mesh-or-null. Both _buildScene3DMeshes
+// (used by mixed3d war-room to route cells into the holo space) and
+// initScene3D (used by the standalone scene3d cell substrate) call this
+// for object construction; only the parent-add + render scaffolding
+// differs. Unwinds the prior KIND-SWITCH-MIRROR duplication (~160 lines).
+//
+// Per-kind doc lives in initScene3D's caller doc — this is the geometry
+// factory only. Keep additions here.
+function _buildScene3DObject(obj, T) {
+  const color = new T.Color(resolveColor(obj.color) || "#ffffff");
+  const size = obj.size || 1;
+  if (obj.kind === "wireframe_cube") {
+    const geo = new T.BoxGeometry(size, size, size);
+    return new T.LineSegments(new T.WireframeGeometry(geo),
+      new T.LineBasicMaterial({ color }));
+  }
+  if (obj.kind === "wireframe_sphere") {
+    const geo = new T.SphereGeometry(size, 16, 12);
+    return new T.LineSegments(new T.WireframeGeometry(geo),
+      new T.LineBasicMaterial({ color }));
+  }
+  if (obj.kind === "torus") {
+    const geo = new T.TorusGeometry(size, size * 0.3, 8, 24);
+    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+  }
+  if (obj.kind === "icosahedron") {
+    const geo = new T.IcosahedronGeometry(size, 0);
+    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+  }
+  if (obj.kind === "tetrahedron") {
+    const geo = new T.TetrahedronGeometry(size, 0);
+    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+  }
+  if (obj.kind === "octahedron") {
+    const geo = new T.OctahedronGeometry(size, 0);
+    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+  }
+  if (obj.kind === "dodecahedron") {
+    const geo = new T.DodecahedronGeometry(size, 0);
+    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+  }
+  if (obj.kind === "box") {
+    const w_ = size;
+    const h_ = (typeof obj.height === "number") ? obj.height : size;
+    const d_ = (typeof obj.depth === "number") ? obj.depth : size;
+    const geo = new T.BoxGeometry(w_, h_, d_);
+    return new T.LineSegments(new T.WireframeGeometry(geo),
+      new T.LineBasicMaterial({ color }));
+  }
+  if (obj.kind === "tube") {
+    const path = Array.isArray(obj.path) ? obj.path.filter(p => Array.isArray(p) && p.length === 3) : [];
+    if (path.length < 2) return null;
+    const points = path.map(p => new T.Vector3(p[0], p[1], p[2]));
+    const curve = new T.CatmullRomCurve3(points, false, "catmullrom", 0.5);
+    const tubularSegments = Math.max(20, path.length * 8);
+    const radius = size || 0.05;
+    const geo = new T.TubeGeometry(curve, tubularSegments, radius, 8, false);
+    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
+  }
+  if (obj.kind === "axis_helper") {
+    return new T.AxesHelper(size);
+  }
+  if (obj.kind === "particle_cloud") {
+    const geo = new T.BufferGeometry();
+    const positions = [];
+    const count = obj.count || 100;
+    const spread = obj.spread || 3;
+    for (let i = 0; i < count; i++) {
+      positions.push((Math.random() - 0.5) * spread * 2);
+      positions.push((Math.random() - 0.5) * spread * 2);
+      positions.push((Math.random() - 0.5) * spread * 2);
+    }
+    geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
+    return new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
+  }
+  if (obj.kind === "cylinder") {
+    const radius = size;
+    const height = (typeof obj.height === "number") ? obj.height : size * 2;
+    const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
+    const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.4,
+    }));
+    const edges = new T.LineSegments(
+      new T.EdgesGeometry(geo, 1),
+      new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+    );
+    const group = new T.Group();
+    group.add(fill);
+    group.add(edges);
+    return group;
+  }
+  if (obj.kind === "cone") {
+    const radius = size;
+    const height = (typeof obj.height === "number") ? obj.height : size * 2;
+    const geo = new T.ConeGeometry(radius, height, 16, 1, false);
+    const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.4,
+    }));
+    const edges = new T.LineSegments(
+      new T.EdgesGeometry(geo, 1),
+      new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+    );
+    const group = new T.Group();
+    group.add(fill);
+    group.add(edges);
+    return group;
+  }
+  if (obj.kind === "plane") {
+    const w_ = size;
+    const h_ = (typeof obj.height === "number") ? obj.height : size;
+    const geo = new T.PlaneGeometry(w_, h_, 1, 1);
+    return new T.Mesh(geo, new T.MeshBasicMaterial({
+      color, wireframe: true, side: T.DoubleSide,
+    }));
+  }
+  if (obj.kind === "line") {
+    const from = Array.isArray(obj.from) ? obj.from : [0, 0, 0];
+    const to = Array.isArray(obj.to) ? obj.to : [1, 0, 0];
+    const geo = new T.BufferGeometry().setFromPoints([
+      new T.Vector3(...from),
+      new T.Vector3(...to),
+    ]);
+    return new T.Line(geo, new T.LineBasicMaterial({ color }));
+  }
+  if (obj.kind === "label") {
+    const text = String(obj.text || "");
+    const cnv = document.createElement("canvas");
+    const ctx = cnv.getContext("2d");
+    const fontPx = 64;
+    ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+    const metrics = ctx.measureText(text);
+    cnv.width = Math.max(64, Math.ceil(metrics.width) + 20);
+    cnv.height = fontPx + 20;
+    ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
+    ctx.fillStyle = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.fillText(text, cnv.width / 2, cnv.height / 2);
+    const tex = new T.CanvasTexture(cnv);
+    const mat = new T.SpriteMaterial({ map: tex, transparent: true });
+    const sprite = new T.Sprite(mat);
+    const scale = size || 0.5;
+    sprite.scale.set(scale * (cnv.width / cnv.height), scale, 1);
+    return sprite;
+  }
+  return null;
+}
+
 function _buildScene3DMeshes(spec, T) {
   const root = new T.Group();
   const animatables = [];
   for (const obj of (spec.objects || [])) {
-    let mesh = null;
-    const color = new T.Color(resolveColor(obj.color) || "#ffffff");
-    const size = obj.size || 1;
-    if (obj.kind === "wireframe_cube") {
-      const geo = new T.BoxGeometry(size, size, size);
-      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
-        new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "wireframe_sphere") {
-      const geo = new T.SphereGeometry(size, 16, 12);
-      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
-        new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "torus") {
-      const geo = new T.TorusGeometry(size, size * 0.3, 8, 24);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "icosahedron") {
-      const geo = new T.IcosahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "tetrahedron") {
-      const geo = new T.TetrahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "octahedron") {
-      const geo = new T.OctahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "dodecahedron") {
-      const geo = new T.DodecahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "box") {
-      const w_ = size;
-      const h_ = (typeof obj.height === "number") ? obj.height : size;
-      const d_ = (typeof obj.depth === "number") ? obj.depth : size;
-      const geo = new T.BoxGeometry(w_, h_, d_);
-      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
-        new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "tube") {
-      const path = Array.isArray(obj.path) ? obj.path.filter(p => Array.isArray(p) && p.length === 3) : [];
-      if (path.length >= 2) {
-        const points = path.map(p => new T.Vector3(p[0], p[1], p[2]));
-        const curve = new T.CatmullRomCurve3(points, false, "catmullrom", 0.5);
-        const tubularSegments = Math.max(20, path.length * 8);
-        const radius = size || 0.05;
-        const geo = new T.TubeGeometry(curve, tubularSegments, radius, 8, false);
-        mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-      }
-    } else if (obj.kind === "axis_helper") {
-      mesh = new T.AxesHelper(size);
-    } else if (obj.kind === "particle_cloud") {
-      const geo = new T.BufferGeometry();
-      const positions = [];
-      const count = obj.count || 100;
-      const spread = obj.spread || 3;
-      for (let i = 0; i < count; i++) {
-        positions.push((Math.random() - 0.5) * spread * 2);
-        positions.push((Math.random() - 0.5) * spread * 2);
-        positions.push((Math.random() - 0.5) * spread * 2);
-      }
-      geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
-      mesh = new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
-    } else if (obj.kind === "cylinder") {
-      const radius = size;
-      const height = (typeof obj.height === "number") ? obj.height : size * 2;
-      const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
-      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
-        color, transparent: true, opacity: 0.4,
-      }));
-      const edges = new T.LineSegments(
-        new T.EdgesGeometry(geo, 1),
-        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
-      );
-      mesh = new T.Group();
-      mesh.add(fill);
-      mesh.add(edges);
-    } else if (obj.kind === "cone") {
-      const radius = size;
-      const height = (typeof obj.height === "number") ? obj.height : size * 2;
-      const geo = new T.ConeGeometry(radius, height, 16, 1, false);
-      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
-        color, transparent: true, opacity: 0.4,
-      }));
-      const edges = new T.LineSegments(
-        new T.EdgesGeometry(geo, 1),
-        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
-      );
-      mesh = new T.Group();
-      mesh.add(fill);
-      mesh.add(edges);
-    } else if (obj.kind === "plane") {
-      const w_ = size;
-      const h_ = (typeof obj.height === "number") ? obj.height : size;
-      const geo = new T.PlaneGeometry(w_, h_, 1, 1);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({
-        color, wireframe: true, side: T.DoubleSide,
-      }));
-    } else if (obj.kind === "line") {
-      const from = Array.isArray(obj.from) ? obj.from : [0, 0, 0];
-      const to = Array.isArray(obj.to) ? obj.to : [1, 0, 0];
-      const geo = new T.BufferGeometry().setFromPoints([
-        new T.Vector3(...from),
-        new T.Vector3(...to),
-      ]);
-      mesh = new T.Line(geo, new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "label") {
-      const text = String(obj.text || "");
-      const cnv = document.createElement("canvas");
-      const ctx = cnv.getContext("2d");
-      const fontPx = 64;
-      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
-      const metrics = ctx.measureText(text);
-      cnv.width = Math.max(64, Math.ceil(metrics.width) + 20);
-      cnv.height = fontPx + 20;
-      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
-      ctx.fillStyle = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = "center";
-      ctx.fillText(text, cnv.width / 2, cnv.height / 2);
-      const tex = new T.CanvasTexture(cnv);
-      const mat = new T.SpriteMaterial({ map: tex, transparent: true });
-      mesh = new T.Sprite(mat);
-      const scale = size || 0.5;
-      mesh.scale.set(scale * (cnv.width / cnv.height), scale, 1);
-    }
+    const mesh = _buildScene3DObject(obj, T);
     if (!mesh) continue;
     if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
     root.add(mesh);
@@ -14602,166 +14628,17 @@ function initScene3D(container, spec) {
   const camera = new T.PerspectiveCamera(50, w / h, 0.1, 100);
   camera.position.set(0, 0, spec.camera_distance || 5);
 
+  // Per-kind doc: see _buildScene3DObject above. The kind switch is
+  // shared with _buildScene3DMeshes (used by the mixed3d war-room holo
+  // ring) so a new primitive lands in one place.
   const animatables = [];
   for (const obj of (spec.objects || [])) {
-    let mesh = null;
-    const color = new T.Color(resolveColor(obj.color) || "#ffffff");
-    const size = obj.size || 1;
-    if (obj.kind === "wireframe_cube") {
-      const geo = new T.BoxGeometry(size, size, size);
-      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
-        new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "wireframe_sphere") {
-      const geo = new T.SphereGeometry(size, 16, 12);
-      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
-        new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "torus") {
-      const geo = new T.TorusGeometry(size, size * 0.3, 8, 24);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "icosahedron") {
-      const geo = new T.IcosahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "tetrahedron") {
-      const geo = new T.TetrahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "octahedron") {
-      const geo = new T.OctahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "dodecahedron") {
-      const geo = new T.DodecahedronGeometry(size, 0);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-    } else if (obj.kind === "box") {
-      // Rectangular prism (chassis / brick / panel). Distinct from
-      // wireframe_cube which is always cubic — box takes width/height/
-      // depth so the shape can express physical proportions.
-      const w_ = size;
-      const h_ = (typeof obj.height === "number") ? obj.height : size;
-      const d_ = (typeof obj.depth === "number") ? obj.depth : size;
-      const geo = new T.BoxGeometry(w_, h_, d_);
-      mesh = new T.LineSegments(new T.WireframeGeometry(geo),
-        new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "tube") {
-      // Tube extruded along a CatmullRom curve through obj.path
-      // ([[x,y,z], ...]; 2-12 waypoints). Used for curved arrows,
-      // routed connections, pipelines that bend through 3D space.
-      // size = tube radius (default 0.05); segments = 1 per waypoint
-      // segment, scaled to keep curves smooth.
-      const path = Array.isArray(obj.path) ? obj.path.filter(p => Array.isArray(p) && p.length === 3) : [];
-      if (path.length >= 2) {
-        const points = path.map(p => new T.Vector3(p[0], p[1], p[2]));
-        const curve = new T.CatmullRomCurve3(points, false, "catmullrom", 0.5);
-        const tubularSegments = Math.max(20, path.length * 8);
-        const radius = size || 0.05;
-        const geo = new T.TubeGeometry(curve, tubularSegments, radius, 8, false);
-        mesh = new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-      }
-    } else if (obj.kind === "axis_helper") {
-      mesh = new T.AxesHelper(size);
-    } else if (obj.kind === "particle_cloud") {
-      const geo = new T.BufferGeometry();
-      const positions = [];
-      const count = obj.count || 100;
-      const spread = obj.spread || 3;
-      for (let i = 0; i < count; i++) {
-        positions.push((Math.random() - 0.5) * spread * 2);
-        positions.push((Math.random() - 0.5) * spread * 2);
-        positions.push((Math.random() - 0.5) * spread * 2);
-      }
-      geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
-      mesh = new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
-    } else if (obj.kind === "cylinder") {
-      // Vertical column / tower / pole / bar. height defaults to 2*size
-      // for a tower-shaped default; specs that want a flat puck pass a
-      // smaller height. Top/bottom radius separate so cones (height>0,
-      // top=0) work via the same primitive without needing a "cone"
-      // type — though we do also expose "cone" for clarity below.
-      //
-      // Render: translucent solid fill + crisp silhouette edges via
-      // LineSegments. Pre-2026-05-23 used `wireframe: true` which on a
-      // 16-sided geometry painted 16 parallel vertical lines per bar —
-      // bar charts (cell-4578 system memory snapshot) read as a "forest
-      // of vertical lines" rather than discrete bars. Solid+edges gives
-      // the FUI bar-chart aesthetic the Iron Man/Jarvis HUD references
-      // use (refs/vigil/00_01_30_workshop_body_schematic_finale.png).
-      const radius = size;
-      const height = (typeof obj.height === "number") ? obj.height : size * 2;
-      const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
-      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
-        color, transparent: true, opacity: 0.4,
-      }));
-      const edges = new T.LineSegments(
-        new T.EdgesGeometry(geo, 1),
-        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
-      );
-      mesh = new T.Group();
-      mesh.add(fill);
-      mesh.add(edges);
-    } else if (obj.kind === "cone") {
-      const radius = size;
-      const height = (typeof obj.height === "number") ? obj.height : size * 2;
-      const geo = new T.ConeGeometry(radius, height, 16, 1, false);
-      const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
-        color, transparent: true, opacity: 0.4,
-      }));
-      const edges = new T.LineSegments(
-        new T.EdgesGeometry(geo, 1),
-        new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
-      );
-      mesh = new T.Group();
-      mesh.add(fill);
-      mesh.add(edges);
-    } else if (obj.kind === "plane") {
-      // Stacked translucent layers / floor planes / strata. Default
-      // square; specs can pass width + height for rectangular layers.
-      const w_ = size;
-      const h_ = (typeof obj.height === "number") ? obj.height : size;
-      const geo = new T.PlaneGeometry(w_, h_, 1, 1);
-      mesh = new T.Mesh(geo, new T.MeshBasicMaterial({
-        color, wireframe: true, side: T.DoubleSide,
-      }));
-    } else if (obj.kind === "line") {
-      // Connection / vector / edge between two points. obj.from and
-      // obj.to are [x,y,z]. Used for showing relationships between
-      // positioned primitives (semantic-geometry vocabulary).
-      const from = Array.isArray(obj.from) ? obj.from : [0, 0, 0];
-      const to = Array.isArray(obj.to) ? obj.to : [1, 0, 0];
-      const geo = new T.BufferGeometry().setFromPoints([
-        new T.Vector3(...from),
-        new T.Vector3(...to),
-      ]);
-      mesh = new T.Line(geo, new T.LineBasicMaterial({ color }));
-    } else if (obj.kind === "label") {
-      // Text floating in 3D space — axis labels for charts, named
-      // electrodes for anatomical scenes, repo names atop towers.
-      // Implemented as a canvas-textured sprite so the text always
-      // faces the camera (regardless of scene rotation). obj.text
-      // is the string; size controls render scale (default ~0.5
-      // works for short labels).
-      const text = String(obj.text || "");
-      const cnv = document.createElement("canvas");
-      const ctx = cnv.getContext("2d");
-      const fontPx = 64;
-      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
-      const metrics = ctx.measureText(text);
-      cnv.width = Math.max(64, Math.ceil(metrics.width) + 20);
-      cnv.height = fontPx + 20;
-      ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
-      ctx.fillStyle = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = "center";
-      ctx.fillText(text, cnv.width / 2, cnv.height / 2);
-      const tex = new T.CanvasTexture(cnv);
-      const mat = new T.SpriteMaterial({ map: tex, transparent: true });
-      mesh = new T.Sprite(mat);
-      const scale = size || 0.5;
-      mesh.scale.set(scale * (cnv.width / cnv.height), scale, 1);
-    }
-    if (mesh) {
-      if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
-      scene.add(mesh);
-      if (Array.isArray(obj.rotation_speed)) {
-        animatables.push({ mesh, speed: obj.rotation_speed });
-      }
+    const mesh = _buildScene3DObject(obj, T);
+    if (!mesh) continue;
+    if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
+    scene.add(mesh);
+    if (Array.isArray(obj.rotation_speed)) {
+      animatables.push({ mesh, speed: obj.rotation_speed });
     }
   }
 
