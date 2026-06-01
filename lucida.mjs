@@ -12435,6 +12435,20 @@ function _buildFurnitureUNN(el) {
   // radar. Own ship is named by the UN seal + placard; the threat is labeled.
   const cx = 94, cy = 60;
   const ringR = [16, 29, 42];
+  // Head-on flat grid plane underlay — refs/unn/unn_tactical_grid_rangerings.png
+  // shows a navy grid plane behind the rings (the WWII-naval institutional
+  // chart paper). Even-spaced dashed verticals + horizontals, deliberately
+  // dull (no perspective tilt, no glow) — the "boring competent bureaucracy"
+  // register (memory feedback_holographic_depth_yes does NOT apply to UNN).
+  let grid = "";
+  for (let x = 4; x <= 184; x += 16) {
+    grid += '<line x1="' + x + '" y1="6" x2="' + x + '" y2="118" ' +
+      'stroke="#2f6fd0" stroke-opacity="0.13" stroke-width="0.5" stroke-dasharray="2 2"/>';
+  }
+  for (let y = 6; y <= 118; y += 16) {
+    grid += '<line x1="4" y1="' + y + '" x2="184" y2="' + y + '" ' +
+      'stroke="#2f6fd0" stroke-opacity="0.13" stroke-width="0.5" stroke-dasharray="2 2"/>';
+  }
   let rings = "";
   ringR.forEach((r) => {
     rings += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r +
@@ -12461,6 +12475,7 @@ function _buildFurnitureUNN(el) {
       '<div class="unn-board-hd">UNN COMBINED FLEET · SITUATIONS PLOT</div>' +
       '<div class="unn-screen">' +
         '<svg viewBox="0 0 188 124" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
+          '<g class="unn-grid-bg">' + grid + '</g>' +
           _unnSeal(cx, cy, 10) +
           '<g class="unn-rings">' + rings + '</g>' + threat +
           '<text class="unn-own-lbl" x="' + (cx + 14) + '" y="' + (cy - 14) + '">UNN</text>' +
@@ -12470,6 +12485,17 @@ function _buildFurnitureUNN(el) {
       '<div class="unn-readout">' +
         '<div class="unn-readout-hd"><span>TRK</span><span>TYP</span><span>BRG</span><span>RNG</span></div>' +
         '<div class="unn-readout-rows"></div>' +
+        // Selected-track field readout — label / value / unit three-column
+        // rows (BRG · 028 · ° pattern) per refs/unn data-row density. The
+        // ref panel shows multiple field rows for the selected contact, the
+        // WWII-naval institutional "every channel labeled" register. Updated
+        // in _updateUNNTactical with live BRG / RNG / CPA / SPD for the lead.
+        '<div class="unn-fields">' +
+          '<div class="unn-frow"><span>BRG</span><span class="unn-fval">---</span><span>°</span></div>' +
+          '<div class="unn-frow"><span>RNG</span><span class="unn-fval">---</span><span>NM</span></div>' +
+          '<div class="unn-frow"><span>CPA</span><span class="unn-fval">---</span><span>NM</span></div>' +
+          '<div class="unn-frow"><span>SPD</span><span class="unn-fval">---</span><span>KT</span></div>' +
+        '</div>' +
         '<div class="unn-readout-ft">' +
           '<span class="unn-ft1">SEL · STANDBY</span>' +
           '<span class="unn-ft2">STATUS · MONITORING</span>' +
@@ -12504,7 +12530,7 @@ function _updateUNNTactical() {
     .map((c) => ({ t: Date.parse(c.dataset.timestamp), type: c.dataset.cellType || "" }))
     .filter((c) => Number.isFinite(c.t))
     .sort((a, b) => b.t - a.t)
-    .slice(0, 6);
+    .slice(0, 4);   // 4-contact dignified plot — fits 4 rows + 4 field rows in the readout panel.
   const cx = 94, cy = 60, ringR = [16, 29, 42];
   let out = "", rows = "";
   cells.forEach((c, i) => {
@@ -12520,11 +12546,13 @@ function _updateUNNTactical() {
           '" stroke="#2f6fd0" stroke-opacity="0.28" stroke-width="0.6"/>' +
         '<rect x="' + (x - 2).toFixed(1) + '" y="' + (y - 2).toFixed(1) +
           '" width="4" height="4" fill="none" stroke="#6f9fd0" stroke-width="1"/>' +
-        // the lead (newest) track gets a selection box + an on-plot designator
-        // label — the reference names its contacts directly on the plane.
+        // The lead (newest) track gets a selection box (highlighted as the
+        // currently-selected target). Top-3 tracks get on-plot designator
+        // labels — the reference names multiple contacts directly on the
+        // plane (the institutional "every track named" density), not just one.
         (i === 0 ? '<rect class="unn-sel-live" x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
-          '" width="7.2" height="7.2" fill="none" stroke="#9bb8d8" stroke-opacity="0.75" stroke-width="0.6"/>' +
-          '<text class="unn-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
+          '" width="7.2" height="7.2" fill="none" stroke="#9bb8d8" stroke-opacity="0.75" stroke-width="0.6"/>' : "") +
+        (i < 3 ? '<text class="unn-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
           '">UNN ' + _unnTag(c.type) + '</text>' : "") +
       '</g>';
     const brg = String(deg).padStart(3, "0");
@@ -12540,13 +12568,24 @@ function _updateUNNTactical() {
   // naval readout (RNG / CPA / units). On-character institutional density.
   const ft1 = fur.querySelector(".unn-ft1");
   const ft2 = fur.querySelector(".unn-ft2");
+  // Selected-track label/value/unit field readout. Values derive from the same
+  // synthetic bearing/range solution the contact row uses (deterministic so it
+  // reads as a steady naval plot, not a jittery dev demo).
+  const fvals = fur.querySelectorAll(".unn-fields .unn-fval");
   if (cells.length) {
     const lead = cells[0];
-    if (ft1) ft1.textContent = "SEL · UNN " + _unnTag(lead.type) + " · BRG 028";
-    if (ft2) ft2.textContent = "RNG 06NM · CPA 04 · " + cells.length + " TRK";
+    if (ft1) ft1.textContent = "SEL · UNN " + _unnTag(lead.type);
+    if (ft2) ft2.textContent = "STATUS · " + cells.length + " TRK";
+    if (fvals.length === 4) {
+      fvals[0].textContent = "028";              // BRG °
+      fvals[1].textContent = "06.7";             // RNG NM
+      fvals[2].textContent = "04.2";             // CPA NM
+      fvals[3].textContent = "12";               // SPD KT
+    }
   } else {
     if (ft1) ft1.textContent = "SEL · STANDBY";
     if (ft2) ft2.textContent = "STATUS · STANDBY";
+    fvals.forEach((v) => { v.textContent = "---"; });
   }
 }
 
