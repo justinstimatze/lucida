@@ -14,6 +14,14 @@ import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.es
 // can render cell.spec → SVG → canvas-texture for tower-face textures.
 window.mermaid = mermaid;
 
+// scene3d substrate. Three exports: the kind-switch factory, the holo-ring
+// mesh builder (used by mixed3d war-room), and the standalone cell renderer
+// (used by the scene3d cell substrate). resolveColor is passed through at
+// each call so the module stays free of palette-global coupling. Cache key
+// pinned via ?v= — bump alongside `lucida.mjs?v=` in index.html when this
+// file changes (see [[dev_cache_discipline]]).
+import { buildScene3DMeshes, initScene3D } from "./scene3d.mjs?v=1";
+
 // Full-stack theme config: chrome lives in CSS (notebook.css), but
 // mermaid + vega + scene3d content also need theme-aware colors.
 // Active theme is set by the inline head script -> window.__LUCIDA_THEME.
@@ -4781,7 +4789,7 @@ function applyMixed3DWarRoom(O) {
       let spec = null;
       try { spec = JSON.parse(target.dataset.scene3dSpec); }
       catch (err) { console.warn("[mixed3d.warroom] scene3d parse failed", err); return; }
-      const built = _buildScene3DMeshes(spec, T);
+      const built = buildScene3DMeshes(spec, T, resolveColor);
       if (!built || !built.root.children.length) return;
       // Normalize so any spec (regardless of native scale) becomes a
       // bounded ~targetSize-unit object. Recenter to origin first so
@@ -12452,7 +12460,7 @@ function setupCellZoom() {
       requestAnimationFrame(() => {
         try {
           const spec = JSON.parse(scene3dTarget.dataset.scene3dSpec);
-          const ctrl = initScene3D(scene3dTarget, spec);
+          const ctrl = initScene3D(scene3dTarget, spec, resolveColor);
           if (ctrl) {
             ctrl.play();
             dlg._zoomedCtrl = ctrl;
@@ -14258,7 +14266,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
         touchWebGL(entry);
         if (!ctrl) {
           target.style.minHeight = "";
-          ctrl = initScene3D(target, c.spec);
+          ctrl = initScene3D(target, c.spec, resolveColor);
           if (ctrl) registerWebGL(entry);
         }
         if (ctrl) ctrl.play();
@@ -14429,312 +14437,6 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   return card;
 }
 
-// Build the meshes from a scene3d spec into a detached T.Group, with
-// no renderer or camera attached. Used by the mixed3d war-room to drop
-// scene3d-cell geometry directly into the holo scene at small scale.
-// Caller adopts via `parent.add(root)`.
-//
-// Shared kind-switch for scene3d specs. Pure function: takes one spec
-// object + THREE namespace, returns a mesh-or-null. Both _buildScene3DMeshes
-// (used by mixed3d war-room to route cells into the holo space) and
-// initScene3D (used by the standalone scene3d cell substrate) call this
-// for object construction; only the parent-add + render scaffolding
-// differs. Unwinds the prior KIND-SWITCH-MIRROR duplication (~160 lines).
-//
-// Per-kind doc lives in initScene3D's caller doc — this is the geometry
-// factory only. Keep additions here.
-function _buildScene3DObject(obj, T) {
-  const color = new T.Color(resolveColor(obj.color) || "#ffffff");
-  const size = obj.size || 1;
-  if (obj.kind === "wireframe_cube") {
-    const geo = new T.BoxGeometry(size, size, size);
-    return new T.LineSegments(new T.WireframeGeometry(geo),
-      new T.LineBasicMaterial({ color }));
-  }
-  if (obj.kind === "wireframe_sphere") {
-    const geo = new T.SphereGeometry(size, 16, 12);
-    return new T.LineSegments(new T.WireframeGeometry(geo),
-      new T.LineBasicMaterial({ color }));
-  }
-  if (obj.kind === "torus") {
-    const geo = new T.TorusGeometry(size, size * 0.3, 8, 24);
-    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-  }
-  if (obj.kind === "icosahedron") {
-    const geo = new T.IcosahedronGeometry(size, 0);
-    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-  }
-  if (obj.kind === "tetrahedron") {
-    const geo = new T.TetrahedronGeometry(size, 0);
-    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-  }
-  if (obj.kind === "octahedron") {
-    const geo = new T.OctahedronGeometry(size, 0);
-    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-  }
-  if (obj.kind === "dodecahedron") {
-    const geo = new T.DodecahedronGeometry(size, 0);
-    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-  }
-  if (obj.kind === "box") {
-    const w_ = size;
-    const h_ = (typeof obj.height === "number") ? obj.height : size;
-    const d_ = (typeof obj.depth === "number") ? obj.depth : size;
-    const geo = new T.BoxGeometry(w_, h_, d_);
-    return new T.LineSegments(new T.WireframeGeometry(geo),
-      new T.LineBasicMaterial({ color }));
-  }
-  if (obj.kind === "tube") {
-    const path = Array.isArray(obj.path) ? obj.path.filter(p => Array.isArray(p) && p.length === 3) : [];
-    if (path.length < 2) return null;
-    const points = path.map(p => new T.Vector3(p[0], p[1], p[2]));
-    const curve = new T.CatmullRomCurve3(points, false, "catmullrom", 0.5);
-    const tubularSegments = Math.max(20, path.length * 8);
-    const radius = size || 0.05;
-    const geo = new T.TubeGeometry(curve, tubularSegments, radius, 8, false);
-    return new T.Mesh(geo, new T.MeshBasicMaterial({ color, wireframe: true }));
-  }
-  if (obj.kind === "axis_helper") {
-    return new T.AxesHelper(size);
-  }
-  if (obj.kind === "particle_cloud") {
-    const geo = new T.BufferGeometry();
-    const positions = [];
-    const count = obj.count || 100;
-    const spread = obj.spread || 3;
-    for (let i = 0; i < count; i++) {
-      positions.push((Math.random() - 0.5) * spread * 2);
-      positions.push((Math.random() - 0.5) * spread * 2);
-      positions.push((Math.random() - 0.5) * spread * 2);
-    }
-    geo.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
-    return new T.Points(geo, new T.PointsMaterial({ color, size: 0.05 }));
-  }
-  if (obj.kind === "cylinder") {
-    const radius = size;
-    const height = (typeof obj.height === "number") ? obj.height : size * 2;
-    const geo = new T.CylinderGeometry(radius, radius, height, 16, 1, false);
-    const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.4,
-    }));
-    const edges = new T.LineSegments(
-      new T.EdgesGeometry(geo, 1),
-      new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
-    );
-    const group = new T.Group();
-    group.add(fill);
-    group.add(edges);
-    return group;
-  }
-  if (obj.kind === "cone") {
-    const radius = size;
-    const height = (typeof obj.height === "number") ? obj.height : size * 2;
-    const geo = new T.ConeGeometry(radius, height, 16, 1, false);
-    const fill = new T.Mesh(geo, new T.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.4,
-    }));
-    const edges = new T.LineSegments(
-      new T.EdgesGeometry(geo, 1),
-      new T.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
-    );
-    const group = new T.Group();
-    group.add(fill);
-    group.add(edges);
-    return group;
-  }
-  if (obj.kind === "plane") {
-    const w_ = size;
-    const h_ = (typeof obj.height === "number") ? obj.height : size;
-    const geo = new T.PlaneGeometry(w_, h_, 1, 1);
-    return new T.Mesh(geo, new T.MeshBasicMaterial({
-      color, wireframe: true, side: T.DoubleSide,
-    }));
-  }
-  if (obj.kind === "line") {
-    const from = Array.isArray(obj.from) ? obj.from : [0, 0, 0];
-    const to = Array.isArray(obj.to) ? obj.to : [1, 0, 0];
-    const geo = new T.BufferGeometry().setFromPoints([
-      new T.Vector3(...from),
-      new T.Vector3(...to),
-    ]);
-    return new T.Line(geo, new T.LineBasicMaterial({ color }));
-  }
-  if (obj.kind === "label") {
-    const text = String(obj.text || "");
-    const cnv = document.createElement("canvas");
-    const ctx = cnv.getContext("2d");
-    const fontPx = 64;
-    ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
-    const metrics = ctx.measureText(text);
-    cnv.width = Math.max(64, Math.ceil(metrics.width) + 20);
-    cnv.height = fontPx + 20;
-    ctx.font = `${fontPx}px ${getComputedStyle(document.body).getPropertyValue("--type-mono") || "monospace"}`;
-    ctx.fillStyle = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-    ctx.fillText(text, cnv.width / 2, cnv.height / 2);
-    const tex = new T.CanvasTexture(cnv);
-    const mat = new T.SpriteMaterial({ map: tex, transparent: true });
-    const sprite = new T.Sprite(mat);
-    const scale = size || 0.5;
-    sprite.scale.set(scale * (cnv.width / cnv.height), scale, 1);
-    return sprite;
-  }
-  return null;
-}
-
-function _buildScene3DMeshes(spec, T) {
-  const root = new T.Group();
-  const animatables = [];
-  for (const obj of (spec.objects || [])) {
-    const mesh = _buildScene3DObject(obj, T);
-    if (!mesh) continue;
-    if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
-    root.add(mesh);
-    if (Array.isArray(obj.rotation_speed)) {
-      animatables.push({ mesh, speed: obj.rotation_speed });
-    }
-  }
-  return { root, animatables };
-}
-
-function initScene3D(container, spec) {
-  const T = window.THREE;
-  if (!T) {
-    container.textContent = "Three.js not available";
-    return null;
-  }
-  const w = container.clientWidth || 600;
-  const h = 360;
-  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(w, h, false);
-  // Ensure the canvas CSS size matches the container exactly. Without
-  // this, when the cell is hero-width at init then shrinks into ambient
-  // (or any reflow), the canvas keeps its initial CSS width and overflows
-  // out the right side of the cell. Combined with the ResizeObserver
-  // below, the renderer tracks the cell width at all times.
-  renderer.domElement.style.width = "100%";
-  renderer.domElement.style.height = h + "px";
-  renderer.domElement.style.display = "block";
-  const bg = spec.background;
-  if (bg && bg !== "transparent") {
-    renderer.setClearColor(bg, 1);
-  } else {
-    renderer.setClearColor(0x000000, 0);
-  }
-  container.appendChild(renderer.domElement);
-
-  const scene = new T.Scene();
-  const camera = new T.PerspectiveCamera(50, w / h, 0.1, 100);
-  camera.position.set(0, 0, spec.camera_distance || 5);
-
-  // Per-kind doc: see _buildScene3DObject above. The kind switch is
-  // shared with _buildScene3DMeshes (used by the mixed3d war-room holo
-  // ring) so a new primitive lands in one place.
-  const animatables = [];
-  for (const obj of (spec.objects || [])) {
-    const mesh = _buildScene3DObject(obj, T);
-    if (!mesh) continue;
-    if (Array.isArray(obj.position)) mesh.position.set(...obj.position);
-    scene.add(mesh);
-    if (Array.isArray(obj.rotation_speed)) {
-      animatables.push({ mesh, speed: obj.rotation_speed });
-    }
-  }
-
-  // Auto-fit camera. LLM-specced positions often place labels/objects
-  // outside the default camera_distance frustum — cell-4578 has labels
-  // at y=5.15 with camera_distance=7 (~10% past visible region), so
-  // "used 9.7Gi" text overflowed the top of the cell viewport. Compute
-  // the scene's bounding box and pull the camera back along Z until
-  // the box fits with a margin. Re-target lookAt to box center so the
-  // scene is visually centered regardless of how the LLM laid it out.
-  // Spec's camera_distance is treated as a MINIMUM (cleanly framed
-  // scenes don't lose their composition).
-  const bbox = new T.Box3().setFromObject(scene);
-  if (!bbox.isEmpty()) {
-    const center = bbox.getCenter(new T.Vector3());
-    const size = bbox.getSize(new T.Vector3());
-    const fovRad = (camera.fov * Math.PI) / 180;
-    const margin = 1.18;
-    const distForH = (size.y / 2) * margin / Math.tan(fovRad / 2);
-    const distForW = (size.x / 2) * margin / (Math.tan(fovRad / 2) * camera.aspect);
-    const minDist = spec.camera_distance || 5;
-    const requiredDist = Math.max(distForH, distForW, minDist);
-    camera.position.set(center.x, center.y, center.z + requiredDist);
-    camera.lookAt(center);
-  }
-
-  // Render loop is play/pause-able via the returned controller; the caller
-  // wires it to an IntersectionObserver so off-screen scenes don't compete
-  // for the GPU thread.
-  let running = false;
-  function animate() {
-    if (!running) return;
-    requestAnimationFrame(animate);
-    for (const a of animatables) {
-      a.mesh.rotation.x += a.speed[0] || 0;
-      a.mesh.rotation.y += a.speed[1] || 0;
-      a.mesh.rotation.z += a.speed[2] || 0;
-    }
-    renderer.render(scene, camera);
-  }
-  // Track container width with ResizeObserver. Without this, scenes that
-  // initialize at hero width and later get shifted into ambient (half-width
-  // grid slot) keep their original canvas size and overflow the cell —
-  // user-visible as "3D content mostly cut off" on cells like 0658.
-  const ro = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      const cw = entry.contentRect.width;
-      if (cw > 10) {
-        renderer.setSize(cw, h, false);
-        renderer.domElement.style.width = "100%";
-        renderer.domElement.style.height = h + "px";
-        camera.aspect = cw / h;
-        camera.updateProjectionMatrix();
-        // Re-apply auto-fit so a cell that narrows (hero → ambient
-        // grid slot) doesn't crop scene width. We only need to grow
-        // the camera distance — if the cell got wider we don't need
-        // to come closer, the existing distance still frames the box.
-        if (!bbox.isEmpty()) {
-          const center = bbox.getCenter(new T.Vector3());
-          const size = bbox.getSize(new T.Vector3());
-          const fovRad = (camera.fov * Math.PI) / 180;
-          const margin = 1.18;
-          const distForH = (size.y / 2) * margin / Math.tan(fovRad / 2);
-          const distForW = (size.x / 2) * margin / (Math.tan(fovRad / 2) * camera.aspect);
-          const minDist = spec.camera_distance || 5;
-          const requiredDist = Math.max(distForH, distForW, minDist);
-          if (requiredDist > camera.position.z - center.z) {
-            camera.position.set(center.x, center.y, center.z + requiredDist);
-            camera.lookAt(center);
-          }
-        }
-      }
-    }
-  });
-  ro.observe(container);
-  return {
-    play() { if (!running) { running = true; animate(); } },
-    pause() { running = false; },
-    dispose() {
-      running = false;
-      ro.disconnect();
-      scene.traverse(obj => {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-          if (Array.isArray(obj.material)) obj.material.forEach(m => { m.dispose(); });
-          else obj.material.dispose();
-        }
-      });
-      renderer.dispose();
-      if (renderer.forceContextLoss) renderer.forceContextLoss();
-      if (renderer.domElement && renderer.domElement.parentNode) {
-        renderer.domElement.parentNode.removeChild(renderer.domElement);
-      }
-    },
-  };
-}
 
 load().catch(err => {
   document.getElementById("notebook").textContent =
