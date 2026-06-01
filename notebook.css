@@ -7096,6 +7096,12 @@ body.layout-mixed3d .cell[data-cell-type="scene3d"] {
    What remains: a very subtle cyan inset border + faint dark glass
    tint so the cell has SOMETHING readable, but no heavy panel
    chrome separating it from the tower face. */
+/* In mixed3d the substrate IS the data — the prose caption is
+   readability tooling for the 2D dashboard reader. At dome scale
+   the caption was eating ~50% of each cell's vertical space
+   (user 2026-05-31). Hide it; the substrate viz speaks for itself. */
+body.layout-mixed3d .cell-caption { display: none !important; }
+
 body.layout-mixed3d .cell {
   border: 1px solid color-mix(in srgb, var(--accent, #00ddff) 55%, transparent);
   /* Holo-shimmer edge: tight glow halo. Kept narrow (4px) because

@@ -4846,12 +4846,13 @@ function applyMixed3DWarRoom(O) {
     const rowN = isLower ? LOWER_N : UPPER_N;
     const rowY = isLower ? LOWER_Y : UPPER_Y;
     const rowR = isLower ? LOWER_R : UPPER_R;
-    // Even spacing: lower cells at idx/(N-1), upper cells at
-    // midpoints between lower positions ((idx+0.5)/N) — geometric
-    // hex pack guaranteed regardless of N.
-    const aFrac = isLower
-      ? idxInRow / Math.max(1, rowN - 1)
-      : (idxInRow + 0.5) / rowN;
+    // Spread BOTH rows across the full arc (idx/(N-1)). The earlier
+    // midpoint formula for upper packed the 3 cells into 1/6..5/6 of
+    // the arc, which at our scale projected with 7-10 px overlaps
+    // between adjacent upper cells. Using the same edge-to-edge
+    // spread as the lower row guarantees the upper cells' projected
+    // width fits with positive gap.
+    const aFrac = idxInRow / Math.max(1, rowN - 1);
     const a = ARC_START + aFrac * ARC_SPAN;
     const obj = new T.CSS3DObject(cell);
     obj.position.set(Math.cos(a) * rowR, rowY, Math.sin(a) * rowR);
