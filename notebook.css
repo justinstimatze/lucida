@@ -4477,99 +4477,17 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
 /* Flat institutional panel: plain near-square border, NO glow, NO notch — the
    deliberately-boring establishment look (the contrast that makes mars-blue/drift
    read as characterful). */
-/* Cells inherit the WWII-naval situations-plot chrome: same opaque navy bg,
-   same chunky angular bezel (45° beveled multi-shadow), zero border-radius.
-   The dashboard reads as a wall of identical-grammar console panels — the
-   plot is just the panel that has live tracks on it. Inner ring slightly
-   thinner than the board's 5px so cell content has more breathing room. */
 .theme-earth .cell {
-  background: #0f1726;
-  border: 1px solid #3a475c;
-  border-radius: 0;
-  box-shadow:
-    /* heavier drop separator — cells visibly lift from the dark bg */
-    0 4px 14px rgba(0, 0, 0, 0.65),
-    /* 45° bevel highlight (top-left) — the only inset, so the corner reads
-       as ONE clean L, not stacked Ls. (User flagged the dark inner ring
-       inset as creating a second L-corner — "all fucked up", 2026-06-01.) */
-    inset 3px 3px 0 0 #5a708a,
-    inset -3px -3px 0 0 #050810;
+  border: 1px solid rgba(47, 111, 208, 0.3);
+  border-radius: 2px;
+  background: var(--cell-bg);
+  box-shadow: none;
 }
-/* Cell title bar — TRANSPARENT bg, not a lighter placard. Even without a
-   placard border, a lighter bg starting at +14px from the cell edge paints
-   its own visible top-left corner (the bg-transition L) which competes
-   with the outer bevel L (user 2026-06-01 cell-7615 screenshot: visible
-   doubled corner). Keep title as text-only with a hairline separator; the
-   cell's outer bevel owns all four corners alone. */
-.theme-earth .cell-head {
-  background: transparent;
-  border-bottom: 1px solid #2c3a52;
-  font-family: "Share Tech Mono", "Courier New", monospace;
-  letter-spacing: 0.14em;
-  color: #8fa8c8;
-}
-/* Cell body — darker sub-screen inside the chrome (matches the plot's
-   .earth-screen: black-navy bg, hairline border, inset dark separator).
-   Content (SVG / scene3d / vega) renders inside this sub-panel like the
-   plot's situations SVG renders inside .earth-screen — the cell becomes
-   a nested console exactly like the situations plot. */
-/* Body inherits the cell's bg — no distinct sub-screen color, because the
-   sub-screen's edges also paint a visible inner L (same problem as the
-   placard's bg transition). The cell's outer bevel is the only frame;
-   title + body + caption share one continuous panel surface. */
 /* Reserve a bottom band on the cell area so cells never overlap the
    situations plot in the bottom-left corner (plot is 344×150 at left:14
    bottom:16 — band reservation gives ~24px breathing room). */
 html.theme-earth #notebook {
   padding-bottom: 180px;
-}
-/* Still-warm / fresh recency glow — the default ::before paints a 1px
-   accent-color ring + glow that visually OVERWRITES the cell's bevel
-   corner (user 2026-06-01 cell-7617 "no bevel at all"). For earth, route
-   the recency cue to a drop-shadow filter on the cell itself so it
-   layers OUTSIDE the bevel without breaking the L-corner. ALSO override
-   the cell-arrive keyframe (which directly animates box-shadow for ~1s
-   on fresh mount, erasing the bevel) — replace with a transform-only
-   entrance that keeps the bevel intact throughout. */
-.theme-earth .cell.cell-still-warm::before,
-.theme-earth .cell.cell-fresh::before {
-  display: none;
-}
-.theme-earth .cell.cell-still-warm {
-  filter: drop-shadow(0 0 6px rgba(47, 111, 208, 0.35));
-}
-.theme-earth .cell.cell-fresh {
-  filter: drop-shadow(0 0 10px rgba(47, 111, 208, 0.55));
-  /* Override the base .cell.cell-fresh rule that paints a flat blue glow
-     (overwriting our bevel) and a 3px accent border-left (asymmetric on a
-     beveled box). Restore the bevel cascade and the matching outer border. */
-  box-shadow:
-    0 4px 14px rgba(0, 0, 0, 0.65),
-    inset 3px 3px 0 0 #5a708a,
-    inset -3px -3px 0 0 #050810;
-  border: 1px solid #3a475c;
-  animation-name: earth-cell-arrive;
-}
-@keyframes earth-cell-arrive {
-  0%   { opacity: 0; transform: translate3d(0, -14px, -80px); }
-  60%  { opacity: 1; transform: translate3d(0, 0, 0); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-/* Scene3d cells get their own longer entrance (cell-arrive-render) that
-   also animates box-shadow. Override it the same way so scene3d cells
-   keep the bevel during the 1.6s mount window. */
-.theme-earth .cell.cell-fresh[data-cell-type="scene3d"] {
-  animation: earth-cell-arrive-render 1.6s ease-out;
-  box-shadow:
-    0 4px 14px rgba(0, 0, 0, 0.65),
-    inset 3px 3px 0 0 #5a708a,
-    inset -3px -3px 0 0 #050810;
-}
-@keyframes earth-cell-arrive-render {
-  0%   { opacity: 0; transform: translateY(-20px); }
-  35%  { opacity: 0.5; }
-  70%  { opacity: 1; transform: translateY(0); }
-  100% { opacity: 1; transform: translateY(0); }
 }
 .theme-earth .mermaid-target .node rect,
 .theme-earth .mermaid-target .node polygon,
