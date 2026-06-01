@@ -1,5 +1,5 @@
 {
-  "_comment": "The Expanse — Earth / United Nations Navy. Grounded from refs/unn/NOTES.md. ROYAL/NAVY blue primary, deliberately deeper/more saturated than Roci's cyan (faction separation). DESIGN INTENT (user-confirmed): UNN is deliberately CLUNKY / BORING / INSTITUTIONAL / UTILITARIAN — the 'boring competent bureaucracy' register. Do NOT make it slick like roci/belter. Flat plain panels, no glow, no grit, no angular flourish — the dull weight of the establishment. Red = incoming-threat accent, green = diplomatic. Slightly cooler/architectural surface (Earth has buildings). Showrunner banned flashing-text-box excess. layout=pack.",
+  "_comment": "The Expanse — Earth / United Nations Navy. Grounded from refs/unn/NOTES.md. ROYAL/NAVY blue primary, deliberately deeper/more saturated than MarsBlue's cyan (faction separation). DESIGN INTENT (user-confirmed): EARTH is deliberately CLUNKY / BORING / INSTITUTIONAL / UTILITARIAN — the 'boring competent bureaucracy' register. Do NOT make it slick like mars-blue/drift. Flat plain panels, no glow, no grit, no angular flourish — the dull weight of the establishment. Red = incoming-threat accent, green = diplomatic. Slightly cooler/architectural surface (Earth has buildings). Showrunner banned flashing-text-box excess. layout=pack.",
   "accent": {
     "primary":   "#2f6fd0",
     "secondary": "#3a7bb8",
@@ -46,7 +46,7 @@
   "layout": "warroom",
   "skin": "institutional",
   "mixed3d": {
-    "_comment": "?theme=unn&layout=mixed3d — UNN holo-table war-room: flat holographic disc with concentric rings/spokes/sweep + drifting contacts; cells ring the disc periphery. Extrudes the warroom 2D layout into 3D.",
+    "_comment": "?theme=earth&layout=mixed3d — EARTH holo-table war-room: flat holographic disc with concentric rings/spokes/sweep + drifting contacts; cells ring the disc periphery. Extrudes the warroom 2D layout into 3D.",
     "arrangement": "war-room",
     "camera": "orbit-down",
     "world": {

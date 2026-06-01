@@ -584,11 +584,11 @@ function applyFactionHUDLabels(theme) {
   // Defined locally so the const can't be in TDZ at first-call time (this
   // function may run before any top-level const initializer below it).
   const _sessionTrim = (v) => String(v).replace(/sess(?:-.*)?$/i, "");
-  // Layout AND theme chips stay canonical ("LAYOUT: PACK", "THEME: UNN")
+  // Layout AND theme chips stay canonical ("LAYOUT: PACK", "THEME: EARTH")
   // across themes — per-theme remaps (layout pack→CONVOY, theme unn→FLAG …)
   // hid the renderer-internal id the corresponding dropdown still showed,
   // so chip and dropdown disagreed. Reverted per user 2026-05-29: "the
-  // unn still uses the 'flag' name instead of 'theme' — correct that for
+  // earth still uses the 'flag' name instead of 'theme' — correct that for
   // all themes". Faction flavor stays in the other chip labels
   // (status/cells/since/render/session).
   //
@@ -1260,7 +1260,10 @@ function computeHud(data, substrateAudit, mintLog) {
               : state.sessions.active.size > 1
                 ? `${state.sessions.active.size}sess`
                 : (data.session_id || "—").slice(0, 8)),
-    theme: (window.__LUCIDA_THEME || "lab").toUpperCase(),
+    theme: (() => {
+      const k = window.__LUCIDA_THEME || "lab";
+      return THEME_REGISTRY[k]?.label || k.toUpperCase();
+    })(),
     kill1, kill2, kill3, recent,
   };
 }
@@ -1763,10 +1766,10 @@ function _connAccent() {
 // Connection capability: a theme can declare TOKENS.connections to make the
 // overlay faction-native. "trajectory" = the MCRN nav register — dashed lines
 // with chevron flow-arrows, the way the show joins named bodies on the nav plot
-// (ROCINANTE—MARASMUS dashed path). Color stays CYAN (--accent): per the
+// (MARS_BLUE—MARASMUS dashed path). Color stays CYAN (--accent): per the
 // reference frames the connecting/trajectory lines are cyan/white in BOTH calm
 // and combat; red is reserved for the histogram band + threat reticles, never
-// the connector lines. Absent → plain solid accent arcs. Reusable: belter/unn
+// the connector lines. Absent → plain solid accent arcs. Reusable: drift/unn
 // can add their own connection modes.
 function _connStyle() {
   const mode = (typeof TOKENS !== "undefined" && TOKENS.connections) || null;
@@ -2196,7 +2199,7 @@ const LAYOUT_REGISTRY = {
     description: "command center — center nav-plot, L/R telemetry rails, bottom log band",
     // Positioning is pure CSS grid (#notebook[data-layout="cockpit"]). apply()
     // only tags side-rail cells so CSS can angle them inward (curved-cockpit
-    // tilt) — it never sets positions. Rocinante's default layout.
+    // tilt) — it never sets positions. MarsBlue's default layout.
     apply: () => applyCockpitRailTags(),
     // 3 columns × ~2 rows at typical res (user 2026-05-28: "if you're going to
     // have 3 cols then you can have only 1-2 rows"). Hero spans both center rows;
@@ -2208,9 +2211,9 @@ const LAYOUT_REGISTRY = {
     id: "warroom",
     label: "warroom",
     description: "UN situation room — cells ring a central holo-table",
-    // Cells ring a reserved center where the unn situations-board is centered +
+    // Cells ring a reserved center where the earth situations-board is centered +
     // enlarged. One ring fit-to-viewport (no scroll). Few, large, readable cells
-    // (like cockpit); the full corpus lives in pack. unn's default layout.
+    // (like cockpit); the full corpus lives in pack. earth's default layout.
     // Cap 4: cells placed at diagonal corners (NW/NE/SE/SW). Earlier 6-at-60°
     // layout had right/left flank cells at sin±30° that overlapped (vertical
     // spacing = ry, but cellH > ry post-HUD-clamp). Diagonal corners give
@@ -2791,7 +2794,7 @@ function applyMixed3DLayout(opts) {
   const root = document.getElementById("notebook");
   if (!root) return;
   const O = _mixed3dResolveOpts(opts);
-  // Arrangement dispatch: war-room (UNN holo-table) is a separate
+  // Arrangement dispatch: war-room (EARTH holo-table) is a separate
   // world (flat disc + ring of cells around its periphery) — too
   // different from the canyon-of-towers to share the body of this
   // function. Sibling owns its own renderer/scene/camera/loop and
@@ -4091,7 +4094,7 @@ function applyMixed3DLayout(opts) {
 }
 
 // ----------------------------------------------------------------
-// mixed3d: war-room arrangement — UNN holo-table v2.
+// mixed3d: war-room arrangement — EARTH holo-table v2.
 // VOLUMETRIC HOLOGRAM rebuild after v1 was called out as "a bad copy
 // of the reference" (User 2026-05-30: "rethink the whole thing based
 // on the 3d holograms in the reference videos / it's a lot more
@@ -4759,7 +4762,7 @@ function applyMixed3DWarRoom(O) {
   // crowded ring doesn't read as a flat fence.  Cells face the disc
   // center (rotation.y = -angle + π/2).  Scale (0.024) tuned so a
   // 360px cell reads ~9u wide in scene space — sized to the disc.
-  // Hide the 2D UNN situations-board furniture while mixed3d is the
+  // Hide the 2D EARTH situations-board furniture while mixed3d is the
   // active layout — the holo-disc IS the situations-board in 3D, so
   // the CSS-fixed bottom-left widget would be a redundant duplicate
   // overlapping the disc.  Restored on teardown.
@@ -4937,7 +4940,7 @@ function applyMixed3DWarRoom(O) {
     // coherent connected display rather than scattered shapes. Each pair
     // of adjacent holders gets a CatmullRom curve lifted above the chord
     // (control points pulled upward) — TubeGeometry core + additive halo
-    // for the same FUI hologram feel as the UNN orbital arcs.
+    // for the same FUI hologram feel as the EARTH orbital arcs.
     if (_holoScene3DHolders.length >= 2) {
       const trajColor = resolveColor("--accent") || "#4a86d8";
       for (let li = 0; li < _holoScene3DHolders.length - 1; li++) {
@@ -11758,12 +11761,12 @@ function applyOrganicLayout() {
   }
 }
 
-// UNN war-room ring: a few large readout cells ring a RESERVED CENTER where the
-// unn situations-board furniture is centered + enlarged (the literal holo-table
+// EARTH war-room ring: a few large readout cells ring a RESERVED CENTER where the
+// earth situations-board furniture is centered + enlarged (the literal holo-table
 // the room is built around — refs/unn war-room). A single ELLIPTICAL ring
 // (wide-short, matching the table's footprint), fit-to-viewport (no scroll) so
 // the ring center aligns with the fixed, centered furniture. Theme-agnostic
-// layout; unn adopts it via its `layout` token and the board centers via the
+// layout; earth adopts it via its `layout` token and the board centers via the
 // `.fur-warroom` class (toggled in applyActiveLayout). Distinct from `organic`
 // (no center hero — the centerpiece is the holo-table, not a cell) and the most
 // grounded/horizontal of the three faction compositions (NOTES: situation-room).
@@ -11787,7 +11790,7 @@ function applyWarroomLayout() {
   // A few large, fully-readable readouts (cap 6 in the registry).
   const cellW = Math.min(330, vw * 0.24);
   const cellH = Math.min(232, vh * 0.30);
-  // Reserve the centered holo-table (scaled unn-board ≈ 460×200): cells must
+  // Reserve the centered holo-table (scaled earth-board ≈ 460×200): cells must
   // clear its half-extents so they ring the table rather than cover it.
   const tableHalfW = 248, tableHalfH = 118, gap = 26;
   const availHalfW = vw / 2 - margin;
@@ -11799,9 +11802,9 @@ function applyWarroomLayout() {
   // cy (cy itself) is smaller than the space below cy. Without an explicit
   // top-clearance check, the topmost cell at angle -π/2 (y = cy - ry -
   // cellH/2) can render with a negative y, pushing it behind the HUD —
-  // user-visible on UNN war-room top cells. Clamp ry so the topmost cell
+  // user-visible on EARTH war-room top cells. Clamp ry so the topmost cell
   // top edge stays >= margin (= HUD bottom + margin in viewport coords).
-  // Generic to any ring layout — not unn/warroom-specific.
+  // Generic to any ring layout — not earth/warroom-specific.
   const topClearance = cy - cellH / 2 - margin;
   const botClearance = (vh - rootRect.top) - cy - cellH / 2 - margin;
   const ryMax = Math.min(topClearance, botClearance);
@@ -11970,7 +11973,7 @@ function applyCockpitRailTags() {
   if (!root || root.dataset.layout !== "cockpit") return;
   // Composition capability: when the theme declares a composition mode,
   // dock cells by FUNCTION (role-based instrument slots) instead of by
-  // DOM/recency order. Generic pass — reused by belter/unn compositions.
+  // DOM/recency order. Generic pass — reused by drift/unn compositions.
   if (TOKENS.composition) {
     root.dataset.composition = TOKENS.composition;
     applyCompositionSlots(root);
@@ -12008,7 +12011,7 @@ function applyCockpitRailTags() {
 // sequence is hero → rails (top, flanking) → dock (below the plot),
 // regardless of the cells' chronological DOM order. Theme-agnostic: the
 // same five slot classes are repositioned per-composition in CSS, so
-// belter/unn reuse this core with their own slot geometry.
+// drift/unn reuse this core with their own slot geometry.
 function applyCompositionSlots(root) {
   const SLOTS = ["comp-hero", "comp-rail-l", "comp-rail-r", "comp-dock", "comp-solo"];
   const cells = [...root.querySelectorAll(":scope > .cell")];
@@ -12057,17 +12060,17 @@ function mountThemeFurniture(theme) {
   el.innerHTML = "";
   el.removeAttribute("data-theme");
   // Furniture builder registry. THEME_REGISTRY[theme].furniture names the
-  // builder key — themes can share a builder by naming the same key (tachi
-  // reuses rocinante's MCRN bezel, so _both_ entries' furniture field reads
-  // "rocinante"). _buildFurnitureRocinante reads ACTIVE off the theme
-  // registry so "MCRN TACHI" / "MCRN ROCINANTE" labels stay correct
+  // builder key — themes can share a builder by naming the same key (mars-red
+  // reuses mars-blue's MCRN bezel, so _both_ entries' furniture field reads
+  // "mars-blue"). _buildFurnitureMarsBlue reads ACTIVE off the theme
+  // registry so "MCRN MARS_RED" / "MCRN MARS_BLUE" labels stay correct
   // regardless of which entry triggered the build. Defined locally so
   // the const can't be in TDZ — mountThemeFurniture(ACTIVE) is called at
   // top level before this file position is reached.
   const FURNITURE_BUILDERS = {
-    rocinante: _buildFurnitureRocinante,
-    belter:    _buildFurnitureBelter,
-    unn:       _buildFurnitureUNN,
+    "mars-blue": _buildFurnitureMarsBlue,
+    drift:       _buildFurnitureDrift,
+    earth:       _buildFurnitureEarth,
   };
   const furnitureKey = THEME_REGISTRY[theme]?.furniture;
   if (!furnitureKey) return;
@@ -12079,17 +12082,17 @@ function mountThemeFurniture(theme) {
   el.dataset.theme = furnitureKey;
   builder(el);
 }
-function _buildFurnitureRocinante(el) {
+function _buildFurnitureMarsBlue(el) {
   // MCRN bridge-console BEZEL: corner brackets, L/R bearing tick scales, a top
   // segmented readout strip, and the signature bottom band (red spectrum-analyzer
   // histogram + cyan dials + registry label). All in the viewport margins,
   // pointer-events none. The animated bits (bar bounce, strip runner, dial
   // needles) + the body::after radar sweep are the "movement" tells. Styling +
-  // keyframes live in notebook.css (#theme-furniture[data-theme=rocinante]).
+  // keyframes live in notebook.css (#theme-furniture[data-theme=mars-blue]).
   let bars = "";
   const N = 46;
   for (let i = 0; i < N; i++) {
-    // Bars start at a flat baseline; _updateRocinanteHisto() binds each bar's
+    // Bars start at a flat baseline; _updateMarsBlueHisto() binds each bar's
     // height to REAL mint activity (cells minted in that time slice). The
     // per-bar dur/delay only drive a subtle shimmer so the band looks alive
     // without overriding the data height.
@@ -12097,8 +12100,8 @@ function _buildFurnitureRocinante(el) {
     const delay = (((i * 3) % 11) * 0.13).toFixed(2);
     bars += '<i style="--h:0.1;--dur:' + dur + 's;--delay:' + delay + 's"></i>';
   }
-  // tachi reuses this furniture (same MCRN bezel); ACTIVE picks the registry.
-  const REG = ACTIVE === "tachi" ? "MCRN TACHI · CV-T15" : "MCRN ROCINANTE · CTV-K1W-RCI";
+  // mars-red reuses this furniture (same MCRN bezel); ACTIVE picks the registry.
+  const REG = ACTIVE === "mars-red" ? "MARS NAVY · CV-T15" : "MARS NAVY · CTV-K1W-XR";
   el.innerHTML =
     '<div class="fur-glass" aria-hidden="true"></div>' +
     '<div class="fur-bracket fur-tl"></div>' +
@@ -12107,30 +12110,12 @@ function _buildFurnitureRocinante(el) {
     '<div class="fur-bracket fur-br"></div>' +
     '<div class="fur-scale fur-scale-l"></div>' +
     '<div class="fur-scale fur-scale-r"></div>' +
-    '<div class="fur-topstrip"><span class="fur-topstrip-run"></span></div>' +
-    // Right-margin ship-self wireframe — top-down Roci silhouette
-    // (corvette-class hull + 2 thruster pods + drive cone). Per
-    // refs/rocinante NOTES.md: the "right-side white wireframe
-    // ship-self schematic" appears on every calm-ops screen and is
-    // the signature MCRN orientation element. Styled in CSS to
-    // sit fixed at right edge, mid-height, low opacity.
-    '<div class="fur-shipself" title="Ship-self — top-down schematic of Roci hull"></div>' +
-    // Left-margin telemetry log — green monospace command-line texture.
-    // Per NOTES.md: "the under-the-hood surface Yorke describes; the
-    // signature Roci texture." 4 fake function-call lines with chevron
-    // prefixes (animated cycle below in CSS).
-    '<div class="fur-telemetry">' +
-      '<i>&gt; nav.link_active()</i>' +
-      '<i>&gt; sensor.fan.sweep(0,360)</i>' +
-      '<i>&gt; drive.epstein.idle()</i>' +
-      '<i>&gt; comm.handshake(MCRN)</i>' +
-    '</div>' +
     '<div class="fur-histo" title="Mint-activity readout — each bar is a time slice of the session; bar height = cells minted in that slice.">' +
       '<div class="fur-histo-label">' + REG + '<br>TRAFFIC · STANDBY</div>' +
       '<div class="fur-bars">' + bars + '</div>' +
       // System-color triad indicators — red/green/amber backlit lamps
       // (Yorke's MCRN physical button palette). Bound below in
-      // _updateRocinanteHisto to real session state.
+      // _updateMarsBlueHisto to real session state.
       '<div class="fur-triad" title="System-color triad — red (errors/danger), amber (warnings), green (ok). Live from session state.">' +
         '<span class="fur-lamp fur-lamp-r" data-on="0"></span>' +
         '<span class="fur-lamp fur-lamp-a" data-on="0"></span>' +
@@ -12146,9 +12131,9 @@ function _buildFurnitureRocinante(el) {
 // (red = activity/energy, the MCRN grammar). So the band reads as a live
 // session-activity spectrum, not decoration. Called from applyActiveLayout
 // (initial + livefeed + resize). Per memory feedback_flair_must_inform.
-function _updateRocinanteHisto() {
+function _updateMarsBlueHisto() {
   const fur = document.getElementById("theme-furniture");
-  if (!fur || fur.dataset.theme !== "rocinante") return;
+  if (!fur || fur.dataset.theme !== "mars-blue") return;
   const bars = fur.querySelectorAll(".fur-bars i");
   if (!bars.length) return;
   const N = bars.length;
@@ -12172,7 +12157,7 @@ function _updateRocinanteHisto() {
   }
   const mins = Math.round(span / 60000);
   const window = mins >= 1 ? mins + "M" : "<1M";
-  const REG = ACTIVE === "tachi" ? "MCRN TACHI · CV-T15" : "MCRN ROCINANTE · CTV-K1W-RCI";
+  const REG = ACTIVE === "mars-red" ? "MARS NAVY · CV-T15" : "MARS NAVY · CTV-K1W-XR";
   const label = fur.querySelector(".fur-histo-label");
   if (label) {
     // "MINT ACTIVITY · N CELLS" read as dev-tooling on an MCRN warship
@@ -12205,10 +12190,6 @@ function _updateRocinanteHisto() {
     dials[1].style.setProperty("--dial-angle", Math.round(divNorm * 240 - 120) + "deg");
     dials[1].title = "Substrate diversity — " + types.size + " distinct cell types in view.";
   }
-  const run = fur.querySelector(".fur-topstrip-run");
-  if (run) run.style.setProperty("--strip-dur", (7 - rateNorm * 4).toFixed(1) + "s");
-  const strip = fur.querySelector(".fur-topstrip");
-  if (strip) strip.title = "Readout strip — highlight-sweep cadence tracks the mint rate.";
   // System-color triad: red = any danger cells in view, amber = low-
   // confidence cells, green = clean steady state (no signals firing).
   // Same flair-must-inform pattern as the histogram + dials.
@@ -12222,14 +12203,14 @@ function _updateRocinanteHisto() {
   if (lampG) lampG.dataset.on = dangerCount === 0 && lowConfCount === 0 ? "1" : "0";
 }
 
-// Belter Free Navy tactical plot — the Belter↔Roci differentiator. Mars draws a
+// Drift Free Navy tactical plot — the Drift↔MarsBlue differentiator. Mars draws a
 // flat radial sonar fan; the Belt draws a perspective-TILTED elliptical orbital
 // PLANE (concentric ellipses seen at an angle) with cyan tracks + yellow ▼
-// stalk-markers rising off the plane (refs/belter/belter_orbital_tactical.png).
+// stalk-markers rising off the plane (refs/drift/belter_orbital_tactical.png).
 // Plus the OPA split-circle faction glyph + a Lang-Belta-register registry label.
-// Contacts are data-bound (_updateBelterOrbital) so the plot reads as live
+// Contacts are data-bound (_updateDriftOrbital) so the plot reads as live
 // session tracking, not decoration (memory feedback_flair_must_inform).
-function _buildFurnitureBelter(el) {
+function _buildFurnitureDrift(el) {
   const cx = 140, cy = 118, RxMax = 136, tilt = 0.30;
   let rings = "";
   for (let i = 1; i <= 4; i++) {
@@ -12245,14 +12226,14 @@ function _buildFurnitureBelter(el) {
     ' L' + cx + ' ' + (cy + 6) + ' L' + (cx - 5) + ' ' + cy +
     ' Z" fill="#e8b04a" fill-opacity="0.9"/>';
   el.innerHTML =
-    '<div class="bel-plot">' +
+    '<div class="drift-plot">' +
       // Segmented Lang-Belta tab-strip (the show's tactical-screen top chrome:
       // EXPANSION / INT REJ / +/- / SHOW-CHN). One tab active.
-      '<div class="bel-strip">' +
-        '<span class="bel-tab bel-tab-on">DEFO</span>' +
-        '<span class="bel-tab">LOK</span>' +
-        '<span class="bel-tab">KOMMA</span>' +
-        '<span class="bel-tab">PROX</span>' +
+      '<div class="drift-strip">' +
+        '<span class="drift-tab drift-tab-on">DEF</span>' +
+        '<span class="drift-tab">LCK</span>' +
+        '<span class="drift-tab">COM</span>' +
+        '<span class="drift-tab">PRX</span>' +
       '</div>' +
       '<svg viewBox="0 0 280 168" preserveAspectRatio="xMidYMax meet" aria-hidden="true">' +
         // Holographic-projection base: a cyan radial glow under the plane, so the
@@ -12263,14 +12244,14 @@ function _buildFurnitureBelter(el) {
           '<stop offset="100%" stop-color="#1aa6b0" stop-opacity="0"/>' +
         '</radialGradient></defs>' +
         '<ellipse cx="140" cy="120" rx="155" ry="52" fill="url(#belHolo)"/>' +
-        '<g class="bel-rings">' + rings + '</g>' + ctr +
-        '<g class="bel-contacts"></g>' +
+        '<g class="drift-rings">' + rings + '</g>' + ctr +
+        '<g class="drift-contacts"></g>' +
       '</svg>' +
-      '<div class="bel-plot-label">FREE NAVY · TAKTIK PLOT<br>' +
-        '<span class="bel-plot-sub">STANDBY</span></div>' +
+      '<div class="drift-plot-label">OUTER FLEET · TAKTIK PLOT<br>' +
+        '<span class="drift-plot-sub">STANDBY</span></div>' +
       // Amber wireframe vessel glyph (the show's right-side gold ship marker),
       // dual-accent: amber hull + a cyan detail line.
-      '<div class="bel-ship"><svg viewBox="0 0 46 22" aria-hidden="true">' +
+      '<div class="drift-ship"><svg viewBox="0 0 46 22" aria-hidden="true">' +
         '<path d="M3 11 L12 6 L34 6 L43 10 L43 12 L34 16 L12 16 Z" fill="none" ' +
           'stroke="#e8b04a" stroke-width="1" stroke-opacity="0.85"/>' +
         '<line x1="15" y1="9" x2="30" y2="9" stroke="#1aa6b0" stroke-width="1" stroke-opacity="0.7"/>' +
@@ -12278,39 +12259,39 @@ function _buildFurnitureBelter(el) {
       '</svg></div>' +
     '</div>' +
     // OPA split-circle faction glyph — a ring divided by an offset slash.
-    // Dual-accent: amber/rust ring + cyan slash (matches Belter's two-color
+    // Dual-accent: amber/rust ring + cyan slash (matches Drift's two-color
     // brand vs the canonical red/white show palette — keeps faction
     // iconography on-theme without breaking the cyan+amber discipline).
-    '<div class="bel-opa"><svg viewBox="0 0 40 40" aria-hidden="true">' +
+    '<div class="drift-opa"><svg viewBox="0 0 40 40" aria-hidden="true">' +
       '<circle cx="20" cy="20" r="15" fill="none" stroke="#d8662e" stroke-width="2.6"/>' +
       '<path d="M7 27 L33 13" stroke="#1aa6b0" stroke-width="2.6" stroke-linecap="round"/>' +
     '</svg></div>' +
-    // Right-margin wireframe-hull schematic — per refs/belter
+    // Right-margin wireframe-hull schematic — per refs/drift
     // 00_03_01_freenavy_tactical_creole_display.png: the amber
     // wireframe ship dominates one panel of the Free Navy tactical
     // display. Drawn here as a Behemoth-class long hull (generation
     // ship turned warship): long cylindrical body + rotating habitation
     // drum mid-hull + drive cone aft + antenna spikes fore + side
-    // thruster vectors. Mirrors the roci .fur-shipself signature-
+    // thruster vectors. Mirrors the mars-blue .fur-shipself signature-
     // orientation pattern, amber instead of cyan-grey.
-    '<div class="bel-shipself" title="Free Navy hull schematic — Behemoth-class generation ship + thruster vectors"></div>' +
-    // Lang Belta decorative decals — short Belter-creole fragments at very
+    '<div class="drift-shipself" title="Free Navy hull schematic — Behemoth-class generation ship + thruster vectors"></div>' +
+    // Lang Belta decorative decals — short Drift-creole fragments at very
     // low opacity scattered around the viewport perimeter, slight rotation
-    // for the salvaged/graffiti texture (refs/belter NOTES.md: "Mixed
+    // for the salvaged/graffiti texture (refs/drift NOTES.md: "Mixed
     // languages/registers within one screen = the eclecticism signal. Use
     // Belta-style label fragments as texture, don't translate"). pointer-
     // events:none inheriting from #theme-furniture so they never block clicks.
-    '<div class="bel-decals" aria-hidden="true">' +
-      '<span class="bel-decal bel-decal-1">DEFOTUNG</span>' +
-      '<span class="bel-decal bel-decal-2">KOMMA LEK</span>' +
-      '<span class="bel-decal bel-decal-3">BELTALOWDA</span>' +
-      '<span class="bel-decal bel-decal-4">BOSMANG · SETARA</span>' +
+    '<div class="drift-decals" aria-hidden="true">' +
+      '<span class="drift-decal drift-decal-1">DRIFTLINE</span>' +
+      '<span class="drift-decal drift-decal-2">CORE BREAK</span>' +
+      '<span class="drift-decal drift-decal-3">OUTERFLEET</span>' +
+      '<span class="drift-decal drift-decal-4">STATIONKEEP · DRIFT</span>' +
     '</div>';
 }
 
 // Salvaged-terminal tag for a substrate type — honest (derived from the real
-// cell type) but typeset in the Belter creole/abbreviation register.
-function _belTag(type) {
+// cell type) but typeset in the Drift creole/abbreviation register.
+function _driftTag(type) {
   const m = {
     vega: "VEGA", treemap: "TREE", gauge: "DIAL", sparkline: "SPRK",
     coord_plot: "KORD", mermaid: "GRAF", force_graph: "NET", trajectory: "TRAJ",
@@ -12323,14 +12304,14 @@ function _belTag(type) {
 // Bind the orbital plot's contacts to REAL data: the most-recent cells become
 // tracked contacts on the tilted plane — newest innermost, oldest outermost,
 // spread across a front-facing arc so the ▼ stalk labels don't collide. Each
-// marker is tagged by substrate (_belTag). Called from applyActiveLayout.
-function _updateBelterOrbital() {
+// marker is tagged by substrate (_driftTag). Called from applyActiveLayout.
+function _updateDriftOrbital() {
   const fur = document.getElementById("theme-furniture");
-  if (!fur || fur.dataset.theme !== "belter") return;
-  const g = fur.querySelector(".bel-contacts");
+  if (!fur || fur.dataset.theme !== "drift") return;
+  const g = fur.querySelector(".drift-contacts");
   if (!g) return;
   // HAMMER LOCK threat state is CSS-driven via body:has(.cell-danger)
-  // (same trigger as the roci threat reticle). No JS class toggle needed.
+  // (same trigger as the mars-blue threat reticle). No JS class toggle needed.
   const cells = [...document.querySelectorAll("#notebook .cell[data-timestamp]")]
     .map((c) => ({ t: Date.parse(c.dataset.timestamp), type: c.dataset.cellType || "" }))
     .filter((c) => Number.isFinite(c.t))
@@ -12352,7 +12333,7 @@ function _updateBelterOrbital() {
     const tri = "M" + (pxN - 3).toFixed(1) + " " + (tyN - 1).toFixed(1) +
       " L" + (pxN + 3).toFixed(1) + " " + (tyN - 1).toFixed(1) +
       " L" + px + " " + (tyN + 3).toFixed(1) + " Z";
-    // Threat-state diamond marker (per refs/belter belter_hammerlock_trails:
+    // Threat-state diamond marker (per refs/drift belter_hammerlock_trails:
     // contact glyphs morph from yellow ▼ triangles to red ◆ diamonds
     // during HAMMER LOCK). Same position as the triangle so the swap
     // reads as one marker changing rather than two markers fighting.
@@ -12361,27 +12342,27 @@ function _updateBelterOrbital() {
       " L" + px + " " + (tyN + 3.4).toFixed(1) +
       " L" + (pxN - 3.4).toFixed(1) + " " + tyN.toFixed(1) + " Z";
     out +=
-      '<g class="bel-contact' + (i === 0 ? ' bel-live' : '') + '">' +
+      '<g class="drift-contact' + (i === 0 ? ' drift-live' : '') + '">' +
         // Footprint ellipse on the plane — grounds the contact so the vertical
         // riser reads as a 3D pin standing on the tilted surface (depth cue).
         '<ellipse cx="' + px + '" cy="' + py + '" rx="4" ry="1.4" fill="none" ' +
           'stroke="#1aa6b0" stroke-opacity="0.4" stroke-width="0.8"/>' +
         '<circle cx="' + px + '" cy="' + py + '" r="2.2" fill="#1aa6b0"/>' +
         // Stalk riser stays amber (wireframe color); ▼ stalk-marker
-        // triangle is YELLOW per refs/belter/belter_orbital_tactical:
-        // canonical Belter contact glyph reads as warning-yellow vs
+        // triangle is YELLOW per refs/drift/belter_orbital_tactical:
+        // canonical Drift contact glyph reads as warning-yellow vs
         // the amber wireframe hull color (visual hierarchy).
         '<line x1="' + px + '" y1="' + py + '" x2="' + px + '" y2="' + ty +
           '" stroke="#e8b04a" stroke-width="1.2" stroke-opacity="0.85"/>' +
-        '<path class="bel-marker-tri" d="' + tri + '" fill="#ffc233"/>' +
-        '<path class="bel-marker-dia" d="' + dia + '" fill="#e23b2e"/>' +
+        '<path class="drift-marker-tri" d="' + tri + '" fill="#ffc233"/>' +
+        '<path class="drift-marker-dia" d="' + dia + '" fill="#e23b2e"/>' +
         '<text x="' + px + '" y="' + (tyN - 4).toFixed(1) +
-          '" text-anchor="middle" class="bel-contact-lbl">' + _belTag(c.type) +
+          '" text-anchor="middle" class="drift-contact-lbl">' + _driftTag(c.type) +
         '</text>' +
       '</g>';
   });
   g.innerHTML = out;
-  const sub = fur.querySelector(".bel-plot-sub");
+  const sub = fur.querySelector(".drift-plot-sub");
   if (sub) sub.textContent = n + " KONTAKT";
 }
 
@@ -12390,12 +12371,12 @@ function _updateBelterOrbital() {
 // by two mirrored laurel branches. Flat single-blue line work, low opacity — it
 // reads as etched into the plot, like the war-room table inlay
 // (00_04_02_un_warroom_seal_table_orbital_lines). Returns an SVG <g> string.
-function _unnSeal(cx, cy, R) {
+function _earthSeal(cx, cy, R) {
   // Brighter institutional blue + higher opacity so the seal reads as
   // the Earth-power inlay, not a faint watermark. Audit 2026-05-31
   // flagged the prior #7da4d6 @ 0.5 as nearly invisible against bg.
   const col = "#9bb8d8";
-  let s = '<g class="unn-seal-g" stroke="' + col + '" stroke-opacity="0.78" fill="none" stroke-width="0.7" stroke-linecap="round">';
+  let s = '<g class="earth-seal-g" stroke="' + col + '" stroke-opacity="0.78" fill="none" stroke-width="0.7" stroke-linecap="round">';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R.toFixed(1) + '"/>';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.62).toFixed(1) + '"/>';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.28).toFixed(1) + '"/>';
@@ -12416,21 +12397,21 @@ function _unnSeal(cx, cy, R) {
   return s;
 }
 
-// UNN Earth/UN naval SITUATION-BOARD — the war-room tactical table, the UNN
-// signature furniture. Deliberately NOT like the others: where Belter draws a
-// tilted holo-plane and Roci a radar bezel, this is a flat HEAD-ON range-ring
+// EARTH Earth/UN naval SITUATION-BOARD — the war-room tactical table, the EARTH
+// signature furniture. Deliberately NOT like the others: where Drift draws a
+// tilted holo-plane and MarsBlue a radar bezel, this is a flat HEAD-ON range-ring
 // plot (concentric circles = naval-radar grammar, refs unn_tactical_grid_rangerings)
 // with the UN globe-laurel seal inlaid at center (the war-room table), blue
 // friendly range-rings + a dashed red threat ring, framed in a chunky grey angular
 // console bezel (unn_bridge_console_angular). NO glow, NO holo depth, NO flicker —
 // the deliberately-dull "boring competent bureaucracy" register (user-confirmed
 // on-character). Horizontal/wide emphasis (WWII-naval). Contacts data-bound
-// (_updateUNNTactical) so the plot reads as live session tracking
+// (_updateEarthTactical) so the plot reads as live session tracking
 // (memory feedback_flair_must_inform).
-function _buildFurnitureUNN(el) {
-  // Own ship (UNN) sits at center — concentric blue range-rings = its sensor
+function _buildFurnitureEarth(el) {
+  // Own ship (EARTH) sits at center — concentric blue range-rings = its sensor
   // envelope. A SECOND, OFFSET red sensor bubble (a designated hostile contact)
-  // overlaps it — the reference's signature composition (UNN Agatha King's blue
+  // overlaps it — the reference's signature composition (EARTH Agatha King's blue
   // bubble overlapping the MCRN threat's red bubble), not a single concentric
   // radar. Own ship is named by the UN seal + placard; the threat is labeled.
   const cx = 94, cy = 60;
@@ -12439,7 +12420,7 @@ function _buildFurnitureUNN(el) {
   // shows a navy grid plane behind the rings (the WWII-naval institutional
   // chart paper). Even-spaced dashed verticals + horizontals, deliberately
   // dull (no perspective tilt, no glow) — the "boring competent bureaucracy"
-  // register (memory feedback_holographic_depth_yes does NOT apply to UNN).
+  // register (memory feedback_holographic_depth_yes does NOT apply to EARTH).
   let grid = "";
   for (let x = 4; x <= 184; x += 16) {
     grid += '<line x1="' + x + '" y1="6" x2="' + x + '" y2="118" ' +
@@ -12463,50 +12444,50 @@ function _buildFurnitureUNN(el) {
   // threat triangle at its center + a label. Overlaps the blue envelope.
   const tx = 56, ty = 86, tr = 26;
   const threat =
-    '<g class="unn-threat">' +
+    '<g class="earth-threat">' +
       '<circle cx="' + tx + '" cy="' + ty + '" r="' + tr + '" fill="none" ' +
         'stroke="#d83a2e" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>' +
       '<path d="M' + tx + ' ' + (ty - 4) + ' L' + (tx + 4) + ' ' + (ty + 3) +
         ' L' + (tx - 4) + ' ' + (ty + 3) + ' Z" fill="none" stroke="#d83a2e" stroke-width="1.2"/>' +
-      '<text class="unn-threat-lbl" x="' + tx + '" y="' + (ty + 14) + '" text-anchor="middle">HOSTILE</text>' +
+      '<text class="earth-threat-lbl" x="' + tx + '" y="' + (ty + 14) + '" text-anchor="middle">HOSTILE</text>' +
     '</g>';
   el.innerHTML =
-    '<div class="unn-board">' +
-      '<div class="unn-board-hd">UNN COMBINED FLEET · SITUATIONS PLOT</div>' +
-      '<div class="unn-screen">' +
+    '<div class="earth-board">' +
+      '<div class="earth-board-hd">EARTH NAVY · SITUATIONS PLOT</div>' +
+      '<div class="earth-screen">' +
         '<svg viewBox="0 0 188 124" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
-          '<g class="unn-grid-bg">' + grid + '</g>' +
-          _unnSeal(cx, cy, 10) +
-          '<g class="unn-rings">' + rings + '</g>' + threat +
-          '<text class="unn-own-lbl" x="' + (cx + 14) + '" y="' + (cy - 14) + '">UNN</text>' +
-          '<g class="unn-contacts"></g>' +
+          '<g class="earth-grid-bg">' + grid + '</g>' +
+          _earthSeal(cx, cy, 10) +
+          '<g class="earth-rings">' + rings + '</g>' + threat +
+          '<text class="earth-own-lbl" x="' + (cx + 14) + '" y="' + (cy - 14) + '">OWN</text>' +
+          '<g class="earth-contacts"></g>' +
         '</svg>' +
       '</div>' +
-      '<div class="unn-readout">' +
-        '<div class="unn-readout-hd"><span>TRK</span><span>TYP</span><span>BRG</span><span>RNG</span></div>' +
-        '<div class="unn-readout-rows"></div>' +
+      '<div class="earth-readout">' +
+        '<div class="earth-readout-hd"><span>TRK</span><span>TYP</span><span>BRG</span><span>RNG</span></div>' +
+        '<div class="earth-readout-rows"></div>' +
         // Selected-track field readout — label / value / unit three-column
         // rows (BRG · 028 · ° pattern) per refs/unn data-row density. The
         // ref panel shows multiple field rows for the selected contact, the
         // WWII-naval institutional "every channel labeled" register. Updated
-        // in _updateUNNTactical with live BRG / RNG / CPA / SPD for the lead.
-        '<div class="unn-fields">' +
-          '<div class="unn-frow"><span>BRG</span><span class="unn-fval">---</span><span>°</span></div>' +
-          '<div class="unn-frow"><span>RNG</span><span class="unn-fval">---</span><span>NM</span></div>' +
-          '<div class="unn-frow"><span>CPA</span><span class="unn-fval">---</span><span>NM</span></div>' +
-          '<div class="unn-frow"><span>SPD</span><span class="unn-fval">---</span><span>KT</span></div>' +
+        // in _updateEarthTactical with live BRG / RNG / CPA / SPD for the lead.
+        '<div class="earth-fields">' +
+          '<div class="earth-frow"><span>BRG</span><span class="earth-fval">---</span><span>°</span></div>' +
+          '<div class="earth-frow"><span>RNG</span><span class="earth-fval">---</span><span>NM</span></div>' +
+          '<div class="earth-frow"><span>CPA</span><span class="earth-fval">---</span><span>NM</span></div>' +
+          '<div class="earth-frow"><span>SPD</span><span class="earth-fval">---</span><span>KT</span></div>' +
         '</div>' +
-        '<div class="unn-readout-ft">' +
-          '<span class="unn-ft1">SEL · STANDBY</span>' +
-          '<span class="unn-ft2">STATUS · MONITORING</span>' +
+        '<div class="earth-readout-ft">' +
+          '<span class="earth-ft1">SEL · STANDBY</span>' +
+          '<span class="earth-ft2">STATUS · MONITORING</span>' +
         '</div>' +
       '</div>' +
     '</div>';
 }
 
 // Formal naval track abbreviation for a substrate type — institutional register
-// (plain uppercase, not Belter creole).
-function _unnTag(type) {
+// (plain uppercase, not Drift creole).
+function _earthTag(type) {
   const m = {
     vega: "PLOT", treemap: "AREA", gauge: "GAUG", sparkline: "TRND",
     coord_plot: "COOR", mermaid: "FLOW", force_graph: "NET", trajectory: "TRAJ",
@@ -12520,11 +12501,11 @@ function _unnTag(type) {
 // friendly contacts (blue) on the range-rings — newest innermost — and populate
 // the right-side tracking readout. Deterministic bearings (no jitter) keep it
 // dignified/institutional. Called from applyActiveLayout.
-function _updateUNNTactical() {
+function _updateEarthTactical() {
   const fur = document.getElementById("theme-furniture");
-  if (!fur || fur.dataset.theme !== "unn") return;
-  const g = fur.querySelector(".unn-contacts");
-  const rowsEl = fur.querySelector(".unn-readout-rows");
+  if (!fur || fur.dataset.theme !== "earth") return;
+  const g = fur.querySelector(".earth-contacts");
+  const rowsEl = fur.querySelector(".earth-readout-rows");
   if (!g) return;
   const cells = [...document.querySelectorAll("#notebook .cell[data-timestamp]")]
     .map((c) => ({ t: Date.parse(c.dataset.timestamp), type: c.dataset.cellType || "" }))
@@ -12540,7 +12521,7 @@ function _updateUNNTactical() {
     const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
     const px = x.toFixed(1), py = y.toFixed(1);
     out +=
-      '<g class="unn-contact">' +
+      '<g class="earth-contact">' +
         // short radial tick from the ring + a square friendly marker (naval plot).
         '<line x1="' + cx + '" y1="' + cy + '" x2="' + px + '" y2="' + py +
           '" stroke="#2f6fd0" stroke-opacity="0.28" stroke-width="0.6"/>' +
@@ -12550,31 +12531,31 @@ function _updateUNNTactical() {
         // currently-selected target). Top-3 tracks get on-plot designator
         // labels — the reference names multiple contacts directly on the
         // plane (the institutional "every track named" density), not just one.
-        (i === 0 ? '<rect class="unn-sel-live" x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
+        (i === 0 ? '<rect class="earth-sel-live" x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
           '" width="7.2" height="7.2" fill="none" stroke="#9bb8d8" stroke-opacity="0.75" stroke-width="0.6"/>' : "") +
-        (i < 3 ? '<text class="unn-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
-          '">UNN ' + _unnTag(c.type) + '</text>' : "") +
+        (i < 3 ? '<text class="earth-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
+          '">' + _earthTag(c.type) + '</text>' : "") +
       '</g>';
     const brg = String(deg).padStart(3, "0");
     const ringIdx = Math.min(ringR.length - 1, Math.floor(i / 2));
     const rng = String(4 + ringIdx * 8 + (i % 2) * 2).padStart(2, "0"); // recency→range
-    rows += '<div class="unn-rrow"><span>' + String(i + 1).padStart(2, "0") +
-      '</span><span>' + _unnTag(c.type) + '</span><span>' + brg +
+    rows += '<div class="earth-rrow"><span>' + String(i + 1).padStart(2, "0") +
+      '</span><span>' + _earthTag(c.type) + '</span><span>' + brg +
       '</span><span>' + rng + '</span></div>';
   });
   g.innerHTML = out;
   if (rowsEl) rowsEl.innerHTML = rows;
   // Range-solution footer for the selected (lead) track — the reference's dense
   // naval readout (RNG / CPA / units). On-character institutional density.
-  const ft1 = fur.querySelector(".unn-ft1");
-  const ft2 = fur.querySelector(".unn-ft2");
+  const ft1 = fur.querySelector(".earth-ft1");
+  const ft2 = fur.querySelector(".earth-ft2");
   // Selected-track label/value/unit field readout. Values derive from the same
   // synthetic bearing/range solution the contact row uses (deterministic so it
   // reads as a steady naval plot, not a jittery dev demo).
-  const fvals = fur.querySelectorAll(".unn-fields .unn-fval");
+  const fvals = fur.querySelectorAll(".earth-fields .earth-fval");
   if (cells.length) {
     const lead = cells[0];
-    if (ft1) ft1.textContent = "SEL · UNN " + _unnTag(lead.type);
+    if (ft1) ft1.textContent = "SEL · " + _earthTag(lead.type);
     if (ft2) ft2.textContent = "STATUS · " + cells.length + " TRK";
     if (fvals.length === 4) {
       fvals[0].textContent = "028";              // BRG °
@@ -12593,7 +12574,7 @@ function _updateUNNTactical() {
 // window resize. No-op for grid mode (the CSS auto-fit handles it).
 function applyActiveLayout() {
   const mode = getLayoutMode();
-  // Center + enlarge the unn situations-board into the holo-table only in the
+  // Center + enlarge the earth situations-board into the holo-table only in the
   // war-room ring layout (the ring is built around it); bottom-left otherwise.
   const _fur = document.getElementById("theme-furniture");
   if (_fur) _fur.classList.toggle("fur-warroom", mode === "warroom");
@@ -12612,12 +12593,12 @@ function applyActiveLayout() {
   // threads track the new positions.
   scheduleRedrawConnections();
   // Refresh the data-bound MCRN histogram band (mint activity over time).
-  _updateRocinanteHisto();
-  // Refresh the data-bound Belter orbital plot (recent cells as contacts).
-  _updateBelterOrbital();
-  // Refresh the data-bound UNN situation-plot (recent cells as tracked contacts).
-  _updateUNNTactical();
-  // Track the live HUD height so the rocinante cockpit panel (height:calc with
+  _updateMarsBlueHisto();
+  // Refresh the data-bound Drift orbital plot (recent cells as contacts).
+  _updateDriftOrbital();
+  // Refresh the data-bound EARTH situation-plot (recent cells as tracked contacts).
+  _updateEarthTactical();
+  // Track the live HUD height so the mars-blue cockpit panel (height:calc with
   // --hud-h) always ends just above the bottom band — the HUD can grow to a
   // second kill-meter row, which a hardcoded offset wouldn't survive.
   const _hud = document.querySelector("header");
@@ -12971,7 +12952,18 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   // copy) · timestamp.
   const head = el("div", "cell-head");
   if (c.title) {
-    head.appendChild(el("span", "cell-title", c.title));
+    const titleEl = el("span", "cell-title", c.title);
+    // Clicking the title copies the cell id — same as the .cell-id pill.
+    // The whole title bar is a natural target; users don't always notice
+    // the small id pill as the affordance.
+    if (c.id) {
+      titleEl.style.cursor = "pointer";
+      titleEl.title = "click to copy cell id";
+      titleEl.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(c.id); } catch (e) { /* ignore */ }
+      });
+    }
+    head.appendChild(titleEl);
   }
   if (c.id) {
     const idEl = el("button", "cell-id", c.id);
@@ -14696,7 +14688,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       // Pull archetype backdrop colors from the active theme rather
       // than hardcoded hackers cyan/pink. Previously every mixed3d
       // cell carried the hackers palette in its backdrop even under
-      // UNN, rocinante, etc. — read as "hackers decorative text" in
+      // EARTH, mars-blue, etc. — read as "hackers decorative text" in
       // the wrong themes.
       let primary = "#00ddff", secondary = "#ff3a8c";
       try {
@@ -15840,14 +15832,14 @@ function _buildTransientGeneric(body) {
 // --- Expanse factions: faction-flavored ambient filler (was generic glyph
 // stream). Self-contained inline styling so no CSS-cache bump. Each refreshes
 // like a console still ticking over; interval self-clears when the cell is
-// removed (body.isConnected goes false). Belter shows by default (pack); roci/
-// unn only when switched to pack (their default cockpit/warroom layouts are
+// removed (body.isConnected goes false). Drift shows by default (pack); mars-blue/
+// earth only when switched to pack (their default cockpit/warroom layouts are
 // capped, no gaps to fill). -----------------------------------------------
-function _buildTransientBelter(body) {
+function _buildTransientDrift(body) {
   // Salvaged OPA terminal — Lang-Belta-register rows, dual amber+cyan, scrappy.
-  const wrap = el("div", "transient-belter");
+  const wrap = el("div", "transient-drift");
   wrap.style.cssText = "padding:5px 7px;font-family:'Space Mono','Share Tech Mono',monospace;font-size:8px;letter-spacing:0.08em;line-height:1.7;";
-  const labels = ["DEFO", "LOK", "KOMMA", "PROX", "OYE", "IMBOBO", "BERATNA", "WALOWDA"];
+  const labels = ["DEF", "LCK", "COM", "PRX", "POS", "SCN", "REL", "DRIFT"];
   const amber = "#e8902a", cyan = "#1aa6b0";
   const mk = () => {
     let html = "";
@@ -15866,10 +15858,10 @@ function _buildTransientBelter(body) {
     wrap.innerHTML = mk();
   }, 700);
 }
-function _buildTransientRocinante(body) {
+function _buildTransientMarsBlue(body) {
   // MCRN telemetry strip — muted cyan rows with occasional system-color tick
   // (green ok / amber alert), restrained (Mars discipline).
-  const wrap = el("div", "transient-roci");
+  const wrap = el("div", "transient-mars-blue");
   wrap.style.cssText = "padding:5px 7px;font-family:'D-DIN','Saira',sans-serif;font-size:8.5px;letter-spacing:0.1em;line-height:1.75;";
   const labels = ["THRST", "RCS", "REACTR", "NAV", "EPSTEIN", "TRIM", "ATT", "PDC"];
   const cyan = "#5a96aa", ok = "#3ad14e", warn = "#ffc233";
@@ -15890,14 +15882,14 @@ function _buildTransientRocinante(body) {
     wrap.innerHTML = mk();
   }, 800);
 }
-function _buildTransientUNN(body) {
+function _buildTransientEarth(body) {
   // Institutional readout — flat navy data rows, formal, NO flicker; a SLOW,
-  // dignified value tick (UNN motion is slow/weighty, not frantic).
-  const wrap = el("div", "transient-unn");
+  // dignified value tick (EARTH motion is slow/weighty, not frantic).
+  const wrap = el("div", "transient-earth");
   wrap.style.cssText = "padding:5px 7px;font-family:'Share Tech Mono','Courier New',monospace;font-size:8px;letter-spacing:0.06em;line-height:1.8;color:#9bb1cc;";
   const labels = ["TRK", "BRG", "RNG", "CPA", "SEC", "GRID", "VRM"];
   const mk = () => {
-    let html = '<div style="color:#5a6a86;border-bottom:1px solid rgba(47,111,208,0.22);margin-bottom:2px;padding-bottom:1px">UNN · STATUS</div>';
+    let html = '<div style="color:#5a6a86;border-bottom:1px solid rgba(47,111,208,0.22);margin-bottom:2px;padding-bottom:1px">FLEET · STATUS</div>';
     for (let i = 0; i < 5; i++) {
       html += '<div style="display:flex;justify-content:space-between"><span style="color:#5f7390">' + labels[i % labels.length] + '</span><span style="color:#6f9fd0">' + String((Math.random() * 360) | 0).padStart(3, "0") + '</span></div>';
     }
@@ -15925,9 +15917,9 @@ const TRANSIENT_BUILDERS = {
   mainframe: _buildTransientMainframe,
   renegade:  _buildTransientRenegade,
   minimal:   _buildTransientMinimal,
-  rocinante: _buildTransientRocinante,
-  belter:    _buildTransientBelter,
-  unn:       _buildTransientUNN,
+  "mars-blue": _buildTransientMarsBlue,
+  drift:       _buildTransientDrift,
+  earth:       _buildTransientEarth,
 };
 
 function _buildTransientBody(body, theme) {

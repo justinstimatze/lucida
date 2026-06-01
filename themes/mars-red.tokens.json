@@ -1,5 +1,5 @@
 {
-  "_comment": "The Expanse — MCRN, EARLY/CLASSIC look (the Tachi / Donnager, Syfy era S1-3). Split from `roci` (late/Amazon smooth-blue). Grounded in refs/tachi/NOTES.md (Donnager NqDcnwrsq6U): dark INDUSTRIAL GREY hull + RED as a CO-PRIMARY working color (red concentric tactical plots, not just danger) + steel-cyan secondary; grittier/harder/less-glow than roci. Reuses roci's machinery (layout=cockpit, chrome=instrument; D-DIN type). CAVEAT: tachi=grey+red / roci=blue is a curatorial conceit, not literal canon (rename was S1; palette drift was the S4 handoff). See memory roci_tachi_era_split. v1 = palette+layout+chrome; skin/furniture/composition + Gemini critique loop are the refine pass.",
+  "_comment": "The Expanse — MCRN, EARLY/CLASSIC look (the MarsRed / Donnager, Syfy era S1-3). Split from `mars-blue` (late/Amazon smooth-blue). Grounded in refs/mars-red/NOTES.md (Donnager NqDcnwrsq6U): dark INDUSTRIAL GREY hull + RED as a CO-PRIMARY working color (red concentric tactical plots, not just danger) + steel-cyan secondary; grittier/harder/less-glow than mars-blue. Reuses mars-blue's machinery (layout=cockpit, chrome=instrument; D-DIN type). CAVEAT: mars-red=grey+red / mars-blue=blue is a curatorial conceit, not literal canon (rename was S1; palette drift was the S4 handoff). See memory roci_tachi_era_split. v1 = palette+layout+chrome; skin/furniture/composition + Gemini critique loop are the refine pass.",
   "accent": {
     "primary":   "#d8362a",
     "secondary": "#4a9ec0",
@@ -20,11 +20,11 @@
     "muted": "#7a828c"
   },
   "data": {
-    "_comment": "RED-forward + steel-cyan ladder — the classic-MCRN duotone (red is a co-primary here, NOT just the rare-signal slot like roci). System amber[4]/danger-red[5] stay status signals.",
+    "_comment": "RED-forward + steel-cyan ladder — the classic-MCRN duotone (red is a co-primary here, NOT just the rare-signal slot like mars-blue). System amber[4]/danger-red[5] stay status signals.",
     "cat": ["#d8362a", "#4a9ec0", "#b06a5a", "#86b8cc", "#ffc233", "#e23b2e"]
   },
   "type": {
-    "_comment": "Same as roci — it IS MCRN. Show's modified DIN Pro → bundled D-DIN (OFL), Space Mono for command-line/telemetry texture.",
+    "_comment": "Same as mars-blue — it IS MCRN. Show's modified DIN Pro → bundled D-DIN (OFL), Space Mono for command-line/telemetry texture.",
     "body": "\"D-DIN\", \"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
     "head": "\"D-DIN Condensed\", \"D-DIN\", \"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
     "mono": "\"Space Mono\", \"Overpass Mono\", \"Share Tech Mono\", \"Courier New\", monospace"

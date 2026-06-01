@@ -20,7 +20,7 @@
 /* D-DIN (OFL, Datto/Monotype — github.com/amcchord/datto-d-din) — the actual
    modified-DIN-Pro family The Expanse uses for its UI (confirmed via designer
    Rhys Yorke's Pushing-Pixels interview). Bundled 2026-05-28 to replace the
-   Saira stand-in: the rocinante/expanse type tokens already name "D-DIN" first,
+   Saira stand-in: the mars-blue/expanse type tokens already name "D-DIN" first,
    so it now resolves to the real face. 400 = body, 600/700 = heads. The
    Condensed family carries the dense technical labels/headers (DIN's tight,
    industrial letterforms are the "serious instrument" tell vs Saira's rounder
@@ -70,7 +70,7 @@
   font-display: swap;
 }
 
-/* Space Mono (OFL, @fontsource) — technical monospace for the Rocinante
+/* Space Mono (OFL, @fontsource) — technical monospace for the MarsBlue
    command-line / telemetry-log texture (type.mono in the expanse themes). */
 @font-face {
   font-family: "Space Mono";
@@ -560,12 +560,12 @@ main {
 }
 
 /* Cockpit layout: command-center — center nav-plot hero flanked by L/R
-   telemetry rails, with a bottom log band below. The Rocinante (MCRN) spatial
-   grammar from Rhys Yorke's renders (refs/rocinante/NOTES.md "Layout skeleton").
+   telemetry rails, with a bottom log band below. The MarsBlue (MCRN) spatial
+   grammar from Rhys Yorke's renders (refs/mars-blue/NOTES.md "Layout skeleton").
    Pure CSS positioning; grid-auto-flow:dense fills the rails beside the
    explicitly-placed hero, then flows the band below. A tiny JS pass
    (applyCockpitRailTags) only TAGS rail cells for the curved-cockpit tilt.
-   Theme-agnostic — rocinante sets it as its default layout token. */
+   Theme-agnostic — mars-blue sets it as its default layout token. */
 #notebook[data-layout="cockpit"] {
   display: grid;
   grid-template-columns: 22fr 56fr 22fr;   /* L rail | center | R rail */
@@ -639,7 +639,7 @@ main {
    each cell by FUNCTION: a hero nav-plot dead-center, telemetry on the L/R
    rails, and the command-line log band stacked in the center column UNDER the
    plot. CSS pins the slots; `order` (set in JS) sequences the fill. This is the
-   reusable composition layer — belter/unn will re-skin these same slot classes
+   reusable composition layer — drift/unn will re-skin these same slot classes
    with their own geometry (improvised-vertical / situation-room-ring). */
 #notebook[data-layout="cockpit"][data-composition="instrument"] {
   grid-auto-flow: row dense;
@@ -3003,7 +3003,7 @@ html.theme-ops::before {
 }
 
 /* ============================================================
-   ROCINANTE theme — The Expanse, MCRN / Rocinante FUI.
+   MARS_BLUE theme — The Expanse, MCRN / MarsBlue FUI.
    Designer Rhys Yorke (Pushing Pixels): system-color triad
    (red=no/danger, green=go, yellow=warn) on a command-line
    "under-the-hood" base; cyan→royal-blue tactical readouts;
@@ -3012,9 +3012,9 @@ html.theme-ops::before {
    outline panels w/ angular top-right corner notch; DIN heads +
    technical mono. layout=tactical is INTERIM → bespoke cockpit
    layout (center nav-plot + L/R telemetry rails + bottom log band)
-   is the next build. Refs: refs/rocinante/NOTES.md GUI-grammar.
+   is the next build. Refs: refs/mars-blue/NOTES.md GUI-grammar.
    ============================================================ */
-.theme-rocinante {
+.theme-mars-blue {
   --bg:        #0a1826;
   /* Translucent panels — the show's screens are see-through outline panels;
      letting the dark nav-plot bleed through reads far more like the cockpit
@@ -3030,7 +3030,7 @@ html.theme-ops::before {
   --font-body: "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
   --font-head: "D-DIN Condensed", "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
 
-  --cell-entrance-anim:     rocinante-boot;
+  --cell-entrance-anim:     mars-blue-boot;
   --cell-entrance-duration: 0.45s;
   --cell-entrance-easing:   cubic-bezier(0.2, 0.7, 0.2, 1);
 
@@ -3050,11 +3050,11 @@ html.theme-ops::before {
   --mermaid-edge-label-border: rgba(90, 150, 170, 0.38);
   --mermaid-cluster-glow: rgba(42, 120, 255, 0.18);
 }
-.theme-rocinante body {
+.theme-mars-blue body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  /* The MCRN nav-plot motif. Per refs/rocinante NOTES.md the canonical
+  /* The MCRN nav-plot motif. Per refs/mars-blue NOTES.md the canonical
      composition pairs a CENTRAL polar concentric plot with a RADIAL
      SONAR-FAN anchored at bottom-center (5 spokes + 2 semicircular
      arcs). Plus calm-ops cues: violet orbital ellipse + single yellow
@@ -3067,14 +3067,14 @@ html.theme-ops::before {
   background-attachment: fixed;
 }
 /* Red concentric-bullseye threat reticle — the canonical MCRN
-   missile-lock glyph (per refs/rocinante NOTES.md and
+   missile-lock glyph (per refs/mars-blue NOTES.md and
    roci_combat_missilelock_dense.png). Cells carrying a danger state
    (.cell-danger or similar) overlay this in the top-right corner as
    a small ~20px reticle: 3 concentric circles + a thin crosshair.
    Red is the energy/threat color — reserved exclusively for this
    glyph + the bottom histogram band (accent discipline). */
-.theme-rocinante .cell.cell-danger::after,
-.theme-tachi .cell.cell-danger::after {
+.theme-mars-blue .cell.cell-danger::after,
+.theme-mars-red .cell.cell-danger::after {
   content: "";
   position: absolute;
   top: 8px;
@@ -3086,19 +3086,19 @@ html.theme-ops::before {
   background-size: contain;
   z-index: 4;
   opacity: 0.85;
-  animation: roci-threat-pulse 1.6s ease-in-out infinite;
+  animation: mars-blue-threat-pulse 1.6s ease-in-out infinite;
 }
-@keyframes roci-threat-pulse {
+@keyframes mars-blue-threat-pulse {
   0%, 100% { opacity: 0.70; }
   50%      { opacity: 1.00; }
 }
 /* (Removed: the rotating radar/sonar sweep. It was an unverified embellishment
    — the MCRN cockpit screens don't actually run a sweeping wedge — and read as
    generic sci-fi. The static nav-plot framing in the body background stays.) */
-.theme-rocinante header,
-.theme-rocinante .cell-head,
-.theme-rocinante .cell-type,
-.theme-rocinante .cell-id {
+.theme-mars-blue header,
+.theme-mars-blue .cell-head,
+.theme-mars-blue .cell-type,
+.theme-mars-blue .cell-id {
   font-family: var(--font-head);
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -3108,30 +3108,30 @@ html.theme-ops::before {
    the title tabs on MCRN panels. (Held the metadata readouts — in a
    single-session view a session-registry is redundant and a timestamp-"bearing"
    would be fake data; they pay off in multi-session.) */
-.theme-rocinante .cell .cell-head {
+.theme-mars-blue .cell .cell-head {
   border-bottom: 1px solid rgba(90, 150, 170, 0.16);
   padding-bottom: 0.28rem;
 }
-.theme-rocinante .cell .cell-title {
+.theme-mars-blue .cell .cell-title {
   padding-left: 0.5rem;
   border-left: 2px solid var(--accent);
 }
 /* MCRN command strip — a cyan instrument top-rail + a faint cyan wash over the
    default left accent; restrained (Mars discipline), reads as a bridge readout. */
-.theme-rocinante .hud {
+.theme-mars-blue .hud {
   border-color: rgba(90, 150, 170, 0.35);
   border-top: 1px solid rgba(90, 150, 170, 0.5);
   background:
     linear-gradient(180deg, rgba(40, 70, 84, 0.32), rgba(0, 0, 0, 0) 70%),
     var(--code-bg);
 }
-.theme-rocinante .hud-value {
+.theme-mars-blue .hud-value {
   color: #5a96aa;
   text-shadow: 0 0 8px rgba(90, 150, 170, 0.5);
 }
 /* Hairline-outline technical panel with a clipped top-right corner notch —
    the angular panel framing from Yorke's renders. */
-.theme-rocinante .cell {
+.theme-mars-blue .cell {
   clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 0 100%);
   border: 1px solid rgba(90, 150, 170, 0.20);
   background: var(--cell-bg);
@@ -3140,38 +3140,38 @@ html.theme-ops::before {
    (it sacrifices a little air for the technical-instrument feel — still legible,
    readability is a bug). Titles/labels already ride D-DIN Condensed via
    --font-head; this denses the body prose. */
-.theme-rocinante .cell-caption {
+.theme-mars-blue .cell-caption {
   font-size: 0.86rem;
   line-height: 1.34;
   letter-spacing: 0.004em;
-  /* Roci runs denser type (0.86rem vs 0.95rem default); bumped 3 → 6 so
+  /* MarsBlue runs denser type (0.86rem vs 0.95rem default); bumped 3 → 6 so
      that its tighter rows show roughly the same paragraph budget as the
      default 5-line clamp on other themes. */
   -webkit-line-clamp: 6;
   line-clamp: 6;
 }
-.theme-rocinante .cell.cell-still-warm {
+.theme-mars-blue .cell.cell-still-warm {
   filter: drop-shadow(0 0 6px rgba(90, 150, 170, 0.34));
 }
-.theme-rocinante .cell.cell-fresh {
+.theme-mars-blue .cell.cell-fresh {
   filter: drop-shadow(0 0 10px rgba(90, 150, 170, 0.5));
 }
-@keyframes rocinante-boot {
+@keyframes mars-blue-boot {
   0%   { opacity: 0; }
   18%  { opacity: 0.5; }
   100% { opacity: 1; }
 }
 /* Red "under-the-hood" command-line surface for code blocks — the signature
    MCRN red command-line. Red is otherwise reserved for danger states only. */
-.theme-rocinante pre,
-.theme-rocinante code {
+.theme-mars-blue pre,
+.theme-mars-blue code {
   font-family: var(--type-mono, "Space Mono", "Share Tech Mono", monospace);
 }
-.theme-rocinante .cell pre {
+.theme-mars-blue .cell pre {
   background: var(--code-bg);
   border-left: 2px solid rgba(226, 59, 46, 0.7);
 }
-.theme-rocinante .kill-bloom-hero {
+.theme-mars-blue .kill-bloom-hero {
   border-color: #5a96aa;
   box-shadow:
     0 0 22px rgba(90, 150, 170, 0.5),
@@ -3179,11 +3179,11 @@ html.theme-ops::before {
     inset 0 0 10px rgba(90, 150, 170, 0.12);
 }
 /* System-color confidence bar — cyan live readout. */
-.theme-rocinante .cell-conf-bar-fill {
+.theme-mars-blue .cell-conf-bar-fill {
   background: #5a96aa;
   box-shadow: 0 0 6px rgba(90, 150, 170, 0.6);
 }
-.theme-rocinante .cell-conf-num {
+.theme-mars-blue .cell-conf-num {
   color: #5a96aa;
 }
 
@@ -3238,19 +3238,19 @@ html.theme-ops::before {
   font-size: 0.95em;   /* slightly denser telemetry */
 }
 
-/* Rocinante instrument specifics: cyan corner brackets replace the notch, a
+/* MarsBlue instrument specifics: cyan corner brackets replace the notch, a
    cyan tab strip, red command-line accent under the tab. */
-.theme-rocinante .cell-chrome-instrument {
-  clip-path: none;   /* brackets replace the .theme-rocinante .cell corner-notch */
+.theme-mars-blue .cell-chrome-instrument {
+  clip-path: none;   /* brackets replace the .theme-mars-blue .cell corner-notch */
   background-color: var(--cell-bg, #101f30);
   padding: 0.5rem 0.72rem;   /* denser — packed-telemetry feel */
 }
-.theme-rocinante .cell-chrome-instrument .cell-head {
+.theme-mars-blue .cell-chrome-instrument .cell-head {
   background: none;                              /* restraint — no bright fill strip */
   color: #5a96aa;
   border-bottom-color: rgba(90, 150, 170, 0.4); /* muted underline; red reserved for danger */
 }
-.theme-rocinante .cell-chrome-instrument .cell-title {
+.theme-mars-blue .cell-chrome-instrument .cell-title {
   color: #d8f4f5;
 }
 
@@ -3258,7 +3258,7 @@ html.theme-ops::before {
    Fixed, pointer-events:none frame that mountThemeFurniture() fills per theme.
    z-index 180: above cells (≤119) + connection overlay (50), below HUD (200)
    and kill-bloom (1000). Generic capability — any theme adds a builder + a
-   `#theme-furniture[data-theme=X]` block. Base layout here; rocinante colors
+   `#theme-furniture[data-theme=X]` block. Base layout here; mars-blue colors
    below. All elements live in the MARGINS (HUD-aware top offset) so nothing
    overlays cell content. */
 #theme-furniture {
@@ -3285,52 +3285,21 @@ html.theme-ops::before {
 #theme-furniture .fur-scale-l { left: 7px; }
 #theme-furniture .fur-scale-r { right: 7px; }
 
-/* Rocinante: MCRN bridge framing — cyan brackets, ticked bearing rails. */
-#theme-furniture[data-theme="rocinante"] .fur-bracket {
+/* MarsBlue: MCRN bridge framing — cyan brackets, ticked bearing rails. */
+#theme-furniture[data-theme="mars-blue"] .fur-bracket {
   border-color: rgba(90, 150, 170, 0.5);
 }
-#theme-furniture[data-theme="rocinante"] .fur-scale {
+#theme-furniture[data-theme="mars-blue"] .fur-scale {
   background-image: repeating-linear-gradient(
     180deg, rgba(90, 150, 170, 0.4) 0 1px, transparent 1px 14px);
 }
-
-/* Top segmented readout strip — full-width under the HUD, cyan segments with a
-   bright highlight runner sweeping left→right (movement). */
-#theme-furniture[data-theme="rocinante"] .fur-topstrip {
-  position: absolute;
-  top: 80px;
-  left: 44px;
-  right: 44px;
-  height: 12px;
-  overflow: hidden;
-  pointer-events: auto;  /* allow the readout tooltip */
-  cursor: help;
-  background-image: repeating-linear-gradient(90deg,
-    rgba(90, 150, 170, 0.55) 0 3px,
-    transparent 3px 5px,
-    rgba(90, 150, 170, 0.22) 5px 11px,
-    transparent 11px 14px);
-  box-shadow: 0 0 8px rgba(90, 150, 170, 0.35);
-}
-#theme-furniture[data-theme="rocinante"] .fur-topstrip-run {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -140px;
-  width: 140px;
-  background: linear-gradient(90deg, transparent, rgba(120, 230, 240, 0.6), transparent);
-  /* Sweep cadence (--strip-dur) tracks mint rate, set in JS — faster when the
-     session is minting more. */
-  animation: roci-strip-run var(--strip-dur, 5.5s) linear infinite;
-}
-@keyframes roci-strip-run { to { left: 100%; } }
 
 /* Bottom band — the signature MCRN composition element: registry label +
    red spectrum-analyzer histogram + cyan dials. Red here is sanctioned
    activity-band red (the corrected grammar: red owns the bottom histogram on
    every screen). Semi-transparent gradient backing so it reads as a console
    bezel framing the viewport bottom, not an opaque cover. */
-#theme-furniture[data-theme="rocinante"] .fur-histo {
+#theme-furniture[data-theme="mars-blue"] .fur-histo {
   position: absolute;
   left: 0;
   right: 0;
@@ -3340,7 +3309,7 @@ html.theme-ops::before {
   align-items: flex-end;
   gap: 16px;
   padding: 0 18px 6px;
-  /* Per refs/rocinante/NOTES.md: the bottom red bar-gauge histogram band
+  /* Per refs/mars-blue/NOTES.md: the bottom red bar-gauge histogram band
      is "the single most recognizable MCRN tell" — appears on every
      canonical tactical/nav frame. Earlier 34px height read as a faint
      strip; 52px makes it a real console-bezel band. Translucent
@@ -3352,16 +3321,16 @@ html.theme-ops::before {
   pointer-events: auto;
   cursor: help;
 }
-/* Reserve room below the grid (non-cockpit rocinante layouts) so the fixed
+/* Reserve room below the grid (non-cockpit mars-blue layouts) so the fixed
    bottom histogram band doesn't occlude the last row of cells. */
-.theme-rocinante #notebook { padding-bottom: 58px; }
+.theme-mars-blue #notebook { padding-bottom: 58px; }
 /* Viewport-height instrument panel that scrolls INTERNALLY above the bottom
    band: the panel occupies the screen (no page scroll), cells keep readable
    natural heights (minmax(150px, auto) — NOT 1fr-compressed), and the scroll
    region ends above the band so nothing is ever cut by it. Thin themed
    scrollbar. (Earlier hard-clip fit made every cell unreadable; user 2026-05-28
    "cells too small to see the contents".) */
-.theme-rocinante #notebook[data-layout="cockpit"][data-composition="instrument"] {
+.theme-mars-blue #notebook[data-layout="cockpit"][data-composition="instrument"] {
   /* --hud-h is set in JS from the header's actual height (it can grow to a
      second kill-meter row). 100dvh (dynamic viewport, not 100vh which overshoots
      by the browser-UI delta) minus HUD minus 58px (main top margin + bottom band
@@ -3375,26 +3344,26 @@ html.theme-ops::before {
   padding-bottom: 0;
 }
 /* Readable, dominant hero nav-plot. */
-.theme-rocinante #notebook[data-layout="cockpit"][data-composition="instrument"] > .cell.comp-hero {
+.theme-mars-blue #notebook[data-layout="cockpit"][data-composition="instrument"] > .cell.comp-hero {
   min-height: 300px;
 }
 /* Hero center-plot: center wide substrates (timeline ribbons, trajectories) and
    scale them to fit the slot, so the leading edge doesn't clip under the cell's
    feathered left border (user 2026-05-28: "hero timeline truncated on the left
    … should be centered"). */
-.theme-rocinante .cell.comp-hero .timeline-ribbon-target,
-.theme-rocinante .cell.comp-hero .trajectory-target {
+.theme-mars-blue .cell.comp-hero .timeline-ribbon-target,
+.theme-mars-blue .cell.comp-hero .trajectory-target {
   display: flex;
   justify-content: center;
 }
-.theme-rocinante .cell.comp-hero .timeline-ribbon-target svg,
-.theme-rocinante .cell.comp-hero .trajectory-target svg {
+.theme-mars-blue .cell.comp-hero .timeline-ribbon-target svg,
+.theme-mars-blue .cell.comp-hero .trajectory-target svg {
   max-width: 94%;
   height: auto;
 }
 /* Wide mermaid diagrams as hero: scale to fit the cell width + center, so the
    diagram's left/right edges don't clip (no auto-pan needed when it fits). */
-.theme-rocinante .cell.comp-hero .mermaid-target svg {
+.theme-mars-blue .cell.comp-hero .mermaid-target svg {
   max-width: 100%;
   height: auto;
   margin: 0 auto;
@@ -3407,7 +3376,7 @@ html.theme-ops::before {
    readability.) Lives in the furniture overlay (z-180, above cells / below the
    HUD), pointer-events none; rendered first so brackets + the histo band sit on
    top of it. */
-#theme-furniture[data-theme="rocinante"] .fur-glass {
+#theme-furniture[data-theme="mars-blue"] .fur-glass {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -3418,7 +3387,7 @@ html.theme-ops::before {
   background:
     radial-gradient(124% 118% at 50% 42%, transparent 50%, rgba(2, 7, 13, 0.58) 100%);
 }
-#theme-furniture[data-theme="rocinante"] .fur-histo-label {
+#theme-furniture[data-theme="mars-blue"] .fur-histo-label {
   flex: 0 0 auto;
   align-self: flex-end;
   padding-bottom: 3px;
@@ -3429,51 +3398,51 @@ html.theme-ops::before {
   color: rgba(90, 150, 170, 0.62);
   white-space: nowrap;
 }
-#theme-furniture[data-theme="rocinante"] .fur-bars {
+#theme-furniture[data-theme="mars-blue"] .fur-bars {
   flex: 1 1 auto;
   display: flex;
   align-items: flex-end;
   gap: 2px;
   height: 30px;
 }
-#theme-furniture[data-theme="rocinante"] .fur-bars i {
+#theme-furniture[data-theme="mars-blue"] .fur-bars i {
   flex: 1 1 0;
   min-width: 0;
   height: 100%;
   transform-origin: bottom;
   transform: scaleY(var(--h, 0.5));
   background: linear-gradient(180deg, rgba(226, 59, 46, 0.85), rgba(226, 59, 46, 0.3));
-  animation: roci-bar var(--dur, 2s) ease-in-out var(--delay, 0s) infinite alternate;
+  animation: mars-blue-bar var(--dur, 2s) ease-in-out var(--delay, 0s) infinite alternate;
 }
 /* Subtle breathing only — the bar HEIGHT (var(--h)) encodes real mint activity
-   (set by _updateRocinanteHisto), so the animation must not swing height enough
+   (set by _updateMarsBlueHisto), so the animation must not swing height enough
    to obscure the data. 86%–100% of --h reads as a live shimmer, not a value. */
-@keyframes roci-bar {
+@keyframes mars-blue-bar {
   from { transform: scaleY(calc(var(--h, 0.5) * 0.86)); opacity: 0.78; }
   to   { transform: scaleY(var(--h, 0.5)); opacity: 1; }
 }
-#theme-furniture[data-theme="rocinante"] .fur-dials {
+#theme-furniture[data-theme="mars-blue"] .fur-dials {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
   padding-bottom: 4px;
 }
-#theme-furniture[data-theme="rocinante"] .fur-dial {
+#theme-furniture[data-theme="mars-blue"] .fur-dial {
   position: relative;
   width: 22px;
   height: 22px;
   border-radius: 50%;
   border: 1.5px solid rgba(90, 150, 170, 0.5);
 }
-#theme-furniture[data-theme="rocinante"] .fur-dial-sm { width: 14px; height: 14px; }
-#theme-furniture[data-theme="rocinante"] .fur-dial {
+#theme-furniture[data-theme="mars-blue"] .fur-dial-sm { width: 14px; height: 14px; }
+#theme-furniture[data-theme="mars-blue"] .fur-dial {
   cursor: help;
 }
 /* Needle points to a real value (--dial-angle, set in JS from mint rate /
    substrate diversity) instead of spinning decoratively; the transition makes
    it sweep to the new value on each update — alive AND informative. */
-#theme-furniture[data-theme="rocinante"] .fur-dial::after {
+#theme-furniture[data-theme="mars-blue"] .fur-dial::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -3486,85 +3455,19 @@ html.theme-ops::before {
   transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-/* Ship-self wireframe schematic — top-down Roci silhouette pinned to
-   the right margin, mid-height. Per refs/rocinante NOTES.md the
-   right-side ship-self schematic is the canonical calm-ops signature
-   on every MCRN tactical screen. White hairline, low opacity so it
-   reads as ambient orientation, not chart-junk. */
-#theme-furniture[data-theme="rocinante"] .fur-shipself,
-#theme-furniture[data-theme="tachi"]     .fur-shipself {
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 38px;
-  height: 130px;
-  pointer-events: auto;
-  cursor: help;
-  opacity: 0.55;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 200'%3E%3Cg fill='none' stroke='%23bcd4e2' stroke-width='0.8' stroke-linecap='round'%3E%3Cpath d='M30 14 L40 30 L40 150 L36 160 L24 160 L20 150 L20 30 Z'/%3E%3Cellipse cx='14' cy='92' rx='5' ry='14'/%3E%3Cellipse cx='46' cy='92' rx='5' ry='14'/%3E%3Cpath d='M22 160 L26 178 L34 178 L38 160'/%3E%3Cline x1='26' y1='14' x2='26' y2='6'/%3E%3Cline x1='34' y1='14' x2='34' y2='6'/%3E%3Cline x1='22' y1='52' x2='38' y2='52' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='100' x2='38' y2='100' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='128' x2='38' y2='128' stroke-opacity='0.5'/%3E%3Cline x1='30' y1='22' x2='30' y2='155' stroke-opacity='0.35' stroke-dasharray='2 3'/%3E%3C/g%3E%3C/svg%3E");
-}
-/* Tachi: same hull silhouette but cyan→grey hairline (gunmetal era). */
-#theme-furniture[data-theme="tachi"] .fur-shipself {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 200'%3E%3Cg fill='none' stroke='%23a4a8ad' stroke-width='0.8' stroke-linecap='round'%3E%3Cpath d='M30 14 L40 30 L40 150 L36 160 L24 160 L20 150 L20 30 Z'/%3E%3Cellipse cx='14' cy='92' rx='5' ry='14'/%3E%3Cellipse cx='46' cy='92' rx='5' ry='14'/%3E%3Cpath d='M22 160 L26 178 L34 178 L38 160'/%3E%3Cline x1='26' y1='14' x2='26' y2='6'/%3E%3Cline x1='34' y1='14' x2='34' y2='6'/%3E%3Cline x1='22' y1='52' x2='38' y2='52' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='100' x2='38' y2='100' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='128' x2='38' y2='128' stroke-opacity='0.5'/%3E%3Cline x1='30' y1='22' x2='30' y2='155' stroke-opacity='0.35' stroke-dasharray='2 3'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-/* Telemetry log — left-margin green-monospace command-line texture.
-   Per refs/rocinante NOTES.md: "the under-the-hood surface Yorke
-   describes; the signature Roci texture." 4 fake function-call lines
-   that fade-cycle so the log feels live. */
-#theme-furniture[data-theme="rocinante"] .fur-telemetry,
-#theme-furniture[data-theme="tachi"]     .fur-telemetry {
-  position: absolute;
-  left: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 160px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-family: "Space Mono", "Share Tech Mono", monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.03em;
-  color: rgba(58, 209, 78, 0.55);
-  pointer-events: auto;
-  cursor: help;
-}
-#theme-furniture[data-theme="rocinante"] .fur-telemetry i,
-#theme-furniture[data-theme="tachi"]     .fur-telemetry i {
-  font-style: normal;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  animation: fur-telemetry-fade 6s ease-in-out infinite;
-}
-#theme-furniture[data-theme="rocinante"] .fur-telemetry i:nth-child(2),
-#theme-furniture[data-theme="tachi"]     .fur-telemetry i:nth-child(2) { animation-delay: 1.5s; }
-#theme-furniture[data-theme="rocinante"] .fur-telemetry i:nth-child(3),
-#theme-furniture[data-theme="tachi"]     .fur-telemetry i:nth-child(3) { animation-delay: 3.0s; }
-#theme-furniture[data-theme="rocinante"] .fur-telemetry i:nth-child(4),
-#theme-furniture[data-theme="tachi"]     .fur-telemetry i:nth-child(4) { animation-delay: 4.5s; }
-@keyframes fur-telemetry-fade {
-  0%, 70%, 100% { opacity: 0.55; }
-  10%, 30%      { opacity: 0.95; }
-}
-
 /* System-color triad lamps — red / amber / green backlit indicators in
-   the bottom band. Bound to real session state in _updateRocinanteHisto:
+   the bottom band. Bound to real session state in _updateMarsBlueHisto:
    red on if any cell-danger, amber on if any cell-conf-low, green on
    when clean. Glow when on, dim when off — physical-button feel. */
-#theme-furniture[data-theme="rocinante"] .fur-triad,
-#theme-furniture[data-theme="tachi"]     .fur-triad {
+#theme-furniture[data-theme="mars-blue"] .fur-triad,
+#theme-furniture[data-theme="mars-red"]     .fur-triad {
   display: flex;
   gap: 6px;
   align-self: center;
   padding: 0 6px;
 }
-#theme-furniture[data-theme="rocinante"] .fur-lamp,
-#theme-furniture[data-theme="tachi"]     .fur-lamp {
+#theme-furniture[data-theme="mars-blue"] .fur-lamp,
+#theme-furniture[data-theme="mars-red"]     .fur-lamp {
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -3572,40 +3475,48 @@ html.theme-ops::before {
   border: 1px solid rgba(120, 150, 170, 0.35);
   transition: background 0.35s, box-shadow 0.35s;
 }
-#theme-furniture[data-theme="rocinante"] .fur-lamp-r[data-on="1"],
-#theme-furniture[data-theme="tachi"]     .fur-lamp-r[data-on="1"] {
+#theme-furniture[data-theme="mars-blue"] .fur-lamp-r[data-on="1"],
+#theme-furniture[data-theme="mars-red"]     .fur-lamp-r[data-on="1"] {
   background: #e23b2e;
   box-shadow: 0 0 6px rgba(226, 59, 46, 0.85), inset 0 0 3px rgba(255, 200, 195, 0.5);
 }
-#theme-furniture[data-theme="rocinante"] .fur-lamp-a[data-on="1"],
-#theme-furniture[data-theme="tachi"]     .fur-lamp-a[data-on="1"] {
+#theme-furniture[data-theme="mars-blue"] .fur-lamp-a[data-on="1"],
+#theme-furniture[data-theme="mars-red"]     .fur-lamp-a[data-on="1"] {
   background: #ffc233;
   box-shadow: 0 0 6px rgba(255, 194, 51, 0.85), inset 0 0 3px rgba(255, 240, 200, 0.5);
 }
-#theme-furniture[data-theme="rocinante"] .fur-lamp-g[data-on="1"],
-#theme-furniture[data-theme="tachi"]     .fur-lamp-g[data-on="1"] {
+#theme-furniture[data-theme="mars-blue"] .fur-lamp-g[data-on="1"],
+#theme-furniture[data-theme="mars-red"]     .fur-lamp-g[data-on="1"] {
   background: #57a06a;
   box-shadow: 0 0 6px rgba(87, 160, 106, 0.85), inset 0 0 3px rgba(200, 240, 210, 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #theme-furniture[data-theme="rocinante"] .fur-topstrip-run,
-  #theme-furniture[data-theme="rocinante"] .fur-bars i,
-  #theme-furniture[data-theme="rocinante"] .fur-dial::after,
-  #theme-furniture[data-theme="rocinante"] .fur-telemetry i,
-  #theme-furniture[data-theme="tachi"]     .fur-telemetry i { animation: none; }
+  #theme-furniture[data-theme="mars-blue"] .fur-bars i,
+  #theme-furniture[data-theme="mars-blue"] .fur-dial::after { animation: none; }
 }
 
-/* Belter furniture: OPA Free Navy tactical plot (tilted elliptical orbital
-   plane — the Belter↔Roci differentiator) anchored bottom-left, + the OPA
-   split-circle glyph top-left. Asymmetric placement = the Belter signal (no
-   master frame, unlike Roci's symmetric bezel). pointer-events:none throughout
+/* MarsBlue/mars-red: reserve small bilateral side margins on the cell area so
+   the .fur-scale ruler-tick rails (left: 7px / right: 7px, width 9px each)
+   don't overlap cells. margin (not padding) because Muuri pack absolute-
+   positions cells ignoring container padding, but DOES respect a narrower
+   container. 24px each side clears the scales (7+9=16) with breathing room. */
+html.theme-mars-blue #notebook,
+html.theme-mars-red #notebook {
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+/* Drift furniture: OPA Free Navy tactical plot (tilted elliptical orbital
+   plane — the Drift↔MarsBlue differentiator) anchored bottom-left, + the OPA
+   split-circle glyph top-left. Asymmetric placement = the Drift signal (no
+   master frame, unlike MarsBlue's symmetric bezel). pointer-events:none throughout
    (pack fills the viewport — must never block a cell click underneath). A faint
    overlay flicker is the "junk hardware" tell (Peel), reduced-motion-gated. */
-#theme-furniture[data-theme="belter"] {
-  animation: bel-flicker 7.3s steps(1) infinite;
+#theme-furniture[data-theme="drift"] {
+  animation: drift-flicker 7.3s steps(1) infinite;
 }
-#theme-furniture[data-theme="belter"] .bel-plot {
+#theme-furniture[data-theme="drift"] .drift-plot {
   position: absolute;
   left: 14px;
   bottom: 16px;
@@ -3614,7 +3525,7 @@ html.theme-ops::before {
   pointer-events: none;
   /* A defined salvaged-panel scrim (NOT a faint smear over content): an opaque
      warm backing + amber hairline + depth shadow, so the plot reads as a tactical
-     widget bolted on at its own register — the Belter grammar ("panels bolted at
+     widget bolted on at its own register — the Drift grammar ("panels bolted at
      different registers, exposed seams") — and never blurs the cell underneath
      (readability is a bug). A slim corner cut is the salvaged-bracket detail. */
   background:
@@ -3625,7 +3536,7 @@ html.theme-ops::before {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.5);
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
 }
-#theme-furniture[data-theme="belter"] .bel-plot svg {
+#theme-furniture[data-theme="drift"] .drift-plot svg {
   position: absolute;
   top: 21px;               /* below the tab-strip */
   left: 0;
@@ -3639,13 +3550,13 @@ html.theme-ops::before {
      projection"). Memory feedback_holographic_depth_yes: this is wanted polish. */
   filter: drop-shadow(0 0 2px rgba(26, 166, 176, 0.45));
 }
-/* Scanline grit on the SVG area itself — per refs/belter NOTES.md "embrace
+/* Scanline grit on the SVG area itself — per refs/drift NOTES.md "embrace
    grit: scanline noise, static, fritz" (Peel's "junk hardware" tell — the
-   texture that separates Belter from the clean Mars/Earth themes). Dark
+   texture that separates Drift from the clean Mars/Earth themes). Dark
    horizontal scanlines via repeating-linear-gradient, mix-blend-mode so
    the scanlines darken the existing cyan plot without flat-overlaying. The
-   bel-flicker keyframe on the parent already gives it a subtle pulse. */
-#theme-furniture[data-theme="belter"] .bel-plot::after {
+   drift-flicker keyframe on the parent already gives it a subtle pulse. */
+#theme-furniture[data-theme="drift"] .drift-plot::after {
   content: "";
   position: absolute;
   top: 21px;
@@ -3666,7 +3577,7 @@ html.theme-ops::before {
   z-index: 1;
 }
 /* Segmented tactical tab-strip (the show's top chrome). */
-#theme-furniture[data-theme="belter"] .bel-strip {
+#theme-furniture[data-theme="drift"] .drift-strip {
   position: absolute;
   top: 5px;
   left: 7px;
@@ -3676,7 +3587,7 @@ html.theme-ops::before {
   gap: 4px;
   align-items: stretch;
 }
-#theme-furniture[data-theme="belter"] .bel-tab {
+#theme-furniture[data-theme="drift"] .drift-tab {
   flex: 0 0 auto;
   padding: 0 6px;
   font-family: "Space Mono", "Share Tech Mono", monospace;
@@ -3687,18 +3598,18 @@ html.theme-ops::before {
   border: 1px solid rgba(232, 144, 42, 0.28);
   border-radius: 1px;
 }
-#theme-furniture[data-theme="belter"] .bel-tab-on {
+#theme-furniture[data-theme="drift"] .drift-tab-on {
   color: #0c0905;
   background: rgba(232, 144, 42, 0.78);
   border-color: rgba(232, 144, 42, 0.78);
 }
-#theme-furniture[data-theme="belter"] .bel-contact-lbl {
+#theme-furniture[data-theme="drift"] .drift-contact-lbl {
   font-family: "Space Mono", "Share Tech Mono", monospace;
   font-size: 7px;
   letter-spacing: 0.1em;
   fill: rgba(232, 176, 74, 0.92);
 }
-#theme-furniture[data-theme="belter"] .bel-plot-label {
+#theme-furniture[data-theme="drift"] .drift-plot-label {
   position: absolute;
   left: 4px;
   bottom: 2px;
@@ -3709,8 +3620,8 @@ html.theme-ops::before {
   color: rgba(232, 144, 42, 0.66);
   white-space: nowrap;
 }
-#theme-furniture[data-theme="belter"] .bel-plot-sub { color: rgba(26, 166, 176, 0.72); }
-#theme-furniture[data-theme="belter"] .bel-ship {
+#theme-furniture[data-theme="drift"] .drift-plot-sub { color: rgba(26, 166, 176, 0.72); }
+#theme-furniture[data-theme="drift"] .drift-ship {
   position: absolute;
   top: 24px;
   right: 10px;
@@ -3718,8 +3629,8 @@ html.theme-ops::before {
   height: 21px;
   opacity: 0.9;
 }
-#theme-furniture[data-theme="belter"] .bel-ship svg { width: 100%; height: 100%; overflow: visible; }
-#theme-furniture[data-theme="belter"] .bel-opa {
+#theme-furniture[data-theme="drift"] .drift-ship svg { width: 100%; height: 100%; overflow: visible; }
+#theme-furniture[data-theme="drift"] .drift-opa {
   position: absolute;
   top: 78px;
   left: 12px;
@@ -3727,16 +3638,16 @@ html.theme-ops::before {
   height: 46px;
   opacity: 0.92;
 }
-#theme-furniture[data-theme="belter"] .bel-opa svg { width: 100%; height: 100%; }
+#theme-furniture[data-theme="drift"] .drift-opa svg { width: 100%; height: 100%; }
 
 /* Right-margin Behemoth-class wireframe hull schematic — the amber wireframe
    ship that dominates one panel of the Free Navy tactical display
-   (refs/belter/00_03_01_freenavy_tactical_creole_display.png). Long
+   (refs/drift/00_03_01_freenavy_tactical_creole_display.png). Long
    horizontal hull silhouette + rotating habitation drum (Mormon generation
    ship signature) + antenna spikes fore + cyan drive-plasma vector aft +
-   amber thruster vectors. Mirrors roci .fur-shipself's right-margin
-   anchoring; horizontal orientation matches Belter ship profiles. */
-#theme-furniture[data-theme="belter"] .bel-shipself {
+   amber thruster vectors. Mirrors mars-blue .fur-shipself's right-margin
+   anchoring; horizontal orientation matches Drift ship profiles. */
+#theme-furniture[data-theme="drift"] .drift-shipself {
   position: absolute;
   right: 18px;
   top: 50%;
@@ -3752,18 +3663,18 @@ html.theme-ops::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'%3E%3Cg fill='none' stroke='%23e8902a' stroke-width='0.8' stroke-linecap='round'%3E%3Cpath d='M8 40 L26 30 L178 30 L196 38 L208 38 L208 42 L196 42 L178 50 L26 50 Z'/%3E%3Cellipse cx='100' cy='40' rx='22' ry='14'/%3E%3Cline x1='8' y1='40' x2='-2' y2='32'/%3E%3Cline x1='8' y1='40' x2='-2' y2='48'/%3E%3Cline x1='50' y1='30' x2='50' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='70' y1='30' x2='70' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='140' y1='30' x2='140' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='160' y1='30' x2='160' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='14' y1='40' x2='190' y2='40' stroke-opacity='0.35' stroke-dasharray='2 3'/%3E%3C/g%3E%3Cg fill='none' stroke='%231aa6b0' stroke-width='0.8' stroke-linecap='round'%3E%3Ccircle cx='202' cy='40' r='1.8' fill='%231aa6b0' stroke='none'/%3E%3Cline x1='208' y1='40' x2='234' y2='40' stroke-opacity='0.65' stroke-dasharray='3 2'/%3E%3Cline x1='90' y1='30' x2='88' y2='20' stroke-opacity='0.7'/%3E%3Cline x1='130' y1='50' x2='132' y2='60' stroke-opacity='0.7'/%3E%3C/g%3E%3C/svg%3E");
 }
 @media (max-width: 1100px) {
-  #theme-furniture[data-theme="belter"] .bel-shipself { display: none; }
+  #theme-furniture[data-theme="drift"] .drift-shipself { display: none; }
 }
 
 /* Lang Belta decals — perimeter-scattered creole fragments at very low
    opacity, slight rotation for the salvaged-graffiti tell. Color-mixed
    amber + cyan so the dual-accent brand stays consistent. */
-#theme-furniture[data-theme="belter"] .bel-decals {
+#theme-furniture[data-theme="drift"] .drift-decals {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
-#theme-furniture[data-theme="belter"] .bel-decal {
+#theme-furniture[data-theme="drift"] .drift-decal {
   position: absolute;
   font-family: "Space Mono", "Share Tech Mono", monospace;
   font-size: 9px;
@@ -3771,65 +3682,65 @@ html.theme-ops::before {
   color: rgba(232, 144, 42, 0.16);
   white-space: nowrap;
 }
-#theme-furniture[data-theme="belter"] .bel-decal-1 {
+#theme-furniture[data-theme="drift"] .drift-decal-1 {
   top: 42px;
   left: 24px;
   transform: rotate(-2deg);
 }
-#theme-furniture[data-theme="belter"] .bel-decal-2 {
+#theme-furniture[data-theme="drift"] .drift-decal-2 {
   top: 50%;
   left: 12px;
   transform: rotate(-90deg);
   transform-origin: 0 0;
   color: rgba(26, 166, 176, 0.18);
 }
-#theme-furniture[data-theme="belter"] .bel-decal-3 {
+#theme-furniture[data-theme="drift"] .drift-decal-3 {
   top: 42px;
   right: 24px;
   transform: rotate(1deg);
   color: rgba(26, 166, 176, 0.18);
 }
-#theme-furniture[data-theme="belter"] .bel-decal-4 {
+#theme-furniture[data-theme="drift"] .drift-decal-4 {
   bottom: 30px;
   right: 30px;
   transform: rotate(-1deg);
 }
 @media (max-width: 1100px) {
-  #theme-furniture[data-theme="belter"] .bel-decals { display: none; }
+  #theme-furniture[data-theme="drift"] .drift-decals { display: none; }
 }
 
 /* Junk-hardware flicker — brief dips, mostly steady, so it reads as salvaged
    gear without becoming a strobe (readability is a bug). */
-@keyframes bel-flicker {
+@keyframes drift-flicker {
   0%, 38%, 41%, 72%, 74%, 100% { opacity: 1; }
   39%, 73% { opacity: 0.9; }
   40% { opacity: 0.96; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #theme-furniture[data-theme="belter"] { animation: none; }
+  #theme-furniture[data-theme="drift"] { animation: none; }
 }
 /* Newest orbital contact = the LIVE/active track: a slow radar-style pulse on
    its footprint ring so the plot reads as a live feed (flair-must-inform —
    recency made legible). Reduced-motion gated. */
-@keyframes bel-contact-ping { 0%, 100% { stroke-opacity: 0.22; } 50% { stroke-opacity: 0.85; } }
-#theme-furniture[data-theme="belter"] .bel-live ellipse {
-  animation: bel-contact-ping 2.2s ease-in-out infinite;
+@keyframes drift-contact-ping { 0%, 100% { stroke-opacity: 0.22; } 50% { stroke-opacity: 0.85; } }
+#theme-furniture[data-theme="drift"] .drift-live ellipse {
+  animation: drift-contact-ping 2.2s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  #theme-furniture[data-theme="belter"] .bel-live ellipse { animation: none; }
+  #theme-furniture[data-theme="drift"] .drift-live ellipse { animation: none; }
 }
 
-/* HAMMER LOCK threat state — per refs/belter belter_hammerlock_trails:
+/* HAMMER LOCK threat state — per refs/drift belter_hammerlock_trails:
    the orbital plot enters a red threat overlay (banner + diamond contact
    morph) when any visible cell has .cell-danger (same trigger as the
-   roci threat reticle). Pure-CSS via :has() so it reacts instantly when
+   mars-blue threat reticle). Pure-CSS via :has() so it reacts instantly when
    the class is added — no JS class toggle needed. Default: triangles
    show, diamonds hidden. */
-#theme-furniture[data-theme="belter"] .bel-marker-dia { display: none; }
+#theme-furniture[data-theme="drift"] .drift-marker-dia { display: none; }
 /* Red HAMMER LOCK banner across the top of the plot panel — the show's
    threat callout. Pseudo-element so we don't need to mutate the SVG. */
-#theme-furniture[data-theme="belter"] .bel-plot::before {
-  content: "HAMMER LOCK";
+#theme-furniture[data-theme="drift"] .drift-plot::before {
+  content: "TARGET LOCK";
   position: absolute;
   top: 23px;
   left: 50%;
@@ -3852,34 +3763,34 @@ html.theme-ops::before {
 }
 /* Threat ON (body has any cell.cell-danger): show banner, hide triangles,
    show red diamonds + colorize contact circles to read as locked-on targets. */
-html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-plot::before {
+html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-plot::before {
   opacity: 1;
-  animation: bel-threat-blink 1.4s steps(2, jump-none) infinite;
+  animation: drift-threat-blink 1.4s steps(2, jump-none) infinite;
 }
-html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-marker-tri { display: none; }
-html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-marker-dia { display: initial; }
-html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contacts circle { fill: #ffb8b0; }
-html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact-lbl { fill: #ffb8b0; }
-html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contacts line {
+html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-marker-tri { display: none; }
+html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-marker-dia { display: initial; }
+html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-contacts circle { fill: #ffb8b0; }
+html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-contact-lbl { fill: #ffb8b0; }
+html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-contacts line {
   stroke: #e23b2e;
   stroke-opacity: 0.85;
 }
-@keyframes bel-threat-blink {
+@keyframes drift-threat-blink {
   0%, 50% { opacity: 1; }
   50.01%, 100% { opacity: 0.55; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-plot::before { animation: none; }
+  html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-plot::before { animation: none; }
 }
 
-/* UNN furniture: Earth/UN naval SITUATION-BOARD (war-room tactical table)
+/* EARTH furniture: Earth/UN naval SITUATION-BOARD (war-room tactical table)
    anchored bottom-left. Deliberately DULL/institutional — chunky grey angular
    console bezel, flat opaque navy screen, head-on blue range-rings + UN
    globe-laurel seal inlay, NO glow / NO drop-shadow halo / NO flicker (the
    "boring competent bureaucracy" register, user-confirmed on-character). Wide-
    short = WWII-naval horizontal emphasis. pointer-events:none (pack fills the
    viewport — must never block a cell click underneath). Grounded: refs/unn. */
-#theme-furniture[data-theme="unn"] .unn-board {
+#theme-furniture[data-theme="earth"] .earth-board {
   position: absolute;
   left: 14px;
   bottom: 16px;
@@ -3904,7 +3815,7 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
     inset 0 0 0 5px #0c121f;
 }
 /* Top placard — formal institutional title bar (no flashing-text excess). */
-#theme-furniture[data-theme="unn"] .unn-board-hd {
+#theme-furniture[data-theme="earth"] .earth-board-hd {
   position: absolute;
   top: 5px;
   left: 6px;
@@ -3922,7 +3833,7 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   overflow: hidden;
 }
 /* Inset sub-screen (chunky bezel framing the plot, like the bridge consoles). */
-#theme-furniture[data-theme="unn"] .unn-screen {
+#theme-furniture[data-theme="earth"] .earth-screen {
   position: absolute;
   top: 25px;
   left: 6px;
@@ -3932,7 +3843,7 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   border: 1px solid #2a3344;
   box-shadow: inset 0 0 0 1px #05080d;
 }
-#theme-furniture[data-theme="unn"] .unn-screen svg {
+#theme-furniture[data-theme="earth"] .earth-screen svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -3940,21 +3851,21 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   /* deliberately NO drop-shadow/glow filter — flat institutional plot. */
 }
 /* On-plot contact / ship labels — formal naval register, plain mono. */
-#theme-furniture[data-theme="unn"] .unn-own-lbl,
-#theme-furniture[data-theme="unn"] .unn-contact-lbl {
+#theme-furniture[data-theme="earth"] .earth-own-lbl,
+#theme-furniture[data-theme="earth"] .earth-contact-lbl {
   font-family: "Share Tech Mono", "Courier New", monospace;
   font-size: 6.5px;
   letter-spacing: 0.08em;
   fill: #9bb8d8;
 }
-#theme-furniture[data-theme="unn"] .unn-threat-lbl {
+#theme-furniture[data-theme="earth"] .earth-threat-lbl {
   font-family: "Share Tech Mono", "Courier New", monospace;
   font-size: 6px;
   letter-spacing: 0.12em;
   fill: #d8675c;
 }
 /* Right-side tracking readout — dense, unglamorous, utilitarian text rows. */
-#theme-furniture[data-theme="unn"] .unn-readout {
+#theme-furniture[data-theme="earth"] .earth-readout {
   position: absolute;
   top: 25px;
   right: 6px;
@@ -3967,7 +3878,7 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   font-family: "Share Tech Mono", "Courier New", monospace;
   box-sizing: border-box;
 }
-#theme-furniture[data-theme="unn"] .unn-readout-hd {
+#theme-furniture[data-theme="earth"] .earth-readout-hd {
   display: flex;
   justify-content: space-between;
   font-size: 7px;
@@ -3977,35 +3888,35 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   padding-bottom: 2px;
   margin-bottom: 3px;
 }
-#theme-furniture[data-theme="unn"] .unn-readout-hd span,
-#theme-furniture[data-theme="unn"] .unn-rrow span { width: 25%; }
-#theme-furniture[data-theme="unn"] .unn-readout-hd span:nth-child(1),
-#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(1) { text-align: left; }
-#theme-furniture[data-theme="unn"] .unn-readout-hd span:nth-child(n+2),
-#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(n+2) { text-align: right; }
-#theme-furniture[data-theme="unn"] .unn-readout-rows {
+#theme-furniture[data-theme="earth"] .earth-readout-hd span,
+#theme-furniture[data-theme="earth"] .earth-rrow span { width: 25%; }
+#theme-furniture[data-theme="earth"] .earth-readout-hd span:nth-child(1),
+#theme-furniture[data-theme="earth"] .earth-rrow span:nth-child(1) { text-align: left; }
+#theme-furniture[data-theme="earth"] .earth-readout-hd span:nth-child(n+2),
+#theme-furniture[data-theme="earth"] .earth-rrow span:nth-child(n+2) { text-align: right; }
+#theme-furniture[data-theme="earth"] .earth-readout-rows {
   /* Cap to ~2 rows so the fields panel below has clear space. The plot
      still shows 4 contacts; the rows are a top-2 preview. Rows = list;
      fields = the selected-track detail readout (the load-bearing data). */
   max-height: 26px;
   overflow: hidden;
 }
-#theme-furniture[data-theme="unn"] .unn-rrow {
+#theme-furniture[data-theme="earth"] .earth-rrow {
   display: flex;
   font-size: 7.5px;
   letter-spacing: 0.04em;
   line-height: 1.58;
   color: #9bb1cc;
 }
-#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(1) { color: #5f7390; }
-#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(3) { color: #6f9fd0; }
-#theme-furniture[data-theme="unn"] .unn-rrow span:nth-child(4) { color: #6f9fd0; }
+#theme-furniture[data-theme="earth"] .earth-rrow span:nth-child(1) { color: #5f7390; }
+#theme-furniture[data-theme="earth"] .earth-rrow span:nth-child(3) { color: #6f9fd0; }
+#theme-furniture[data-theme="earth"] .earth-rrow span:nth-child(4) { color: #6f9fd0; }
 /* Selected-track field readout — label / value / unit three-column rows
    (BRG · 028 · °). The reference shows multiple labeled data rows for the
    currently-selected contact: institutional density without flashing-text
    excess. Positioned absolutely above the footer so it doesn't fight the
    rows-list for normal-flow space. */
-#theme-furniture[data-theme="unn"] .unn-fields {
+#theme-furniture[data-theme="earth"] .earth-fields {
   position: absolute;
   left: 5px;
   right: 5px;
@@ -4013,7 +3924,7 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   border-top: 1px solid #232f44;
   padding-top: 3px;
 }
-#theme-furniture[data-theme="unn"] .unn-frow {
+#theme-furniture[data-theme="earth"] .earth-frow {
   display: flex;
   font-family: "Share Tech Mono", "Courier New", monospace;
   font-size: 7px;
@@ -4021,26 +3932,26 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   letter-spacing: 0.04em;
   color: #9bb1cc;
 }
-#theme-furniture[data-theme="unn"] .unn-frow span:nth-child(1) {
+#theme-furniture[data-theme="earth"] .earth-frow span:nth-child(1) {
   flex: 0 0 30%;
   color: #5f7390;        /* label muted */
   text-align: left;
 }
-#theme-furniture[data-theme="unn"] .unn-frow span:nth-child(2) {
+#theme-furniture[data-theme="earth"] .earth-frow span:nth-child(2) {
   flex: 0 0 40%;
   color: #d0e0f4;        /* value bright */
   text-align: right;
   padding-right: 4px;
   letter-spacing: 0.06em;
 }
-#theme-furniture[data-theme="unn"] .unn-frow span:nth-child(3) {
+#theme-furniture[data-theme="earth"] .earth-frow span:nth-child(3) {
   flex: 0 0 30%;
   color: #6f9fd0;        /* unit accent */
   text-align: left;
   padding-left: 4px;
 }
 /* Range-solution footer — dense naval readout (the reference's RNG/CPA block). */
-#theme-furniture[data-theme="unn"] .unn-readout-ft {
+#theme-furniture[data-theme="earth"] .earth-readout-ft {
   position: absolute;
   left: 5px;
   right: 5px;
@@ -4050,13 +3961,13 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   border-top: 1px solid #232f44;
   padding-top: 2px;
 }
-#theme-furniture[data-theme="unn"] .unn-ft1 {
+#theme-furniture[data-theme="earth"] .earth-ft1 {
   font-size: 7px;
   letter-spacing: 0.06em;
   color: #8fa8c8;
   white-space: nowrap;
 }
-#theme-furniture[data-theme="unn"] .unn-ft2 {
+#theme-furniture[data-theme="earth"] .earth-ft2 {
   font-size: 6.5px;
   letter-spacing: 0.04em;
   color: #4f627e;
@@ -4067,7 +3978,7 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
    the whole board so all its children scale together (vs resizing, which would
    leave the fixed-px children gapped). Flat/institutional still — just centered
    and larger. Toggled by .fur-warroom in applyActiveLayout. */
-#theme-furniture[data-theme="unn"].fur-warroom .unn-board {
+#theme-furniture[data-theme="earth"].fur-warroom .earth-board {
   left: 50%;
   top: 50%;
   right: auto;
@@ -4076,51 +3987,51 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   transform-origin: center center;
 }
 /* Lead track = the active contact: a SLOW, dignified pulse on its selection box
-   (NOTES: UNN motion is slow/weighty — no frantic flicker). flair-must-inform:
+   (NOTES: EARTH motion is slow/weighty — no frantic flicker). flair-must-inform:
    the live track is the newest cell. Reduced-motion gated. */
-@keyframes unn-sel-pulse { 0%, 100% { stroke-opacity: 0.32; } 50% { stroke-opacity: 0.95; } }
-#theme-furniture[data-theme="unn"] .unn-sel-live {
-  animation: unn-sel-pulse 3.2s ease-in-out infinite;
+@keyframes earth-sel-pulse { 0%, 100% { stroke-opacity: 0.32; } 50% { stroke-opacity: 0.95; } }
+#theme-furniture[data-theme="earth"] .earth-sel-live {
+  animation: earth-sel-pulse 3.2s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  #theme-furniture[data-theme="unn"] .unn-sel-live { animation: none; }
+  #theme-furniture[data-theme="earth"] .earth-sel-live { animation: none; }
 }
 
 /* Threat-acquired state on the HOSTILE bubble — fires from the same trigger
-   as HAMMER LOCK (belter) and the roci threat reticle: any visible cell with
+   as HAMMER LOCK (drift) and the mars-blue threat reticle: any visible cell with
    .cell-danger. Pure-CSS via :has(). Institutional discipline: NO pulse, NO
    flicker, NO banner — just a static intensification (stroke darkens + opens
    to solid, triangle fills, label boldens). The state change reads as
    "target acquired, lock confirmed" — competent and dignified, not flashing
-   sci-fi UI (memory feedback_holographic_depth_yes does NOT apply to UNN). */
-html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat circle {
+   sci-fi UI (memory feedback_holographic_depth_yes does NOT apply to EARTH). */
+html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat circle {
   stroke: #ff5040;
   stroke-opacity: 0.9;
   stroke-width: 1.5;
   stroke-dasharray: 0;     /* dashed → solid: positive lock */
 }
-html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat path {
+html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat path {
   stroke: #ff5040;
   fill: #d83a2e;           /* outline triangle → filled triangle */
   stroke-width: 1.4;
 }
-html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl {
+html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat-lbl {
   fill: #ffb8b0;
   font-weight: bold;
   letter-spacing: 0.18em;
 }
 
 /* ============================================================
-   TACHI theme — The Expanse, EARLY/CLASSIC MCRN (the Tachi / Donnager, Syfy
-   era). The grey+red sibling of `roci` (late/Amazon blue). Dark INDUSTRIAL
+   MARS_RED theme — The Expanse, EARLY/CLASSIC MCRN (the MarsRed / Donnager, Syfy
+   era). The grey+red sibling of `mars-blue` (late/Amazon blue). Dark INDUSTRIAL
    gunmetal hull + RED as a CO-PRIMARY (red concentric tactical plots, not just
-   danger) + steel-cyan secondary; grittier/harder/less-glow than roci. Reuses
-   roci's machinery (cockpit layout, instrument chrome, D-DIN). Grounded:
-   refs/tachi/NOTES.md (Donnager). tachi=grey+red / roci=blue is a curatorial
+   danger) + steel-cyan secondary; grittier/harder/less-glow than mars-blue. Reuses
+   mars-blue's machinery (cockpit layout, instrument chrome, D-DIN). Grounded:
+   refs/mars-red/NOTES.md (Donnager). mars-red=grey+red / mars-blue=blue is a curatorial
    conceit (memory roci_tachi_era_split). v1 = palette + cell chrome + hud +
    nav-grid; skin/furniture + Gemini critique loop are the refine pass.
    ============================================================ */
-.theme-tachi {
+.theme-mars-red {
   --bg:        #16191e;
   --cell-bg:   rgba(34, 38, 44, 0.55);
   --header-bg: rgba(28, 32, 38, 0.66);
@@ -4131,7 +4042,7 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   --line:      rgba(216, 54, 42, 0.18);
   --font-body: "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
   --font-head: "D-DIN Condensed", "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
-  --cell-entrance-anim:     rocinante-boot;
+  --cell-entrance-anim:     mars-blue-boot;
   --cell-entrance-duration: 0.45s;
   --cell-entrance-easing:   cubic-bezier(0.2, 0.7, 0.2, 1);
   --bg-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M44 0H0V44' fill='none' stroke='%23d8362a' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
@@ -4146,57 +4057,57 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   --mermaid-edge-label-border: rgba(216, 54, 42, 0.38);
   --mermaid-cluster-glow: rgba(74, 158, 192, 0.18);
 }
-.theme-tachi body {
+.theme-mars-red body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
   /* RED-forward concentric nav-plot (the MCRN motif): red rings + crosshair +
-     a steel-cyan secondary ellipse. Harder/grittier than roci's muted version. */
+     a steel-cyan secondary ellipse. Harder/grittier than mars-blue's muted version. */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23d8362a' stroke-opacity='0.26' stroke-width='0.8'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%234a9ec0' stroke-opacity='0.22' stroke-width='0.9' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='120' cy='120' r='3' fill='%23d8362a' fill-opacity='0.75'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center 54%;
   background-size: min(88vmin, 1040px) min(88vmin, 1040px);
   background-attachment: fixed;
 }
-.theme-tachi header,
-.theme-tachi .cell-head,
-.theme-tachi .cell-type,
-.theme-tachi .cell-id {
+.theme-mars-red header,
+.theme-mars-red .cell-head,
+.theme-mars-red .cell-type,
+.theme-mars-red .cell-id {
   font-family: var(--font-head);
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
-.theme-tachi .cell .cell-head {
+.theme-mars-red .cell .cell-head {
   border-bottom: 1px solid rgba(216, 54, 42, 0.18);
   padding-bottom: 0.28rem;
 }
-.theme-tachi .cell .cell-title {
+.theme-mars-red .cell .cell-title {
   padding-left: 0.5rem;
   border-left: 2px solid var(--accent);
 }
-.theme-tachi .hud {
+.theme-mars-red .hud {
   border-color: rgba(216, 54, 42, 0.4);
   border-top: 1px solid rgba(216, 54, 42, 0.55);
   background:
     linear-gradient(180deg, rgba(60, 24, 20, 0.34), rgba(0, 0, 0, 0) 70%),
     var(--code-bg);
 }
-.theme-tachi .hud-value {
+.theme-mars-red .hud-value {
   color: #e0685a;
   text-shadow: 0 0 8px rgba(216, 54, 42, 0.5);
 }
 /* Hard angular GUNMETAL hull panel — a deeper corner notch + grey edge (harder,
-   grittier than roci's softer blue panel). */
-/* Tachi chrome — HARD-edged early-MCRN industrial frame (vs roci's softer
+   grittier than mars-blue's softer blue panel). */
+/* MarsRed chrome — HARD-edged early-MCRN industrial frame (vs mars-blue's softer
    chamfered cyan version). The era split should *read* in 1s:
    – Hard 0° corners (no chamfer): early-Syfy MCRN bezels were right-angle;
-     the smooth top-right notch is the late-Amazon look (kept on roci).
+     the smooth top-right notch is the late-Amazon look (kept on mars-blue).
    – 2px gunmetal border: a visibly chunky steel bezel, not a hairline.
    – Inset shadow: gives the cell a bowed-steel depth, like a panel screwed
      into a console rack.
    – Top-right red panel-screw mark via ::before: see the
      CELL CORNER ACCENT SYSTEM block below. */
-.theme-tachi .cell {
+.theme-mars-red .cell {
   clip-path: none;
   border: 2px solid rgba(132, 142, 152, 0.32);
   border-radius: 0;
@@ -4211,7 +4122,7 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
    Reusable mechanism: any theme that sets the `--cell-corner-*` CSS vars
    gets a corner accent on every cell. The accent uses `::before` (the base
    `.cell::after` is reserved for the edge-fade gradient — overriding it
-   broke tachi's bottom-edge fade in v1). Themes that already claim
+   broke mars-red's bottom-edge fade in v1). Themes that already claim
    `.cell::before` for another purpose (ops, hackers) won't conflict
    because their theme-class selector has higher specificity.
 
@@ -4240,9 +4151,9 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   z-index: var(--cell-corner-z, 3);
   pointer-events: none;
 }
-/* Tachi: opt in to a red diagonal panel-screw mark at top-right (the
-   early-MCRN industrial detail replacing roci's chamfer). */
-.theme-tachi {
+/* MarsRed: opt in to a red diagonal panel-screw mark at top-right (the
+   early-MCRN industrial detail replacing mars-blue's chamfer). */
+.theme-mars-red {
   --cell-corner-content: "";
   --cell-corner-size: 14px;
   --cell-corner-bg: linear-gradient(225deg, var(--accent) 50%, transparent 50%);
@@ -4274,88 +4185,76 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   --cell-corner-bg: linear-gradient(225deg, var(--accent-danger, #ff3344) 50%, transparent 50%);
   --cell-corner-opacity: 0.92;
 }
-.theme-tachi .mermaid-target .node rect,
-.theme-tachi .mermaid-target .node polygon,
-.theme-tachi .mermaid-target .node circle,
-.theme-tachi .mermaid-target .node ellipse {
+.theme-mars-red .mermaid-target .node rect,
+.theme-mars-red .mermaid-target .node polygon,
+.theme-mars-red .mermaid-target .node circle,
+.theme-mars-red .mermaid-target .node ellipse {
   fill: transparent !important;
   stroke: var(--accent) !important;
 }
-/* tachi cell SKIN: NO rail — early-era MCRN cells use the gunmetal bezel
+/* mars-red cell SKIN: NO rail — early-era MCRN cells use the gunmetal bezel
    uniformly + a single red corner accent (above) as the MCRN signal.
    Two red marks (rail + corner) read as busy and dilute the panel-screw
-   detail. Cell-skin-mark also hidden (the role glyphs are roci's
-   role-coded vocabulary; tachi doesn't role-code). */
-.theme-tachi .cell.cell-skin-mcrn {
+   detail. Cell-skin-mark also hidden (the role glyphs are mars-blue's
+   role-coded vocabulary; mars-red doesn't role-code). */
+.theme-mars-red .cell.cell-skin-mcrn {
   border-left-width: 2px;
   border-left-color: rgba(132, 142, 152, 0.32);
 }
-.theme-tachi .cell-skin-mark { display: none; }
+.theme-mars-red .cell-skin-mark { display: none; }
 
 /* ============================================================
-   TACHI furniture overrides — _buildFurnitureRocinante is reused
-   with a different registry, but tachi inherits roci's cyan styling
-   verbatim if no tachi-specific furniture CSS exists. Per memory
-   roci_tachi_era_split: tachi = gunmetal grey + red co-primary
-   (classic Donnager-era MCRN), harder/grittier than roci's softer
+   MARS_RED furniture overrides — _buildFurnitureMarsBlue is reused
+   with a different registry, but mars-red inherits mars-blue's cyan styling
+   verbatim if no mars-red-specific furniture CSS exists. Per memory
+   roci_tachi_era_split: mars-red = gunmetal grey + red co-primary
+   (classic Donnager-era MCRN), harder/grittier than mars-blue's softer
    later-era polished blue. Override the bracket/scale/topstrip
    colors and bar gradient to match.
    ============================================================ */
-.theme-tachi #notebook { padding-bottom: 58px; }
-#theme-furniture[data-theme="tachi"] .fur-bracket {
+.theme-mars-red #notebook { padding-bottom: 58px; }
+#theme-furniture[data-theme="mars-red"] .fur-bracket {
   border-color: rgba(132, 142, 152, 0.55);
 }
-#theme-furniture[data-theme="tachi"] .fur-scale {
-  /* steel-grey hairline tick scale (vs roci's muted cyan) */
+#theme-furniture[data-theme="mars-red"] .fur-scale {
+  /* steel-grey hairline tick scale (vs mars-blue's muted cyan) */
   background-image: repeating-linear-gradient(180deg,
     rgba(132, 142, 152, 0.55) 0 1px,
     transparent 1px 8px);
 }
-#theme-furniture[data-theme="tachi"] .fur-topstrip {
-  /* gunmetal grey segmented strip with red highlight runner */
-  background-image: repeating-linear-gradient(90deg,
-    rgba(132, 142, 152, 0.45) 0 3px,
-    transparent 3px 5px,
-    rgba(132, 142, 152, 0.18) 5px 11px,
-    transparent 11px 14px);
-  box-shadow: 0 0 6px rgba(216, 54, 42, 0.25);
-}
-#theme-furniture[data-theme="tachi"] .fur-topstrip-run {
-  background: linear-gradient(90deg, transparent, rgba(216, 54, 42, 0.55), transparent);
-}
-#theme-furniture[data-theme="tachi"] .fur-bars i {
+#theme-furniture[data-theme="mars-red"] .fur-bars i {
   /* harder red bar — saturated, no softening */
   background: linear-gradient(180deg,
     rgba(216, 54, 42, 0.95),
     rgba(216, 54, 42, 0.55));
 }
-#theme-furniture[data-theme="tachi"] .fur-histo-label {
+#theme-furniture[data-theme="mars-red"] .fur-histo-label {
   color: rgba(216, 54, 42, 0.72);
 }
-#theme-furniture[data-theme="tachi"] .fur-dial {
+#theme-furniture[data-theme="mars-red"] .fur-dial {
   border-color: rgba(216, 54, 42, 0.55);
 }
-#theme-furniture[data-theme="tachi"] .fur-dial::before {
+#theme-furniture[data-theme="mars-red"] .fur-dial::before {
   background: rgba(216, 54, 42, 0.85);
 }
-#theme-furniture[data-theme="tachi"] .fur-glass {
+#theme-furniture[data-theme="mars-red"] .fur-glass {
   /* less polished, harder vignette — industrial grey not cockpit-glow */
   background:
     radial-gradient(118% 112% at 50% 42%, transparent 48%, rgba(2, 4, 6, 0.66) 100%);
 }
 
 /* ============================================================
-   BELTER theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
+   DRIFT theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
    (salvaged, repurposed gear). DUAL amber+cyan accent (vs Mars's single-accent
-   discipline), warm-brown surface to separate it from the cool MCRN/UNN themes,
+   discipline), warm-brown surface to separate it from the cool MCRN/EARTH themes,
    and faint scanline grit (Peel: messy "because it's junk"). layout=pack so the
    varied bin-pack reads improvised, not a planned grid. Identity is grounded in
    the faction-SPECIFIC surfaces — Free Navy tactical displays, corridor strip
    lighting, salvaged consoles — NOT the hand terminal (user 2026-05-29: the
    hand terminal is the faction-agnostic "iPhone of the future", carries no
-   faction signal). Grounded: refs/belter/NOTES.md.
+   faction signal). Grounded: refs/drift/NOTES.md.
    ============================================================ */
-.theme-belter {
+.theme-drift {
   --bg:        #15110c;
   --cell-bg:   rgba(36, 27, 18, 0.52);
   --header-bg: rgba(30, 22, 14, 0.66);
@@ -4377,7 +4276,7 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   --mermaid-edge-label-border: rgba(232, 144, 42, 0.4);
   --mermaid-cluster-glow: rgba(26, 166, 176, 0.2);
 }
-.theme-belter body {
+.theme-drift body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
@@ -4389,33 +4288,33 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   background-size: auto, 40px 40px;
   background-attachment: fixed;
 }
-.theme-belter header,
-.theme-belter .cell-head,
-.theme-belter .cell-id {
+.theme-drift header,
+.theme-drift .cell-head,
+.theme-drift .cell-id {
   font-family: var(--font-head);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 /* Salvaged OPA strip — the dual amber+cyan brand: amber left edge (default
    --accent) + a scrappy CYAN DASHED bottom seam (a bolted-on repurposed look),
-   warm wash. The dashed seam is the Belter "exposed join" tell vs the clean
-   MCRN/UNN rails. */
-.theme-belter .hud {
+   warm wash. The dashed seam is the Drift "exposed join" tell vs the clean
+   MCRN/EARTH rails. */
+.theme-drift .hud {
   border-color: rgba(232, 144, 42, 0.35);
   border-bottom: 1px dashed rgba(26, 166, 176, 0.45);
   background:
     linear-gradient(180deg, rgba(40, 28, 14, 0.4), rgba(0, 0, 0, 0) 70%),
     var(--code-bg);
 }
-.theme-belter .hud-value {
+.theme-drift .hud-value {
   color: #e8902a;
   text-shadow: 0 0 8px rgba(232, 144, 42, 0.5);
 }
 /* Salvaged-console panel — a warm hairline border + faint inner warmth over a
-   translucent layered surface. No MCRN angular notch; Belter is repurposed +
+   translucent layered surface. No MCRN angular notch; Drift is repurposed +
    eclectic, not militant-angular. The warm tint is corridor/console-grounded,
    NOT the hand-terminal orange edge-glow (that device is faction-agnostic). */
-.theme-belter .cell {
+.theme-drift .cell {
   border: 1px solid rgba(232, 144, 42, 0.28);
   background: var(--cell-bg);
   box-shadow: inset 0 0 16px rgba(232, 144, 42, 0.045);
@@ -4423,49 +4322,49 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
 /* Eclectic mismatch — some panels lean cyan / carry a heavier border, so the
    grid reads as repurposed-from-different-systems rather than uniform (the
    eclecticism IS the brand). */
-.theme-belter .cell:nth-child(3n+2) {
+.theme-drift .cell:nth-child(3n+2) {
   border-color: rgba(26, 166, 176, 0.34);
   box-shadow: inset 0 0 16px rgba(26, 166, 176, 0.05);
 }
-/* A third register: yellow-green — some Belter ships run a green-amber console
+/* A third register: yellow-green — some Drift ships run a green-amber console
    palette (user 2026-05-28: "at least one of them is a lot of yellow green"), so
    a slice of panels read as salvaged from those ships. Amber + cyan + green =
    the multi-ship eclectic mix. */
-.theme-belter .cell:nth-child(5n+4) {
+.theme-drift .cell:nth-child(5n+4) {
   border-color: rgba(168, 196, 62, 0.36);
   box-shadow: inset 0 0 16px rgba(168, 196, 62, 0.05);
 }
-.theme-belter .cell:nth-child(4n+1) { border-width: 2px; }
-/* Belter mermaid: amber wireframe nodes (dual-accent — cyan clusters). */
-.theme-belter .mermaid-target .node rect,
-.theme-belter .mermaid-target .node polygon,
-.theme-belter .mermaid-target .node circle,
-.theme-belter .mermaid-target .node ellipse {
+.theme-drift .cell:nth-child(4n+1) { border-width: 2px; }
+/* Drift mermaid: amber wireframe nodes (dual-accent — cyan clusters). */
+.theme-drift .mermaid-target .node rect,
+.theme-drift .mermaid-target .node polygon,
+.theme-drift .mermaid-target .node circle,
+.theme-drift .mermaid-target .node ellipse {
   fill: transparent !important;
   stroke: var(--accent) !important;
 }
 
 /* ── Cell SKIN: salvage / eclectic (tokens.json "skin":"salvage") ──────────
-   Belter's brand is the OPPOSITE of Mars's role-disciplined skin: panels look
+   Drift's brand is the OPPOSITE of Mars's role-disciplined skin: panels look
    repurposed from DIFFERENT salvaged systems. So instead of role-coding, the
    register (amber / cyan / yellow-green — already set on the cell border by the
    nth-child rules above) carries through to the HEADER underline + a riveted
    corner ID-plate, so each cell reads as one coherent unit bolted in from system
    X. The inconsistency across cells IS the signal. renderCell still appends
-   .cell-role-<role> (harmless here — Belter doesn't role-code). Accents stay on
+   .cell-role-<role> (harmless here — Drift doesn't role-code). Accents stay on
    the header rule + one corner; never over substrate content (readability). */
-.theme-belter .cell-skin-salvage .cell-head {
+.theme-drift .cell-skin-salvage .cell-head {
   border-bottom: 1px solid rgba(232, 144, 42, 0.42);   /* amber register (default) */
 }
-.theme-belter .cell-skin-salvage:nth-child(3n+2) .cell-head {
+.theme-drift .cell-skin-salvage:nth-child(3n+2) .cell-head {
   border-bottom-color: rgba(26, 166, 176, 0.48);       /* cyan register */
 }
-.theme-belter .cell-skin-salvage:nth-child(5n+4) .cell-head {
+.theme-drift .cell-skin-salvage:nth-child(5n+4) .cell-head {
   border-bottom-color: rgba(168, 196, 62, 0.5);        /* yellow-green register */
 }
 /* Riveted ID-plate corner glyph — one mask, recolored per register via
    background-color (so the salvage plate matches its system's accent). */
-.theme-belter .cell-skin-salvage .cell-skin-mark {
+.theme-drift .cell-skin-salvage .cell-skin-mark {
   position: absolute;
   right: 8px;
   bottom: 7px;
@@ -4475,32 +4374,30 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   pointer-events: none;
   opacity: 0.55;
   background-color: rgba(232, 144, 42, 0.9);            /* amber register */
-  -webkit-mask: var(--bel-plate) center / contain no-repeat;
-  mask: var(--bel-plate) center / contain no-repeat;
-  --bel-plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 11'%3E%3Crect x='0.5' y='0.5' width='15' height='10' rx='1' fill='none' stroke='black' stroke-width='1'/%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='13' cy='3' r='1'/%3E%3Ccircle cx='3' cy='8' r='1'/%3E%3Ccircle cx='13' cy='8' r='1'/%3E%3Cline x1='5.5' y1='5.5' x2='10.5' y2='5.5' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+  -webkit-mask: var(--drift-plate) center / contain no-repeat;
+  mask: var(--drift-plate) center / contain no-repeat;
+  --drift-plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 11'%3E%3Crect x='0.5' y='0.5' width='15' height='10' rx='1' fill='none' stroke='black' stroke-width='1'/%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='13' cy='3' r='1'/%3E%3Ccircle cx='3' cy='8' r='1'/%3E%3Ccircle cx='13' cy='8' r='1'/%3E%3Cline x1='5.5' y1='5.5' x2='10.5' y2='5.5' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
 }
-.theme-belter .cell-skin-salvage:nth-child(3n+2) .cell-skin-mark {
+.theme-drift .cell-skin-salvage:nth-child(3n+2) .cell-skin-mark {
   background-color: rgba(26, 166, 176, 0.9);
 }
-.theme-belter .cell-skin-salvage:nth-child(5n+4) .cell-skin-mark {
+.theme-drift .cell-skin-salvage:nth-child(5n+4) .cell-skin-mark {
   background-color: rgba(168, 196, 62, 0.9);
 }
-.theme-belter .cell-skin-salvage.cell-role-text .cell-skin-mark { display: none; }
+.theme-drift .cell-skin-salvage.cell-role-text .cell-skin-mark { display: none; }
 
-/* ── Cell SKIN: UNN institutional UNIFORMITY (tokens.json "skin":"institutional")
-   The conceptual inverse of Belter's eclectic per-cell variety AND Rocinante's
-   role-coding: EVERY unn cell gets the SAME flat navy header rule + the SAME
-   clean stencil hull-plate corner mark (no rivets — that's Belter's salvage
+/* ── Cell SKIN: EARTH institutional UNIFORMITY (tokens.json "skin":"institutional")
+   The conceptual inverse of Drift's eclectic per-cell variety AND MarsBlue's
+   role-coding: EVERY earth cell gets the SAME flat navy header rule + the SAME
+   clean stencil hull-plate corner mark (no rivets — that's Drift's salvage
    tell; no nth-child register; no role color). Bureaucratic SAMENESS is the
    faction signal — deliberately dull, but clearly INTENTIONAL: each cell reads
    as a standard-issue UN naval readout panel, not a default card. Stays on the
    header rule + one corner; never over substrate content (readability). */
-.theme-unn .cell-skin-institutional .cell-head {
-  border-left: 2px solid rgba(47, 111, 208, 0.55);
+.theme-earth .cell-skin-institutional .cell-head {
   border-bottom: 1px solid rgba(47, 111, 208, 0.2);
-  padding-left: 6px;
 }
-.theme-unn .cell-skin-institutional .cell-skin-mark {
+.theme-earth .cell-skin-institutional .cell-skin-mark {
   position: absolute;
   right: 8px;
   bottom: 7px;
@@ -4510,22 +4407,22 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   pointer-events: none;
   opacity: 0.5;
   background-color: rgba(47, 111, 208, 0.85);
-  -webkit-mask: var(--unn-plate) center / contain no-repeat;
-  mask: var(--unn-plate) center / contain no-repeat;
+  -webkit-mask: var(--earth-plate) center / contain no-repeat;
+  mask: var(--earth-plate) center / contain no-repeat;
   /* Clean naval hull-classification placard: outer rect + filled label strip +
-     two stencil data lines. Flat/institutional — NOT Belter's riveted plate. */
-  --unn-plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 11'%3E%3Crect x='0.5' y='0.5' width='16' height='10' fill='none' stroke='black' stroke-width='1'/%3E%3Crect x='0.5' y='0.5' width='16' height='3' fill='black'/%3E%3Cline x1='3' y1='6.5' x2='14' y2='6.5' stroke='black' stroke-width='1'/%3E%3Cline x1='3' y1='8.5' x2='11' y2='8.5' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+     two stencil data lines. Flat/institutional — NOT Drift's riveted plate. */
+  --earth-plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 11'%3E%3Crect x='0.5' y='0.5' width='16' height='10' fill='none' stroke='black' stroke-width='1'/%3E%3Crect x='0.5' y='0.5' width='16' height='3' fill='black'/%3E%3Cline x1='3' y1='6.5' x2='14' y2='6.5' stroke='black' stroke-width='1'/%3E%3Cline x1='3' y1='8.5' x2='11' y2='8.5' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
 }
-.theme-unn .cell-skin-institutional.cell-role-text .cell-skin-mark { display: none; }
+.theme-earth .cell-skin-institutional.cell-role-text .cell-skin-mark { display: none; }
 
 /* ============================================================
-   UNN theme — The Expanse, Earth / UN Navy. Deliberately CLUNKY / BORING /
+   EARTH theme — The Expanse, Earth / UN Navy. Deliberately CLUNKY / BORING /
    INSTITUTIONAL (user-confirmed on-character — the "boring competent
-   bureaucracy"). Royal/navy blue, deeper/more saturated than Roci's cyan for
+   bureaucracy"). Royal/navy blue, deeper/more saturated than MarsBlue's cyan for
    faction separation. FLAT plain panels — no glow, no grit, no angular notch —
    the dull weight of the establishment. Red = incoming-threat accent. Grounded:
    refs/unn/NOTES.md. ============================================ */
-.theme-unn {
+.theme-earth {
   --bg:        #0e1420;
   --cell-bg:   rgba(22, 32, 50, 0.62);
   --header-bg: rgba(18, 28, 46, 0.72);
@@ -4547,7 +4444,7 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   --mermaid-edge-label-border: rgba(47, 111, 208, 0.4);
   --mermaid-cluster-glow: transparent;
 }
-.theme-unn body {
+.theme-earth body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
@@ -4556,9 +4453,9 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   background-size: 48px 48px;
   background-attachment: fixed;
 }
-.theme-unn header,
-.theme-unn .cell-head,
-.theme-unn .cell-id {
+.theme-earth header,
+.theme-earth .cell-head,
+.theme-earth .cell-id {
   font-family: var(--font-head);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -4567,7 +4464,7 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
    a navy double-rule (top + bottom) + cool wash + wider letter-spacing. The
    chunky framing reads as institutional gravitas (matches the console bezel) —
    the establishment's official header, not a scrappy or sharp one. */
-.theme-unn .hud {
+.theme-earth .hud {
   border-color: rgba(47, 111, 208, 0.4);
   border-top: 2px solid rgba(47, 111, 208, 0.55);
   border-bottom: 2px solid rgba(47, 111, 208, 0.28);
@@ -4576,20 +4473,108 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
     var(--code-bg);
   letter-spacing: 0.07em;
 }
-.theme-unn .hud-value { color: #4a86d8; }
+.theme-earth .hud-value { color: #4a86d8; }
 /* Flat institutional panel: plain near-square border, NO glow, NO notch — the
-   deliberately-boring establishment look (the contrast that makes roci/belter
+   deliberately-boring establishment look (the contrast that makes mars-blue/drift
    read as characterful). */
-.theme-unn .cell {
-  border: 1px solid rgba(47, 111, 208, 0.3);
-  border-radius: 2px;
-  background: var(--cell-bg);
-  box-shadow: none;
+/* Cells inherit the WWII-naval situations-plot chrome: same opaque navy bg,
+   same chunky angular bezel (45° beveled multi-shadow), zero border-radius.
+   The dashboard reads as a wall of identical-grammar console panels — the
+   plot is just the panel that has live tracks on it. Inner ring slightly
+   thinner than the board's 5px so cell content has more breathing room. */
+.theme-earth .cell {
+  background: #0f1726;
+  border: 1px solid #3a475c;
+  border-radius: 0;
+  box-shadow:
+    /* heavier drop separator — cells visibly lift from the dark bg */
+    0 4px 14px rgba(0, 0, 0, 0.65),
+    /* 45° bevel highlight (top-left) — the only inset, so the corner reads
+       as ONE clean L, not stacked Ls. (User flagged the dark inner ring
+       inset as creating a second L-corner — "all fucked up", 2026-06-01.) */
+    inset 3px 3px 0 0 #5a708a,
+    inset -3px -3px 0 0 #050810;
 }
-.theme-unn .mermaid-target .node rect,
-.theme-unn .mermaid-target .node polygon,
-.theme-unn .mermaid-target .node circle,
-.theme-unn .mermaid-target .node ellipse {
+/* Cell title bar — TRANSPARENT bg, not a lighter placard. Even without a
+   placard border, a lighter bg starting at +14px from the cell edge paints
+   its own visible top-left corner (the bg-transition L) which competes
+   with the outer bevel L (user 2026-06-01 cell-7615 screenshot: visible
+   doubled corner). Keep title as text-only with a hairline separator; the
+   cell's outer bevel owns all four corners alone. */
+.theme-earth .cell-head {
+  background: transparent;
+  border-bottom: 1px solid #2c3a52;
+  font-family: "Share Tech Mono", "Courier New", monospace;
+  letter-spacing: 0.14em;
+  color: #8fa8c8;
+}
+/* Cell body — darker sub-screen inside the chrome (matches the plot's
+   .earth-screen: black-navy bg, hairline border, inset dark separator).
+   Content (SVG / scene3d / vega) renders inside this sub-panel like the
+   plot's situations SVG renders inside .earth-screen — the cell becomes
+   a nested console exactly like the situations plot. */
+/* Body inherits the cell's bg — no distinct sub-screen color, because the
+   sub-screen's edges also paint a visible inner L (same problem as the
+   placard's bg transition). The cell's outer bevel is the only frame;
+   title + body + caption share one continuous panel surface. */
+/* Reserve a bottom band on the cell area so cells never overlap the
+   situations plot in the bottom-left corner (plot is 344×150 at left:14
+   bottom:16 — band reservation gives ~24px breathing room). */
+html.theme-earth #notebook {
+  padding-bottom: 180px;
+}
+/* Still-warm / fresh recency glow — the default ::before paints a 1px
+   accent-color ring + glow that visually OVERWRITES the cell's bevel
+   corner (user 2026-06-01 cell-7617 "no bevel at all"). For earth, route
+   the recency cue to a drop-shadow filter on the cell itself so it
+   layers OUTSIDE the bevel without breaking the L-corner. ALSO override
+   the cell-arrive keyframe (which directly animates box-shadow for ~1s
+   on fresh mount, erasing the bevel) — replace with a transform-only
+   entrance that keeps the bevel intact throughout. */
+.theme-earth .cell.cell-still-warm::before,
+.theme-earth .cell.cell-fresh::before {
+  display: none;
+}
+.theme-earth .cell.cell-still-warm {
+  filter: drop-shadow(0 0 6px rgba(47, 111, 208, 0.35));
+}
+.theme-earth .cell.cell-fresh {
+  filter: drop-shadow(0 0 10px rgba(47, 111, 208, 0.55));
+  /* Override the base .cell.cell-fresh rule that paints a flat blue glow
+     (overwriting our bevel) and a 3px accent border-left (asymmetric on a
+     beveled box). Restore the bevel cascade and the matching outer border. */
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.65),
+    inset 3px 3px 0 0 #5a708a,
+    inset -3px -3px 0 0 #050810;
+  border: 1px solid #3a475c;
+  animation-name: earth-cell-arrive;
+}
+@keyframes earth-cell-arrive {
+  0%   { opacity: 0; transform: translate3d(0, -14px, -80px); }
+  60%  { opacity: 1; transform: translate3d(0, 0, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+/* Scene3d cells get their own longer entrance (cell-arrive-render) that
+   also animates box-shadow. Override it the same way so scene3d cells
+   keep the bevel during the 1.6s mount window. */
+.theme-earth .cell.cell-fresh[data-cell-type="scene3d"] {
+  animation: earth-cell-arrive-render 1.6s ease-out;
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.65),
+    inset 3px 3px 0 0 #5a708a,
+    inset -3px -3px 0 0 #050810;
+}
+@keyframes earth-cell-arrive-render {
+  0%   { opacity: 0; transform: translateY(-20px); }
+  35%  { opacity: 0.5; }
+  70%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.theme-earth .mermaid-target .node rect,
+.theme-earth .mermaid-target .node polygon,
+.theme-earth .mermaid-target .node circle,
+.theme-earth .mermaid-target .node ellipse {
   fill: transparent !important;
   stroke: var(--accent) !important;
 }
@@ -4608,20 +4593,17 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
    via `.theme-lab` re-asserting display so the developer-mode dashboard
    keeps its zoom-tap chrome at rest. */
 .cell-head > .cell-id,
+/* cell-id is identity — keep it visible. cell-session and cell-time are
+   debug-only and hidden everywhere (used to reveal on hover, which made
+   the titlebar resize and read as a glitch). Inspect via dev tools or the
+   title attribute if needed. */
 .cell-head > .cell-session,
 .cell-head > .cell-time {
   display: none;
 }
-.cell:hover .cell-head > .cell-id,
-.cell:hover .cell-head > .cell-session,
-.cell:hover .cell-head > .cell-time {
+.cell-head > .cell-id {
   display: inline-flex;
   opacity: 0.7;
-}
-.theme-lab .cell-head > .cell-id,
-.theme-lab .cell-head > .cell-session,
-.theme-lab .cell-head > .cell-time {
-  display: inline-flex;
 }
 
 /* ── Cell SKIN: MCRN archetype roles (tokens.json "skin":"mcrn") ───────────
@@ -4630,18 +4612,18 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
    role gets a faction-native accent so cells read as instrument widgets BY
    FUNCTION — color-coded left rail (system-color semantics) + a corner badge.
    Accents stay on the left rail + one corner (readability: never over the
-   substrate content). Scoped under .theme-rocinante for specificity over the
-   base `.theme-rocinante .cell` border; other themes get their own skins. */
-.theme-rocinante .cell.cell-skin-mcrn { border-left-width: 3px; border-left-style: solid; }
-.theme-rocinante .cell.cell-skin-mcrn.cell-role-quant      { border-left-color: rgba(90, 150, 170, 0.78); }
-.theme-rocinante .cell.cell-skin-mcrn.cell-role-relational { border-left-color: rgba(139, 108, 255, 0.72); }
-.theme-rocinante .cell.cell-skin-mcrn.cell-role-status     { border-left-color: rgba(58, 209, 78, 0.6); }
-.theme-rocinante .cell.cell-skin-mcrn.cell-role-spatial    { border-left-color: rgba(255, 194, 51, 0.62); }
-.theme-rocinante .cell.cell-skin-mcrn.cell-role-text       { border-left-color: rgba(95, 129, 152, 0.5); }
+   substrate content). Scoped under .theme-mars-blue for specificity over the
+   base `.theme-mars-blue .cell` border; other themes get their own skins. */
+.theme-mars-blue .cell.cell-skin-mcrn { border-left-width: 3px; border-left-style: solid; }
+.theme-mars-blue .cell.cell-skin-mcrn.cell-role-quant      { border-left-color: rgba(90, 150, 170, 0.78); }
+.theme-mars-blue .cell.cell-skin-mcrn.cell-role-relational { border-left-color: rgba(139, 108, 255, 0.72); }
+.theme-mars-blue .cell.cell-skin-mcrn.cell-role-status     { border-left-color: rgba(58, 209, 78, 0.6); }
+.theme-mars-blue .cell.cell-skin-mcrn.cell-role-spatial    { border-left-color: rgba(255, 194, 51, 0.62); }
+.theme-mars-blue .cell.cell-skin-mcrn.cell-role-text       { border-left-color: rgba(95, 129, 152, 0.5); }
 
 /* Corner role glyph — a small instrument badge, bottom-right, above the cell
    edge-fade (.cell::after is z 2). One element; the role class swaps the SVG. */
-.theme-rocinante .cell-skin-mark {
+.theme-mars-blue .cell-skin-mark {
   position: absolute;
   right: 9px;
   bottom: 8px;
@@ -4654,19 +4636,19 @@ html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl
   background-position: center;
   background-size: contain;
 }
-.theme-rocinante .cell-role-quant .cell-skin-mark {
+.theme-mars-blue .cell-role-quant .cell-skin-mark {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='%235a96aa'%3E%3Crect x='2' y='8' width='3' height='6'/%3E%3Crect x='6.5' y='3.5' width='3' height='10.5'/%3E%3Crect x='11' y='6' width='3' height='8'/%3E%3C/g%3E%3C/svg%3E");
 }
-.theme-rocinante .cell-role-relational .cell-skin-mark {
+.theme-mars-blue .cell-role-relational .cell-skin-mark {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%238b6cff' stroke-width='1'%3E%3Ccircle cx='8' cy='8' r='5'/%3E%3Cline x1='8' y1='1' x2='8' y2='15'/%3E%3Cline x1='1' y1='8' x2='15' y2='8'/%3E%3C/g%3E%3C/svg%3E");
 }
-.theme-rocinante .cell-role-status .cell-skin-mark {
+.theme-mars-blue .cell-role-status .cell-skin-mark {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%2357a06a' stroke-width='1.4'%3E%3Cpolyline points='3,4 7,8 3,12'/%3E%3Cline x1='8' y1='13' x2='14' y2='13'/%3E%3C/g%3E%3C/svg%3E");
 }
-.theme-rocinante .cell-role-spatial .cell-skin-mark {
+.theme-mars-blue .cell-role-spatial .cell-skin-mark {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%23ffc233' stroke-width='1.3'%3E%3Cpath d='M2 5V2H5'/%3E%3Cpath d='M11 2H14V5'/%3E%3Cpath d='M14 11V14H11'/%3E%3Cpath d='M5 14H2V11'/%3E%3C/g%3E%3C/svg%3E");
 }
-.theme-rocinante .cell-role-text .cell-skin-mark { display: none; }
+.theme-mars-blue .cell-role-text .cell-skin-mark { display: none; }
 
 /* ============================================================
    MAINFRAME theme — ReBoot (1994) Mainframe city aesthetic.
@@ -4972,7 +4954,7 @@ html.theme-terminus::before {
 /* Hero cells have plenty of vertical room — let the caption breathe by default
    instead of clamping to 2 (which is the small-rail/pack cell default). Covers
    both cockpit's first-child hero (no composition) and composition's promoted
-   .comp-hero (rocinante). The hover-unclamp still expands further if needed. */
+   .comp-hero (mars-blue). The hover-unclamp still expands further if needed. */
 #notebook[data-layout="cockpit"] > .cell:first-child .cell-caption,
 .cell.comp-hero .cell-caption {
   -webkit-line-clamp: 8;
@@ -5772,44 +5754,44 @@ body {
   filter: drop-shadow(0 0 3px var(--mermaid-cluster-glow));
 }
 
-/* ── Lever 2 (rocinante): outline-only mermaid — the show's hairline-wireframe
+/* ── Lever 2 (mars-blue): outline-only mermaid — the show's hairline-wireframe
    look, NOT filled blobs. Node fill defaults to mermaid's mainBkg (a filled
    panel); force it transparent so only the thin cyan stroke shows, matching the
    MCRN nav-plot's outline-driven graphics. Higher specificity than the generic
    .mermaid-target rules + !important beats mermaid's #m-<id> inline fill. Labels
    are left untouched (font/size measured by mermaid — avoid the overflow
    tripwire, see memory feedback_mermaid_text_fit_validated). */
-.theme-rocinante .mermaid-target .node rect,
-.theme-rocinante .mermaid-target .node polygon,
-.theme-rocinante .mermaid-target .node circle,
-.theme-rocinante .mermaid-target .node ellipse,
-.theme-rocinante .mermaid-target .node path {
+.theme-mars-blue .mermaid-target .node rect,
+.theme-mars-blue .mermaid-target .node polygon,
+.theme-mars-blue .mermaid-target .node circle,
+.theme-mars-blue .mermaid-target .node ellipse,
+.theme-mars-blue .mermaid-target .node path {
   fill: transparent !important;
   stroke: var(--accent) !important;
   stroke-width: 1px !important;
 }
-.theme-rocinante .mermaid-target .cluster rect {
+.theme-mars-blue .mermaid-target .cluster rect {
   fill: rgba(90, 150, 170, 0.04) !important;
   stroke: var(--accent-secondary, #3c6a93) !important;
   stroke-width: 1px !important;
 }
 /* Sequence/state/class diagrams: actor + state + entity boxes also default to a
    solid fill — same outline-only treatment. */
-.theme-rocinante .mermaid-target .actor,
-.theme-rocinante .mermaid-target rect.actor,
-.theme-rocinante .mermaid-target .statediagram-state rect,
-.theme-rocinante .mermaid-target .node.statediagram-state rect,
-.theme-rocinante .mermaid-target g.classGroup rect,
-.theme-rocinante .mermaid-target .entityBox {
+.theme-mars-blue .mermaid-target .actor,
+.theme-mars-blue .mermaid-target rect.actor,
+.theme-mars-blue .mermaid-target .statediagram-state rect,
+.theme-mars-blue .mermaid-target .node.statediagram-state rect,
+.theme-mars-blue .mermaid-target g.classGroup rect,
+.theme-mars-blue .mermaid-target .entityBox {
   fill: transparent !important;
   stroke: var(--accent) !important;
   stroke-width: 1px !important;
 }
-/* Lever 2 (rocinante): treemap tiles outline-only too — the solid 0.85 fills
+/* Lever 2 (mars-blue): treemap tiles outline-only too — the solid 0.85 fills
    read as blobs; drop to a faint wash + cyan hairline border so the partition
    (tile sizes) + labels still read but it matches the outline idiom. (vega's
    filled bar-gauges are left alone — the show's gauges ARE filled.) */
-.theme-rocinante .treemap-target rect {
+.theme-mars-blue .treemap-target rect {
   fill-opacity: 0.16 !important;
   stroke: var(--accent) !important;
   stroke-width: 1px !important;

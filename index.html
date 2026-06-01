@@ -12,7 +12,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Lucida</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-<link rel="stylesheet" href="notebook.css?v=118" />
+<link rel="stylesheet" href="notebook.css?v=139" />
 <!--
   CDN scripts pinned with SRI (sha384) for supply-chain integrity.
   Computed 2026-05-25. If a CDN updates a non-pinned major (e.g. vega@5
@@ -89,8 +89,8 @@
   //                                  are always canonical "LAYOUT"/"THEME".
   //   furniture                    — name of a _buildFurniture* function (mapped
   //                                  via FURNITURE_BUILDERS in main module).
-  //                                  Themes can share a builder (tachi reuses
-  //                                  rocinante's MCRN bezel). Missing → no-op.
+  //                                  Themes can share a builder (mars-red reuses
+  //                                  mars-blue's MCRN bezel). Missing → no-op.
   //   transient                    — name of a _buildTransient* function (mapped
   //                                  via TRANSIENT_BUILDERS). Missing → generic.
   //   motion                       — transient cell motion mode ("pack" default).
@@ -130,18 +130,18 @@
                  hud: { status: "PWR", since: "UPTIME", cells: "FILES", render: "GIBSON", session: "RUN" } },
     hailmary:  { id: "hailmary",  label: "HAILMARY",  description: "Project Hail Mary blueprint — wireframe ship + pill chips",
                  hud: { status: "VITAL", since: "AU", cells: "SPECIMENS", render: "SCAN", session: "LOG" } },
-    rocinante: { id: "rocinante", label: "ROCINANTE", description: "MCRN command-line — system-color triad, cyan tactical, red under-the-hood",
+    "mars-blue": { id: "mars-blue", label: "MARS BLUE", description: "Mars-style command-line — system-color triad, cyan tactical, red under-the-hood",
                  hud: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH" },
-                 furniture: "rocinante", transient: "rocinante" },
-    tachi:     { id: "tachi",     label: "TACHI",     description: "Classic MCRN (early/Syfy) — gunmetal grey hull, red-primary tactical, hard angular",
+                 furniture: "mars-blue", transient: "mars-blue" },
+    "mars-red":  { id: "mars-red",  label: "MARS RED",  description: "Classic Mars — gunmetal grey hull, red-primary tactical, hard angular",
                  hud: { status: "CON", since: "T+", cells: "CONTACTS", render: "RENDR", session: "WATCH" },
-                 furniture: "rocinante" },
-    belter:    { id: "belter",    label: "BELTER",    description: "OPA salvage — amber+cyan dual accent, warm-brown, eclectic/improvised",
+                 furniture: "mars-blue" },
+    drift:     { id: "drift",     label: "DRIFT",     description: "Outer-rim salvage — amber+cyan dual accent, warm-brown, eclectic/improvised",
                  hud: { status: "STA", since: "TIM", cells: "KONTAKT", render: "RENDR", session: "WACH" },
-                 furniture: "belter", transient: "belter" },
-    unn:       { id: "unn",       label: "UNN",       description: "Earth/UN navy — institutional royal-blue, deliberately plain/utilitarian",
+                 furniture: "drift", transient: "drift" },
+    earth:     { id: "earth",     label: "EARTH",     description: "Earth navy — institutional royal-blue, deliberately plain/utilitarian",
                  hud: { status: "CONDITION", since: "ELAPSED", cells: "CONTACTS", render: "RENDR", session: "WATCH" },
-                 furniture: "unn", transient: "unn" },
+                 furniture: "earth", transient: "earth" },
   };
 </script>
 <script>
@@ -153,7 +153,7 @@
     var theme = "lab";
     try {
       var url = new URLSearchParams(window.location.search).get("theme");
-      var m = document.cookie.match(/(?:^|; )lucida_theme=(\w+)/);
+      var m = document.cookie.match(/(?:^|; )lucida_theme=([\w-]+)/);
       if (url && valid.indexOf(url) >= 0) theme = url;
       else if (m && valid.indexOf(m[1]) >= 0) theme = m[1];
     } catch (e) { /* fall through to default */ }
@@ -322,6 +322,6 @@
      empty (invisible) for themes without a furniture builder. Part of the
      theming-flexibility foundation. -->
 <div id="theme-furniture" aria-hidden="true"></div>
-<script type="module" src="lucida.mjs?v=28"></script>
+<script type="module" src="lucida.mjs?v=36"></script>
 </body>
 </html>

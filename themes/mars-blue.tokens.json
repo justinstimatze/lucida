@@ -1,5 +1,5 @@
 {
-  "_comment": "The Expanse — MCRN / Rocinante. RE-GROUNDED 2026-05-27 from actual show footage (cockpit tactical screens, 'This is the Warship Rocinante'): deep NAVY base + MUTED blue-white UI (NOT electric cyan), restrained with lots of negative space; red kept rare/small (threat markers). System-color triad still applies (red=danger/green=go/yellow=warn). layout=cockpit, chrome=instrument. See refs/rocinante/NOTES.md + bmg_raw_visual_for_design memory (palette study should use raw frames, not montages).",
+  "_comment": "The Expanse — MCRN / MarsBlue. RE-GROUNDED 2026-05-27 from actual show footage (cockpit tactical screens, 'This is the Warship MarsBlue'): deep NAVY base + MUTED blue-white UI (NOT electric cyan), restrained with lots of negative space; red kept rare/small (threat markers). System-color triad still applies (red=danger/green=go/yellow=warn). layout=cockpit, chrome=instrument. See refs/mars-blue/NOTES.md + bmg_raw_visual_for_design memory (palette study should use raw frames, not montages).",
   "accent": {
     "primary":   "#5a96aa",
     "secondary": "#3c6a93",

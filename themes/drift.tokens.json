@@ -1,5 +1,5 @@
 {
-  "_comment": "The Expanse — OPA / Belter / Free Navy. Grounded 2026-05-28 from show frames (refs/belter/NOTES.md): the brand is ECLECTICISM (salvaged, repurposed gear). DUAL accent — amber/orange + cyan (unlike Mars's single-accent discipline); warm-brown surface tint separates it from the cool MCRN/UNN themes. Embrace slight grit/noise (Peel: 'because it's junk'). Lang Belta creole label fragments as texture. layout=pack (varied bin-pack reads improvised, not a planned grid). Red = threat/HAMMER-LOK (same escalation role as Roci).",
+  "_comment": "The Expanse — OPA / Drift / Free Navy. Grounded 2026-05-28 from show frames (refs/drift/NOTES.md): the brand is ECLECTICISM (salvaged, repurposed gear). DUAL accent — amber/orange + cyan (unlike Mars's single-accent discipline); warm-brown surface tint separates it from the cool MCRN/EARTH themes. Embrace slight grit/noise (Peel: 'because it's junk'). Lang Belta creole label fragments as texture. layout=pack (varied bin-pack reads improvised, not a planned grid). Red = threat/HAMMER-LOK (same escalation role as MarsBlue).",
   "accent": {
     "primary":   "#e8902a",
     "secondary": "#1aa6b0",
@@ -20,11 +20,11 @@
     "muted": "#8a7860"
   },
   "data": {
-    "_comment": "Dual warm+cool ladder — amber/gold interleaved with teal/cyan, the Belter two-accent brand. System amber[4]/red[5] stay rare signals.",
+    "_comment": "Dual warm+cool ladder — amber/gold interleaved with teal/cyan, the Drift two-accent brand. System amber[4]/red[5] stay rare signals.",
     "cat": ["#e8902a", "#1aa6b0", "#d9a94a", "#6fc8e0", "#ffc233", "#e23b2e"]
   },
   "type": {
-    "_comment": "No clean designer-font source for Belter (Yorke is Roci-only). Saira (DIN-adjacent, OFL, bundled) for body/head — deliberately NOT D-DIN so it doesn't read as MCRN; Space Mono for the salvaged-terminal mono texture.",
+    "_comment": "No clean designer-font source for Drift (Yorke is MarsBlue-only). Saira (DIN-adjacent, OFL, bundled) for body/head — deliberately NOT D-DIN so it doesn't read as MCRN; Space Mono for the salvaged-terminal mono texture.",
     "body": "\"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
     "head": "\"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
     "mono": "\"Space Mono\", \"Share Tech Mono\", \"Courier New\", monospace"
