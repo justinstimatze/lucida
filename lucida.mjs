@@ -4202,22 +4202,49 @@ function applyMixed3DWarRoom(O) {
   glow.position.y = -0.04;
   scene.add(glow);
 
-  // Volumetric haze: a tapered cylinder of additive-blended particulate
-  // rising from the disc to suggest the holo space has medium. Bottom
-  // matches disc radius, top narrows so the haze converges with the
-  // centerpiece. Low opacity so it doesn't compete with content;
-  // userData._hazePhase animated in the render loop for a slow drift.
-  const hazeGeo = new T.CylinderGeometry(discRadius * 0.85, discRadius * 1.05, 14, 32, 1, true);
-  const hazeMat = new T.MeshBasicMaterial({
+  // Volumetric haze: BILLBOARDED SPRITE with a vertical-gradient
+  // canvas texture, additive-blended. Same approach as the hackers
+  // tower glow — a sprite always faces camera, so the alpha falloff
+  // is uniformly soft from any angle and the haze never reveals
+  // geometric silhouette (the earlier cylinder mesh did at some
+  // angles, reading as "fog pillar" not "atmosphere"). User
+  // 2026-05-31 "haze doesn't really look right vs hackers tower glow."
+  const _hazeCanvas = document.createElement("canvas");
+  _hazeCanvas.width = 128;
+  _hazeCanvas.height = 256;
+  const _hCtx = _hazeCanvas.getContext("2d");
+  // Vertical gradient: bright at bottom (rising from table), fading
+  // to transparent at top. Horizontal soft edges.
+  const _hGrad = _hCtx.createLinearGradient(0, 256, 0, 0);
+  _hGrad.addColorStop(0.00, "rgba(255, 255, 255, 0.55)");
+  _hGrad.addColorStop(0.20, "rgba(160, 200, 255, 0.32)");
+  _hGrad.addColorStop(0.55, "rgba(80, 130, 200, 0.14)");
+  _hGrad.addColorStop(1.00, "rgba(0, 0, 0, 0)");
+  _hCtx.fillStyle = _hGrad;
+  _hCtx.fillRect(0, 0, 128, 256);
+  // Soft horizontal falloff — composite a radial gradient on top
+  // so the sprite's left/right edges aren't sharp.
+  const _hHalo = _hCtx.createRadialGradient(64, 256, 0, 64, 256, 128);
+  _hHalo.globalCompositeOperation = "destination-in";
+  _hCtx.globalCompositeOperation = "destination-in";
+  _hHalo.addColorStop(0.0, "rgba(255, 255, 255, 1)");
+  _hHalo.addColorStop(1.0, "rgba(255, 255, 255, 0)");
+  _hCtx.fillStyle = _hHalo;
+  _hCtx.fillRect(0, 0, 128, 256);
+  _hCtx.globalCompositeOperation = "source-over";
+  const hazeTex = new T.CanvasTexture(_hazeCanvas);
+  const hazeMat = new T.SpriteMaterial({
+    map: hazeTex,
     color: tint,
     transparent: true,
-    opacity: 0.045,
+    opacity: 0.55,
     blending: T.AdditiveBlending,
     depthWrite: false,
-    side: T.DoubleSide,
+    depthTest: false,
   });
-  const haze = new T.Mesh(hazeGeo, hazeMat);
-  haze.position.y = 6.5;
+  const haze = new T.Sprite(hazeMat);
+  haze.scale.set(discRadius * 2.1, 14, 1);
+  haze.position.set(0, 7, 0);
   haze.userData._isHaze = true;
   scene.add(haze);
 
@@ -5095,11 +5122,9 @@ function applyMixed3DWarRoom(O) {
     // the active mode has no centerpiece globe (trajectory / tactical).
     if (globe) globe.rotation.y = t * 0.000175;
 
-    // Volumetric haze: gentle vertical drift (rotation around y) +
-    // tiny opacity breathing so the column doesn't read as a static
-    // fog cylinder. Cheap — single mesh.
-    haze.rotation.y = t * 0.00007;
-    haze.material.opacity = 0.038 + Math.sin(t * 0.0006) * 0.012;
+    // Volumetric haze: subtle opacity breathing on the billboard
+    // sprite. No rotation (sprites always face camera).
+    haze.material.opacity = 0.50 + Math.sin(t * 0.0006) * 0.10;
 
     // scene3d holo-ring: per-cell self-spin + any rotation_speed from
     // the source spec. Cheap to drive every frame regardless of which

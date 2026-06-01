@@ -7098,14 +7098,11 @@ body.layout-mixed3d .cell[data-cell-type="scene3d"] {
    chrome separating it from the tower face. */
 body.layout-mixed3d .cell {
   border: 1px solid color-mix(in srgb, var(--accent, #00ddff) 55%, transparent);
-  /* Holo-shimmer edge: soft diffuse glow halo around each cell so
-     the cell reads as projected light hanging in the air, not a
-     pasted panel. Two layered shadows — tight inner ring + wider
-     outer bleed — both at low alpha so the bg behind the cell is
-     visible through the halo. User 2026-05-31 "holo shimmer". */
-  box-shadow:
-    0 0 6px color-mix(in srgb, var(--accent, #00ddff) 40%, transparent),
-    0 0 22px color-mix(in srgb, var(--accent, #00ddff) 18%, transparent);
+  /* Holo-shimmer edge: tight glow halo. Kept narrow (4px) because
+     CSS3D projection at our scale magnifies the shadow further —
+     a 22px shadow first attempt bled into adjacent cells and read
+     as the cells overlapping each other. User 2026-05-31. */
+  box-shadow: 0 0 4px color-mix(in srgb, var(--accent, #00ddff) 50%, transparent);
   /* Cells in war room can visually overlap each other across rows or
      radii — bump bg opacity so the front cell reads as opaque, not
      a ghostly composite of the cell behind it. User 2026-05-31. */
