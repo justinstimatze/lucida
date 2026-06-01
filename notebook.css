@@ -4489,6 +4489,21 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
 html.theme-earth #notebook {
   padding-bottom: 180px;
 }
+/* The base .cell::before is a 14×14 corner-accent slot (cell-corner-system
+   in lucida.mjs). When .cell-still-warm / .cell-fresh add their border +
+   glow + inset:-1px to that SAME pseudo-element, the 14×14 size constraint
+   wins, producing a tiny bordered square at the top-left corner instead of
+   a whole-cell recency ring. (User 2026-06-01 cell-7647 "little square in
+   the top left of the title bar".) Reset width/height so the inset:-1px
+   takes full effect and the recency border wraps the entire cell as the
+   base rule originally intended. */
+.theme-earth .cell.cell-still-warm::before,
+.theme-earth .cell.cell-fresh::before {
+  width: auto;
+  height: auto;
+  background: none;
+  content: "";
+}
 .theme-earth .mermaid-target .node rect,
 .theme-earth .mermaid-target .node polygon,
 .theme-earth .mermaid-target .node circle,
