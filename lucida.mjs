@@ -12297,9 +12297,13 @@ function _updateBelterOrbital() {
         '<ellipse cx="' + px + '" cy="' + py + '" rx="4" ry="1.4" fill="none" ' +
           'stroke="#1aa6b0" stroke-opacity="0.4" stroke-width="0.8"/>' +
         '<circle cx="' + px + '" cy="' + py + '" r="2.2" fill="#1aa6b0"/>' +
+        // Stalk riser stays amber (wireframe color); ▼ stalk-marker
+        // triangle is YELLOW per refs/belter/belter_orbital_tactical:
+        // canonical Belter contact glyph reads as warning-yellow vs
+        // the amber wireframe hull color (visual hierarchy).
         '<line x1="' + px + '" y1="' + py + '" x2="' + px + '" y2="' + ty +
           '" stroke="#e8b04a" stroke-width="1.2" stroke-opacity="0.85"/>' +
-        '<path d="' + tri + '" fill="#e8b04a"/>' +
+        '<path d="' + tri + '" fill="#ffc233"/>' +
         '<text x="' + px + '" y="' + (tyN - 4).toFixed(1) +
           '" text-anchor="middle" class="bel-contact-lbl">' + _belTag(c.type) +
         '</text>' +
@@ -12316,8 +12320,11 @@ function _updateBelterOrbital() {
 // reads as etched into the plot, like the war-room table inlay
 // (00_04_02_un_warroom_seal_table_orbital_lines). Returns an SVG <g> string.
 function _unnSeal(cx, cy, R) {
-  const col = "#7da4d6";
-  let s = '<g class="unn-seal-g" stroke="' + col + '" stroke-opacity="0.5" fill="none" stroke-width="0.6" stroke-linecap="round">';
+  // Brighter institutional blue + higher opacity so the seal reads as
+  // the Earth-power inlay, not a faint watermark. Audit 2026-05-31
+  // flagged the prior #7da4d6 @ 0.5 as nearly invisible against bg.
+  const col = "#9bb8d8";
+  let s = '<g class="unn-seal-g" stroke="' + col + '" stroke-opacity="0.78" fill="none" stroke-width="0.7" stroke-linecap="round">';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R.toFixed(1) + '"/>';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.62).toFixed(1) + '"/>';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.28).toFixed(1) + '"/>';

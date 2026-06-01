@@ -3275,15 +3275,16 @@ html.theme-ops::before {
   top: 80px;
   left: 44px;
   right: 44px;
-  height: 7px;
+  height: 12px;
   overflow: hidden;
   pointer-events: auto;  /* allow the readout tooltip */
   cursor: help;
   background-image: repeating-linear-gradient(90deg,
-    rgba(90, 150, 170, 0.42) 0 3px,
+    rgba(90, 150, 170, 0.55) 0 3px,
     transparent 3px 5px,
-    rgba(90, 150, 170, 0.16) 5px 11px,
+    rgba(90, 150, 170, 0.22) 5px 11px,
     transparent 11px 14px);
+  box-shadow: 0 0 8px rgba(90, 150, 170, 0.35);
 }
 #theme-furniture[data-theme="rocinante"] .fur-topstrip-run {
   position: absolute;
@@ -3935,6 +3936,58 @@ html.theme-ops::before {
   border-left-color: rgba(132, 142, 152, 0.32);
 }
 .theme-tachi .cell-skin-mark { display: none; }
+
+/* ============================================================
+   TACHI furniture overrides — _buildFurnitureRocinante is reused
+   with a different registry, but tachi inherits roci's cyan styling
+   verbatim if no tachi-specific furniture CSS exists. Per memory
+   roci_tachi_era_split: tachi = gunmetal grey + red co-primary
+   (classic Donnager-era MCRN), harder/grittier than roci's softer
+   later-era polished blue. Override the bracket/scale/topstrip
+   colors and bar gradient to match.
+   ============================================================ */
+.theme-tachi #notebook { padding-bottom: 58px; }
+#theme-furniture[data-theme="tachi"] .fur-bracket {
+  border-color: rgba(132, 142, 152, 0.55);
+}
+#theme-furniture[data-theme="tachi"] .fur-scale {
+  /* steel-grey hairline tick scale (vs roci's muted cyan) */
+  background-image: repeating-linear-gradient(180deg,
+    rgba(132, 142, 152, 0.55) 0 1px,
+    transparent 1px 8px);
+}
+#theme-furniture[data-theme="tachi"] .fur-topstrip {
+  /* gunmetal grey segmented strip with red highlight runner */
+  background-image: repeating-linear-gradient(90deg,
+    rgba(132, 142, 152, 0.45) 0 3px,
+    transparent 3px 5px,
+    rgba(132, 142, 152, 0.18) 5px 11px,
+    transparent 11px 14px);
+  box-shadow: 0 0 6px rgba(216, 54, 42, 0.25);
+}
+#theme-furniture[data-theme="tachi"] .fur-topstrip-run {
+  background: linear-gradient(90deg, transparent, rgba(216, 54, 42, 0.55), transparent);
+}
+#theme-furniture[data-theme="tachi"] .fur-bars i {
+  /* harder red bar — saturated, no softening */
+  background: linear-gradient(180deg,
+    rgba(216, 54, 42, 0.95),
+    rgba(216, 54, 42, 0.55));
+}
+#theme-furniture[data-theme="tachi"] .fur-histo-label {
+  color: rgba(216, 54, 42, 0.72);
+}
+#theme-furniture[data-theme="tachi"] .fur-dial {
+  border-color: rgba(216, 54, 42, 0.55);
+}
+#theme-furniture[data-theme="tachi"] .fur-dial::before {
+  background: rgba(216, 54, 42, 0.85);
+}
+#theme-furniture[data-theme="tachi"] .fur-glass {
+  /* less polished, harder vignette — industrial grey not cockpit-glow */
+  background:
+    radial-gradient(118% 112% at 50% 42%, transparent 48%, rgba(2, 4, 6, 0.66) 100%);
+}
 
 /* ============================================================
    BELTER theme — The Expanse, OPA / Free Navy. The brand is ECLECTICISM
