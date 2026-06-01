@@ -3308,14 +3308,17 @@ html.theme-ops::before {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 34px;
+  height: 52px;
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  padding: 0 18px 5px;
-  /* Softer, shorter band — reads as a translucent console bezel that content
-     fades behind, not a hard cut. */
-  background: linear-gradient(180deg, transparent, rgba(8, 18, 30, 0.5) 85%);
+  padding: 0 18px 6px;
+  /* Per refs/rocinante/NOTES.md: the bottom red bar-gauge histogram band
+     is "the single most recognizable MCRN tell" — appears on every
+     canonical tactical/nav frame. Earlier 34px height read as a faint
+     strip; 52px makes it a real console-bezel band. Translucent
+     gradient still lets cell content fade behind so it's not a hard cut. */
+  background: linear-gradient(180deg, transparent, rgba(8, 18, 30, 0.55) 80%);
   /* Re-enable hover (the furniture overlay is pointer-events:none) so the
      band shows its explanatory tooltip. Safe: the cockpit reserves bottom
      space (below) so no cell sits under the band to be blocked. */
@@ -3324,7 +3327,7 @@ html.theme-ops::before {
 }
 /* Reserve room below the grid (non-cockpit rocinante layouts) so the fixed
    bottom histogram band doesn't occlude the last row of cells. */
-.theme-rocinante #notebook { padding-bottom: 40px; }
+.theme-rocinante #notebook { padding-bottom: 58px; }
 /* Viewport-height instrument panel that scrolls INTERNALLY above the bottom
    band: the panel occupies the screen (no page scroll), cells keep readable
    natural heights (minmax(150px, auto) — NOT 1fr-compressed), and the scroll
