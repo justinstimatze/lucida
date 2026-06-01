@@ -3486,10 +3486,114 @@ html.theme-ops::before {
   transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
+/* Ship-self wireframe schematic — top-down Roci silhouette pinned to
+   the right margin, mid-height. Per refs/rocinante NOTES.md the
+   right-side ship-self schematic is the canonical calm-ops signature
+   on every MCRN tactical screen. White hairline, low opacity so it
+   reads as ambient orientation, not chart-junk. */
+#theme-furniture[data-theme="rocinante"] .fur-shipself,
+#theme-furniture[data-theme="tachi"]     .fur-shipself {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 130px;
+  pointer-events: auto;
+  cursor: help;
+  opacity: 0.55;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 200'%3E%3Cg fill='none' stroke='%23bcd4e2' stroke-width='0.8' stroke-linecap='round'%3E%3Cpath d='M30 14 L40 30 L40 150 L36 160 L24 160 L20 150 L20 30 Z'/%3E%3Cellipse cx='14' cy='92' rx='5' ry='14'/%3E%3Cellipse cx='46' cy='92' rx='5' ry='14'/%3E%3Cpath d='M22 160 L26 178 L34 178 L38 160'/%3E%3Cline x1='26' y1='14' x2='26' y2='6'/%3E%3Cline x1='34' y1='14' x2='34' y2='6'/%3E%3Cline x1='22' y1='52' x2='38' y2='52' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='100' x2='38' y2='100' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='128' x2='38' y2='128' stroke-opacity='0.5'/%3E%3Cline x1='30' y1='22' x2='30' y2='155' stroke-opacity='0.35' stroke-dasharray='2 3'/%3E%3C/g%3E%3C/svg%3E");
+}
+/* Tachi: same hull silhouette but cyan→grey hairline (gunmetal era). */
+#theme-furniture[data-theme="tachi"] .fur-shipself {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 200'%3E%3Cg fill='none' stroke='%23a4a8ad' stroke-width='0.8' stroke-linecap='round'%3E%3Cpath d='M30 14 L40 30 L40 150 L36 160 L24 160 L20 150 L20 30 Z'/%3E%3Cellipse cx='14' cy='92' rx='5' ry='14'/%3E%3Cellipse cx='46' cy='92' rx='5' ry='14'/%3E%3Cpath d='M22 160 L26 178 L34 178 L38 160'/%3E%3Cline x1='26' y1='14' x2='26' y2='6'/%3E%3Cline x1='34' y1='14' x2='34' y2='6'/%3E%3Cline x1='22' y1='52' x2='38' y2='52' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='100' x2='38' y2='100' stroke-opacity='0.5'/%3E%3Cline x1='22' y1='128' x2='38' y2='128' stroke-opacity='0.5'/%3E%3Cline x1='30' y1='22' x2='30' y2='155' stroke-opacity='0.35' stroke-dasharray='2 3'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Telemetry log — left-margin green-monospace command-line texture.
+   Per refs/rocinante NOTES.md: "the under-the-hood surface Yorke
+   describes; the signature Roci texture." 4 fake function-call lines
+   that fade-cycle so the log feels live. */
+#theme-furniture[data-theme="rocinante"] .fur-telemetry,
+#theme-furniture[data-theme="tachi"]     .fur-telemetry {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  color: rgba(58, 209, 78, 0.55);
+  pointer-events: auto;
+  cursor: help;
+}
+#theme-furniture[data-theme="rocinante"] .fur-telemetry i,
+#theme-furniture[data-theme="tachi"]     .fur-telemetry i {
+  font-style: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: fur-telemetry-fade 6s ease-in-out infinite;
+}
+#theme-furniture[data-theme="rocinante"] .fur-telemetry i:nth-child(2),
+#theme-furniture[data-theme="tachi"]     .fur-telemetry i:nth-child(2) { animation-delay: 1.5s; }
+#theme-furniture[data-theme="rocinante"] .fur-telemetry i:nth-child(3),
+#theme-furniture[data-theme="tachi"]     .fur-telemetry i:nth-child(3) { animation-delay: 3.0s; }
+#theme-furniture[data-theme="rocinante"] .fur-telemetry i:nth-child(4),
+#theme-furniture[data-theme="tachi"]     .fur-telemetry i:nth-child(4) { animation-delay: 4.5s; }
+@keyframes fur-telemetry-fade {
+  0%, 70%, 100% { opacity: 0.55; }
+  10%, 30%      { opacity: 0.95; }
+}
+
+/* System-color triad lamps — red / amber / green backlit indicators in
+   the bottom band. Bound to real session state in _updateRocinanteHisto:
+   red on if any cell-danger, amber on if any cell-conf-low, green on
+   when clean. Glow when on, dim when off — physical-button feel. */
+#theme-furniture[data-theme="rocinante"] .fur-triad,
+#theme-furniture[data-theme="tachi"]     .fur-triad {
+  display: flex;
+  gap: 6px;
+  align-self: center;
+  padding: 0 6px;
+}
+#theme-furniture[data-theme="rocinante"] .fur-lamp,
+#theme-furniture[data-theme="tachi"]     .fur-lamp {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(40, 50, 60, 0.85);
+  border: 1px solid rgba(120, 150, 170, 0.35);
+  transition: background 0.35s, box-shadow 0.35s;
+}
+#theme-furniture[data-theme="rocinante"] .fur-lamp-r[data-on="1"],
+#theme-furniture[data-theme="tachi"]     .fur-lamp-r[data-on="1"] {
+  background: #e23b2e;
+  box-shadow: 0 0 6px rgba(226, 59, 46, 0.85), inset 0 0 3px rgba(255, 200, 195, 0.5);
+}
+#theme-furniture[data-theme="rocinante"] .fur-lamp-a[data-on="1"],
+#theme-furniture[data-theme="tachi"]     .fur-lamp-a[data-on="1"] {
+  background: #ffc233;
+  box-shadow: 0 0 6px rgba(255, 194, 51, 0.85), inset 0 0 3px rgba(255, 240, 200, 0.5);
+}
+#theme-furniture[data-theme="rocinante"] .fur-lamp-g[data-on="1"],
+#theme-furniture[data-theme="tachi"]     .fur-lamp-g[data-on="1"] {
+  background: #57a06a;
+  box-shadow: 0 0 6px rgba(87, 160, 106, 0.85), inset 0 0 3px rgba(200, 240, 210, 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
   #theme-furniture[data-theme="rocinante"] .fur-topstrip-run,
   #theme-furniture[data-theme="rocinante"] .fur-bars i,
-  #theme-furniture[data-theme="rocinante"] .fur-dial::after { animation: none; }
+  #theme-furniture[data-theme="rocinante"] .fur-dial::after,
+  #theme-furniture[data-theme="rocinante"] .fur-telemetry i,
+  #theme-furniture[data-theme="tachi"]     .fur-telemetry i { animation: none; }
 }
 
 /* Belter furniture: OPA Free Navy tactical plot (tilted elliptical orbital

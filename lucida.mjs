@@ -12108,9 +12108,34 @@ function _buildFurnitureRocinante(el) {
     '<div class="fur-scale fur-scale-l"></div>' +
     '<div class="fur-scale fur-scale-r"></div>' +
     '<div class="fur-topstrip"><span class="fur-topstrip-run"></span></div>' +
+    // Right-margin ship-self wireframe — top-down Roci silhouette
+    // (corvette-class hull + 2 thruster pods + drive cone). Per
+    // refs/rocinante NOTES.md: the "right-side white wireframe
+    // ship-self schematic" appears on every calm-ops screen and is
+    // the signature MCRN orientation element. Styled in CSS to
+    // sit fixed at right edge, mid-height, low opacity.
+    '<div class="fur-shipself" title="Ship-self — top-down schematic of Roci hull"></div>' +
+    // Left-margin telemetry log — green monospace command-line texture.
+    // Per NOTES.md: "the under-the-hood surface Yorke describes; the
+    // signature Roci texture." 4 fake function-call lines with chevron
+    // prefixes (animated cycle below in CSS).
+    '<div class="fur-telemetry">' +
+      '<i>&gt; nav.link_active()</i>' +
+      '<i>&gt; sensor.fan.sweep(0,360)</i>' +
+      '<i>&gt; drive.epstein.idle()</i>' +
+      '<i>&gt; comm.handshake(MCRN)</i>' +
+    '</div>' +
     '<div class="fur-histo" title="Mint-activity readout — each bar is a time slice of the session; bar height = cells minted in that slice.">' +
       '<div class="fur-histo-label">' + REG + '<br>TRAFFIC · STANDBY</div>' +
       '<div class="fur-bars">' + bars + '</div>' +
+      // System-color triad indicators — red/green/amber backlit lamps
+      // (Yorke's MCRN physical button palette). Bound below in
+      // _updateRocinanteHisto to real session state.
+      '<div class="fur-triad" title="System-color triad — red (errors/danger), amber (warnings), green (ok). Live from session state.">' +
+        '<span class="fur-lamp fur-lamp-r" data-on="0"></span>' +
+        '<span class="fur-lamp fur-lamp-a" data-on="0"></span>' +
+        '<span class="fur-lamp fur-lamp-g" data-on="1"></span>' +
+      '</div>' +
       '<div class="fur-dials"><span class="fur-dial"></span><span class="fur-dial fur-dial-sm"></span></div>' +
     '</div>';
 }
@@ -12184,6 +12209,17 @@ function _updateRocinanteHisto() {
   if (run) run.style.setProperty("--strip-dur", (7 - rateNorm * 4).toFixed(1) + "s");
   const strip = fur.querySelector(".fur-topstrip");
   if (strip) strip.title = "Readout strip — highlight-sweep cadence tracks the mint rate.";
+  // System-color triad: red = any danger cells in view, amber = low-
+  // confidence cells, green = clean steady state (no signals firing).
+  // Same flair-must-inform pattern as the histogram + dials.
+  const dangerCount = document.querySelectorAll("#notebook .cell.cell-danger").length;
+  const lowConfCount = document.querySelectorAll("#notebook .cell.cell-conf-low").length;
+  const lampR = fur.querySelector(".fur-lamp-r");
+  const lampA = fur.querySelector(".fur-lamp-a");
+  const lampG = fur.querySelector(".fur-lamp-g");
+  if (lampR) lampR.dataset.on = dangerCount > 0 ? "1" : "0";
+  if (lampA) lampA.dataset.on = lowConfCount > 0 ? "1" : "0";
+  if (lampG) lampG.dataset.on = dangerCount === 0 && lowConfCount === 0 ? "1" : "0";
 }
 
 // Belter Free Navy tactical plot — the Belter↔Roci differentiator. Mars draws a
