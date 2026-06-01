@@ -4086,6 +4086,30 @@ html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact
   #theme-furniture[data-theme="unn"] .unn-sel-live { animation: none; }
 }
 
+/* Threat-acquired state on the HOSTILE bubble — fires from the same trigger
+   as HAMMER LOCK (belter) and the roci threat reticle: any visible cell with
+   .cell-danger. Pure-CSS via :has(). Institutional discipline: NO pulse, NO
+   flicker, NO banner — just a static intensification (stroke darkens + opens
+   to solid, triangle fills, label boldens). The state change reads as
+   "target acquired, lock confirmed" — competent and dignified, not flashing
+   sci-fi UI (memory feedback_holographic_depth_yes does NOT apply to UNN). */
+html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat circle {
+  stroke: #ff5040;
+  stroke-opacity: 0.9;
+  stroke-width: 1.5;
+  stroke-dasharray: 0;     /* dashed → solid: positive lock */
+}
+html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat path {
+  stroke: #ff5040;
+  fill: #d83a2e;           /* outline triangle → filled triangle */
+  stroke-width: 1.4;
+}
+html.theme-unn:has(#notebook .cell.cell-danger) #theme-furniture .unn-threat-lbl {
+  fill: #ffb8b0;
+  font-weight: bold;
+  letter-spacing: 0.18em;
+}
+
 /* ============================================================
    TACHI theme — The Expanse, EARLY/CLASSIC MCRN (the Tachi / Donnager, Syfy
    era). The grey+red sibling of `roci` (late/Amazon blue). Dark INDUSTRIAL
