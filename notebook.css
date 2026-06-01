@@ -3639,6 +3639,32 @@ html.theme-ops::before {
      projection"). Memory feedback_holographic_depth_yes: this is wanted polish. */
   filter: drop-shadow(0 0 2px rgba(26, 166, 176, 0.45));
 }
+/* Scanline grit on the SVG area itself — per refs/belter NOTES.md "embrace
+   grit: scanline noise, static, fritz" (Peel's "junk hardware" tell — the
+   texture that separates Belter from the clean Mars/Earth themes). Dark
+   horizontal scanlines via repeating-linear-gradient, mix-blend-mode so
+   the scanlines darken the existing cyan plot without flat-overlaying. The
+   bel-flicker keyframe on the parent already gives it a subtle pulse. */
+#theme-furniture[data-theme="belter"] .bel-plot::after {
+  content: "";
+  position: absolute;
+  top: 21px;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 2px,
+      rgba(0, 0, 0, 0.55) 2px,
+      rgba(0, 0, 0, 0.55) 3px
+    );
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+  z-index: 1;
+}
 /* Segmented tactical tab-strip (the show's top chrome). */
 #theme-furniture[data-theme="belter"] .bel-strip {
   position: absolute;
@@ -3695,13 +3721,83 @@ html.theme-ops::before {
 #theme-furniture[data-theme="belter"] .bel-ship svg { width: 100%; height: 100%; overflow: visible; }
 #theme-furniture[data-theme="belter"] .bel-opa {
   position: absolute;
-  top: 84px;
-  left: 13px;
-  width: 34px;
-  height: 34px;
-  opacity: 0.78;
+  top: 78px;
+  left: 12px;
+  width: 46px;
+  height: 46px;
+  opacity: 0.92;
 }
 #theme-furniture[data-theme="belter"] .bel-opa svg { width: 100%; height: 100%; }
+
+/* Right-margin Behemoth-class wireframe hull schematic — the amber wireframe
+   ship that dominates one panel of the Free Navy tactical display
+   (refs/belter/00_03_01_freenavy_tactical_creole_display.png). Long
+   horizontal hull silhouette + rotating habitation drum (Mormon generation
+   ship signature) + antenna spikes fore + cyan drive-plasma vector aft +
+   amber thruster vectors. Mirrors roci .fur-shipself's right-margin
+   anchoring; horizontal orientation matches Belter ship profiles. */
+#theme-furniture[data-theme="belter"] .bel-shipself {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 200px;
+  height: 70px;
+  pointer-events: auto;
+  cursor: help;
+  opacity: 0.62;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'%3E%3Cg fill='none' stroke='%23e8902a' stroke-width='0.8' stroke-linecap='round'%3E%3Cpath d='M8 40 L26 30 L178 30 L196 38 L208 38 L208 42 L196 42 L178 50 L26 50 Z'/%3E%3Cellipse cx='100' cy='40' rx='22' ry='14'/%3E%3Cline x1='8' y1='40' x2='-2' y2='32'/%3E%3Cline x1='8' y1='40' x2='-2' y2='48'/%3E%3Cline x1='50' y1='30' x2='50' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='70' y1='30' x2='70' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='140' y1='30' x2='140' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='160' y1='30' x2='160' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='14' y1='40' x2='190' y2='40' stroke-opacity='0.35' stroke-dasharray='2 3'/%3E%3C/g%3E%3Cg fill='none' stroke='%231aa6b0' stroke-width='0.8' stroke-linecap='round'%3E%3Ccircle cx='202' cy='40' r='1.8' fill='%231aa6b0' stroke='none'/%3E%3Cline x1='208' y1='40' x2='234' y2='40' stroke-opacity='0.65' stroke-dasharray='3 2'/%3E%3Cline x1='90' y1='30' x2='88' y2='20' stroke-opacity='0.7'/%3E%3Cline x1='130' y1='50' x2='132' y2='60' stroke-opacity='0.7'/%3E%3C/g%3E%3C/svg%3E");
+}
+@media (max-width: 1100px) {
+  #theme-furniture[data-theme="belter"] .bel-shipself { display: none; }
+}
+
+/* Lang Belta decals — perimeter-scattered creole fragments at very low
+   opacity, slight rotation for the salvaged-graffiti tell. Color-mixed
+   amber + cyan so the dual-accent brand stays consistent. */
+#theme-furniture[data-theme="belter"] .bel-decals {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#theme-furniture[data-theme="belter"] .bel-decal {
+  position: absolute;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: rgba(232, 144, 42, 0.16);
+  white-space: nowrap;
+}
+#theme-furniture[data-theme="belter"] .bel-decal-1 {
+  top: 42px;
+  left: 24px;
+  transform: rotate(-2deg);
+}
+#theme-furniture[data-theme="belter"] .bel-decal-2 {
+  top: 50%;
+  left: 12px;
+  transform: rotate(-90deg);
+  transform-origin: 0 0;
+  color: rgba(26, 166, 176, 0.18);
+}
+#theme-furniture[data-theme="belter"] .bel-decal-3 {
+  top: 42px;
+  right: 24px;
+  transform: rotate(1deg);
+  color: rgba(26, 166, 176, 0.18);
+}
+#theme-furniture[data-theme="belter"] .bel-decal-4 {
+  bottom: 30px;
+  right: 30px;
+  transform: rotate(-1deg);
+}
+@media (max-width: 1100px) {
+  #theme-furniture[data-theme="belter"] .bel-decals { display: none; }
+}
+
 /* Junk-hardware flicker — brief dips, mostly steady, so it reads as salvaged
    gear without becoming a strobe (readability is a bug). */
 @keyframes bel-flicker {
@@ -3721,6 +3817,59 @@ html.theme-ops::before {
 }
 @media (prefers-reduced-motion: reduce) {
   #theme-furniture[data-theme="belter"] .bel-live ellipse { animation: none; }
+}
+
+/* HAMMER LOCK threat state — per refs/belter belter_hammerlock_trails:
+   the orbital plot enters a red threat overlay (banner + diamond contact
+   morph) when any visible cell has .cell-danger (same trigger as the
+   roci threat reticle). Pure-CSS via :has() so it reacts instantly when
+   the class is added — no JS class toggle needed. Default: triangles
+   show, diamonds hidden. */
+#theme-furniture[data-theme="belter"] .bel-marker-dia { display: none; }
+/* Red HAMMER LOCK banner across the top of the plot panel — the show's
+   threat callout. Pseudo-element so we don't need to mutate the SVG. */
+#theme-furniture[data-theme="belter"] .bel-plot::before {
+  content: "HAMMER LOCK";
+  position: absolute;
+  top: 23px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 9px 2px;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: #ffe2dc;
+  background: #c0241a;
+  border: 1px solid #ff5a4a;
+  border-radius: 1px;
+  text-shadow: 0 0 4px rgba(255, 80, 70, 0.7);
+  box-shadow: 0 0 6px rgba(192, 36, 26, 0.7);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+  transition: opacity 0.3s;
+}
+/* Threat ON (body has any cell.cell-danger): show banner, hide triangles,
+   show red diamonds + colorize contact circles to read as locked-on targets. */
+html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-plot::before {
+  opacity: 1;
+  animation: bel-threat-blink 1.4s steps(2, jump-none) infinite;
+}
+html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-marker-tri { display: none; }
+html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-marker-dia { display: initial; }
+html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contacts circle { fill: #ffb8b0; }
+html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contact-lbl { fill: #ffb8b0; }
+html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-contacts line {
+  stroke: #e23b2e;
+  stroke-opacity: 0.85;
+}
+@keyframes bel-threat-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-belter:has(#notebook .cell.cell-danger) #theme-furniture .bel-plot::before { animation: none; }
 }
 
 /* UNN furniture: Earth/UN naval SITUATION-BOARD (war-room tactical table)

@@ -12278,10 +12278,34 @@ function _buildFurnitureBelter(el) {
       '</svg></div>' +
     '</div>' +
     // OPA split-circle faction glyph — a ring divided by an offset slash.
+    // Dual-accent: amber/rust ring + cyan slash (matches Belter's two-color
+    // brand vs the canonical red/white show palette — keeps faction
+    // iconography on-theme without breaking the cyan+amber discipline).
     '<div class="bel-opa"><svg viewBox="0 0 40 40" aria-hidden="true">' +
-      '<circle cx="20" cy="20" r="15" fill="none" stroke="#d8662e" stroke-width="2.4"/>' +
-      '<path d="M7 27 L33 13" stroke="#e6dccb" stroke-width="2.4" stroke-linecap="round"/>' +
-    '</svg></div>';
+      '<circle cx="20" cy="20" r="15" fill="none" stroke="#d8662e" stroke-width="2.6"/>' +
+      '<path d="M7 27 L33 13" stroke="#1aa6b0" stroke-width="2.6" stroke-linecap="round"/>' +
+    '</svg></div>' +
+    // Right-margin wireframe-hull schematic — per refs/belter
+    // 00_03_01_freenavy_tactical_creole_display.png: the amber
+    // wireframe ship dominates one panel of the Free Navy tactical
+    // display. Drawn here as a Behemoth-class long hull (generation
+    // ship turned warship): long cylindrical body + rotating habitation
+    // drum mid-hull + drive cone aft + antenna spikes fore + side
+    // thruster vectors. Mirrors the roci .fur-shipself signature-
+    // orientation pattern, amber instead of cyan-grey.
+    '<div class="bel-shipself" title="Free Navy hull schematic — Behemoth-class generation ship + thruster vectors"></div>' +
+    // Lang Belta decorative decals — short Belter-creole fragments at very
+    // low opacity scattered around the viewport perimeter, slight rotation
+    // for the salvaged/graffiti texture (refs/belter NOTES.md: "Mixed
+    // languages/registers within one screen = the eclecticism signal. Use
+    // Belta-style label fragments as texture, don't translate"). pointer-
+    // events:none inheriting from #theme-furniture so they never block clicks.
+    '<div class="bel-decals" aria-hidden="true">' +
+      '<span class="bel-decal bel-decal-1">DEFOTUNG</span>' +
+      '<span class="bel-decal bel-decal-2">KOMMA LEK</span>' +
+      '<span class="bel-decal bel-decal-3">BELTALOWDA</span>' +
+      '<span class="bel-decal bel-decal-4">BOSMANG · SETARA</span>' +
+    '</div>';
 }
 
 // Salvaged-terminal tag for a substrate type — honest (derived from the real
@@ -12305,6 +12329,8 @@ function _updateBelterOrbital() {
   if (!fur || fur.dataset.theme !== "belter") return;
   const g = fur.querySelector(".bel-contacts");
   if (!g) return;
+  // HAMMER LOCK threat state is CSS-driven via body:has(.cell-danger)
+  // (same trigger as the roci threat reticle). No JS class toggle needed.
   const cells = [...document.querySelectorAll("#notebook .cell[data-timestamp]")]
     .map((c) => ({ t: Date.parse(c.dataset.timestamp), type: c.dataset.cellType || "" }))
     .filter((c) => Number.isFinite(c.t))
@@ -12326,6 +12352,14 @@ function _updateBelterOrbital() {
     const tri = "M" + (pxN - 3).toFixed(1) + " " + (tyN - 1).toFixed(1) +
       " L" + (pxN + 3).toFixed(1) + " " + (tyN - 1).toFixed(1) +
       " L" + px + " " + (tyN + 3).toFixed(1) + " Z";
+    // Threat-state diamond marker (per refs/belter belter_hammerlock_trails:
+    // contact glyphs morph from yellow ▼ triangles to red ◆ diamonds
+    // during HAMMER LOCK). Same position as the triangle so the swap
+    // reads as one marker changing rather than two markers fighting.
+    const dia = "M" + px + " " + (tyN - 3.4).toFixed(1) +
+      " L" + (pxN + 3.4).toFixed(1) + " " + tyN.toFixed(1) +
+      " L" + px + " " + (tyN + 3.4).toFixed(1) +
+      " L" + (pxN - 3.4).toFixed(1) + " " + tyN.toFixed(1) + " Z";
     out +=
       '<g class="bel-contact' + (i === 0 ? ' bel-live' : '') + '">' +
         // Footprint ellipse on the plane — grounds the contact so the vertical
@@ -12339,7 +12373,8 @@ function _updateBelterOrbital() {
         // the amber wireframe hull color (visual hierarchy).
         '<line x1="' + px + '" y1="' + py + '" x2="' + px + '" y2="' + ty +
           '" stroke="#e8b04a" stroke-width="1.2" stroke-opacity="0.85"/>' +
-        '<path d="' + tri + '" fill="#ffc233"/>' +
+        '<path class="bel-marker-tri" d="' + tri + '" fill="#ffc233"/>' +
+        '<path class="bel-marker-dia" d="' + dia + '" fill="#e23b2e"/>' +
         '<text x="' + px + '" y="' + (tyN - 4).toFixed(1) +
           '" text-anchor="middle" class="bel-contact-lbl">' + _belTag(c.type) +
         '</text>' +
