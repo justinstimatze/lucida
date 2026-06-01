@@ -4168,20 +4168,58 @@ function applyMixed3DWarRoom(O) {
   scene.add(key);
   scene.add(new T.HemisphereLight(0x000814, tint.getHex(), 0.4));
 
-  // The holo-table base disc.  Faint emissive surface at y=0.  Smaller
-  // and dimmer than v1 (16u radius, opacity 0.10) so the volumetric
-  // content above dominates the read.
+  // The holo-table base disc — the projection source for every cell
+  // and centerpiece hologram in the room. Bumped from the faint v1
+  // (opacity 0.10) to a real emissive surface: brighter main disc +
+  // wider additive glow halo extending outward. User 2026-05-31:
+  // "glowing table" — table is the holo source, should look like it.
   const discRadius = 16;
   const discGeo = new T.CylinderGeometry(discRadius, discRadius, 0.18, 64);
   const discMat = new T.MeshBasicMaterial({
     color: tint,
     transparent: true,
-    opacity: 0.10,
+    opacity: 0.28,
     side: T.DoubleSide,
   });
   const disc = new T.Mesh(discGeo, discMat);
   disc.position.y = 0;
   scene.add(disc);
+
+  // Glow halo: a wider, low-opacity additive disc that bleeds outward
+  // from the table edge. Reads as the table's light spilling onto the
+  // floor; doubles as the holo-table's "this is the projection source"
+  // marker.
+  const glowGeo = new T.CylinderGeometry(discRadius * 1.55, discRadius * 1.55, 0.04, 64);
+  const glowMat = new T.MeshBasicMaterial({
+    color: tint,
+    transparent: true,
+    opacity: 0.14,
+    blending: T.AdditiveBlending,
+    depthWrite: false,
+    side: T.DoubleSide,
+  });
+  const glow = new T.Mesh(glowGeo, glowMat);
+  glow.position.y = -0.04;
+  scene.add(glow);
+
+  // Volumetric haze: a tapered cylinder of additive-blended particulate
+  // rising from the disc to suggest the holo space has medium. Bottom
+  // matches disc radius, top narrows so the haze converges with the
+  // centerpiece. Low opacity so it doesn't compete with content;
+  // userData._hazePhase animated in the render loop for a slow drift.
+  const hazeGeo = new T.CylinderGeometry(discRadius * 0.85, discRadius * 1.05, 14, 32, 1, true);
+  const hazeMat = new T.MeshBasicMaterial({
+    color: tint,
+    transparent: true,
+    opacity: 0.045,
+    blending: T.AdditiveBlending,
+    depthWrite: false,
+    side: T.DoubleSide,
+  });
+  const haze = new T.Mesh(hazeGeo, hazeMat);
+  haze.position.y = 6.5;
+  haze.userData._isHaze = true;
+  scene.add(haze);
 
   // 3 faint range rings inscribed on the disc — kept minimal so the
   // disc reads as a base, not the centerpiece.
@@ -5056,6 +5094,12 @@ function applyMixed3DWarRoom(O) {
     // Globe slow spin — full revolution every ~36 s.  Skipped when
     // the active mode has no centerpiece globe (trajectory / tactical).
     if (globe) globe.rotation.y = t * 0.000175;
+
+    // Volumetric haze: gentle vertical drift (rotation around y) +
+    // tiny opacity breathing so the column doesn't read as a static
+    // fog cylinder. Cheap — single mesh.
+    haze.rotation.y = t * 0.00007;
+    haze.material.opacity = 0.038 + Math.sin(t * 0.0006) * 0.012;
 
     // scene3d holo-ring: per-cell self-spin + any rotation_speed from
     // the source spec. Cheap to drive every frame regardless of which
