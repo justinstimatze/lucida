@@ -7105,13 +7105,13 @@ body.layout-mixed3d .cell {
   background: color-mix(in srgb, var(--cell-bg, #08121e) 88%, transparent);
   backdrop-filter: none;
   border-radius: 0;
-  /* No-overlap budget. At scale 0.029 and inter-row y-gap of 7.5
-     world units, max-height 36vh = 236 px = 6.84 world units fits
-     between rows with a 0.66-unit margin. Pushing higher caused
-     visible bleed in 3D when two rows had a tall cell in the same
-     screen column. Width 350 px cap keeps projected cells ≤ ~280 px
-     so 4 lower-row cells fit across the viewport without overlap. */
-  max-height: 36vh;
+  /* No-overlap budget. At scale 0.029 and inter-row y-gap of 9
+     world units, max-height 40vh ≈ 303 px ≈ 8.79 world units fits
+     between rows with a 0.21-unit margin. Previously 36vh + 7.5
+     gap visibly clipped the bottom of long mermaid/html bodies.
+     Width 350 px cap keeps projected cells ≤ ~280 px so 4 lower-row
+     cells fit across the viewport without overlap. */
+  max-height: 40vh;
   max-width: 350px !important;
   overflow: hidden !important;
   box-sizing: border-box;

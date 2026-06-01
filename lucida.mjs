@@ -4719,7 +4719,14 @@ function applyMixed3DWarRoom(O) {
   // central 3d viz should be front and centered with the cells behind
   // it."  Cells face the world origin via lookAt so they read flat to
   // the camera looking through them.
-  const cells = [...root.querySelectorAll(":scope > .cell")];
+  // Scene3d substrate cells get display:none in mixed3d (their JSON
+  // specs already feed the war-room holo ring via buildScene3DMeshes
+  // — rendering a per-cell WebGL would clash with the room's globe
+  // and burn a context slot). Filter them out of the dome candidate
+  // pool BEFORE positioning so we always get N visible cells, not
+  // some count diluted by phantom slots.
+  const cells = [...root.querySelectorAll(":scope > .cell")]
+    .filter(c => (c.dataset.cellType || "") !== "scene3d");
   const cellObjects = new Map();
   const cellSlotKeys = new Map();
   // Dome pack: cells live on the interior of a viewing hemisphere
@@ -4748,12 +4755,15 @@ function applyMixed3DWarRoom(O) {
   const ARC_START = Math.PI + 0.65;
   const ARC_END   = 2 * Math.PI - 0.65;
   const ARC_SPAN = ARC_END - ARC_START;
-  // Lower ring: at equator altitude. Upper ring: 7.5 world units
-  // higher (covers max cell world height) so rows don't bleed
-  // vertically. Smaller upper R closes the dome.
+  // Lower ring: at equator altitude. Upper ring: 9 world units
+  // higher so a 40vh cell (~8.8 world units at scale 0.029) fits
+  // between rows. Tighter gap made the very bottom of long bodies
+  // (mermaid graphs, html tables) clip — user 2026-05-31 "cells
+  // still seem to cut off just the very bottom of the content."
+  // Smaller upper R closes the dome.
   const LOWER_Y = 6.5;
   const LOWER_R = 23.0;
-  const UPPER_Y = 14.0;
+  const UPPER_Y = 15.5;
   const UPPER_R = 20.0;
   cells.forEach((cell, i) => {
     if (i >= TOTAL_N) {
