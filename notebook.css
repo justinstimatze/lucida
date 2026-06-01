@@ -803,8 +803,12 @@ main {
    like cell-1054's arc chart to render with massive horizontal
    whitespace; per user 2026-04-29 the cell should render at its
    content's natural size and stay there. */
-.cell:first-child {
-  /* hero soft cap matches ambient — no separate headroom */
+#notebook > .cell:first-child {
+  /* hero soft cap matches ambient — no separate headroom.
+     MUST be scoped to #notebook: in mixed3d each CSS3DObject wraps
+     its cell in a fresh transformed <div>, making every wall cell
+     a :first-child. Unscoped, this 32vh cap clipped every cell
+     in the war room (offH=210 vs body wanting 500+). */
   max-height: 32vh;
 }
 /* Live-stream indicator on the hero cell when the watcher is active.
@@ -7060,10 +7064,16 @@ body.layout-mixed3d .cell[data-cell-type="scene3d"] {
   z-index: 1;
   pointer-events: none;
 }
+/* z-order: cells (CSS3D) at z=1 sit BEHIND the WebGL canvas at z=2.
+   The WebGL canvas is transparent except where holos render — so a
+   user sees holos in the FOREGROUND with the cell wall as a backdrop.
+   Earlier (z-index 2 over 1) cells permanently occluded any holo they
+   shared screen space with. User 2026-05-31: "back half + holos in
+   front of it". */
 #mixed3d-webgl {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   pointer-events: none;
 }
 #mixed3d-webgl > canvas {
@@ -7072,7 +7082,7 @@ body.layout-mixed3d .cell[data-cell-type="scene3d"] {
 #mixed3d-css {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 1;
 }
 #mixed3d-css > div {
   pointer-events: auto;
@@ -7087,11 +7097,22 @@ body.layout-mixed3d .cell[data-cell-type="scene3d"] {
    tint so the cell has SOMETHING readable, but no heavy panel
    chrome separating it from the tower face. */
 body.layout-mixed3d .cell {
-  border: 1px solid color-mix(in srgb, var(--accent, #00ddff) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #00ddff) 55%, transparent);
   box-shadow: none;
-  background: color-mix(in srgb, var(--cell-bg, #08121e) 35%, transparent);
+  /* Cells in war room can visually overlap each other across rows or
+     radii — bump bg opacity so the front cell reads as opaque, not
+     a ghostly composite of the cell behind it. User 2026-05-31. */
+  background: color-mix(in srgb, var(--cell-bg, #08121e) 88%, transparent);
   backdrop-filter: none;
   border-radius: 0;
+  /* No-overlap budget. At scale 0.029 and inter-row y-gap of 7.5
+     world units, max-height 36vh = 236 px = 6.84 world units fits
+     between rows with a 0.66-unit margin. Pushing higher caused
+     visible bleed in 3D when two rows had a tall cell in the same
+     screen column. Width 350 px cap keeps projected cells ≤ ~280 px
+     so 4 lower-row cells fit across the viewport without overlap. */
+  max-height: 36vh;
+  max-width: 350px !important;
   overflow: hidden !important;
   box-sizing: border-box;
 }

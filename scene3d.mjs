@@ -240,13 +240,17 @@ export function initScene3D(container, spec, resolveColor) {
   // wires it to an IntersectionObserver so off-screen scenes don't compete
   // for the GPU thread.
   let running = false;
+  // LLM-emitted rotation_speed values aren't calibrated — 0.05+ per
+  // frame reads as a strobe at 60Hz. Clamp per-axis so even an
+  // aggressive spec stays ambient.
+  const MAX_SPIN = 0.012;
   function animate() {
     if (!running) return;
     requestAnimationFrame(animate);
     for (const a of animatables) {
-      a.mesh.rotation.x += a.speed[0] || 0;
-      a.mesh.rotation.y += a.speed[1] || 0;
-      a.mesh.rotation.z += a.speed[2] || 0;
+      a.mesh.rotation.x += Math.max(-MAX_SPIN, Math.min(MAX_SPIN, a.speed[0] || 0));
+      a.mesh.rotation.y += Math.max(-MAX_SPIN, Math.min(MAX_SPIN, a.speed[1] || 0));
+      a.mesh.rotation.z += Math.max(-MAX_SPIN, Math.min(MAX_SPIN, a.speed[2] || 0));
     }
     renderer.render(scene, camera);
   }

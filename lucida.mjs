@@ -20,7 +20,7 @@ window.mermaid = mermaid;
 // each call so the module stays free of palette-global coupling. Cache key
 // pinned via ?v= — bump alongside `lucida.mjs?v=` in index.html when this
 // file changes (see [[dev_cache_discipline]]).
-import { buildScene3DMeshes, initScene3D } from "./scene3d.mjs?v=1";
+import { buildScene3DMeshes, initScene3D } from "./scene3d.mjs?v=2";
 
 // Full-stack theme config: chrome lives in CSS (notebook.css), but
 // mermaid + vega + scene3d content also need theme-aware colors.
@@ -4211,11 +4211,15 @@ function applyMixed3DWarRoom(O) {
   // All 4 modes build their centerpiece geometry into the scene; the
   // per-mode containers below let setActiveMode() toggle visibility +
   // re-bind the animation-loop's globe/moons/arcs to the active mode.
-  // ?warmode=<one-of> locks that mode permanently; no override =
-  // auto-iterate every ~28 s.  Disc, UN seal, projection beams, wall
-  // readouts, and cell wall are SHARED across modes.
+  // ?scene=<one-of> locks that scene/sub-view permanently; no override =
+  // auto-iterate every ~28 s. (Legacy ?warmode= still accepted.)
+  // The "scene" generalization is theme-agnostic — future themes that
+  // need their own scene cycler can read the same URL param.
+  // Disc, UN seal, projection beams, wall readouts, and cell wall are
+  // SHARED across scenes.
   const WAR_MODES = ["planet", "solar", "trajectory", "tactical"];
-  const _urlMode = new URLSearchParams(window.location.search).get("warmode");
+  const _qs = new URLSearchParams(window.location.search);
+  const _urlMode = _qs.get("scene") || _qs.get("warmode");
   const _cellCount = root.querySelectorAll(":scope > .cell").length;
   const initialMode = (_urlMode && WAR_MODES.includes(_urlMode))
     ? _urlMode
@@ -4718,37 +4722,66 @@ function applyMixed3DWarRoom(O) {
   const cells = [...root.querySelectorAll(":scope > .cell")];
   const cellObjects = new Map();
   const cellSlotKeys = new Map();
-  const ROW1_N = 5;  // upper row (top of wall)
-  const ROW2_N = 7;  // lower row (bottom of wall)
-  const TOTAL_N = ROW1_N + ROW2_N;
-  // Arc spans the back hemisphere: angles π/2 .. 3π/2 (≈ 90° to 270°
-  // around the XZ plane, so cells fill the half opposite the camera).
-  const WALL_R = 22;   // brought in from 26 since camera now closer (z=13)
-  const ARC_START = Math.PI / 2 + 0.35;     // a bit narrower than full π
-  const ARC_END   = 3 * Math.PI / 2 - 0.35;
+  // Dome pack: cells live on the interior of a viewing hemisphere
+  // with the top third cut off. Equator (y ≈ globe altitude, 6.5) is
+  // the floor — NO cells below it — and rows curve inward toward the
+  // y-axis as they climb, mimicking the dome's narrowing latitude.
+  // User 2026-05-31 spec: "hemisphere with the top third cut off,
+  // pack layout with minimal overlap". Curved cell faces (per-cell
+  // CSS transform) skipped for now — perf risk on every frame.
+  //
+  // Back-wall arc: θ ∈ [π + 0.65, 2π - 0.65]. Cells form a backdrop
+  // behind the holos. Arc inner margin (0.65 rad ≈ 37°) pulls edge
+  // cells deep into z so their projected x stays well inside the
+  // viewport.
+  //
+  // Numerically verified no-overlap: at scale 0.029, max-width 350px
+  // and arc-inset 0.65, lower-row cells project to screen x ≈
+  // 266 / 621 / 915 / 1270 with rendered widths 214–278 px (closer
+  // edges project larger). Upper-row 3 cells at midpoints between
+  // lowers (aFrac 0.167 / 0.5 / 0.833) at R=20, y=14 project to
+  // ≈ 479 / 768 / 1057 with widths 227–255 px. Cross-row vertical
+  // check (lower y=6.5 vs upper y=14) clears at max-height 36vh.
+  const TOTAL_N = 7;
+  const LOWER_N = 4;
+  const UPPER_N = 3;
+  const ARC_START = Math.PI + 0.65;
+  const ARC_END   = 2 * Math.PI - 0.65;
   const ARC_SPAN = ARC_END - ARC_START;
+  // Lower ring: at equator altitude. Upper ring: 7.5 world units
+  // higher (covers max cell world height) so rows don't bleed
+  // vertically. Smaller upper R closes the dome.
+  const LOWER_Y = 6.5;
+  const LOWER_R = 23.0;
+  const UPPER_Y = 14.0;
+  const UPPER_R = 20.0;
   cells.forEach((cell, i) => {
     if (i >= TOTAL_N) {
       cell.style.display = "none";
       return;
     }
-    const isRow1 = i < ROW1_N;
-    const idxInRow = isRow1 ? i : i - ROW1_N;
-    const rowN = isRow1 ? ROW1_N : ROW2_N;
-    // Even spacing across the back arc (slight margin from edges).
-    const aFrac = rowN === 1 ? 0.5 : idxInRow / (rowN - 1);
+    const isLower = i < LOWER_N;
+    const idxInRow = isLower ? i : i - LOWER_N;
+    const rowN = isLower ? LOWER_N : UPPER_N;
+    const rowY = isLower ? LOWER_Y : UPPER_Y;
+    const rowR = isLower ? LOWER_R : UPPER_R;
+    // Even spacing: lower cells at idx/(N-1), upper cells at
+    // midpoints between lower positions ((idx+0.5)/N) — geometric
+    // hex pack guaranteed regardless of N.
+    const aFrac = isLower
+      ? idxInRow / Math.max(1, rowN - 1)
+      : (idxInRow + 0.5) / rowN;
     const a = ARC_START + aFrac * ARC_SPAN;
-    const yRow = isRow1 ? 11 : 5;
     const obj = new T.CSS3DObject(cell);
-    obj.position.set(Math.cos(a) * WALL_R, yRow, Math.sin(a) * WALL_R);
+    obj.position.set(Math.cos(a) * rowR, rowY, Math.sin(a) * rowR);
     // Face the world center axis at the cell's own height so each cell
     // reads flat-on to the camera (which is also looking at center).
-    obj.lookAt(0, yRow, 0);
+    obj.lookAt(0, rowY, 0);
     obj.scale.set(0.029, 0.029, 1);
     cssScene.add(obj);
     const id = cell.dataset.cellId || `cell-${i}`;
     cellObjects.set(id, obj);
-    cellSlotKeys.set(id, isRow1 ? `wall1:${idxInRow}` : `wall2:${idxInRow}`);
+    cellSlotKeys.set(id, isLower ? `wall1:${idxInRow}` : `wall2:${idxInRow}`);
   });
 
   // Resize
@@ -4816,6 +4849,41 @@ function applyMixed3DWarRoom(O) {
     });
     if (_holoScene3DHolders.length) {
       console.info(`[mixed3d.warroom] scene3d holo ring: ${_holoScene3DHolders.length} cells routed into tactical mode`);
+    }
+
+    // Swoopy trajectory lines between holo holders so the ring reads as a
+    // coherent connected display rather than scattered shapes. Each pair
+    // of adjacent holders gets a CatmullRom curve lifted above the chord
+    // (control points pulled upward) — TubeGeometry core + additive halo
+    // for the same FUI hologram feel as the UNN orbital arcs.
+    if (_holoScene3DHolders.length >= 2) {
+      const trajColor = resolveColor("--accent") || "#4a86d8";
+      for (let li = 0; li < _holoScene3DHolders.length - 1; li++) {
+        const p1 = _holoScene3DHolders[li].holder.position;
+        const p2 = _holoScene3DHolders[li + 1].holder.position;
+        const mid = new T.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+        const lift = 2.4 + (li % 3) * 0.6;
+        mid.y += lift;
+        const cp1 = new T.Vector3().lerpVectors(p1, mid, 0.45);
+        const cp2 = new T.Vector3().lerpVectors(p2, mid, 0.45);
+        cp1.y += lift * 0.55;
+        cp2.y += lift * 0.55;
+        const curve = new T.CatmullRomCurve3([p1.clone(), cp1, mid, cp2, p2.clone()], false);
+        const coreGeo = new T.TubeGeometry(curve, 48, 0.022, 6, false);
+        const haloGeo = new T.TubeGeometry(curve, 48, 0.065, 6, false);
+        const coreMat = new T.MeshBasicMaterial({
+          color: trajColor, transparent: true, opacity: 0.50, depthWrite: false,
+        });
+        const haloMat = new T.MeshBasicMaterial({
+          color: trajColor, transparent: true, opacity: 0.14,
+          blending: T.AdditiveBlending, depthWrite: false,
+        });
+        const grp = new T.Group();
+        grp.add(new T.Mesh(haloGeo, haloMat));
+        grp.add(new T.Mesh(coreGeo, coreMat));
+        addToMode("tactical", grp);
+      }
+      console.info(`[mixed3d.warroom] swoopy trajectory lines: ${_holoScene3DHolders.length - 1} arcs between holders`);
     }
   })();
 
@@ -4978,14 +5046,22 @@ function applyMixed3DWarRoom(O) {
     // mode is active — when tactical isn't visible, the holders are
     // invisible too via the crossfade factor, but their rotation keeps
     // advancing so a mode switch reveals them mid-motion (not frozen).
+    // LLM-emitted rotation_speed has no calibration — values of 0.05-0.1
+    // rad/frame translate to ~3-6 rad/s (full revolution every 1-2s),
+    // which reads as a strobe. Clamp per-axis to ±0.012 rad/frame
+    // (~0.7 rad/s ≈ 40°/s) so even an aggressive spec stays ambient.
+    const MAX_SPIN_PER_FRAME = 0.012;
     for (let i = 0; i < _holoScene3DHolders.length; i++) {
       const h = _holoScene3DHolders[i];
       h.holder.rotation.y = h.holder.userData._spinPhase + t * h.holder.userData._spinSpeed;
       for (let j = 0; j < h.animatables.length; j++) {
         const a = h.animatables[j];
-        a.mesh.rotation.x += a.speed[0] || 0;
-        a.mesh.rotation.y += a.speed[1] || 0;
-        a.mesh.rotation.z += a.speed[2] || 0;
+        const sx = Math.max(-MAX_SPIN_PER_FRAME, Math.min(MAX_SPIN_PER_FRAME, a.speed[0] || 0));
+        const sy = Math.max(-MAX_SPIN_PER_FRAME, Math.min(MAX_SPIN_PER_FRAME, a.speed[1] || 0));
+        const sz = Math.max(-MAX_SPIN_PER_FRAME, Math.min(MAX_SPIN_PER_FRAME, a.speed[2] || 0));
+        a.mesh.rotation.x += sx;
+        a.mesh.rotation.y += sy;
+        a.mesh.rotation.z += sz;
       }
     }
 
@@ -14385,7 +14461,12 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   // grid 2D layouts the same alpha reads as visible bleed-through
   // on the flat dark cell background (observed pack-2D 2026-05-23).
   const _mixed3dActive = document.body?.classList?.contains("layout-mixed3d");
-  if (!opts.compact && _mixed3dActive && typeof _mixed3dDrawCellPreview === "function") {
+  // Archetype backdrop is hackers-aesthetic specifically — code-glyph
+  // decorations and cyan/pink palette. Other themes read the bg as
+  // visual noise that competes with cell text. Gate to hackers only.
+  const _activeTheme = document.body?.dataset?.theme || "";
+  const _archetypeBgOk = _activeTheme === "hackers";
+  if (!opts.compact && _mixed3dActive && _archetypeBgOk && typeof _mixed3dDrawCellPreview === "function") {
     _ensureArchetypeBgCleanup();
     // Defensive: if the card is being re-rendered (rare), disconnect
     // the prior RO before attaching a new one. Without this, repeated
@@ -14409,8 +14490,22 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       const ctx = bg.getContext("2d");
       ctx.clearRect(0, 0, w, h);
       ctx.globalAlpha = 0.18;
+      // Pull archetype backdrop colors from the active theme rather
+      // than hardcoded hackers cyan/pink. Previously every mixed3d
+      // cell carried the hackers palette in its backdrop even under
+      // UNN, rocinante, etc. — read as "hackers decorative text" in
+      // the wrong themes.
+      let primary = "#00ddff", secondary = "#ff3a8c";
       try {
-        _mixed3dDrawCellPreview(ctx, card, 0, 0, w, h, "#00ddff", "#ff3a8c");
+        const cs = getComputedStyle(document.documentElement);
+        const accent = cs.getPropertyValue("--accent").trim();
+        const accent2 = cs.getPropertyValue("--accent-2").trim()
+                     || cs.getPropertyValue("--vis-tripped").trim();
+        if (accent) primary = accent;
+        if (accent2) secondary = accent2;
+      } catch (e) { /* ignore — fall back to defaults */ }
+      try {
+        _mixed3dDrawCellPreview(ctx, card, 0, 0, w, h, primary, secondary);
       } catch (e) {
         /* preview throws on degenerate inputs; ignore */
       }
@@ -15666,6 +15761,11 @@ function spawnTransientCell(opts) {
   // organic) skip the pack variant entirely. Edge-slide is overlay-
   // positioned so it works in any layout mode.
   if (motion === "pack" && (getLayoutMode() !== "pack" || !_muuriGrid)) return;
+  // Mixed3d (war room, mixed3d tower canyon): cells are hand-placed
+  // CSS3DObjects on a dome / tower face — no slot system to pack
+  // ephemerals into without overlap. Suppress transients entirely
+  // here; ambient motion comes from holo spin + crossfade.
+  if (getLayoutMode() === "mixed3d") return;
 
   const card = el("article", "cell cell-transient");
   card.classList.add("cell-transient-motion-" + motion);
