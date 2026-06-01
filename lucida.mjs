@@ -4752,8 +4752,14 @@ function applyMixed3DWarRoom(O) {
   const TOTAL_N = 7;
   const LOWER_N = 4;
   const UPPER_N = 3;
-  const ARC_START = Math.PI + 0.65;
-  const ARC_END   = 2 * Math.PI - 0.65;
+  // ARC inner margin 0.85 (was 0.65) — empirically the edge cells
+  // were still projecting off-screen at 0.65 because CSS3D
+  // perspective at our scale enlarges projected width more than the
+  // simple x/z_rel × focal estimate. 0.85 pulls edge cells in to
+  // x ≈ ±15 (was ±18) and deepens z to -17 (was -14), bringing the
+  // projected screen position fully inside the viewport.
+  const ARC_START = Math.PI + 0.85;
+  const ARC_END   = 2 * Math.PI - 0.85;
   const ARC_SPAN = ARC_END - ARC_START;
   // Lower ring: at equator altitude. Upper ring: 9 world units
   // higher so a 40vh cell (~8.8 world units at scale 0.029) fits
