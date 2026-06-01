@@ -15907,6 +15907,12 @@ setTimeout(_transientLoopTick, 6000 + Math.floor(Math.random() * 4000));
 function attachMintScrubber(cellNode) {
   const body = cellNode && cellNode.querySelector(".cell-body");
   if (!body) return;
+  // Mixed3d layouts have no cell wall packing; the scrubber overlay's
+  // theme-tuned decorative-glyph storm (sparklines, bars) appears as
+  // a "fake plot in the corner" of dome cells. Suppress in mixed3d
+  // entirely — the WebGL holos + crossfade already cover ambient
+  // motion. User 2026-05-31.
+  if (getLayoutMode() === "mixed3d") return;
   // Don't double-attach (defensive — a cell shouldn't re-enter cell-fresh).
   if (body.querySelector(".mint-scrubber")) return;
   const theme = _transientThemeName();
