@@ -16,7 +16,7 @@ image = [
     "Pillow>=10.0",
 ]
 dev = [
-    "ruff>=0.15.15",
+    "ruff>=0.15.16",
     "mypy>=2.1.0",
     "pytest>=8.0",
     "pytest-cov>=7.1.0",
