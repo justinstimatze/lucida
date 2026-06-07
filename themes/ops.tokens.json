@@ -1,27 +1,34 @@
 {
-  "_comment": "Operations board aesthetic — Star Trek TNG / LCARS. Saturated orange + cream + lavender + yellow on pure black, condensed-bold display type. Pill-chip-and-bracket framing. Refs/ops/ holds LCARS asset-prep + Titan.DS Spacedock frames extracted 2026-05-23 from System47/meWho's catalog (see design-references.md). Pre-2026-05-23 cell bg was #000044 navy — true LCARS uses pure #000000 black, the blue tint muddied the saturated pill chips. cat[2] was #cc5599 dark magenta; canonical TNG lavender is #cc99ff.",
+  "_comment": "Operations board aesthetic \u2014 Star Trek TNG / LCARS. Saturated orange + cream + lavender + yellow on pure black, condensed-bold display type. Pill-chip-and-bracket framing. Refs/ops/ holds LCARS asset-prep + Titan.DS Spacedock frames extracted 2026-05-23 from System47/meWho's catalog (see design-references.md). Pre-2026-05-23 cell bg was #000044 navy \u2014 true LCARS uses pure #000000 black, the blue tint muddied the saturated pill chips. cat[2] was #cc5599 dark magenta; canonical TNG lavender is #cc99ff.",
   "accent": {
-    "primary":   "#ff9900",
+    "primary": "#ff9900",
     "secondary": "#ddb888",
-    "warning":   "#ffcc66",
-    "danger":    "#cc4444",
-    "ok":        "#88cc66"
+    "warning": "#ffcc66",
+    "danger": "#cc4444",
+    "ok": "#88cc66"
   },
   "surface": {
-    "bg":     "#000000",
-    "cell":   "#000000",
+    "bg": "#000000",
+    "cell": "#000044",
     "header": "#000000",
-    "code":   "#0a0a0a",
-    "muted":  "#9988cc",
-    "line":   "#ff9900"
+    "code": "#0a0a1a",
+    "muted": "#9999cc",
+    "line": "#ff9900"
   },
   "text": {
-    "fg":    "#e8c89c",
+    "fg": "#ffcc99",
     "muted": "#9988cc"
   },
   "data": {
-    "_comment": "LCARS canonical palette in display order: orange (primary), cream, lavender, yellow, salmon, red. Reads instantly as TNG ops board — saturated flat fills, no shading. Unlike vigil/hackers/hailmary (cyan-dominant ladder), LCARS intentionally uses bold-color diversity as its aesthetic primary; the 'don't saturate cat[1..2]' rule does NOT apply here.",
-    "cat": ["#ff9900", "#ddb888", "#cc99ff", "#ffcc66", "#ff9966", "#cc4444"]
+    "_comment": "LCARS canonical palette in display order: orange (primary), cream, lavender, yellow, salmon, red. Reads instantly as TNG ops board \u2014 saturated flat fills, no shading. Unlike vigil/hackers/hailmary (cyan-dominant ladder), LCARS intentionally uses bold-color diversity as its aesthetic primary; the 'don't saturate cat[1..2]' rule does NOT apply here.",
+    "cat": [
+      "#ff9900",
+      "#ddb888",
+      "#cc99ff",
+      "#ffcc66",
+      "#ff9966",
+      "#cc4444"
+    ]
   },
   "type": {
     "body": "\"Antonio\", \"Avenir Next Condensed\", \"Helvetica Neue Condensed\", \"Arial Narrow\", sans-serif",
@@ -29,7 +36,7 @@
     "mono": "\"Fira Mono\", \"Courier New\", monospace"
   },
   "fx": {
-    "glow":      "transparent",
+    "glow": "transparent",
     "glow-line": "rgba(255, 153, 0, 0.25)"
   },
   "palette": {
@@ -37,10 +44,10 @@
     "stroke1": "#ff9900",
     "stroke2": "#ddb888",
     "stroke3": "#cc99ff",
-    "accent":  "#ff9900",
-    "fg":      "#e8c89c",
-    "muted":   "#9988cc",
-    "bg":      "#000000",
-    "panel":   "#000000"
+    "accent": "#ff9900",
+    "fg": "#e8c89c",
+    "muted": "#9988cc",
+    "bg": "#000000",
+    "panel": "#000000"
   }
 }

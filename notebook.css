@@ -1548,14 +1548,6 @@ main {
 /* MAGI -- Evangelion / NERV. Amber + green on near-black, monospace.
    Glow + escalation token system lifted from gemotvis/frontend/src/styles/themes.css. */
 .theme-conclave {
-  --bg: #050505;
-  --cell-bg: #0c0c0c;
-  --header-bg: #0c0c0c;
-  --line: #2a2a2a;
-  --fg: #ff8c00;
-  --muted: #884600;
-  --accent: #00ff41;
-  --code-bg: #0a0a0a;
   --vis-amber-glow: rgba(255, 140, 0, 0.5);
   --glow-sm: 0 0 2px var(--vis-amber-glow);
   --glow-md: 0 0 4px var(--vis-amber-glow);
@@ -1602,14 +1594,6 @@ main {
 
 /* MINIMAL -- Vercel / Linear / Geist. Clean light. */
 .theme-minimal {
-  --bg: #ffffff;
-  --cell-bg: #f7f7f7;
-  --header-bg: #ffffff;
-  --line: #e5e5e5;
-  --fg: #171717;
-  --muted: #737373;
-  --accent: #0070f3;
-  --code-bg: #f0f0f0;
   /* Minimal theme: no glow, no FUI texture. Status colors stay legible
      but flat — Vercel/Linear vibe, not Eva-MAGI. */
   --vis-amber-glow: transparent;
@@ -1626,14 +1610,6 @@ main {
 
 /* GASTOWN -- Steampunk / Industrial / Brass. */
 .theme-gastown {
-  --bg: #e8dcc8;
-  --cell-bg: #f5e6d3;
-  --header-bg: #f5e6d3;
-  --line: #c4a882;
-  --fg: #2c1810;
-  --muted: #5d4037;
-  --accent: #cd7f32;
-  --code-bg: #d8cab2;
   /* No FUI glow on gastown — brass/cream serif theme reads as printed
      blueprint, not amber CRT. Mirrors gemotvis's gastown block. */
   --vis-amber-glow: transparent;
@@ -2053,14 +2029,6 @@ main {
    navy/black, condensed-bold display type. Flat color fills (no glow / no
    CRT scanlines — LCARS reads as printed UI panels, not amber CRT). */
 .theme-ops {
-  --bg: #000000;
-  --cell-bg: #000044;
-  --header-bg: #000000;
-  --line: #ff9900;
-  --fg: #ffcc99;
-  --muted: #9999cc;
-  --accent: #ff9900;
-  --code-bg: #0a0a1a;
   --vis-amber-glow: transparent;
   --glow-sm: none;
   --glow-md: none;
@@ -2434,14 +2402,6 @@ html.theme-ops::before {
    glow itself. Color reference: Jayse Hansen MCU interface work + real
    F-15/F-18 HUD design language. */
 .theme-vigil {
-  --bg: #000000;
-  --cell-bg: #050508;
-  --header-bg: #020205;
-  --line: #0a2a3f;
-  --fg: #b8e0f7;
-  --muted: #2a5a7a;
-  --accent: #00bfff;
-  --code-bg: #040408;
   /* Reuse --vis-amber-glow as the generic glow token — stark's glow is
      cyan, not amber, but all glow rules reference this variable. */
   --vis-amber-glow: rgba(0, 191, 255, 0.45);
@@ -2597,14 +2557,6 @@ html.theme-ops::before {
    gradients. Motion-as-focus: animation signals recency, not size.
    ============================================================ */
 .theme-circuit {
-  --bg:        #030504;
-  --cell-bg:   #070a06;
-  --header-bg: #040704;
-  --code-bg:   #060906;
-  --accent:    #7dfdfe;
-  --fg:        #9ff8f9;
-  --muted:     #1a5a5a;
-  --line:      #0d2e2e;
   --font-body: "OCR A Extended", "Courier New", ui-monospace, monospace;
   --font-head: "OCR A Extended", "Courier New", ui-monospace, monospace;
 
@@ -2741,14 +2693,6 @@ html.theme-ops::before {
    amber holograms, rain-soaked noir aesthetic.
    ============================================================ */
 .theme-noir {
-  --bg:        #0c1a2e;
-  --cell-bg:   #0f1e35;
-  --header-bg: #0a1628;
-  --code-bg:   #0d1c30;
-  --accent:    #f78b04;
-  --fg:        #e8c87a;
-  --muted:     #3a5a7a;
-  --line:      #162438;
   --font-body: "Courier New", "Courier", ui-monospace, monospace;
   --font-head: "Courier New", "Courier", ui-monospace, monospace;
 
@@ -2878,14 +2822,6 @@ html.theme-ops::before {
    (#0eb9fe). Diagonal bottom-left corner cut mirrors the N7 stripe.
    ============================================================ */
 .theme-renegade {
-  --bg:        #171614;
-  --cell-bg:   #1c1a18;
-  --header-bg: #141210;
-  --code-bg:   #1a1816;
-  --accent:    #ff7700;
-  --fg:        #e8e0d5;
-  --muted:     #5a4a38;
-  --line:      #2a2218;
   --font-body: "Eurostile", "Orbitron", "Arial Narrow", sans-serif;
   --font-head: "Eurostile", "Orbitron", "Arial Narrow", sans-serif;
 
@@ -3015,18 +2951,11 @@ html.theme-ops::before {
    is the next build. Refs: refs/mars-blue/NOTES.md GUI-grammar.
    ============================================================ */
 .theme-mars-blue {
-  --bg:        #0a1826;
   /* Translucent panels — the show's screens are see-through outline panels;
      letting the dark nav-plot bleed through reads far more like the cockpit
-     than opaque cards. Kept ~0.55 so light fg text still has contrast over the
-     near-black page. */
-  --cell-bg:   rgba(15, 29, 45, 0.55);
-  --header-bg: rgba(12, 26, 42, 0.66);
-  --code-bg:   #25100e;
-  --accent:    #5a96aa;
-  --fg:        #bcd4e2;
-  --muted:     #3a5870;
-  --line:      rgba(90, 150, 170, 0.18);
+     than opaque cards. Pushed to saturated indigo (was rgba(15,29,45,.55)
+     muted-grey-blue) to match the warship/threat-response ref dominant
+     cobalt. Alpha lifted to .62 for slightly more body. */
   --font-body: "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
   --font-head: "D-DIN Condensed", "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
 
@@ -4110,14 +4039,6 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
    nav-grid; skin/furniture + Gemini critique loop are the refine pass.
    ============================================================ */
 .theme-mars-red {
-  --bg:        #16191e;
-  --cell-bg:   rgba(34, 38, 44, 0.55);
-  --header-bg: rgba(28, 32, 38, 0.66);
-  --code-bg:   #2a100e;
-  --accent:    #d8362a;
-  --fg:        #cdd3d8;
-  --muted:     #6a7178;
-  --line:      rgba(216, 54, 42, 0.18);
   --font-body: "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
   --font-head: "D-DIN Condensed", "D-DIN", "Saira", "Oswald", "Arial Narrow", sans-serif;
   --cell-entrance-anim:     mars-blue-boot;
@@ -4333,14 +4254,6 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
    faction signal). Grounded: refs/drift/NOTES.md.
    ============================================================ */
 .theme-drift {
-  --bg:        #15110c;
-  --cell-bg:   rgba(36, 27, 18, 0.52);
-  --header-bg: rgba(30, 22, 14, 0.66);
-  --code-bg:   rgba(40, 22, 8, 0.7);
-  --accent:    #e8902a;
-  --fg:        #e6dccb;
-  --muted:     #8a7860;
-  --line:      rgba(232, 144, 42, 0.20);
   --font-body: "Saira", "Oswald", "Arial Narrow", sans-serif;
   --font-head: "Saira", "Oswald", "Arial Narrow", sans-serif;
 
@@ -4501,14 +4414,6 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
    the dull weight of the establishment. Red = incoming-threat accent. Grounded:
    refs/unn/NOTES.md. ============================================ */
 .theme-earth {
-  --bg:        #0e1420;
-  --cell-bg:   rgba(22, 32, 50, 0.62);
-  --header-bg: rgba(18, 28, 46, 0.72);
-  --code-bg:   rgba(14, 22, 40, 0.74);
-  --accent:    #2f6fd0;
-  --fg:        #cdd6e4;
-  --muted:     #5a6a86;
-  --line:      rgba(47, 111, 208, 0.24);
   --font-body: "Saira", "Arial", "Helvetica Neue", sans-serif;
   --font-head: "Saira", "Arial", "Helvetica Neue", sans-serif;
 
@@ -4667,14 +4572,6 @@ html.theme-earth #notebook {
    deep indigo city sky, Game Cube purple accent/secondary.
    ============================================================ */
 .theme-mainframe {
-  --bg:        #0a1428;
-  --cell-bg:   #0d1a32;
-  --header-bg: #081020;
-  --code-bg:   #0c1830;
-  --accent:    #00e5cc;
-  --fg:        #a8c8e8;
-  --muted:     #1a4060;
-  --line:      #122040;
   --font-body: "Share Tech Mono", "Courier New", ui-monospace, monospace;
   --font-head: "Share Tech Mono", "Courier New", ui-monospace, monospace;
 
@@ -4829,14 +4726,6 @@ html.theme-earth #notebook {
    NOT amber; that is Alien:Isolation's secondary terminal choice.
    ============================================================ */
 .theme-terminus {
-  --bg:        #080705;
-  --cell-bg:   #0d0a08;
-  --header-bg: #060504;
-  --code-bg:   #0b0908;
-  --accent:    #33ff33;
-  --fg:        #33ff33;
-  --muted:     #1a3318;
-  --line:      #0f180e;
   --font-body: "Courier New", "Courier", ui-monospace, monospace;
   --font-head: "Courier New", "Courier", ui-monospace, monospace;
 

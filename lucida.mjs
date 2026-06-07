@@ -532,6 +532,34 @@ function applyTokensToCSSVars(t) {
   root.style.setProperty("--accent-warning",   t.accent.warning);
   root.style.setProperty("--accent-danger",    t.accent.danger);
   root.style.setProperty("--accent-ok",        t.accent.ok);
+  // Surface + text tokens — collapse a multi-path drift trap (2026-06-07):
+  // notebook.css used to declare its own `.theme-X { --bg/--cell-bg/--accent/... }`
+  // block PER theme that quietly diverged from tokens.json `surface.*` / `text.*` /
+  // `palette.*`. Two surfaces for one canonical value = unreliable edits (changing
+  // tokens.surface.cell had ZERO effect because the CSS block won via cascade).
+  // Set the same vars on documentElement.style here — element-style beats per-
+  // theme selector specificity, so tokens.json wins. Per-theme CSS blocks may
+  // stay as fallback for safe rollback; they no-op when tokens cover the field.
+  // Calque axis "token-vs-cssvar-drift" should still catch *future* drift between
+  // these vars and any leftover per-theme block. Mapping:
+  //   tokens.surface.bg     → --bg
+  //   tokens.surface.cell   → --cell-bg
+  //   tokens.surface.header → --header-bg
+  //   tokens.surface.code   → --code-bg
+  //   tokens.surface.muted  → --muted   (legacy alias for the muted-text color)
+  //   tokens.surface.line   → --line
+  //   tokens.text.fg        → --fg
+  //   tokens.accent.primary → --accent  (legacy alias — --accent-primary already set above)
+  if (t.surface) {
+    if (t.surface.bg)     root.style.setProperty("--bg",        t.surface.bg);
+    if (t.surface.cell)   root.style.setProperty("--cell-bg",   t.surface.cell);
+    if (t.surface.header) root.style.setProperty("--header-bg", t.surface.header);
+    if (t.surface.code)   root.style.setProperty("--code-bg",   t.surface.code);
+    if (t.surface.muted)  root.style.setProperty("--muted",     t.surface.muted);
+    if (t.surface.line)   root.style.setProperty("--line",      t.surface.line);
+  }
+  if (t.text?.fg)       root.style.setProperty("--fg",      t.text.fg);
+  if (t.accent?.primary) root.style.setProperty("--accent", t.accent.primary);
   // Type tokens — exposed as CSS vars so chrome (dropdowns, popovers,
   // captions) can pick the active theme's font without depending on
   // DOM-tree inheritance. Pre-2026-04-30 dropdowns inherited from
