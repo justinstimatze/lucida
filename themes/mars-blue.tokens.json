@@ -8,15 +8,15 @@
     "ok": "#57a06a"
   },
   "surface": {
-    "bg": "#040a1f",
-    "cell": "rgba(20, 36, 78, 0.62)",
+    "bg": "#0a1640",
+    "cell": "rgba(20, 36, 78, 0.14)",
     "header": "rgba(15, 27, 78, 0.72)",
-    "code": "rgba(34, 12, 10, 0.72)",
+    "code": "rgba(20, 36, 78, 0.14)",
     "muted": "#3a5870",
     "line": "rgba(76, 141, 198, 0.20)"
   },
   "text": {
-    "fg": "#bcd4e2",
+    "fg": "#92aee3",
     "muted": "#5f8198"
   },
   "data": {
@@ -45,9 +45,9 @@
     "stroke2": "#2a5288",
     "stroke3": "#e23b2e",
     "accent": "#4c8dc6",
-    "fg": "#bcd4e2",
+    "fg": "#92aee3",
     "muted": "#5f8198",
-    "bg": "#040a1f",
+    "bg": "#0a1640",
     "panel": "rgba(16, 32, 50, 0.55)"
   },
   "layout": "cockpit",
