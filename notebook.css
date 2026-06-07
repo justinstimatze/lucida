@@ -3254,6 +3254,84 @@ html.theme-ops::before {
   color: #d8f4f5;
 }
 
+/* MarsRed instrument specifics: early-era Syfy MCRN, hard-edged. KEEPS the base
+   clip-path notch (vs MarsBlue's bracket-frame replacement) — the sharp angled
+   right-end is the early-era differentiator. Red co-primary underline at full
+   strength (vs MarsBlue's muted cyan @ 40%). Denser padding, grittier feel. */
+.theme-mars-red .cell-chrome-instrument {
+  background-color: var(--cell-bg, #1a1d22);
+  padding: 0.42rem 0.62rem;
+}
+.theme-mars-red .cell-chrome-instrument .cell-head {
+  background: rgba(216, 54, 42, 0.08);
+  color: #cdd3d8;
+  border-bottom: 2px solid #d8362a;
+  letter-spacing: 0.1em;
+}
+.theme-mars-red .cell-chrome-instrument .cell-title {
+  color: #e8eef2;
+  font-weight: 600;
+}
+.theme-mars-red .cell-chrome-instrument .cell-id,
+.theme-mars-red .cell-chrome-instrument .cell-time {
+  color: #7a828c;
+}
+
+/* Earth instrument specifics: UNN / boring competent bureaucracy. The token
+   _comment is explicit — "deliberately CLUNKY/BORING/INSTITUTIONAL, flat plain
+   panels, no glow/grit/angular flourish, the dull weight of the establishment."
+   So earth's chrome is the ANTI-MCRN: clip-path NUKED (no expressive notch),
+   flat slate-blue strip on the left (file-cabinet label tab — not a Mars-style
+   corner accent), 1px hairline underline at low strength, plain sans title. */
+.theme-earth .cell-chrome-instrument {
+  clip-path: none;
+  background-color: var(--cell-bg, rgba(22, 32, 50, 0.62));
+  padding: 0.42rem 0.7rem 0.42rem 0.86rem;
+  border-left: 3px solid #2f6fd0;
+}
+.theme-earth .cell-chrome-instrument .cell-head {
+  background: none;
+  color: #6f8aaf;
+  border-bottom: 1px solid rgba(95, 115, 144, 0.32);
+  clip-path: none;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+.theme-earth .cell-chrome-instrument .cell-title {
+  color: #cdd6e4;
+  font-weight: 500;
+}
+.theme-earth .cell-chrome-instrument .cell-id,
+.theme-earth .cell-chrome-instrument .cell-time {
+  color: #647892;
+}
+
+/* Drift instrument specifics: OPA salvage register. DUAL accent (amber + cyan)
+   is the brand signature — show it in the chrome itself. Keeps the base clip-
+   path notch (the angled right end reads improvised/cut). Amber underline; a
+   short cyan "tape stripe" at the right end of the header is the dual-accent
+   tell. Warm-cream title, no bright fills — "because it's junk." */
+.theme-drift .cell-chrome-instrument {
+  background-color: var(--cell-bg, rgba(36, 27, 18, 0.52));
+  padding: 0.4rem 0.6rem 0.4rem 0.92rem;
+  border-left: 3px solid #e8902a;
+  box-shadow: inset 0 -1px 0 rgba(26, 166, 176, 0.22);  /* faint cyan baseline — dual accent */
+}
+.theme-drift .cell-chrome-instrument .cell-head {
+  background: linear-gradient(to right, rgba(232, 144, 42, 0.08) 0%, rgba(232, 144, 42, 0.08) 78%, rgba(26, 166, 176, 0.18) 78%, rgba(26, 166, 176, 0.18) 100%);
+  color: #d8b89a;
+  border-bottom: 1.5px solid #e8902a;
+  letter-spacing: 0.06em;
+}
+.theme-drift .cell-chrome-instrument .cell-title {
+  color: #e6dccb;
+  font-weight: 600;
+}
+.theme-drift .cell-chrome-instrument .cell-id,
+.theme-drift .cell-chrome-instrument .cell-time {
+  color: #8a7860;
+}
+
 /* ── Theme furniture / console-overlay layer ───────────────────────────────
    Fixed, pointer-events:none frame that mountThemeFurniture() fills per theme.
    z-index 180: above cells (≤119) + connection overlay (50), below HUD (200)

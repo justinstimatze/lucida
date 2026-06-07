@@ -44,5 +44,6 @@
     "panel":   "rgba(36, 27, 18, 0.52)"
   },
   "layout": "pack",
+  "chrome": "instrument",
   "skin": "salvage"
 }

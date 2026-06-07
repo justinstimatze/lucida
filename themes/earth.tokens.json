@@ -44,6 +44,7 @@
     "panel":   "rgba(22, 32, 50, 0.62)"
   },
   "layout": "warroom",
+  "chrome": "instrument",
   "skin": "institutional",
   "mixed3d": {
     "_comment": "?theme=earth&layout=mixed3d — EARTH holo-table war-room: flat holographic disc with concentric rings/spokes/sweep + drifting contacts; cells ring the disc periphery. Extrudes the warroom 2D layout into 3D.",
