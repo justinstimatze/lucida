@@ -2251,6 +2251,20 @@ const LAYOUT_REGISTRY = {
     apply: () => applyWarroomLayout(),
     cap: 4,
   },
+  "pack-hero": {
+    id: "pack-hero",
+    label: "pack-hero",
+    description: "tiled cells in 4 strips around a reserved central hero",
+    // Reserves a center rect for a hero board (e.g. earth's situations-plot).
+    // Distributes cells into 4 perimeter strips: top, bottom, left, right.
+    // Each strip flows L→R or T→B. Cells stay visible AND the hero stays
+    // dominant in the center. Per user request 2026-06-08 ("pack but with
+    // a reserved spot in the center for the hero cell, tiled grid around").
+    apply: () => applyPackHeroLayout(),
+    // Cap 4: 1 right of hero + 3 below. User 2026-06-08: 5 was still too
+    // many; 4 cells around a hero gives proper breathing room.
+    cap: 4,
+  },
   pack: {
     id: "pack",
     label: "pack",
@@ -11798,6 +11812,100 @@ function applyOrganicLayout() {
 // `.fur-warroom` class (toggled in applyActiveLayout). Distinct from `organic`
 // (no center hero — the centerpiece is the holo-table, not a cell) and the most
 // grounded/horizontal of the three faction compositions (NOTES: situation-room).
+// Pack-hero: hero in top-left, cells flow right (along hero edge) and below.
+// User-validated 2026-06-08: "always keep the hero tile in the top left, let
+// it pack from there to the right and down" — simpler packing than the
+// 4-strips approach. The hero rect is the earth-board (sized to its 2.4×
+// CSS scale: 826×360). Cells fill: (1) right strip alongside the hero, then
+// (2) bottom strip below the hero.
+function applyPackHeroLayout() {
+  const root = document.getElementById("notebook");
+  if (!root) return;
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const rootRect = root.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const availH = vh - rootRect.top;
+  const availW = vw;
+  const gap = 10;
+  // Hero in top-left at notebook origin (CSS aligns the board to dashboard
+  // top-left at (0, 52) viewport — which is (0, 0) of notebook content).
+  const heroW = 826;
+  const heroH = 360;
+  // Two regions for cells: right strip (alongside hero) and bottom strip.
+  // Larger gaps from the hero on both sides so cells don't visually hug
+  // the board edge. User 2026-06-08.
+  const rightGap = 30;
+  const belowGap = 30;
+  const rightX = heroW + rightGap;
+  const rightW = availW - rightX - gap;
+  const belowY = heroH + belowGap;
+  const belowW = availW - 2 * gap;
+  const belowH = availH - belowY - gap;
+  const tgtW = 300, tgtH = 200;
+  const place = (cell, x, y, w, h) => {
+    // Clear any leftover transform from a prior Muuri/pack layout — that's
+    // what was causing the "two layers" double-vision (cells positioned by
+    // BOTH my inline left/top AND Muuri's translate(x,y)).
+    cell.style.transform = "";
+    cell.style.margin = "0";
+    Object.assign(cell.style, {
+      position: "absolute",
+      boxSizing: "border-box",
+      left: Math.round(x) + "px",
+      top: Math.round(y) + "px",
+      width: Math.round(w) + "px",
+      height: Math.round(h) + "px",
+      maxHeight: Math.round(h) + "px",
+      maxWidth: "none",
+      zIndex: "100",
+      overflow: "hidden",
+    });
+  };
+  // Generic row-wrap flow. Distributes a list of cells into a strip,
+  // cols×rows chosen so cells stretch to fill the strip.
+  const flow = (list, ox, oy, stripW, stripH, dir) => {
+    if (!list.length) return;
+    const n = list.length;
+    let cols, rows;
+    if (dir === "horizontal") {
+      const maxCols = Math.max(1, Math.floor((stripW + gap) / (tgtW + gap)));
+      cols = Math.min(n, maxCols);
+      rows = Math.max(1, Math.ceil(n / cols));
+    } else {
+      const maxRows = Math.max(1, Math.floor((stripH + gap) / (tgtH + gap)));
+      rows = Math.min(n, maxRows);
+      cols = Math.max(1, Math.ceil(n / rows));
+    }
+    // Cells fill the strip in both dimensions (right-of-hero cell now
+    // matches the hero's height per user 2026-06-08 "why wouldn't the
+    // cell to the right of the hero cell be the same height as the hero
+    // cell, loosely?"). Whitespace below content is acceptable as it
+    // reads as anchor-pin parity with the hero art piece.
+    const cw = Math.floor((stripW - gap * (cols - 1)) / cols);
+    const ch = Math.floor((stripH - gap * (rows - 1)) / rows);
+    list.forEach((c, i) => {
+      const col = dir === "horizontal" ? i % cols : Math.floor(i / rows);
+      const row = dir === "horizontal" ? Math.floor(i / cols) : i % rows;
+      place(c, ox + col * (cw + gap), oy + row * (ch + gap), cw, ch);
+    });
+  };
+  // Split cells: ONE single cell alongside the hero (right strip is too
+  // narrow to stack two without cramping per user 2026-06-08). The rest go
+  // in the bottom strip (horizontal flow).
+  const nRight = Math.min(1, cells.length);
+  const rightCells = cells.slice(0, nRight);
+  const belowCells = cells.slice(nRight);
+  flow(rightCells, rightX, gap,     rightW, heroH, "vertical");
+  flow(belowCells, gap,    belowY,  belowW, belowH, "horizontal");
+  Object.assign(root.style, {
+    position: "relative",
+    height: Math.round(availH) + "px",
+    minHeight: "0px",
+  });
+}
+
 function applyWarroomLayout() {
   const root = document.getElementById("notebook");
   if (!root) return;
@@ -11815,12 +11923,14 @@ function applyWarroomLayout() {
   // notebook (≈15-25 px); the board still reads as the central hero.
   const cx = vw / 2 - rootRect.left;
   const cy = (vh - rootRect.top) / 2;
-  // A few large, fully-readable readouts (cap 6 in the registry).
-  const cellW = Math.min(330, vw * 0.24);
-  const cellH = Math.min(232, vh * 0.30);
-  // Reserve the centered holo-table (scaled earth-board ≈ 460×200): cells must
-  // clear its half-extents so they ring the table rather than cover it.
-  const tableHalfW = 248, tableHalfH = 118, gap = 26;
+  // Cells: moderate width so 8 ring slots fit around a bigger board.
+  const cellW = Math.min(280, vw * 0.20);
+  const cellH = Math.min(200, vh * 0.26);
+  // Reserve the centered holo-table — sized for the new 2.4× scale of earth-
+  // board (344×150 → 826×360 visual). Half-extents 413×180 (+ 24 padding).
+  // 2026-06-08: previously sized for 1.32× (248×118); bumped because the
+  // board now reads as the hero centerpiece per Agatha-King ref grammar.
+  const tableHalfW = 413, tableHalfH = 180, gap = 24;
   const availHalfW = vw / 2 - margin;
   const availHalfH = (vh - rootRect.top) / 2 - margin;
   const rx = Math.max(availHalfW - cellW / 2, tableHalfW + cellW / 2 + gap);
@@ -11846,13 +11956,17 @@ function applyWarroomLayout() {
   // ring stays geometrically valid. Floor at 140 so substrates remain
   // readable; below that the layout has genuinely too little space.
   const cellHFit = Math.max(140, Math.min(cellH, Math.round(ry)));
-  const n = cells.length; // registry cap=4 (diagonal-corners layout)
-  // Diagonal corners: NW (-3π/4), NE (-π/4), SE (π/4), SW (3π/4). Adjacent
-  // cells are now corner-to-corner, with vertical spacing ry·√2 (much more
-  // generous than the prior 60° ring's ry spacing).
-  const CORNER_ANGLES = [-3 * Math.PI / 4, -Math.PI / 4, Math.PI / 4, 3 * Math.PI / 4];
+  const n = cells.length;
+  // Perimeter slots: 8 ring positions (was 4 diagonal corners). Cells visit
+  // the slots in fill order — 4 corners first (least likely to feel cramped),
+  // then 4 edge mid-points. With cellW=280 and ring radius matching the
+  // bigger board, all 8 slots stay legible.
+  const RING_ANGLES = [
+    -3 * Math.PI / 4,  -Math.PI / 4,  Math.PI / 4,  3 * Math.PI / 4,  // 4 corners
+    -Math.PI / 2,  0,  Math.PI / 2,  Math.PI,                          // 4 edges
+  ];
   cells.forEach((cell, i) => {
-    const angle = CORNER_ANGLES[i % CORNER_ANGLES.length];
+    const angle = RING_ANGLES[i % RING_ANGLES.length];
     const x = cx + Math.cos(angle) * rx - cellW / 2;
     const y = cy + Math.sin(angle) * ry - cellHFit / 2;
     Object.assign(cell.style, {
@@ -12443,7 +12557,7 @@ function _buildFurnitureEarth(el) {
   // bubble overlapping the MCRN threat's red bubble), not a single concentric
   // radar. Own ship is named by the UN seal + placard; the threat is labeled.
   const cx = 94, cy = 60;
-  const ringR = [16, 29, 42];
+  const ringR = [10, 22, 34, 46];
   // Head-on flat grid plane underlay — refs/unn/unn_tactical_grid_rangerings.png
   // shows a navy grid plane behind the rings (the WWII-naval institutional
   // chart paper). Even-spaced dashed verticals + horizontals, deliberately
@@ -12471,8 +12585,24 @@ function _buildFurnitureEarth(el) {
   // Offset hostile contact — its own dashed red sensor bubble + an open red
   // threat triangle at its center + a label. Overlaps the blue envelope.
   const tx = 56, ty = 86, tr = 26;
+  // Threat fades in/out (radar contact loses + reacquires) and drifts on a
+  // slow bezier path. User 2026-06-08: "the hostile probably shouldn't show
+  // the whole time and should also move a little."
+  const reduceThreat = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const threatMotion = reduceThreat ? "" :
+    '<animateMotion path="M 0 0 C 8 -4, 14 6, 6 10 S -4 4, 0 0" ' +
+    'dur="140s" rotate="0" repeatCount="indefinite"/>';
+  // Opacity cycle: 0.05 most of the time, brief visible windows. 80s loop —
+  // fade in over 15%, hold visible 35%, fade out 15%, ghost 35%.
+  const threatFade = reduceThreat ? "" :
+    '<animate attributeName="opacity" ' +
+    'values="0.05;1;1;0.05;0.05" keyTimes="0;0.15;0.5;0.65;1" ' +
+    'dur="80s" repeatCount="indefinite"/>';
   const threat =
     '<g class="earth-threat">' +
+      threatMotion +
+      threatFade +
       '<circle cx="' + tx + '" cy="' + ty + '" r="' + tr + '" fill="none" ' +
         'stroke="#d83a2e" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>' +
       '<path d="M' + tx + ' ' + (ty - 4) + ' L' + (tx + 4) + ' ' + (ty + 3) +
@@ -12487,6 +12617,22 @@ function _buildFurnitureEarth(el) {
           '<g class="earth-grid-bg">' + grid + '</g>' +
           _earthSeal(cx, cy, 10) +
           '<g class="earth-rings">' + rings + '</g>' + threat +
+          // Sweep beam — SVG <animateTransform> rotating a 30° wedge around
+          // own-ship. SMIL handles rotation around the parent g's origin
+          // (which we translate to cx,cy) natively — no CSS transform-origin
+          // ambiguity. 12s/rev (dignified, weighty per earth register).
+          '<g transform="translate(' + cx + ' ' + cy + ')">' +
+            '<g class="earth-sweep">' +
+              '<path d="M 0 0 L 42 0 A 42 42 0 0 1 36.4 21 Z" ' +
+                'fill="#2f6fd0" fill-opacity="0.06" ' +
+                'stroke="#2f6fd0" stroke-opacity="0.32" stroke-width="0.4"/>' +
+              (window.matchMedia &&
+                window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                  ? ""
+                  : '<animateTransform attributeName="transform" type="rotate" ' +
+                    'from="0" to="360" dur="12s" repeatCount="indefinite"/>') +
+            '</g>' +
+          '</g>' +
           '<text class="earth-own-lbl" x="' + (cx + 14) + '" y="' + (cy - 14) + '">OWN</text>' +
           '<g class="earth-contacts"></g>' +
         '</svg>' +
@@ -12540,7 +12686,7 @@ function _updateEarthTactical() {
     .filter((c) => Number.isFinite(c.t))
     .sort((a, b) => b.t - a.t)
     .slice(0, 4);   // 4-contact dignified plot — fits 4 rows + 4 field rows in the readout panel.
-  const cx = 94, cy = 60, ringR = [16, 29, 42];
+  const cx = 94, cy = 60, ringR = [10, 22, 34, 46];
   let out = "", rows = "";
   cells.forEach((c, i) => {
     const r = ringR[Math.min(ringR.length - 1, Math.floor(i / 2))]; // newest inner, 2 per ring
@@ -12548,17 +12694,30 @@ function _updateEarthTactical() {
     const a = ((deg - 90) * Math.PI) / 180;                         // 0° = North
     const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
     const px = x.toFixed(1), py = y.toFixed(1);
+    // Smooth spline track: each contact follows a closed bezier loop centered
+    // on its initial position. <animateMotion rotate="0"> keeps the contact
+    // (and its label) axis-aligned (always upright) — user 2026-06-08.
+    // Loop shape varies per contact index so they look independent.
+    const reduce = window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const sx = 8 + (i * 7) % 14;        // half-width  of the loop
+    const sy = 6 + (i * 5) % 10;        // half-height of the loop
+    const cw = (i % 2 === 0) ? 1 : -1;  // direction varies
+    const period = 95 + i * 22;         // 95..185s — slow + dignified
+    const path = "M 0 0 C " + (sx * cw) + " " + (-sy * 0.8) + ", " +
+                 (sx * 1.2 * cw) + " " + (sy * 0.5) + ", " +
+                 "0 " + (sy * 1.1) + " S " +
+                 (-sx * 0.7 * cw) + " " + (sy * 0.3) + ", 0 0";
+    const animMotion = reduce ? "" :
+      '<animateMotion path="' + path + '" dur="' + period +
+      's" rotate="0" repeatCount="indefinite"/>';
     out +=
       '<g class="earth-contact">' +
-        // short radial tick from the ring + a square friendly marker (naval plot).
+        animMotion +
         '<line x1="' + cx + '" y1="' + cy + '" x2="' + px + '" y2="' + py +
           '" stroke="#2f6fd0" stroke-opacity="0.28" stroke-width="0.6"/>' +
         '<rect x="' + (x - 2).toFixed(1) + '" y="' + (y - 2).toFixed(1) +
           '" width="4" height="4" fill="none" stroke="#6f9fd0" stroke-width="1"/>' +
-        // The lead (newest) track gets a selection box (highlighted as the
-        // currently-selected target). Top-3 tracks get on-plot designator
-        // labels — the reference names multiple contacts directly on the
-        // plane (the institutional "every track named" density), not just one.
         (i === 0 ? '<rect class="earth-sel-live" x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
           '" width="7.2" height="7.2" fill="none" stroke="#9bb8d8" stroke-opacity="0.75" stroke-width="0.6"/>' : "") +
         (i < 3 ? '<text class="earth-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
@@ -12586,16 +12745,40 @@ function _updateEarthTactical() {
     if (ft1) ft1.textContent = "SEL · " + _earthTag(lead.type);
     if (ft2) ft2.textContent = "STATUS · " + cells.length + " TRK";
     if (fvals.length === 4) {
-      fvals[0].textContent = "028";              // BRG °
-      fvals[1].textContent = "06.7";             // RNG NM
-      fvals[2].textContent = "04.2";             // CPA NM
-      fvals[3].textContent = "12";               // SPD KT
+      // Ambient values — derive from session-time + cell recency so they
+      // slowly drift like a real tactical plot rather than static stubs.
+      // Drift is smooth (sin) and slow (periods 30-45s) — earth register:
+      // dignified, not jittery. User 2026-06-08.
+      const t = Date.now() / 1000;
+      const recencyAge = (Date.now() - lead.t) / 1000;
+      const brg = (28 + Math.sin(t / 40) * 18 + 360) % 360;
+      const rng = 4 + (recencyAge % 60) / 10 + Math.sin(t / 30) * 0.6;
+      const cpa = Math.max(0.5, 4.2 + Math.sin(t / 45 + 1.3) * 1.4);
+      const spd = 10 + Math.sin(t / 35 + 0.7) * 4;
+      fvals[0].textContent = String(brg | 0).padStart(3, "0");           // BRG °
+      fvals[1].textContent = rng.toFixed(1).padStart(4, "0");            // RNG NM
+      fvals[2].textContent = cpa.toFixed(1).padStart(4, "0");            // CPA NM
+      fvals[3].textContent = String(Math.max(1, spd | 0)).padStart(2, "0"); // SPD KT
     }
   } else {
     if (ft1) ft1.textContent = "SEL · STANDBY";
     if (ft2) ft2.textContent = "STATUS · STANDBY";
     fvals.forEach((v) => { v.textContent = "---"; });
   }
+}
+
+// Ambient readout tick: re-runs _updateEarthTactical's drift math every
+// 2s so the BRG/RNG/CPA/SPD values keep changing without needing a new
+// mint to trigger an update. Gated on earth theme; cleared when furniture
+// remounts (best-effort — interval keeps running, but no-ops on other themes).
+let _earthAmbientTimer = null;
+function _earthAmbientStart() {
+  if (_earthAmbientTimer) return;
+  _earthAmbientTimer = setInterval(() => {
+    const fur = document.getElementById("theme-furniture");
+    if (!fur || fur.dataset.theme !== "earth") return;
+    _updateEarthTactical();
+  }, 2000);
 }
 
 // Apply the active layout mode, if any. Called after load() and on
@@ -12605,7 +12788,11 @@ function applyActiveLayout() {
   // Center + enlarge the earth situations-board into the holo-table only in the
   // war-room ring layout (the ring is built around it); bottom-left otherwise.
   const _fur = document.getElementById("theme-furniture");
-  if (_fur) _fur.classList.toggle("fur-warroom", mode === "warroom");
+  if (_fur) {
+    // fur-warroom == "board positioned + 2.4× scale" (now top-left for
+    // pack-hero; previously centered for warroom — same class, same CSS).
+    _fur.classList.toggle("fur-warroom", mode === "warroom" || mode === "pack-hero");
+  }
   // Tear down Muuri before applying any non-pack layout, so its
   // absolute-positioned items don't fight the next mode's CSS / JS.
   if (mode !== "pack" && _muuriGrid) teardownPackLayout();
@@ -12626,6 +12813,8 @@ function applyActiveLayout() {
   _updateDriftOrbital();
   // Refresh the data-bound EARTH situation-plot (recent cells as tracked contacts).
   _updateEarthTactical();
+  // Kick off the 2s ambient ticker (idempotent — no-op after first start).
+  _earthAmbientStart();
   // Track the live HUD height so the mars-blue cockpit panel (height:calc with
   // --hud-h) always ends just above the bottom band — the HUD can grow to a
   // second kill-meter row, which a hardcoded offset wouldn't survive.

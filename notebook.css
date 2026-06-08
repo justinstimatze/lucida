@@ -4105,12 +4105,19 @@ html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-contac
    leave the fixed-px children gapped). Flat/institutional still — just centered
    and larger. Toggled by .fur-warroom in applyActiveLayout. */
 #theme-furniture[data-theme="earth"].fur-warroom .earth-board {
-  left: 50%;
-  top: 50%;
+  /* Pack-hero layout (2026-06-08): hero tile pinned to dashboard top-left
+     with small viewport-edge padding so it doesn't kiss the screen edge. */
+  left: 12px;
+  top: 52px;
   right: auto;
   bottom: auto;
-  transform: translate(-50%, -50%) scale(1.32);
-  transform-origin: center center;
+  transform: scale(2.4);
+  transform-origin: top left;
+}
+/* Prevent phantom horizontal scroll on pack-hero (user 2026-06-08:
+   "the whole dashboard thinks it could scroll to the right a little"). */
+html.theme-earth, html.theme-earth body {
+  overflow-x: hidden;
 }
 /* Lead track = the active contact: a SLOW, dignified pulse on its selection box
    (NOTES: EARTH motion is slow/weighty — no frantic flicker). flair-must-inform:

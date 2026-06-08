@@ -8,7 +8,7 @@
     "ok":        "#3ad17e"
   },
   "surface": {
-    "bg":     "#0e1420",
+    "bg":     "#040a14",
     "cell":   "rgba(22, 32, 50, 0.62)",
     "header": "rgba(18, 28, 46, 0.72)",
     "code":   "rgba(14, 22, 40, 0.74)",
@@ -40,10 +40,10 @@
     "accent":  "#2f6fd0",
     "fg":      "#cdd6e4",
     "muted":   "#5a6a86",
-    "bg":      "#0e1420",
+    "bg":      "#040a14",
     "panel":   "rgba(22, 32, 50, 0.62)"
   },
-  "layout": "warroom",
+  "layout": "pack-hero",
   "chrome": "instrument",
   "skin": "institutional",
   "mixed3d": {
