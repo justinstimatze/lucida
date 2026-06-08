@@ -1,27 +1,27 @@
 {
-  "_comment": "The Expanse — OPA / Drift / Free Navy. Grounded 2026-05-28 from show frames (refs/drift/NOTES.md): the brand is ECLECTICISM (salvaged, repurposed gear). DUAL accent — amber/orange + cyan (unlike Mars's single-accent discipline); warm-brown surface tint separates it from the cool MCRN/EARTH themes. Embrace slight grit/noise (Peel: 'because it's junk'). Lang Belta creole label fragments as texture. layout=pack (varied bin-pack reads improvised, not a planned grid). Red = threat/HAMMER-LOK (same escalation role as MarsBlue).",
+  "_comment": "The Expanse — OPA / Drift / Free Navy. Grounded 2026-05-28 from show frames (refs/drift/NOTES.md): the brand is ECLECTICISM (salvaged, repurposed gear). DUAL accent — amber/orange + cyan (unlike Mars's single-accent discipline); warm-brown surface tint separates it from the cool MCRN/EARTH themes. Embrace slight grit/noise (Peel: 'because it's junk'). Lang Belta creole label fragments as texture. layout=pack (varied bin-pack reads improvised, not a planned grid). Red = threat/HAMMER-LOK (same escalation role as MarsBlue). 2026-06-07 third-pass desaturation: amber → olive-amber (#b88c45), cyan → muted teal (#5a9a9a) to match the 'old-phosphor' register of bel_pPutN_020 vs the prior fluorescent neon. status warning/danger stay vivid (rare signal).",
   "accent": {
-    "primary":   "#e8902a",
-    "secondary": "#1aa6b0",
+    "primary":   "#947038",
+    "secondary": "#3d7777",
     "warning":   "#ffc233",
     "danger":    "#e23b2e",
     "ok":        "#3ad14e"
   },
   "surface": {
-    "bg":     "#15110c",
-    "cell":   "rgba(36, 27, 18, 0.52)",
-    "header": "rgba(30, 22, 14, 0.66)",
-    "code":   "rgba(40, 22, 8, 0.7)",
-    "muted":  "#6b5a44",
-    "line":   "rgba(232, 144, 42, 0.20)"
+    "bg":     "#030808",
+    "cell":   "rgba(20, 28, 28, 0.14)",
+    "header": "rgba(16, 24, 24, 0.22)",
+    "code":   "rgba(20, 28, 28, 0.14)",
+    "muted":  "#5a6868",
+    "line":   "rgba(148, 112, 56, 0.20)"
   },
   "text": {
-    "fg":    "#e6dccb",
+    "fg":    "#cdded4",
     "muted": "#8a7860"
   },
   "data": {
-    "_comment": "Dual warm+cool ladder — amber/gold interleaved with teal/cyan, the Drift two-accent brand. System amber[4]/red[5] stay rare signals.",
-    "cat": ["#e8902a", "#1aa6b0", "#d9a94a", "#6fc8e0", "#ffc233", "#e23b2e"]
+    "_comment": "Dual warm+cool ladder — desaturated to old-phosphor register per bel_pPutN_020 (muted teal lead + olive-amber). System amber[4]/red[5] stay vivid as rare signals.",
+    "cat": ["#3d7777", "#947038", "#53a9ac", "#c4c975", "#ffc233", "#e23b2e"]
   },
   "type": {
     "_comment": "No clean designer-font source for Drift (Yorke is MarsBlue-only). Saira (DIN-adjacent, OFL, bundled) for body/head — deliberately NOT D-DIN so it doesn't read as MCRN; Space Mono for the salvaged-terminal mono texture.",
@@ -30,20 +30,20 @@
     "mono": "\"Space Mono\", \"Share Tech Mono\", \"Courier New\", monospace"
   },
   "fx": {
-    "glow":      "rgba(232, 144, 42, 0.42)",
-    "glow-line": "rgba(26, 166, 176, 0.4)"
+    "glow":      "rgba(148, 112, 56, 0.42)",
+    "glow-line": "rgba(61, 119, 119, 0.4)"
   },
   "palette": {
-    "stroke1": "#e8902a",
-    "stroke2": "#1aa6b0",
+    "stroke1": "#947038",
+    "stroke2": "#3d7777",
     "stroke3": "#e23b2e",
-    "accent":  "#e8902a",
-    "fg":      "#e6dccb",
+    "accent":  "#947038",
+    "fg":      "#cdded4",
     "muted":   "#8a7860",
-    "bg":      "#15110c",
-    "panel":   "rgba(36, 27, 18, 0.52)"
+    "bg":      "#030808",
+    "panel":   "rgba(20, 28, 28, 0.14)"
   },
-  "layout": "pack",
+  "layout": "corners",
   "chrome": "instrument",
   "skin": "salvage"
 }

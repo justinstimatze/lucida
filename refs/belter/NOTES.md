@@ -29,19 +29,30 @@ the eclecticism is the signal (user: "variety?" — yes). Iconography: the **OPA
 
 ## Frames
 
-| File | Timestamp / src | What it captures |
+Re-extracted 2026-06-07 from user-pinned timestamps only (the pre-discipline
+Claude-picked frames now live under `_archive/`). Naming: `bel_<videoid>_<sec>.png`.
+
+### Canonical role assignments (user-picked 2026-06-07)
+
+User-validated picks from the 18-frame contact sheet, mapped to critique-loop roles:
+
+| Role | File | Why |
 |---|---|---|
-| `00_03_01_freenavy_tactical_creole_display.png` | 3:01 / freenavy | ⭐ Belter Free Navy tactical display — amber/yellow wireframe ship schematic (L) + button grid panel + circular orbital radar (R, cyan rings, yellow pips). Labels in **Lang Belta**: "DEFOTUNG", "LOK", "KOMMA LEK". Cyan + amber on near-black. |
-| `belter_orbital_tactical.png` | clip `pPutN_QzbeE` @1:17 | ⭐ Cleanest head-on Free Navy tactical (raw-verified): big **perspective-tilted elliptical orbital plot** (2.5D — concentric ellipses seen at an angle, NOT Roci's flat radial fan), cyan tracks + **yellow ▼ stalk-markers** with labels, gold center, top segmented strip + cyan tabs, right gold ship glyph, bottom data/log bar. Teal/cyan + amber/gold. |
-| `belter_hammerlock_trails.png` | clip `pPutN_QzbeE` @3:34 | ⭐ Same plot in threat state: **red "HAMMER LOCK" banner** + red/blue diamond contact markers near center, cyan tracks, yellow corner stalk-markers. Confirms red = lock/threat overlay (same role as Roci), on the cyan/amber base. |
-| `belter_tactical_columns.png` | clip `pPutN_QzbeE` @3:09 | Free Navy tactical with **left + right vertical data columns** flanking the elliptical plot; amber ship glyph, red bar accents bottom-left. Shows the marginal-readout-rail composition. |
-| `belter_medina_bridge_wall.png` | clip `6BgX8a3W1S0` @3:40 | ⭐ **Behemoth / Medina Station bridge wraparound display** — a giant curved screen-wall: large grey rendered ship/station + "MEDINA STATION" label + cyan tactical graphics + yellow trajectory + green/amber side data panels. The Belter "big bridge screen" composition (vs the smaller console tactical). Cyan-dominant w/ warm accents. |
-| `belter_bridge_holotable_room.png` | clip `6BgX8a3W1S0` @0:32 | Circular Belter command bridge (layout/environment ref): central glowing **cyan holo-table** ringed by curved console banks of blue tactical wall-screens. The command-center composition + holo-table — feeds the belter layout + mixed3d vocabulary. |
-| `00_04_08_belter_hand_terminal_translucent.png` | 4:08 / tycho | Canonical translucent **hand terminal** — glowing orange edge-border, semi-transparent layered screen, blue icons + profile pic. |
-| `00_03_23_belter_opa_split_circle_logo.png` | 3:23 / tycho | Corridor with the **OPA split-circle logo** (red/white) on doors; amber + blue signage. |
-| `00_01_07_belter_corridor_teal_amber_red.png` | 1:07 / tycho | Corridor palette: dark teal/cyan strip lighting + green/amber wall indicators + red accent strips. |
-| `00_01_53_belter_obsdeck_console.png` | 1:53 / tycho | Observation-deck console — small blue/cyan readout device on rail, amber accents. |
-| `00_01_20_belter_art_is_life_red_comms.png` | 1:20 / scifi-ui | Ceres "ART IS LIFE" comms/dating screen — **red-pink dominant** UI, dense layout. A grungier Belter UI variant. |
+| ⭐ **Palette ground** (cool-dominant UI mass) | `bel_pPutN_020.png` | Cleanest head-on Free Navy tactical — cyan/teal dominates, yellow ▼ stalk-markers + amber as feature. THE reference for "what drift cells should look like en masse." Audit script DEFAULT_REF. |
+| **Orbital plot grammar** (2.5D elliptical tilt) | `bel_pPutN_076.png` | Cleanest orbital tactical for the elliptical-plot vocabulary — the Roci↔Belter differentiator. `_077` is a near-identical motion frame, useful as cross-check. |
+| **Cell-chrome anchor** (UI around media/content) | `bel_6BgX_196.png` | Cyan top-tab bar + side rails + bottom transport bar framing a person on a video. Best single shot for how Belter chrome wraps a content cell. |
+| **Composition / multi-panel** (eclectic salvage) | `bel_pPutN_028.png` | Three displays at different sizes in a dim room — the eclecticism brand made literal. Layout ref. |
+| **OPA glyph** (chrome glyph slot) | `bel_6BgX_160.png` | Canonical OPA split-circle, clean and big. |
+| **Hand-detail / inline-readout** | `bel_6BgX_115.png` | Translucent device close-up — informs sparkline/inline detail treatment. |
+| **Environment context** (not UI) | `bel_6BgX_063.png` | Dim Belter control room with peripheral amber console glow. Faction setting context. |
+
+### Other user-pinned frames (motion variants, additional context)
+
+`bel_pPutN_011/014/017/021`: sequential motion variants of the Free Navy tactical
+(useful for animation cadence + cyan-track flicker reference).
+`bel_6BgX_018/032`: Tycho command bridge w/ central cyan holo-table — environment.
+`bel_6BgX_125/220`: Behemoth bridge — wide warship-tactical ref (cross-check).
+`bel_6BgX_191/207`: Belter dialogue / group bridge — character context.
 
 ## Design vocabulary (palette)
 

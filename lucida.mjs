@@ -1296,24 +1296,33 @@ function computeHud(data, substrateAudit, mintLog) {
   };
 }
 
-// Substrate-type → theme-token color mapping for the CELLS stacked bar.
-// Higher-value substrates get bright tokens; text + image get de-emphasized
-// since they're either anti-differentiation (text) or demoted (image).
+// Substrate-type → theme-palette index mapping for the CELLS stacked bar.
+// Routed through --data-cat-N so the bar wears the active theme's data
+// palette (was hardcoded var(--vis-ok)/etc. → green/yellow/red regardless
+// of theme — user 2026-06-08: "doesn't really seem to change much between
+// themes"). Grouping is by substrate semantics so adjacent stripes don't
+// blend visually:
+//   cat-0 → primary viz (vega/animated_svg/treemap/force_graph)
+//   cat-1 → graph/structure (mermaid/scene3d)
+//   cat-2 → content (html/code/ascii)
+//   cat-3 → time-series (sparkline/timeline_ribbon/trajectory)
+//   text → --muted (de-emphasize anti-differentiation)
+//   image → --accent-danger (semantic "demoted" red)
 const SUBSTRATE_COLORS = {
-  vega:         "var(--accent)",
-  mermaid:      "var(--vis-ok, #4ade80)",
-  html:         "var(--vis-warn, #fbbf24)",
-  animated_svg: "var(--accent)",
-  scene3d:      "var(--vis-ok, #4ade80)",
-  treemap:      "var(--vis-ok, #4ade80)",
-  code:         "var(--accent)",
-  sparkline:    "var(--accent)",
-  timeline_ribbon: "var(--vis-ok, #4ade80)",
-  trajectory:   "var(--accent)",
-  force_graph:  "var(--vis-ok, #4ade80)",
-  ascii:        "var(--vis-warn, #fbbf24)",
-  text:         "var(--muted)",
-  image:        "var(--vis-tripped, #f87171)",
+  vega:            "var(--data-cat-0, var(--accent))",
+  mermaid:         "var(--data-cat-1, var(--accent))",
+  html:            "var(--data-cat-2, var(--accent))",
+  animated_svg:    "var(--data-cat-0, var(--accent))",
+  scene3d:         "var(--data-cat-1, var(--accent))",
+  treemap:         "var(--data-cat-0, var(--accent))",
+  code:            "var(--data-cat-2, var(--accent))",
+  sparkline:       "var(--data-cat-3, var(--accent))",
+  timeline_ribbon: "var(--data-cat-3, var(--accent))",
+  trajectory:      "var(--data-cat-3, var(--accent))",
+  force_graph:     "var(--data-cat-0, var(--accent))",
+  ascii:           "var(--data-cat-2, var(--accent))",
+  text:            "var(--muted)",
+  image:           "var(--accent-danger, #f87171)",
 };
 
 // Render the stacked-bar of substrate distribution. Idempotent: clears
@@ -2234,6 +2243,17 @@ const LAYOUT_REGISTRY = {
     // the rest are 2 rails per side. Few, large, fully-readable cells, no scroll
     // and no vertical clipping. Full corpus lives in the pack layout.
     cap: 5,
+  },
+  corners: {
+    id: "corners",
+    label: "corners",
+    description: "Free Navy ops — 4 cells in corners around central orbital plot",
+    // Per refs/belter/bel_pPutN_076: the orbital tactical dominates the middle,
+    // only thin chrome rides at the corners. Differentiates drift from mars-blue
+    // (pack) and earth (warroom). Cells = chrome strips; the centerpiece is the
+    // live orbital plot in #theme-furniture.
+    apply: () => applyCornersLayout(),
+    cap: 4,
   },
   warroom: {
     id: "warroom",
@@ -11995,6 +12015,79 @@ function applyWarroomLayout() {
 }
 
 // ----------------------------------------------------------------
+// Corners layout — drift/Free Navy: 4 cells pinned to the four
+// corners, central viewport-bottom-half reserved for the live
+// orbital tactical plot (in #theme-furniture). Mirrors warroom's
+// shape (cap-limited, absolute-positioned, root height clamped).
+// Composition reference: refs/belter/bel_pPutN_076 (orbital
+// dominates middle, thin chrome rides the corners).
+// ----------------------------------------------------------------
+function applyCornersLayout() {
+  const root = document.getElementById("notebook");
+  if (!root) return;
+  const cells = [...root.querySelectorAll(":scope > .cell")];
+  if (!cells.length) return;
+  const rootRect = root.getBoundingClientRect();
+  // clientWidth excludes the scrollbar (innerWidth includes it). Using
+  // innerWidth caused a horizontal scrollbar on themes where any content
+  // overflowed vertically — corner cells then extended past the usable area.
+  const vw = document.documentElement.clientWidth || window.innerWidth;
+  const vh = window.innerHeight;
+  // Asymmetric margins — the right edge needs more breathing room than
+  // the left (user 2026-06-08: "right-side cells are right on the edge").
+  const marginL = 24, marginR = 56, marginY = 24;
+  const baseW = Math.min(360, Math.max(270, vw * 0.21));
+  const baseH = Math.min(240, Math.max(180, vh * 0.22));
+  const availH = vh - rootRect.top;
+  // Per-slot asymmetric multipliers — eclectic-salvage signal (refs/belter
+  // NOTES: "panels bolted at different registers"). Top-left shorter, top-
+  // right substantially wider, bottom-right taller; bottom-left baseline.
+  // Reverse-chrono render = cells[0] is NEWEST → lands TL.
+  const SLOT_SCALE = [
+    { wMul: 1.00, hMul: 0.74 },  // TL — shorter
+    { wMul: 1.50, hMul: 1.00 },  // TR — much wider
+    { wMul: 1.00, hMul: 1.00 },  // BL — baseline
+    { wMul: 1.00, hMul: 1.20 },  // BR — taller
+  ];
+  const dims = SLOT_SCALE.map((s) => ({
+    w: Math.round(baseW * s.wMul),
+    h: Math.round(baseH * s.hMul),
+  }));
+  // Anchor each slot to its corner using per-slot dimensions so wider TR
+  // pushes left toward the center (not off-screen) and taller BR grows up.
+  const slots = [
+    { x: marginL,                      y: marginY },                         // TL
+    { x: vw - dims[1].w - marginR,     y: marginY },                         // TR
+    { x: marginL,                      y: availH - dims[2].h - marginY },    // BL
+    { x: vw - dims[3].w - marginR,     y: availH - dims[3].h - marginY },    // BR
+  ];
+  cells.forEach((cell, i) => {
+    if (i >= slots.length) {
+      cell.style.display = "none";
+      return;
+    }
+    const s = slots[i], d = dims[i];
+    Object.assign(cell.style, {
+      position: "absolute",
+      display: "",
+      left: Math.round(s.x) + "px",
+      top: Math.round(s.y) + "px",
+      width: d.w + "px",
+      height: "auto",
+      minHeight: Math.round(d.h * 0.5) + "px",
+      maxHeight: d.h + "px",
+      maxWidth: "none",
+      zIndex: String(100 + (cells.length - i)),
+    });
+  });
+  Object.assign(root.style, {
+    position: "relative",
+    height: Math.round(availH) + "px",
+    minHeight: "0px",
+  });
+}
+
+// ----------------------------------------------------------------
 // Scatter v0: each cell drops at a pseudo-random position in the
 // viewport (deterministic hash from cell id so positions are stable
 // across renders). Cells overlap; newest cell gets highest z-index
@@ -12353,76 +12446,56 @@ function _updateMarsBlueHisto() {
 // Contacts are data-bound (_updateDriftOrbital) so the plot reads as live
 // session tracking, not decoration (memory feedback_flair_must_inform).
 function _buildFurnitureDrift(el) {
-  const cx = 140, cy = 118, RxMax = 136, tilt = 0.30;
-  let rings = "";
-  for (let i = 1; i <= 4; i++) {
-    const rx = (RxMax / 4) * i;
-    const ry = rx * tilt;
-    const op = (0.5 - i * 0.06).toFixed(3);
-    rings += '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx.toFixed(1) +
-      '" ry="' + ry.toFixed(1) + '" fill="none" stroke="#1aa6b0" stroke-opacity="' +
-      op + '" stroke-width="1"/>';
-  }
-  // Gold center ship-glyph (diamond), matching the show's gold center marker.
-  const ctr = '<path d="M' + cx + ' ' + (cy - 6) + ' L' + (cx + 5) + ' ' + cy +
-    ' L' + cx + ' ' + (cy + 6) + ' L' + (cx - 5) + ' ' + cy +
-    ' Z" fill="#e8b04a" fill-opacity="0.9"/>';
+  // Big live orbital tactical (2026-06-08). The orbital plot grew from a 266×182
+  // bottom-left widget into the dashboard CENTERPIECE: viewport-bottom-half,
+  // wide aspect, live data-bound contacts via _updateDriftOrbital. Cells live in
+  // the 4 corners (layout=corners), the orbital fills the middle/lower.
+  // Coords: viewBox 480×200, cx=240 cy=170 RxMax=280; matches the new
+  // _updateDriftOrbital arithmetic.
+  // Lang-Belta perimeter decals stay as eclectic-graffiti tell.
   el.innerHTML =
-    '<div class="drift-plot">' +
-      // Segmented Lang-Belta tab-strip (the show's tactical-screen top chrome:
-      // EXPANSION / INT REJ / +/- / SHOW-CHN). One tab active.
-      '<div class="drift-strip">' +
-        '<span class="drift-tab drift-tab-on">DEF</span>' +
-        '<span class="drift-tab">LCK</span>' +
-        '<span class="drift-tab">COM</span>' +
-        '<span class="drift-tab">PRX</span>' +
-      '</div>' +
-      '<svg viewBox="0 0 280 168" preserveAspectRatio="xMidYMax meet" aria-hidden="true">' +
-        // Holographic-projection base: a cyan radial glow under the plane, so the
-        // plot reads as a volumetric projection rising off a surface, not a flat
-        // chart (the depth the show's tactical plot has — memory holographic-depth).
-        '<defs><radialGradient id="belHolo" cx="50%" cy="72%" r="62%">' +
-          '<stop offset="0%" stop-color="#1aa6b0" stop-opacity="0.2"/>' +
-          '<stop offset="100%" stop-color="#1aa6b0" stop-opacity="0"/>' +
-        '</radialGradient></defs>' +
-        '<ellipse cx="140" cy="120" rx="155" ry="52" fill="url(#belHolo)"/>' +
-        '<g class="drift-rings">' + rings + '</g>' + ctr +
+    '<div class="drift-plot" aria-hidden="true">' +
+      '<svg viewBox="0 0 480 200" preserveAspectRatio="xMidYMax meet">' +
+        // Radial yellow halo behind the center target — soft bloom that
+        // fades out into the orbital plane (per user 2026-06-08: target
+        // should have a yellow glow with radial fade-off).
+        '<defs>' +
+          '<radialGradient id="drift-target-halo" cx="50%" cy="50%" r="50%">' +
+            '<stop offset="0%"   stop-color="#e8d068" stop-opacity="0.55"/>' +
+            '<stop offset="35%"  stop-color="#b89a48" stop-opacity="0.30"/>' +
+            '<stop offset="70%"  stop-color="#947038" stop-opacity="0.10"/>' +
+            '<stop offset="100%" stop-color="#947038" stop-opacity="0"/>' +
+          '</radialGradient>' +
+        '</defs>' +
+        '<ellipse class="drift-target-halo" cx="240" cy="170" rx="120" ' +
+          'ry="36" fill="url(#drift-target-halo)"/>' +
+        // Orbital rings — per user 2026-06-08: solid yellow lines + 4 discrete
+        // "nodules" geometrically distributed at compass points per ring
+        // (electron-site / station-keep markers). Outermost = double-blue
+        // perimeter (threat-detection edge).
+        _driftRing(50, 15,   "#c5a44a", 0.85) +
+        _driftRing(100, 30,  "#c5a44a", 0.75) +
+        _driftRing(160, 48,  "#c5a44a", 0.65) +
+        _driftRing(220, 66,  "#c5a44a", 0.55) +
+        // Triple-blue outer perimeter — two thin inner rings + one thick
+        // outermost (per user 2026-06-08, per ref). The threat-detection edge.
+        '<ellipse cx="240" cy="170" rx="276" ry="82.5" fill="none" ' +
+          'stroke="#3d7777" stroke-opacity="0.55" stroke-width="0.7"/>' +
+        '<ellipse cx="240" cy="170" rx="282" ry="84.5" fill="none" ' +
+          'stroke="#3d7777" stroke-opacity="0.55" stroke-width="0.7"/>' +
+        '<ellipse cx="240" cy="170" rx="292" ry="87.5" fill="none" ' +
+          'stroke="#3d7777" stroke-opacity="0.85" stroke-width="2.4"/>' +
+        // Center target triangle — bright yellow per user 2026-06-08.
+        // Equilateral in the orbital plane (tilt 0.30), apex pointing forward.
+        //   apex (240, 162) · BR (254, 174) · BL (226, 174)
+        '<path class="drift-shipglyph" d="M240 162 L254 174 L226 174 Z" ' +
+          'fill="#e8c656" fill-opacity="0.95" stroke="#f0dba0" ' +
+          'stroke-width="0.6" stroke-opacity="0.7"/>' +
+        // Live contact group — _updateDriftOrbital populates this with the
+        // most-recent N cells as tracked contacts (stalk-markers + labels).
         '<g class="drift-contacts"></g>' +
       '</svg>' +
-      '<div class="drift-plot-label">OUTER FLEET · TAKTIK PLOT<br>' +
-        '<span class="drift-plot-sub">STANDBY</span></div>' +
-      // Amber wireframe vessel glyph (the show's right-side gold ship marker),
-      // dual-accent: amber hull + a cyan detail line.
-      '<div class="drift-ship"><svg viewBox="0 0 46 22" aria-hidden="true">' +
-        '<path d="M3 11 L12 6 L34 6 L43 10 L43 12 L34 16 L12 16 Z" fill="none" ' +
-          'stroke="#e8b04a" stroke-width="1" stroke-opacity="0.85"/>' +
-        '<line x1="15" y1="9" x2="30" y2="9" stroke="#1aa6b0" stroke-width="1" stroke-opacity="0.7"/>' +
-        '<path d="M3 11 L0 8 M3 11 L0 14" stroke="#e8b04a" stroke-width="1" stroke-opacity="0.6"/>' +
-      '</svg></div>' +
     '</div>' +
-    // OPA split-circle faction glyph — a ring divided by an offset slash.
-    // Dual-accent: amber/rust ring + cyan slash (matches Drift's two-color
-    // brand vs the canonical red/white show palette — keeps faction
-    // iconography on-theme without breaking the cyan+amber discipline).
-    '<div class="drift-opa"><svg viewBox="0 0 40 40" aria-hidden="true">' +
-      '<circle cx="20" cy="20" r="15" fill="none" stroke="#d8662e" stroke-width="2.6"/>' +
-      '<path d="M7 27 L33 13" stroke="#1aa6b0" stroke-width="2.6" stroke-linecap="round"/>' +
-    '</svg></div>' +
-    // Right-margin wireframe-hull schematic — per refs/drift
-    // 00_03_01_freenavy_tactical_creole_display.png: the amber
-    // wireframe ship dominates one panel of the Free Navy tactical
-    // display. Drawn here as a Behemoth-class long hull (generation
-    // ship turned warship): long cylindrical body + rotating habitation
-    // drum mid-hull + drive cone aft + antenna spikes fore + side
-    // thruster vectors. Mirrors the mars-blue .fur-shipself signature-
-    // orientation pattern, amber instead of cyan-grey.
-    '<div class="drift-shipself" title="Free Navy hull schematic — Behemoth-class generation ship + thruster vectors"></div>' +
-    // Lang Belta decorative decals — short Drift-creole fragments at very
-    // low opacity scattered around the viewport perimeter, slight rotation
-    // for the salvaged/graffiti texture (refs/drift NOTES.md: "Mixed
-    // languages/registers within one screen = the eclecticism signal. Use
-    // Belta-style label fragments as texture, don't translate"). pointer-
-    // events:none inheriting from #theme-furniture so they never block clicks.
     '<div class="drift-decals" aria-hidden="true">' +
       '<span class="drift-decal drift-decal-1">DRIFTLINE</span>' +
       '<span class="drift-decal drift-decal-2">CORE BREAK</span>' +
@@ -12443,69 +12516,157 @@ function _driftTag(type) {
   return m[type] || (type ? type.slice(0, 4).toUpperCase() : "SIG");
 }
 
+// Track state for the orbital animation. Each track is one contact with a
+// base angle that the rAF loop advances over time → contacts orbit slowly,
+// consistent with a "pretend 3D" tactical plot.
+let _driftTracks = [];
+let _driftAnimStart = 0;
+let _driftAnimRAF = null;
+// Orbital angular velocity (radians/sec). Period ≈ 160s — slow enough to
+// read as deliberate ship motion (deep-space tactical, not a fan). Reduced-
+// motion gated below. (2026-06-08: bumped from 95s after live feedback.)
+const DRIFT_OMEGA = (2 * Math.PI) / 160;
+
+// Static yellow orbital ring + 4 discrete "nodule" dots at compass points
+// (electron-site / station-keep markers). Solid stroke so the ring stays
+// visible; dots add the per-ring landmarks per ref bel_pPutN_076.
+function _driftRing(rx, ry, color, opacity) {
+  let s = '<ellipse cx="240" cy="170" rx="' + rx + '" ry="' + ry +
+    '" fill="none" stroke="' + color + '" stroke-opacity="' + opacity +
+    '" stroke-width="0.9"/>';
+  // 4 dots at θ = 0, 90, 180, 270° — right, bottom, left, top of the tilted
+  // ellipse. Dot radius scales gently with ring radius so outer dots stay
+  // visible without dominating.
+  const r = Math.max(1.6, Math.min(2.6, rx / 80));
+  const pts = [
+    [240 + rx, 170      ],
+    [240,      170 + ry ],
+    [240 - rx, 170      ],
+    [240,      170 - ry ],
+  ];
+  pts.forEach(([x, y]) => {
+    s += '<circle cx="' + x + '" cy="' + y + '" r="' + r.toFixed(2) +
+      '" fill="' + color + '" fill-opacity="' + Math.min(1, opacity + 0.1) + '"/>';
+  });
+  return s;
+}
+
 // Bind the orbital plot's contacts to REAL data: the most-recent cells become
 // tracked contacts on the tilted plane — newest innermost, oldest outermost,
 // spread across a front-facing arc so the ▼ stalk labels don't collide. Each
-// marker is tagged by substrate (_driftTag). Called from applyActiveLayout.
+// marker is tagged by substrate (_driftTag). Called from applyActiveLayout —
+// rebinds tracks + (re)starts the rAF loop.
 function _updateDriftOrbital() {
   const fur = document.getElementById("theme-furniture");
   if (!fur || fur.dataset.theme !== "drift") return;
   const g = fur.querySelector(".drift-contacts");
-  if (!g) return;
+  if (!g) { _driftTracks = []; return; }
   // HAMMER LOCK threat state is CSS-driven via body:has(.cell-danger)
   // (same trigger as the mars-blue threat reticle). No JS class toggle needed.
-  const cells = [...document.querySelectorAll("#notebook .cell[data-timestamp]")]
+  // Dedupe by substrate type so no two contacts share the same _driftTag
+  // (user 2026-06-08: "there are two TIMA's now also"). Keep the NEWEST cell
+  // per type; cap at 6.
+  const allCells = [...document.querySelectorAll("#notebook .cell[data-timestamp]")]
     .map((c) => ({ t: Date.parse(c.dataset.timestamp), type: c.dataset.cellType || "" }))
     .filter((c) => Number.isFinite(c.t))
-    .sort((a, b) => b.t - a.t)
-    .slice(0, 6);
-  if (!cells.length) { g.innerHTML = ""; return; }
-  const cx = 140, cy = 118, RxMax = 136, tilt = 0.30, stalkH = 26;
-  const arc = 210, base = -195;          // front-facing arc, degrees
+    .sort((a, b) => b.t - a.t);
+  const seen = new Set();
+  const cells = [];
+  for (const c of allCells) {
+    const tag = _driftTag(c.type);
+    if (seen.has(tag)) continue;
+    seen.add(tag);
+    cells.push(c);
+    if (cells.length >= 6) break;
+  }
+  if (!cells.length) { g.innerHTML = ""; _driftTracks = []; return; }
   const n = cells.length;
+  const arc = 210, base = -195;          // front-facing arc, degrees
+  // Compute initial track placements (base angle + radial fraction). Each
+  // track gets a SPEED MULTIPLIER ∈ [0.5, 1.0] hashed from its tag — some
+  // contacts orbit slower than others, but none exceeds the base OMEGA
+  // (user 2026-06-08: "no faster than the current value").
+  _driftTracks = cells.map((c, i) => {
+    const tag = _driftTag(c.type);
+    let h = 5381;
+    for (let k = 0; k < tag.length; k++) h = ((h << 5) + h + tag.charCodeAt(k)) | 0;
+    const speedMul = 0.5 + ((Math.abs(h) % 100) / 100) * 0.5;  // 0.50..0.999
+    return {
+      type: c.type,
+      isLive: i === 0,
+      baseAng: ((base + (n > 1 ? (arc / (n - 1)) * i : arc / 2)) * Math.PI) / 180,
+      frac: 0.42 + (i / Math.max(1, n - 1)) * 0.5,   // newest inner
+      speedMul,
+    };
+  });
+  _driftAnimStart = performance.now();
+  // Reduced-motion: paint a single static frame and exit (no rAF loop).
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    _renderDriftOrbitalFrame(0);
+    if (_driftAnimRAF) { cancelAnimationFrame(_driftAnimRAF); _driftAnimRAF = null; }
+    return;
+  }
+  if (_driftAnimRAF) cancelAnimationFrame(_driftAnimRAF);
+  const tick = (now) => {
+    _driftAnimRAF = requestAnimationFrame(tick);
+    // Bail if user switched themes mid-loop.
+    if (!fur.isConnected || fur.dataset.theme !== "drift") {
+      cancelAnimationFrame(_driftAnimRAF);
+      _driftAnimRAF = null;
+      return;
+    }
+    _renderDriftOrbitalFrame((now - _driftAnimStart) / 1000);
+  };
+  _driftAnimRAF = requestAnimationFrame(tick);
+}
+
+// Render one animation frame — recompute contact positions from elapsed time
+// and replace .drift-contacts innerHTML. Called every frame by the rAF tick
+// (or once for reduced-motion). Geometry: viewBox 480×200, cx=240 cy=170
+// RxMax=280, tilt 0.30.
+function _renderDriftOrbitalFrame(tSec) {
+  const fur = document.getElementById("theme-furniture");
+  if (!fur) return;
+  const g = fur.querySelector(".drift-contacts");
+  if (!g || !_driftTracks.length) return;
+  const cx = 240, cy = 170, RxMax = 280, tilt = 0.30, stalkH = 50;
   let out = "";
-  cells.forEach((c, i) => {
-    const ang = base + (n > 1 ? (arc / (n - 1)) * i : arc / 2);
-    const a = (ang * Math.PI) / 180;
-    const frac = 0.42 + (i / Math.max(1, n - 1)) * 0.5;   // newest inner
-    const rx = frac * RxMax, ry = rx * tilt;
-    const pxN = cx + rx * Math.cos(a), pyN = cy + ry * Math.sin(a);
+  _driftTracks.forEach((tr, i) => {
+    const ang = tr.baseAng + tSec * DRIFT_OMEGA * (tr.speedMul || 1);
+    const rx = tr.frac * RxMax, ry = rx * tilt;
+    const pxN = cx + rx * Math.cos(ang), pyN = cy + ry * Math.sin(ang);
     const tyN = pyN - stalkH;
     const px = pxN.toFixed(1), py = pyN.toFixed(1), ty = tyN.toFixed(1);
-    const tri = "M" + (pxN - 3).toFixed(1) + " " + (tyN - 1).toFixed(1) +
-      " L" + (pxN + 3).toFixed(1) + " " + (tyN - 1).toFixed(1) +
-      " L" + px + " " + (tyN + 3).toFixed(1) + " Z";
+    // Marker sizes scaled for the big viewBox (was tuned to the 266px widget).
+    const tri = "M" + (pxN - 5).toFixed(1) + " " + (tyN - 2).toFixed(1) +
+      " L" + (pxN + 5).toFixed(1) + " " + (tyN - 2).toFixed(1) +
+      " L" + px + " " + (tyN + 5).toFixed(1) + " Z";
     // Threat-state diamond marker (per refs/drift belter_hammerlock_trails:
     // contact glyphs morph from yellow ▼ triangles to red ◆ diamonds
     // during HAMMER LOCK). Same position as the triangle so the swap
     // reads as one marker changing rather than two markers fighting.
-    const dia = "M" + px + " " + (tyN - 3.4).toFixed(1) +
-      " L" + (pxN + 3.4).toFixed(1) + " " + tyN.toFixed(1) +
-      " L" + px + " " + (tyN + 3.4).toFixed(1) +
-      " L" + (pxN - 3.4).toFixed(1) + " " + tyN.toFixed(1) + " Z";
+    const dia = "M" + px + " " + (tyN - 5.5).toFixed(1) +
+      " L" + (pxN + 5.5).toFixed(1) + " " + tyN.toFixed(1) +
+      " L" + px + " " + (tyN + 5.5).toFixed(1) +
+      " L" + (pxN - 5.5).toFixed(1) + " " + tyN.toFixed(1) + " Z";
     out +=
       '<g class="drift-contact' + (i === 0 ? ' drift-live' : '') + '">' +
-        // Footprint ellipse on the plane — grounds the contact so the vertical
-        // riser reads as a 3D pin standing on the tilted surface (depth cue).
-        '<ellipse cx="' + px + '" cy="' + py + '" rx="4" ry="1.4" fill="none" ' +
-          'stroke="#1aa6b0" stroke-opacity="0.4" stroke-width="0.8"/>' +
-        '<circle cx="' + px + '" cy="' + py + '" r="2.2" fill="#1aa6b0"/>' +
-        // Stalk riser stays amber (wireframe color); ▼ stalk-marker
-        // triangle is YELLOW per refs/drift/belter_orbital_tactical:
-        // canonical Drift contact glyph reads as warning-yellow vs
-        // the amber wireframe hull color (visual hierarchy).
+        // Footprint ellipse — grounds the contact as a 3D pin on the plane.
+        '<ellipse cx="' + px + '" cy="' + py + '" rx="7" ry="2.5" fill="none" ' +
+          'stroke="#5a9a9a" stroke-opacity="0.5" stroke-width="1"/>' +
+        '<circle cx="' + px + '" cy="' + py + '" r="3.5" fill="#5a9a9a"/>' +
+        // Stalk riser: gold-yellow per ref; triangle bright warning-yellow
+        // per refs/drift/belter_orbital_tactical (canonical Drift contact glyph).
         '<line x1="' + px + '" y1="' + py + '" x2="' + px + '" y2="' + ty +
-          '" stroke="#e8b04a" stroke-width="1.2" stroke-opacity="0.85"/>' +
+          '" stroke="#c5a44a" stroke-width="2" stroke-opacity="0.9"/>' +
         '<path class="drift-marker-tri" d="' + tri + '" fill="#ffc233"/>' +
         '<path class="drift-marker-dia" d="' + dia + '" fill="#e23b2e"/>' +
-        '<text x="' + px + '" y="' + (tyN - 4).toFixed(1) +
-          '" text-anchor="middle" class="drift-contact-lbl">' + _driftTag(c.type) +
+        '<text x="' + px + '" y="' + (tyN - 7).toFixed(1) +
+          '" text-anchor="middle" class="drift-contact-lbl">' + _driftTag(tr.type) +
         '</text>' +
       '</g>';
   });
   g.innerHTML = out;
-  const sub = fur.querySelector(".drift-plot-sub");
-  if (sub) sub.textContent = n + " KONTAKT";
 }
 
 // UN globe-laurel seal — the key Earth-power iconography (refs/unn/NOTES.md).

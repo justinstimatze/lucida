@@ -3360,24 +3360,24 @@ html.theme-ops::before {
    short cyan "tape stripe" at the right end of the header is the dual-accent
    tell. Warm-cream title, no bright fills — "because it's junk." */
 .theme-drift .cell-chrome-instrument {
-  background-color: var(--cell-bg, rgba(36, 27, 18, 0.52));
+  background-color: var(--cell-bg, rgba(20, 28, 28, 0.14));
   padding: 0.4rem 0.6rem 0.4rem 0.92rem;
-  border-left: 3px solid #e8902a;
-  box-shadow: inset 0 -1px 0 rgba(26, 166, 176, 0.22);  /* faint cyan baseline — dual accent */
+  border-left: 3px solid var(--accent, #947038);
+  box-shadow: inset 0 -1px 0 rgba(61, 119, 119, 0.22);  /* faint dim-teal baseline — dual accent */
 }
 .theme-drift .cell-chrome-instrument .cell-head {
-  background: linear-gradient(to right, rgba(232, 144, 42, 0.08) 0%, rgba(232, 144, 42, 0.08) 78%, rgba(26, 166, 176, 0.18) 78%, rgba(26, 166, 176, 0.18) 100%);
-  color: #d8b89a;
-  border-bottom: 1.5px solid #e8902a;
+  background-color: var(--header-bg, rgba(16, 24, 24, 0.22));
+  color: var(--fg, #cdded4);
+  border-bottom: 1.5px solid var(--accent, #947038);
   letter-spacing: 0.06em;
 }
 .theme-drift .cell-chrome-instrument .cell-title {
-  color: #e6dccb;
+  color: var(--fg, #cdded4);
   font-weight: 600;
 }
 .theme-drift .cell-chrome-instrument .cell-id,
 .theme-drift .cell-chrome-instrument .cell-time {
-  color: #8a7860;
+  color: var(--muted, #5a6868);
 }
 
 /* ── Theme furniture / console-overlay layer ───────────────────────────────
@@ -3633,163 +3633,47 @@ html.theme-mars-red #notebook {
   margin-right: 24px;
 }
 
-/* Drift furniture: OPA Free Navy tactical plot (tilted elliptical orbital
-   plane — the Drift↔MarsBlue differentiator) anchored bottom-left, + the OPA
-   split-circle glyph top-left. Asymmetric placement = the Drift signal (no
-   master frame, unlike MarsBlue's symmetric bezel). pointer-events:none throughout
-   (pack fills the viewport — must never block a cell click underneath). A faint
-   overlay flicker is the "junk hardware" tell (Peel), reduced-motion-gated. */
+/* Drift furniture: the orbital tactical plot is the dashboard CENTERPIECE
+   (2026-06-08 — big-plot rewrite, ref bel_pPutN_076). Fills the viewport
+   bottom half. Wide SVG aspect (viewBox 480×200). Cells live in 4 corners
+   (layout=corners) so the orbital owns the middle. Lower z-index than cells
+   so cells float OVER it (cells are z=100+ via inline style; furniture-drift
+   is z=5). Junk-hardware flicker on the whole orbital is the Peel salvage
+   tell, reduced-motion-gated. */
 #theme-furniture[data-theme="drift"] {
+  z-index: 5;
   animation: drift-flicker 7.3s steps(1) infinite;
 }
 #theme-furniture[data-theme="drift"] .drift-plot {
-  position: absolute;
-  left: 14px;
-  bottom: 16px;
-  width: 266px;
-  height: 182px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 58vh;
   pointer-events: none;
-  /* A defined salvaged-panel scrim (NOT a faint smear over content): an opaque
-     warm backing + amber hairline + depth shadow, so the plot reads as a tactical
-     widget bolted on at its own register — the Drift grammar ("panels bolted at
-     different registers, exposed seams") — and never blurs the cell underneath
-     (readability is a bug). A slim corner cut is the salvaged-bracket detail. */
-  background:
-    radial-gradient(120% 130% at 32% 84%, rgba(26, 166, 176, 0.08), transparent 60%),
-    rgba(14, 10, 6, 0.97);
-  border: 1px solid rgba(232, 144, 42, 0.4);
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.5);
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  /* Volumetric hologram glow — the plot reads as a projected light-field
+     (feedback_holographic_depth_yes). Stronger now that the plot is BIG. */
+  filter: drop-shadow(0 0 6px rgba(61, 119, 119, 0.45));
 }
 #theme-furniture[data-theme="drift"] .drift-plot svg {
-  position: absolute;
-  top: 21px;               /* below the tab-strip */
-  left: 0;
-  right: 0;
-  bottom: 14px;            /* above the readout label */
+  display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   overflow: visible;       /* stalk-markers rise above the plane */
-  /* Volumetric hologram glow — the plot reads as a projected light-field, the
-     depth the show's tactical plot has (Gemini gap: "sense of 3D holographic
-     projection"). Memory feedback_holographic_depth_yes: this is wanted polish. */
-  filter: drop-shadow(0 0 2px rgba(26, 166, 176, 0.45));
 }
-/* Scanline grit on the SVG area itself — per refs/drift NOTES.md "embrace
-   grit: scanline noise, static, fritz" (Peel's "junk hardware" tell — the
-   texture that separates Drift from the clean Mars/Earth themes). Dark
-   horizontal scanlines via repeating-linear-gradient, mix-blend-mode so
-   the scanlines darken the existing cyan plot without flat-overlaying. The
-   drift-flicker keyframe on the parent already gives it a subtle pulse. */
-#theme-furniture[data-theme="drift"] .drift-plot::after {
-  content: "";
-  position: absolute;
-  top: 21px;
-  left: 0;
-  right: 0;
-  bottom: 14px;
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0px,
-      transparent 2px,
-      rgba(0, 0, 0, 0.55) 2px,
-      rgba(0, 0, 0, 0.55) 3px
-    );
-  pointer-events: none;
-  mix-blend-mode: multiply;
-  opacity: 0.5;
-  z-index: 1;
+#theme-furniture[data-theme="drift"] .drift-shipglyph {
+  /* Slow yellow pulse on the gold ship-glyph so the center reads as alive. */
+  animation: drift-ship-pulse 4.6s ease-in-out infinite;
 }
-/* Segmented tactical tab-strip (the show's top chrome). */
-#theme-furniture[data-theme="drift"] .drift-strip {
-  position: absolute;
-  top: 5px;
-  left: 7px;
-  right: 7px;
-  height: 14px;
-  display: flex;
-  gap: 4px;
-  align-items: stretch;
-}
-#theme-furniture[data-theme="drift"] .drift-tab {
-  flex: 0 0 auto;
-  padding: 0 6px;
-  font-family: "Space Mono", "Share Tech Mono", monospace;
-  font-size: 7px;
-  line-height: 14px;
-  letter-spacing: 0.1em;
-  color: rgba(232, 144, 42, 0.55);
-  border: 1px solid rgba(232, 144, 42, 0.28);
-  border-radius: 1px;
-}
-#theme-furniture[data-theme="drift"] .drift-tab-on {
-  color: #0c0905;
-  background: rgba(232, 144, 42, 0.78);
-  border-color: rgba(232, 144, 42, 0.78);
+@keyframes drift-ship-pulse {
+  0%, 100% { fill-opacity: 0.7;  filter: drop-shadow(0 0 0   rgba(196, 201, 117, 0)); }
+  50%      { fill-opacity: 1;    filter: drop-shadow(0 0 4px rgba(196, 201, 117, 0.7)); }
 }
 #theme-furniture[data-theme="drift"] .drift-contact-lbl {
   font-family: "Space Mono", "Share Tech Mono", monospace;
-  font-size: 7px;
+  font-size: 10px;
   letter-spacing: 0.1em;
-  fill: rgba(232, 176, 74, 0.92);
-}
-#theme-furniture[data-theme="drift"] .drift-plot-label {
-  position: absolute;
-  left: 4px;
-  bottom: 2px;
-  font-family: "Space Mono", "Share Tech Mono", monospace;
-  font-size: 9px;
-  line-height: 1.5;
-  letter-spacing: 0.12em;
-  color: rgba(232, 144, 42, 0.66);
-  white-space: nowrap;
-}
-#theme-furniture[data-theme="drift"] .drift-plot-sub { color: rgba(26, 166, 176, 0.72); }
-#theme-furniture[data-theme="drift"] .drift-ship {
-  position: absolute;
-  top: 24px;
-  right: 10px;
-  width: 44px;
-  height: 21px;
-  opacity: 0.9;
-}
-#theme-furniture[data-theme="drift"] .drift-ship svg { width: 100%; height: 100%; overflow: visible; }
-#theme-furniture[data-theme="drift"] .drift-opa {
-  position: absolute;
-  top: 78px;
-  left: 12px;
-  width: 46px;
-  height: 46px;
-  opacity: 0.92;
-}
-#theme-furniture[data-theme="drift"] .drift-opa svg { width: 100%; height: 100%; }
-
-/* Right-margin Behemoth-class wireframe hull schematic — the amber wireframe
-   ship that dominates one panel of the Free Navy tactical display
-   (refs/drift/00_03_01_freenavy_tactical_creole_display.png). Long
-   horizontal hull silhouette + rotating habitation drum (Mormon generation
-   ship signature) + antenna spikes fore + cyan drive-plasma vector aft +
-   amber thruster vectors. Mirrors mars-blue .fur-shipself's right-margin
-   anchoring; horizontal orientation matches Drift ship profiles. */
-#theme-furniture[data-theme="drift"] .drift-shipself {
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 200px;
-  height: 70px;
-  pointer-events: auto;
-  cursor: help;
-  opacity: 0.62;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'%3E%3Cg fill='none' stroke='%23e8902a' stroke-width='0.8' stroke-linecap='round'%3E%3Cpath d='M8 40 L26 30 L178 30 L196 38 L208 38 L208 42 L196 42 L178 50 L26 50 Z'/%3E%3Cellipse cx='100' cy='40' rx='22' ry='14'/%3E%3Cline x1='8' y1='40' x2='-2' y2='32'/%3E%3Cline x1='8' y1='40' x2='-2' y2='48'/%3E%3Cline x1='50' y1='30' x2='50' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='70' y1='30' x2='70' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='140' y1='30' x2='140' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='160' y1='30' x2='160' y2='50' stroke-opacity='0.55'/%3E%3Cline x1='14' y1='40' x2='190' y2='40' stroke-opacity='0.35' stroke-dasharray='2 3'/%3E%3C/g%3E%3Cg fill='none' stroke='%231aa6b0' stroke-width='0.8' stroke-linecap='round'%3E%3Ccircle cx='202' cy='40' r='1.8' fill='%231aa6b0' stroke='none'/%3E%3Cline x1='208' y1='40' x2='234' y2='40' stroke-opacity='0.65' stroke-dasharray='3 2'/%3E%3Cline x1='90' y1='30' x2='88' y2='20' stroke-opacity='0.7'/%3E%3Cline x1='130' y1='50' x2='132' y2='60' stroke-opacity='0.7'/%3E%3C/g%3E%3C/svg%3E");
-}
-@media (max-width: 1100px) {
-  #theme-furniture[data-theme="drift"] .drift-shipself { display: none; }
+  fill: rgba(196, 201, 117, 0.96);
 }
 
 /* Lang Belta decals — perimeter-scattered creole fragments at very low
@@ -3805,7 +3689,7 @@ html.theme-mars-red #notebook {
   font-family: "Space Mono", "Share Tech Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.22em;
-  color: rgba(232, 144, 42, 0.16);
+  color: rgba(148, 112, 56, 0.16);
   white-space: nowrap;
 }
 #theme-furniture[data-theme="drift"] .drift-decal-1 {
@@ -3818,13 +3702,13 @@ html.theme-mars-red #notebook {
   left: 12px;
   transform: rotate(-90deg);
   transform-origin: 0 0;
-  color: rgba(26, 166, 176, 0.18);
+  color: rgba(61, 119, 119, 0.18);
 }
 #theme-furniture[data-theme="drift"] .drift-decal-3 {
   top: 42px;
   right: 24px;
   transform: rotate(1deg);
-  color: rgba(26, 166, 176, 0.18);
+  color: rgba(61, 119, 119, 0.18);
 }
 #theme-furniture[data-theme="drift"] .drift-decal-4 {
   bottom: 30px;
@@ -3868,19 +3752,19 @@ html.theme-mars-red #notebook {
 #theme-furniture[data-theme="drift"] .drift-plot::before {
   content: "TARGET LOCK";
   position: absolute;
-  top: 23px;
+  top: 2.5%;
   left: 50%;
   transform: translateX(-50%);
-  padding: 1px 9px 2px;
+  padding: 4px 18px 5px;
   font-family: "Space Mono", "Share Tech Mono", monospace;
-  font-size: 9px;
-  letter-spacing: 0.22em;
+  font-size: 14px;
+  letter-spacing: 0.28em;
   color: #ffe2dc;
   background: #c0241a;
   border: 1px solid #ff5a4a;
   border-radius: 1px;
-  text-shadow: 0 0 4px rgba(255, 80, 70, 0.7);
-  box-shadow: 0 0 6px rgba(192, 36, 26, 0.7);
+  text-shadow: 0 0 5px rgba(255, 80, 70, 0.7);
+  box-shadow: 0 0 12px rgba(192, 36, 26, 0.7);
   opacity: 0;
   pointer-events: none;
   z-index: 2;
@@ -4384,26 +4268,39 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   --font-head: "Saira", "Oswald", "Arial Narrow", sans-serif;
 
   --mermaid-edge-stroke-width: 1.4px;
-  --mermaid-edge-color: #e8902a;
-  --mermaid-edge-glow: rgba(232, 144, 42, 0.4);
+  --mermaid-edge-color: #947038;
+  --mermaid-edge-glow: rgba(148, 112, 56, 0.4);
   --mermaid-node-stroke-width: 1.4px;
-  --mermaid-node-glow: rgba(232, 144, 42, 0.25);
-  --mermaid-node-glow-hover: rgba(232, 144, 42, 0.55);
+  --mermaid-node-glow: rgba(148, 112, 56, 0.25);
+  --mermaid-node-glow-hover: rgba(148, 112, 56, 0.55);
   --mermaid-edge-label-bg: #1b140c;
-  --mermaid-edge-label-border: rgba(232, 144, 42, 0.4);
-  --mermaid-cluster-glow: rgba(26, 166, 176, 0.2);
+  --mermaid-edge-label-border: rgba(148, 112, 56, 0.4);
+  --mermaid-cluster-glow: rgba(61, 119, 119, 0.2);
+
+  /* Status-color tokens for substrate visualizations (timeline_ribbon, etc.):
+     reroute the green/yellow/red triad through Drift's palette so cells read
+     as faction-themed instead of generic. Timeline stages: done=khaki,
+     active=teal (--accent-secondary), failed=drift red, warn=warning yellow. */
+  --vis-ok:      #c4c975;
+  --vis-warn:    #ffc233;
+  --vis-tripped: #e23b2e;
 }
 .theme-drift body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  /* Salvage texture: a warm amber hairline grid + faint horizontal scanline
-     grit (the "junk hardware" tell, kept low so it doesn't fight readability). */
+  /* corners layout = no scroll. The 4 cells + orbital fit one viewport. */
+  overflow: hidden;
+  /* 2026-06-08: the orbital plot moved into #theme-furniture (live SVG, viewport-
+     bottom-half, data-bound contacts). Body bg keeps only scanline grit (the junk-
+     hardware salvage tell) + tiled starfield (the void backdrop). */
   background-image:
     repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.14) 0 1px, transparent 1px 3px),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M40 0H0V40' fill='none' stroke='%23e8902a' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
-  background-size: auto, 40px 40px;
-  background-attachment: fixed;
+    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20200%20200'%3E%3Cg%20fill='%23cdded4'%3E%3Ccircle%20cx='13'%20cy='17'%20r='0.7'%20fill-opacity='0.6'/%3E%3Ccircle%20cx='28'%20cy='52'%20r='0.5'%20fill-opacity='0.5'/%3E%3Ccircle%20cx='47'%20cy='9'%20r='0.8'%20fill-opacity='0.7'/%3E%3Ccircle%20cx='71'%20cy='38'%20r='0.6'%20fill-opacity='0.55'/%3E%3Ccircle%20cx='89'%20cy='71'%20r='0.9'%20fill-opacity='0.7'/%3E%3Ccircle%20cx='113'%20cy='21'%20r='0.5'%20fill-opacity='0.5'/%3E%3Ccircle%20cx='142'%20cy='89'%20r='0.7'%20fill-opacity='0.6'/%3E%3Ccircle%20cx='158'%20cy='43'%20r='0.6'%20fill-opacity='0.55'/%3E%3Ccircle%20cx='179'%20cy='11'%20r='0.8'%20fill-opacity='0.7'/%3E%3Ccircle%20cx='191'%20cy='82'%20r='0.5'%20fill-opacity='0.45'/%3E%3Ccircle%20cx='22'%20cy='109'%20r='0.6'%20fill-opacity='0.5'/%3E%3Ccircle%20cx='53'%20cy='134'%20r='0.7'%20fill-opacity='0.55'/%3E%3Ccircle%20cx='81'%20cy='118'%20r='0.5'%20fill-opacity='0.45'/%3E%3Ccircle%20cx='102'%20cy='145'%20r='0.9'%20fill-opacity='0.65'/%3E%3Ccircle%20cx='127'%20cy='167'%20r='0.5'%20fill-opacity='0.4'/%3E%3Ccircle%20cx='149'%20cy='124'%20r='0.8'%20fill-opacity='0.6'/%3E%3Ccircle%20cx='170'%20cy='189'%20r='0.6'%20fill-opacity='0.5'/%3E%3Ccircle%20cx='188'%20cy='158'%20r='0.7'%20fill-opacity='0.55'/%3E%3Ccircle%20cx='8'%20cy='86'%20r='0.5'%20fill-opacity='0.45'/%3E%3Ccircle%20cx='38'%20cy='164'%20r='0.8'%20fill-opacity='0.65'/%3E%3Ccircle%20cx='64'%20cy='179'%20r='0.6'%20fill-opacity='0.5'/%3E%3Ccircle%20cx='96'%20cy='73'%20r='0.5'%20fill-opacity='0.4'/%3E%3Ccircle%20cx='120'%20cy='99'%20r='0.7'%20fill-opacity='0.55'/%3E%3Ccircle%20cx='137'%20cy='52'%20r='0.6'%20fill-opacity='0.5'/%3E%3Ccircle%20cx='165'%20cy='99'%20r='0.8'%20fill-opacity='0.6'/%3E%3Ccircle%20cx='43'%20cy='77'%20r='0.5'%20fill-opacity='0.45'/%3E%3Ccircle%20cx='73'%20cy='151'%20r='0.6'%20fill-opacity='0.5'/%3E%3Ccircle%20cx='15'%20cy='178'%20r='0.7'%20fill-opacity='0.55'/%3E%3Ccircle%20cx='185'%20cy='131'%20r='0.5'%20fill-opacity='0.4'/%3E%3Ccircle%20cx='106'%20cy='193'%20r='0.6'%20fill-opacity='0.5'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat, repeat;
+  background-position: 0 0, center;
+  background-size: auto, 200px 200px;
+  background-attachment: fixed, fixed;
 }
 .theme-drift header,
 .theme-drift .cell-head,
@@ -4417,31 +4314,34 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
    warm wash. The dashed seam is the Drift "exposed join" tell vs the clean
    MCRN/EARTH rails. */
 .theme-drift .hud {
-  border-color: rgba(232, 144, 42, 0.35);
-  border-bottom: 1px dashed rgba(26, 166, 176, 0.45);
+  border-color: rgba(148, 112, 56, 0.35);
+  border-bottom: 1px dashed rgba(61, 119, 119, 0.45);
   background:
     linear-gradient(180deg, rgba(40, 28, 14, 0.4), rgba(0, 0, 0, 0) 70%),
     var(--code-bg);
 }
 .theme-drift .hud-value {
-  color: #e8902a;
-  text-shadow: 0 0 8px rgba(232, 144, 42, 0.5);
+  /* Chrome stays olive-amber (matches ref bel_pPutN_020 chrome strips); the
+     VALUE numbers are data — they read in the brighter gold-yellow register
+     so they pop off the chrome. Was #947038 (olive) — too faded-conclave. */
+  color: #d8b249;
+  text-shadow: 0 0 8px rgba(216, 178, 73, 0.55);
 }
 /* Salvaged-console panel — a warm hairline border + faint inner warmth over a
    translucent layered surface. No MCRN angular notch; Drift is repurposed +
    eclectic, not militant-angular. The warm tint is corridor/console-grounded,
    NOT the hand-terminal orange edge-glow (that device is faction-agnostic). */
 .theme-drift .cell {
-  border: 1px solid rgba(232, 144, 42, 0.28);
+  border: 1px solid rgba(148, 112, 56, 0.28);
   background: var(--cell-bg);
-  box-shadow: inset 0 0 16px rgba(232, 144, 42, 0.045);
+  box-shadow: inset 0 0 16px rgba(148, 112, 56, 0.045);
 }
 /* Eclectic mismatch — some panels lean cyan / carry a heavier border, so the
    grid reads as repurposed-from-different-systems rather than uniform (the
    eclecticism IS the brand). */
 .theme-drift .cell:nth-child(3n+2) {
-  border-color: rgba(26, 166, 176, 0.34);
-  box-shadow: inset 0 0 16px rgba(26, 166, 176, 0.05);
+  border-color: rgba(61, 119, 119, 0.34);
+  box-shadow: inset 0 0 16px rgba(61, 119, 119, 0.05);
 }
 /* A third register: yellow-green — some Drift ships run a green-amber console
    palette (user 2026-05-28: "at least one of them is a lot of yellow green"), so
@@ -4471,13 +4371,13 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
    .cell-role-<role> (harmless here — Drift doesn't role-code). Accents stay on
    the header rule + one corner; never over substrate content (readability). */
 .theme-drift .cell-skin-salvage .cell-head {
-  border-bottom: 1px solid rgba(232, 144, 42, 0.42);   /* amber register (default) */
+  border-bottom: 1px solid rgba(148, 112, 56, 0.42);   /* dim olive-amber register (default) */
 }
 .theme-drift .cell-skin-salvage:nth-child(3n+2) .cell-head {
-  border-bottom-color: rgba(26, 166, 176, 0.48);       /* cyan register */
+  border-bottom-color: rgba(61, 119, 119, 0.48);       /* dim teal register */
 }
 .theme-drift .cell-skin-salvage:nth-child(5n+4) .cell-head {
-  border-bottom-color: rgba(168, 196, 62, 0.5);        /* yellow-green register */
+  border-bottom-color: rgba(196, 201, 117, 0.45);      /* bright khaki register (ref highlight) */
 }
 /* Riveted ID-plate corner glyph — one mask, recolored per register via
    background-color (so the salvage plate matches its system's accent). */
@@ -4490,13 +4390,13 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   z-index: 3;
   pointer-events: none;
   opacity: 0.55;
-  background-color: rgba(232, 144, 42, 0.9);            /* amber register */
+  background-color: rgba(148, 112, 56, 0.9);            /* amber register */
   -webkit-mask: var(--drift-plate) center / contain no-repeat;
   mask: var(--drift-plate) center / contain no-repeat;
   --drift-plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 11'%3E%3Crect x='0.5' y='0.5' width='15' height='10' rx='1' fill='none' stroke='black' stroke-width='1'/%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='13' cy='3' r='1'/%3E%3Ccircle cx='3' cy='8' r='1'/%3E%3Ccircle cx='13' cy='8' r='1'/%3E%3Cline x1='5.5' y1='5.5' x2='10.5' y2='5.5' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
 }
 .theme-drift .cell-skin-salvage:nth-child(3n+2) .cell-skin-mark {
-  background-color: rgba(26, 166, 176, 0.9);
+  background-color: rgba(61, 119, 119, 0.9);
 }
 .theme-drift .cell-skin-salvage:nth-child(5n+4) .cell-skin-mark {
   background-color: rgba(168, 196, 62, 0.9);

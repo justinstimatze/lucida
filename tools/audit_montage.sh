@@ -38,9 +38,9 @@ ALL_THEMES=(circuit conclave drift earth gastown hackers hailmary lab mainframe
 # Default ref per theme — used by `compare` when no ref-image is supplied.
 declare -A DEFAULT_REF=(
   [mars-blue]="refs/rocinante/roci_warship_tactical_screen.png"
-  [mars-red]="refs/rocinante/roci_registry_terminal_named.png"
+  [mars-red]="refs/tachi/don_85.png"
   [earth]="refs/unn/agatha-king/ak_171.png"
-  [drift]="refs/belter/00_03_01_freenavy_tactical_creole_display.png"
+  [drift]="refs/belter/bel_pPutN_020.png"
   [hackers]="refs/gibson/tower_glass_closeup.png"
   [conclave]="refs/conclave-nerv/magi_screens.png"
   [vigil]="refs/vigil/jarvis_callout.png"
