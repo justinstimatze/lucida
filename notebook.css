@@ -580,7 +580,11 @@ main {
   width: auto;          /* fill the grid track, not the 380px natural width */
   min-width: 0;
   max-width: 100%;
-  max-height: 30vh;
+  /* was 30vh — clipped substantive content on every side cell (2026-06-07,
+     user: "all but the hero is cut off on the bottom"). 44vh gives roughly
+     ~40px of breathing room per side cell at typical viewport heights and
+     still fits 2 side rows + hero + HUD in the viewport. */
+  max-height: 44vh;
   transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 /* Hero = center nav-plot: dominant, tall, dead center. (Recency-hero —
@@ -3085,6 +3089,27 @@ html.theme-ops::before {
 .theme-mars-blue .cell.cell-fresh {
   filter: drop-shadow(0 0 10px rgba(90, 150, 170, 0.5));
 }
+/* Hero corner-triangle consistency: cell-still-warm's ::before recency ring
+   (inset:-1px + border + glow) expands the cell-corner-system's small top-
+   right box on the hero, flipping the 225° red gradient's wedge to top-left.
+   On mars-red we want the corner triangle consistent across cells; suppress
+   the ::before expansion so the corner-system box positioning wins. Recency
+   signal moves to a drop-shadow on the cell instead. (User 2026-06-07.) */
+.theme-mars-red .cell.cell-still-warm::before {
+  /* DON'T override inset/top/left — that would supersede .cell::before's
+     `top: var(--cell-corner-top, 0); right: var(--cell-corner-right, 0)`
+     defaults and the corner would default to top-LEFT auto-auto. Only kill
+     the recency-ring's border + shadow + animation; positioning stays. */
+  border: none;
+  box-shadow: none;
+  animation: none;
+}
+.theme-mars-red .cell.cell-still-warm {
+  filter: drop-shadow(0 0 6px rgba(216, 54, 42, 0.34));
+}
+.theme-mars-red .cell.cell-fresh {
+  filter: drop-shadow(0 0 10px rgba(216, 54, 42, 0.5));
+}
 @keyframes mars-blue-boot {
   0%   { opacity: 0; }
   18%  { opacity: 0.5; }
@@ -3204,6 +3229,100 @@ html.theme-ops::before {
 .theme-mars-red .cell-chrome-instrument .cell-id,
 .theme-mars-red .cell-chrome-instrument .cell-time {
   color: #7a828c;
+}
+/* Tachi-canonical centerpiece-label frame: per refs/rocinante/
+   roci_registry_terminal_named.png + Gemini geometry read 2026-06-07,
+   "ROCINANTE" sits inside an elongated horizontal octagon (45° chamfered
+   left+right ends) with 4 small corner brackets at each corner. Scoped
+   to the hero cell only (the cockpit centerpiece is the dashboard's
+   "ROCINANTE"); other cells keep the regular instrument tab so the
+   octagon stays a privileged identity signal, not visual noise.
+   Default 12px right-notch clip-path on .cell-head is replaced. */
+.theme-mars-red #notebook > .cell:first-child.cell-chrome-instrument .cell-head {
+  clip-path: none;
+  background: none;
+  border-bottom: none;
+  padding: 0.2rem 0.62rem;
+  overflow: visible;
+  position: relative;     /* anchor for the corner-bracket ::before */
+}
+/* Octagonal frame, two-parallel-lines: top + bottom rendered as CSS linear-
+   gradients (pixel-perfect uniform 2px gap), L/R end caps rendered as
+   fixed-size SVG (16×24px native; no horizontal stretching so the
+   chamfer-gap stays uniform too). Splits the hard problem (angled gap
+   needs known aspect) from the easy one (horizontal parallel = trivial).
+   2026-06-07. */
+.theme-mars-red #notebook > .cell:first-child.cell-chrome-instrument .cell-title {
+  position: relative;
+  margin: 0 22px;          /* room for the absolutely-positioned end caps (now wider) */
+  padding: 0.22rem 0.8rem;
+  background-color: transparent;
+  /* Override the default mars-red .cell-title border-left rail (line ~4193 —
+     2px solid var(--accent)) which would draw a leftover red line on the hero
+     between the left end cap and the title text. */
+  border-left: none;
+  padding-left: 0.8rem;
+  background-image:
+    /* outer top line (y=0..1) */
+    linear-gradient(to bottom, #d8362a 1px, transparent 1px),
+    /* inner top line (y=3..4) */
+    linear-gradient(to bottom, transparent 3px, #d8362a 3px 4px, transparent 4px),
+    /* outer bottom line (y=h-1..h) */
+    linear-gradient(to top, #d8362a 1px, transparent 1px),
+    /* inner bottom line (y=h-4..h-3) */
+    linear-gradient(to top, transparent 3px, #d8362a 3px 4px, transparent 4px);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: top, top, bottom, bottom;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  color: #e8eef2;
+}
+/* Left end cap: SVG at fixed native size (16×24) sticking out left of title */
+.theme-mars-red #notebook > .cell:first-child.cell-chrome-instrument .cell-title::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 0;
+  width: 22px;
+  height: 100%;
+  pointer-events: none;
+  /* Wider cap (22×24) with longer L/R vertical (y=7..17 = 10 units of 24,
+     ~40% of height) so the octagon's end reads as a short FLAT side, not a
+     tip. Inner polyline (parallel to outer at 3px perpendicular offset). */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 28' preserveAspectRatio='none'><polyline points='22,1 6,8 6,20 22,27' fill='none' stroke='%23d8362a' stroke-width='1'/><polyline points='22,4 9,11 9,17 22,24' fill='none' stroke='%23d8362a' stroke-width='1'/></svg>");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+/* Right end cap — mirror */
+.theme-mars-red #notebook > .cell:first-child.cell-chrome-instrument .cell-title::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 0;
+  width: 22px;
+  height: 100%;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 28' preserveAspectRatio='none'><polyline points='0,1 16,8 16,20 0,27' fill='none' stroke='%23d8362a' stroke-width='1'/><polyline points='0,4 13,11 13,17 0,24' fill='none' stroke='%23d8362a' stroke-width='1'/></svg>");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+/* 4 corner-brackets at corners of the cell-head bounding rect */
+.theme-mars-red #notebook > .cell:first-child.cell-chrome-instrument .cell-head::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(135deg, #d8362a 2px, transparent 2px),
+    linear-gradient(225deg, #d8362a 2px, transparent 2px),
+    linear-gradient( 45deg, #d8362a 2px, transparent 2px),
+    linear-gradient(-45deg, #d8362a 2px, transparent 2px);
+  background-size: 11px 11px;
+  background-position: top left, top right, bottom left, bottom right;
+  background-repeat: no-repeat;
 }
 
 /* Earth instrument specifics: UNN / boring competent bureaucracy. The token

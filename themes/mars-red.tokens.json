@@ -1,47 +1,54 @@
 {
-  "_comment": "The Expanse — MCRN, EARLY/CLASSIC look (the MarsRed / Donnager, Syfy era S1-3). Split from `mars-blue` (late/Amazon smooth-blue). Grounded in refs/mars-red/NOTES.md (Donnager NqDcnwrsq6U): dark INDUSTRIAL GREY hull + RED as a CO-PRIMARY working color (red concentric tactical plots, not just danger) + steel-cyan secondary; grittier/harder/less-glow than mars-blue. Reuses mars-blue's machinery (layout=cockpit, chrome=instrument; D-DIN type). CAVEAT: mars-red=grey+red / mars-blue=blue is a curatorial conceit, not literal canon (rename was S1; palette drift was the S4 handoff). See memory roci_tachi_era_split. v1 = palette+layout+chrome; skin/furniture/composition + Gemini critique loop are the refine pass.",
+  "_comment": "The Expanse \u2014 MCRN, EARLY/CLASSIC look (the MarsRed / Donnager, Syfy era S1-3). Split from `mars-blue` (late/Amazon smooth-blue). Grounded in refs/mars-red/NOTES.md (Donnager NqDcnwrsq6U): dark INDUSTRIAL GREY hull + RED as a CO-PRIMARY working color (red concentric tactical plots, not just danger) + steel-cyan secondary; grittier/harder/less-glow than mars-blue. Reuses mars-blue's machinery (layout=cockpit, chrome=instrument; D-DIN type). CAVEAT: mars-red=grey+red / mars-blue=blue is a curatorial conceit, not literal canon (rename was S1; palette drift was the S4 handoff). See memory roci_tachi_era_split. v1 = palette+layout+chrome; skin/furniture/composition + Gemini critique loop are the refine pass.",
   "accent": {
-    "primary":   "#d8362a",
+    "primary": "#d8362a",
     "secondary": "#4a9ec0",
-    "warning":   "#ffc233",
-    "danger":    "#e23b2e",
-    "ok":        "#57a06a"
+    "warning": "#ffc233",
+    "danger": "#e23b2e",
+    "ok": "#57a06a"
   },
   "surface": {
-    "bg":     "#16191e",
-    "cell":   "rgba(34, 38, 44, 0.55)",
-    "header": "rgba(28, 32, 38, 0.66)",
-    "code":   "rgba(42, 16, 14, 0.72)",
-    "muted":  "#6a7178",
-    "line":   "rgba(216, 54, 42, 0.18)"
+    "bg": "#070708",
+    "cell": "rgba(38, 22, 22, 0.16)",
+    "header": "rgba(28, 18, 18, 0.22)",
+    "code": "rgba(38, 22, 22, 0.16)",
+    "muted": "#6a7178",
+    "line": "rgba(216, 54, 42, 0.18)"
   },
   "text": {
-    "fg":    "#cdd3d8",
+    "fg": "#c8d8e8",
     "muted": "#7a828c"
   },
   "data": {
-    "_comment": "RED-forward + steel-cyan ladder — the classic-MCRN duotone (red is a co-primary here, NOT just the rare-signal slot like mars-blue). System amber[4]/danger-red[5] stay status signals.",
-    "cat": ["#d8362a", "#4a9ec0", "#b06a5a", "#86b8cc", "#ffc233", "#e23b2e"]
+    "_comment": "RED-forward + steel-cyan ladder \u2014 the classic-MCRN duotone (red is a co-primary here, NOT just the rare-signal slot like mars-blue). System amber[4]/danger-red[5] stay status signals.",
+    "cat": [
+      "#d8362a",
+      "#4a9ec0",
+      "#b06a5a",
+      "#86b8cc",
+      "#ffc233",
+      "#e23b2e"
+    ]
   },
   "type": {
-    "_comment": "Same as mars-blue — it IS MCRN. Show's modified DIN Pro → bundled D-DIN (OFL), Space Mono for command-line/telemetry texture.",
+    "_comment": "Same as mars-blue \u2014 it IS MCRN. Show's modified DIN Pro \u2192 bundled D-DIN (OFL), Space Mono for command-line/telemetry texture.",
     "body": "\"D-DIN\", \"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
     "head": "\"D-DIN Condensed\", \"D-DIN\", \"Saira\", \"Oswald\", \"Arial Narrow\", sans-serif",
     "mono": "\"Space Mono\", \"Overpass Mono\", \"Share Tech Mono\", \"Courier New\", monospace"
   },
   "fx": {
-    "glow":      "rgba(216, 54, 42, 0.4)",
+    "glow": "rgba(216, 54, 42, 0.4)",
     "glow-line": "rgba(74, 158, 192, 0.36)"
   },
   "palette": {
     "stroke1": "#d8362a",
     "stroke2": "#4a9ec0",
     "stroke3": "#ffc233",
-    "accent":  "#d8362a",
-    "fg":      "#cdd3d8",
-    "muted":   "#7a828c",
-    "bg":      "#16191e",
-    "panel":   "rgba(34, 38, 44, 0.55)"
+    "accent": "#d8362a",
+    "fg": "#c8d8e8",
+    "muted": "#7a828c",
+    "bg": "#16191e",
+    "panel": "rgba(34, 38, 44, 0.55)"
   },
   "layout": "cockpit",
   "chrome": "instrument",
