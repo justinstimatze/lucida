@@ -2510,16 +2510,17 @@ async function load() {
   // gradient renders only where needed.
   scheduleCheckOverflow();
   _pLog("load() complete");
-  // Early-dismiss the boot overlay for non-mixed3d themes as soon as
-  // first render completes — was waiting for window.load (which can
-  // take 5-10s on the 60-cell default while vega/mermaid subresources
-  // settle in the background, even though the dashboard is already
-  // visually ready).  Idempotent: only fires if not already booted.
+  // Dismiss the boot overlay AFTER all layout iterations have settled —
+  // applyActiveLayout runs at +0, +600, +2000ms, plus ephemeral cells slot
+  // in between renders. Previously this dismissed after the FIRST pass and
+  // the user saw subsequent re-layouts/ephemeral inserts behind the
+  // already-cleared overlay (the "couple of waves of ugly loading").
+  // 2200ms = the last delayed layout + a one-frame buffer.
   // mixed3d themes still gate boot on the WebGL stable-frame counter
   // (see applyMixed3DLayout tick), so this branch leaves them alone.
   if (!document.body.classList.contains("booted")
       && getLayoutMode() !== "mixed3d") {
-    requestAnimationFrame(() => document.body.classList.add("booted"));
+    setTimeout(() => document.body.classList.add("booted"), 2200);
   }
   // Catch async-loaded content (vega/mermaid/scene3d) that resolves
   // after first layout — re-check at intervals during the first
