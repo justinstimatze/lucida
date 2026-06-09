@@ -92,37 +92,36 @@ function _buildMarsBlueBgRadar() {
   // of the viewport (the "long-range horizon").
   host.innerHTML =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -120 480 360">' +
-      // Center halo — one arc.  Was 3 concentric + radial gradient; both
-      // ate memory at this container scale (OOM repro 2026-06-09).  One
-      // mid-weight arc reads as "command-center glow" without the GPU
-      // texture cost.
-      '<path d="M 210 240 A 30 30 0 0 1 270 240" fill="none" ' +
+      // Center halo — one arc (was radial gradient — OOM'd 2026-06-09).
+      '<path d="M 195 240 A 45 45 0 0 1 285 240" fill="none" ' +
         'stroke="#4c8dc6" stroke-opacity="0.36" stroke-width="0.8"/>' +
-      // (Spokes dropped — they were barely visible at 0.10 opacity and
-      // 5 long lines added ~5 elements of paint area each.)
+      // (Spokes dropped — they were barely visible at 0.10 opacity.)
+      // Ring radii × 1.5 (was 40/80/120/150/180/205/225/240 in commit
+      // f44e32b; user 2026-06-09 "radius of curvature 50% more"):
       // Ring 1: inner small thin solid blue.
-      '<path d="M 200 240 A 40 40 0 0 1 280 240" fill="none" ' +
+      '<path d="M 180 240 A 60 60 0 0 1 300 240" fill="none" ' +
         'stroke="#4c8dc6" stroke-opacity="0.32" stroke-width="0.5"/>' +
       // Ring 2: BRIGHTEST middle, solid blue — "central" ring.
-      '<path d="M 160 240 A 80 80 0 0 1 320 240" fill="none" ' +
+      '<path d="M 120 240 A 120 120 0 0 1 360 240" fill="none" ' +
         'stroke="#4c8dc6" stroke-opacity="0.50" stroke-width="0.95"/>' +
       // Ring 3: intermediate blue, DASHED.
-      '<path d="M 120 240 A 120 120 0 0 1 360 240" fill="none" ' +
+      '<path d="M 60 240 A 180 180 0 0 1 420 240" fill="none" ' +
         'stroke="#4c8dc6" stroke-opacity="0.34" stroke-width="0.65" stroke-dasharray="4 3"/>' +
       // Ring 4: medium-far blue DASHED.
-      '<path d="M 90 240 A 150 150 0 0 1 390 240" fill="none" ' +
+      '<path d="M 15 240 A 225 225 0 0 1 465 240" fill="none" ' +
         'stroke="#4c8dc6" stroke-opacity="0.28" stroke-width="0.55" stroke-dasharray="4 3"/>' +
       // Ring 5: red dashed — first alert perimeter.
-      '<path d="M 60 240 A 180 180 0 0 1 420 240" fill="none" ' +
+      '<path d="M -30 240 A 270 270 0 0 1 510 240" fill="none" ' +
         'stroke="#a11a4b" stroke-opacity="0.40" stroke-width="0.45" stroke-dasharray="3 3"/>' +
       // Ring 6: red dotted, further out.
-      '<path d="M 35 240 A 205 205 0 0 1 445 240" fill="none" ' +
+      '<path d="M -67 240 A 307 307 0 0 1 547 240" fill="none" ' +
         'stroke="#a11a4b" stroke-opacity="0.34" stroke-width="0.4"  stroke-dasharray="2 4"/>' +
-      // Ring 7: red dotted (biggest visible — top fits viewport).
-      '<path d="M 15 240 A 225 225 0 0 1 465 240" fill="none" ' +
+      // Ring 7: red dotted.
+      '<path d="M -97 240 A 337 337 0 0 1 577 240" fill="none" ' +
         'stroke="#a11a4b" stroke-opacity="0.28" stroke-width="0.4"  stroke-dasharray="2 4"/>' +
-      // Ring 8: outermost red dotted, barely visible — long-range horizon.
-      '<path d="M 0 240 A 240 240 0 0 1 480 240" fill="none" ' +
+      // Ring 8: outermost red dotted (top at viewBox y=-120, exactly at
+      // the visible-area top edge on a 100vh-capped container).
+      '<path d="M -120 240 A 360 360 0 0 1 600 240" fill="none" ' +
         'stroke="#a11a4b" stroke-opacity="0.22" stroke-width="0.4"  stroke-dasharray="2 5"/>' +
       // N-S graticule (vertical centerline). Dashed.
       '<line x1="240" y1="-60" x2="240" y2="240" fill="none" ' +
@@ -130,11 +129,39 @@ function _buildMarsBlueBgRadar() {
       // Subtle violet orbital ellipse — calm-ops cue per refs/mars-blue.
       '<path d="M 50 240 A 190 95 0 0 1 430 240" fill="none" ' +
         'stroke="#8b6cff" stroke-opacity="0.16" stroke-width="0.55" stroke-dasharray="4 3" transform="rotate(-10 240 240)"/>' +
-      // Short bridge-curves between rings.
-      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.32" stroke-width="0.5">' +
-        '<path d="M 320 232 A 20 20 0 0 0 360 232"/>' +
-        '<path d="M 160 232 A 20 20 0 0 1 120 232"/>' +
-        '<path d="M 222 188 A 12 12 0 0 1 258 188"/>' +
+      // Bridge curves between adjacent rings — visual cross-talk
+      // (the radar "knows about itself").  Six small radial spans
+      // across upper half, scattered angles so they don't read as
+      // a regular pattern.
+      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.36" stroke-width="0.5">' +
+        // r=60 → r=120, angle ~45° upper-right
+        '<path d="M 282 198 Q 305 178 325 155"/>' +
+        // r=60 → r=120, angle ~135° upper-left
+        '<path d="M 198 198 Q 180 175 155 155"/>' +
+        // r=120 → r=180, angle ~70° upper-right
+        '<path d="M 281 127 Q 305 110 333 95"/>' +
+        // r=120 → r=180, angle ~110° upper-left
+        '<path d="M 200 128 Q 175 113 148 95"/>' +
+        // r=180 → r=225, angle ~30° right
+        '<path d="M 396 150 Q 415 145 432 138"/>' +
+        // r=180 → r=225, angle ~150° left
+        '<path d="M 85 150 Q 65 145 48 138"/>' +
+        // r=225 → r=270 angle ~90° (top vertical)
+        '<path d="M 240 15 Q 240 0 240 -30"/>' +
+      '</g>' +
+      // Radial arrows pointing inward — small triangles with tips on
+      // ring boundaries, oriented radially.  ~5 of them, scattered.
+      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.55" stroke-width="0.5">' +
+        // Arrow on r=120 at top (angle 90°), pointing down toward center.
+        '<polygon points="240,120 234,110 246,110"/>' +
+        // Arrow on r=180 upper-right (angle ~45°), pointing inward.
+        '<polygon points="367,113 376,107 374,118"/>' +
+        // Arrow on r=180 upper-left (angle ~135°), pointing inward.
+        '<polygon points="113,113 104,107 106,118"/>' +
+        // Arrow on r=225 right (angle ~30°), pointing inward.
+        '<polygon points="435,128 443,128 443,141"/>' +
+        // Arrow on r=225 left (angle ~150°), pointing inward.
+        '<polygon points="45,128 37,128 37,141"/>' +
       '</g>' +
       // Compass heading arc — three concentric arcs centered (240, 240),
       // SAME center as the tactical display.  Arcs span upward as semicircles.
@@ -157,39 +184,63 @@ function _buildMarsBlueBgRadar() {
         '<text x="253" y="218">010</text>' +
         '<text x="261" y="245">030</text>' +
       '</g>' +
-      // 4 equilateral-triangle outlines (friendly capital ships, M1-M4).
-      // Side ~4 SVG units (was 8, ~50% smaller per user feedback).
-      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.68" stroke-width="0.45">' +
-        '<polygon points="200,195 198,199 202,199"/>' +
-        '<polygon points="290,140 288,144 292,144"/>' +
-        '<polygon points="175,118 173,122 177,122"/>' +
-        '<polygon points="315,165 313,169 317,169"/>' +
+      // Equilateral triangles — 2 friendly blue (M1, M2) + 2 hostile red
+      // (T1, T2).  Per user 2026-06-09: "some stalkers should be red
+      // triangles etc. they are all blue right now."  Glyph: outline-only.
+      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.72" stroke-width="0.7">' +
+        '<polygon points="200,191 196,198 204,198"/>' +
+        '<polygon points="290,136 286,143 294,143"/>' +
       '</g>' +
-      '<g fill="#4c8dc6" fill-opacity="0.5" font-family="\'Space Mono\', monospace" font-size="1.6">' +
-        '<text x="204" y="200">M1</text>' +
-        '<text x="294" y="145">M2</text>' +
-        '<text x="179" y="123">M3</text>' +
-        '<text x="319" y="170">M4</text>' +
+      '<g fill="none" stroke="#a11a4b" stroke-opacity="0.78" stroke-width="0.7">' +
+        '<polygon points="175,114 171,121 179,121"/>' +
+        '<polygon points="315,161 311,168 319,168"/>' +
       '</g>' +
-      // 3 angle-bracket-with-dot truncated arrows (escort frigates, M5-M7).
-      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.68" stroke-width="0.45">' +
-        '<path d="M 256 171 L 253 174 L 256 177"/>' +
-        '<path d="M 223 197 L 226 193 L 229 197"/>' +
-        '<path d="M 343 126 L 346 124 L 349 126"/>' +
+      '<g fill="#4c8dc6" fill-opacity="0.6" font-family="\'Space Mono\', monospace" font-size="3.0">' +
+        '<text x="206" y="200">M1</text>' +
+        '<text x="296" y="145">M2</text>' +
       '</g>' +
-      '<g fill="#4c8dc6" fill-opacity="0.68">' +
-        '<circle cx="254" cy="174" r="0.55"/>' +
-        '<circle cx="226" cy="194" r="0.55"/>' +
-        '<circle cx="346" cy="125" r="0.55"/>' +
+      '<g fill="#a11a4b" fill-opacity="0.65" font-family="\'Space Mono\', monospace" font-size="3.0">' +
+        '<text x="181" y="123">T1</text>' +
+        '<text x="321" y="170">T2</text>' +
       '</g>' +
-      '<g fill="#4c8dc6" fill-opacity="0.5" font-family="\'Space Mono\', monospace" font-size="1.6">' +
-        '<text x="259" y="176">M5</text>' +
-        '<text x="231" y="199">M6</text>' +
-        '<text x="350" y="127">M7</text>' +
+      // Angle-bracket-with-dot truncated arrows — 2 blue (M5, M6) + 1
+      // red (T3).  Dots sit IN the open mouth of each caret.
+      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.72" stroke-width="0.7">' +
+        '<path d="M 260 168 L 252 174 L 260 180"/>' +
+        '<path d="M 220 200 L 226 192 L 232 200"/>' +
       '</g>' +
-      // 10 red-dot-with-blue-outline contacts — hostile/unknown tracked.
-      // Outer r=1.4 (was 2.8), inner r=0.6 (was 1.3).
-      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.72" stroke-width="0.4">' +
+      '<g fill="none" stroke="#a11a4b" stroke-opacity="0.78" stroke-width="0.7">' +
+        '<path d="M 340 128 L 346 122 L 352 128"/>' +
+      '</g>' +
+      '<g fill="#4c8dc6" fill-opacity="0.78">' +
+        '<circle cx="257" cy="174" r="1.5"/>' +
+        '<circle cx="226" cy="198" r="1.5"/>' +
+      '</g>' +
+      '<g fill="#a11a4b" fill-opacity="0.88">' +
+        '<circle cx="346" cy="127" r="1.5"/>' +
+      '</g>' +
+      '<g fill="#4c8dc6" fill-opacity="0.6" font-family="\'Space Mono\', monospace" font-size="3.0">' +
+        '<text x="262" y="176">M5</text>' +
+        '<text x="232" y="200">M6</text>' +
+      '</g>' +
+      '<g fill="#a11a4b" fill-opacity="0.65" font-family="\'Space Mono\', monospace" font-size="3.0">' +
+        '<text x="354" y="128">T3</text>' +
+      '</g>' +
+      // 10 red-dot-with-blue-outline contacts — outer r=2.8 (was 1.4),
+      // inner r=1.4 (was 0.7).
+      '<g fill="none" stroke="#4c8dc6" stroke-opacity="0.78" stroke-width="0.6">' +
+        '<circle cx="225" cy="118" r="2.8"/>' +
+        '<circle cx="295" cy="125" r="2.8"/>' +
+        '<circle cx="182" cy="130" r="2.8"/>' +
+        '<circle cx="330" cy="110" r="2.8"/>' +
+        '<circle cx="168" cy="160" r="2.8"/>' +
+        '<circle cx="245" cy="130" r="2.8"/>' +
+        '<circle cx="160" cy="180" r="2.8"/>' +
+        '<circle cx="300" cy="200" r="2.8"/>' +
+        '<circle cx="338" cy="145" r="2.8"/>' +
+        '<circle cx="140" cy="170" r="2.8"/>' +
+      '</g>' +
+      '<g fill="#a11a4b" fill-opacity="0.92">' +
         '<circle cx="225" cy="118" r="1.4"/>' +
         '<circle cx="295" cy="125" r="1.4"/>' +
         '<circle cx="182" cy="130" r="1.4"/>' +
@@ -201,32 +252,20 @@ function _buildMarsBlueBgRadar() {
         '<circle cx="338" cy="145" r="1.4"/>' +
         '<circle cx="140" cy="170" r="1.4"/>' +
       '</g>' +
-      '<g fill="#a11a4b" fill-opacity="0.92">' +
-        '<circle cx="225" cy="118" r="0.7"/>' +
-        '<circle cx="295" cy="125" r="0.7"/>' +
-        '<circle cx="182" cy="130" r="0.7"/>' +
-        '<circle cx="330" cy="110" r="0.7"/>' +
-        '<circle cx="168" cy="160" r="0.7"/>' +
-        '<circle cx="245" cy="130" r="0.7"/>' +
-        '<circle cx="160" cy="180" r="0.7"/>' +
-        '<circle cx="300" cy="200" r="0.7"/>' +
-        '<circle cx="338" cy="145" r="0.7"/>' +
-        '<circle cx="140" cy="170" r="0.7"/>' +
-      '</g>' +
-      '<g fill="#a11a4b" fill-opacity="0.62" font-family="\'Space Mono\', monospace" font-size="1.6">' +
-        '<text x="228" y="119">H1</text>' +
-        '<text x="298" y="126">H2</text>' +
-        '<text x="185" y="131">H3</text>' +
-        '<text x="333" y="111">H4</text>' +
-        '<text x="171" y="161">H5</text>' +
-        '<text x="248" y="131">H6</text>' +
-        '<text x="163" y="181">H7</text>' +
-        '<text x="303" y="201">H8</text>' +
-        '<text x="341" y="146">H9</text>' +
-        '<text x="143" y="171">HA</text>' +
+      '<g fill="#a11a4b" fill-opacity="0.65" font-family="\'Space Mono\', monospace" font-size="3.0">' +
+        '<text x="230" y="120">H1</text>' +
+        '<text x="300" y="127">H2</text>' +
+        '<text x="187" y="132">H3</text>' +
+        '<text x="335" y="112">H4</text>' +
+        '<text x="173" y="162">H5</text>' +
+        '<text x="250" y="132">H6</text>' +
+        '<text x="165" y="182">H7</text>' +
+        '<text x="305" y="202">H8</text>' +
+        '<text x="343" y="147">H9</text>' +
+        '<text x="145" y="172">HA</text>' +
       '</g>' +
       // Own ship — bold blue dot at the radar center (= viewport bottom).
-      '<circle cx="240" cy="240" r="1.6" fill="#4c8dc6" fill-opacity="0.95"/>' +
+      '<circle cx="240" cy="240" r="3.2" fill="#4c8dc6" fill-opacity="0.95"/>' +
     '</svg>';
 }
 
