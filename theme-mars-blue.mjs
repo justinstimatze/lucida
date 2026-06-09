@@ -440,7 +440,7 @@ function _buildMarsBlueBgRadar() {
   // perimeter rings progressively further out (alert/long-range cordon),
   // the outermost ~280vw diameter — barely visible flat arcs near the top
   // of the viewport (the "long-range horizon").
-  host.innerHTML =
+  let svgStr =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -120 480 360">' +
       // Center halo — one arc (was radial gradient — OOM'd 2026-06-09).
       '<path d="M 195 240 A 45 45 0 0 1 285 240" fill="none" ' +
@@ -553,6 +553,18 @@ function _buildMarsBlueBgRadar() {
       // Own ship — bold blue dot at the radar center (= viewport bottom).
       '<circle cx="240" cy="240" r="3.2" fill="#4c8dc6" fill-opacity="0.95"/>' +
     '</svg>';
+  // Mars-red palette swap — the tachi era runs RED-dominant tactical plots
+  // ("red concentric tactical plots, not just danger" per refs/mars-red
+  // NOTES.md), with steel-cyan as the cooler accent.  Cheaper than
+  // restructuring every color reference up above — the SVG content has
+  // exactly two repeating ink slots (#4c8dc6 cobalt = primary,
+  // #a11a4b desat-red = secondary), so a simple swap reskins everything.
+  if (_active() === "mars-red") {
+    svgStr = svgStr
+      .replace(/#4c8dc6/g, "#d8362a")
+      .replace(/#a11a4b/g, "#4a9ec0");
+  }
+  host.innerHTML = svgStr;
 }
 
 // Bind the bottom histogram band to REAL data: the session's mint activity over
