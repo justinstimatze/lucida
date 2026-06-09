@@ -26,6 +26,16 @@ repos:
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
+      # File-size gate: Biome doesn't have a max-lines-per-file rule, so we
+      # enforce one here. Catches future drift (no more silent 16k files).
+      # Allowlist in the script — see task #70.
+      - id: js-file-size
+        name: JS file size limit (max-lines)
+        entry: tools/check_js_file_sizes.sh
+        language: system
+        pass_filenames: false
+        types_or: [javascript]
+
   # gitleaks: scan for accidentally committed secrets (API keys, tokens).
   # Matches the sibling-repo pattern (undercity / tttc-light-js); CI also
   # runs the full-history scan separately.
