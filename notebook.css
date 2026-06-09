@@ -3675,6 +3675,264 @@ html.theme-mars-red #notebook {
   letter-spacing: 0.1em;
   fill: rgba(196, 201, 117, 0.96);
 }
+/* ============================================================
+   Drift top-center HERO band — sits between TL/TR cells. Three
+   regions: callout (newest contact) · sparkline (5min cadence) ·
+   ops (kontakt count / latest / mint rate). Position bounds come
+   from applyCornersLayout via CSS vars set on documentElement
+   (--drift-hero-{left,right,top,height}).
+   ============================================================ */
+#theme-furniture[data-theme="drift"] .drift-hero {
+  position: fixed;
+  left:   var(--drift-hero-left,   50vw);
+  right:  var(--drift-hero-right,  50vw);
+  top:    var(--drift-hero-top,    80px);
+  height: var(--drift-hero-height, 100px);
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr 0.9fr;
+  gap: 22px;
+  align-items: stretch;
+  padding: 8px 14px;
+  pointer-events: none;
+  color: var(--fg);
+  font-family: "Saira", "Oswald", "Arial Narrow", sans-serif;
+  background:
+    linear-gradient(180deg, rgba(20, 28, 28, 0.22), rgba(0, 0, 0, 0.05));
+  border-top: 1.5px solid rgba(148, 112, 56, 0.45);
+  border-bottom: 1px dashed rgba(61, 119, 119, 0.45);
+}
+#theme-furniture[data-theme="drift"] .drift-hero-callout {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 6px;
+  border-left: 2px solid #b1a55c;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-tag {
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #d4c869;
+  line-height: 1.1;
+  text-shadow: 0 0 6px rgba(212, 200, 105, 0.45);
+}
+#theme-furniture[data-theme="drift"] .drift-hero-meta {
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: rgba(196, 201, 117, 0.76);
+  display: flex;
+  gap: 14px;
+  margin-top: 3px;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-spark {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-spark-svg {
+  width: 100%;
+  height: calc(100% - 14px);
+  display: block;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-spark-head {
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(122, 175, 175, 0.85);
+  margin-bottom: 3px;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-spark-axis {
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: rgba(61, 119, 119, 0.85);
+  margin-top: 4px;
+}
+/* ============================================================
+   Drift bottom chrome strip — sits across viewport bottom, below
+   the orbital. Belta-coded segments + dotted track + ship glyph
+   (per ref bel_pPutN_076 bottom bar).
+   ============================================================ */
+#theme-furniture[data-theme="drift"] .drift-bottom-strip {
+  position: fixed;
+  /* Mesh widget now sits ABOVE the strip (bottom: 50), so the strip can
+     run full viewport width again. */
+  left: 24px;
+  right: 24px;
+  bottom: 14px;
+  height: 28px;
+  display: grid;
+  grid-template-columns: 220px 1fr 220px;
+  gap: 18px;
+  align-items: center;
+  pointer-events: none;
+  padding: 4px 12px 0;
+  border-top: 1px solid rgba(148, 112, 56, 0.45);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.5));
+}
+/* Bottom-right mesh widget — tilted cyan azimuthal wireframe, the
+   alternative orbital projection (per ref bel_pPutN_076 bottom-right). */
+#theme-furniture[data-theme="drift"] .drift-mesh-widget {
+  position: fixed;
+  right: 24px;
+  bottom: 50px;
+  width: 240px;
+  height: 200px;
+  pointer-events: none;
+  opacity: 0.98;
+  /* Opaque dark bg so the orbital below is hidden inside the widget. The
+     teal drop-shadow was highlighting the non-cut bottom-right corner; dropped. */
+  background-color: rgba(3, 8, 8, 0.96);
+}
+#theme-furniture[data-theme="drift"] .drift-mesh-widget svg { display: block; width: 100%; height: 100%; overflow: visible; }
+#theme-furniture[data-theme="drift"] .drift-mesh-widget .drift-mesh-lbl {
+  position: absolute;
+  bottom: -2px;
+  right: 0;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: rgba(122, 175, 175, 0.85);
+}
+/* Cryptic Belter labels above the mesh widget — stacked vertical column
+   of low-opacity salvaged-console call-signs. */
+#theme-furniture[data-theme="drift"] .drift-mesh-labels {
+  position: fixed;
+  right: 24px;
+  bottom: 258px;             /* widget top (50 + 200) + 8 gap */
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+}
+#theme-furniture[data-theme="drift"] .drift-mesh-labels > span {
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: rgba(177, 165, 92, 0.55);
+  text-transform: uppercase;
+}
+#theme-furniture[data-theme="drift"] .drift-mesh-labels > span:nth-child(2n) {
+  color: rgba(122, 175, 175, 0.5);
+}
+#theme-furniture[data-theme="drift"] .drift-bot-seg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+#theme-furniture[data-theme="drift"] .drift-bot-r { justify-content: flex-end; }
+#theme-furniture[data-theme="drift"] .drift-bot-k {
+  color: rgba(122, 175, 175, 0.82);
+}
+#theme-furniture[data-theme="drift"] .drift-bot-v {
+  color: rgba(212, 200, 105, 0.95);
+  font-weight: 700;
+}
+#theme-furniture[data-theme="drift"] .drift-bot-track {
+  height: 16px;
+  position: relative;
+  border-top: 1px dashed rgba(122, 175, 175, 0.4);
+  border-bottom: 1px dashed rgba(122, 175, 175, 0.25);
+  display: flex;
+  align-items: center;
+}
+#theme-furniture[data-theme="drift"] .drift-bot-dots {
+  flex: 1;
+  height: 6px;
+  background-image: radial-gradient(circle, rgba(177, 165, 92, 0.7) 0.8px, transparent 1.2px);
+  background-size: 16px 6px;
+  background-repeat: repeat-x;
+  background-position: 0 50%;
+}
+#theme-furniture[data-theme="drift"] .drift-bot-ship {
+  width: 50px;
+  height: 16px;
+  opacity: 0.85;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-ops {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  text-align: right;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-ops-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  line-height: 1.6;
+}
+#theme-furniture[data-theme="drift"] .drift-hero-ops-k {
+  color: rgba(196, 201, 117, 0.62);
+}
+#theme-furniture[data-theme="drift"] .drift-hero-ops-v {
+  color: #d4c869;
+  font-weight: 700;
+}
+@media (max-width: 1100px) {
+  #theme-furniture[data-theme="drift"] .drift-hero { display: none; }
+}
+/* ============================================================
+   Drift edge chrome — thick yellow bands hugging the TL bottom +
+   bottom-row tops, and a yellow/cyan rectangle-button grid by TR
+   (per ref bel_pPutN_076). Positions track cell bounds via CSS
+   vars set by applyCornersLayout.
+   ============================================================ */
+#theme-furniture[data-theme="drift"] .drift-edge-band {
+  position: fixed;
+  height: 16px;
+  background: linear-gradient(180deg, #b1a55c 0%, #7d7a3a 100%);
+  box-shadow: 0 0 6px rgba(177, 165, 92, 0.5);
+  pointer-events: none;
+  opacity: 0.92;
+  /* 45° angled ends. Default (used by bottom-row bands that sit ABOVE
+     a cell): narrow at top, wide at bottom — chevron points UP toward
+     the cell it's hugging. */
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 100%, 0 100%);
+}
+/* TL band sits BELOW the TL cell — flip vertically so the chevron points
+   DOWN, away from the cell. */
+#theme-furniture[data-theme="drift"] .drift-edge-tl-bot {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 16px 100%);
+}
+#theme-furniture[data-theme="drift"] .drift-buttongrid {
+  position: fixed;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  pointer-events: none;
+  padding: 0;
+}
+#theme-furniture[data-theme="drift"] .drift-buttongrid > span {
+  height: 20px;
+  border-radius: 1px;
+  font-family: "Space Mono", "Share Tech Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  font-weight: 700;
+}
+#theme-furniture[data-theme="drift"] .drift-btn-y {
+  border: 1px solid rgba(177, 165, 92, 0.85);
+  color: rgba(212, 200, 105, 0.92);
+}
+#theme-furniture[data-theme="drift"] .drift-btn-c {
+  border: 1px solid rgba(122, 175, 175, 0.85);
+  color: rgba(122, 221, 224, 0.92);
+  font-size: 14px;
+  font-weight: 400;
+}
 
 /* Lang Belta decals — perimeter-scattered creole fragments at very low
    opacity, slight rotation for the salvaged-graffiti tell. Color-mixed
@@ -4324,7 +4582,7 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   /* Chrome stays olive-amber (matches ref bel_pPutN_020 chrome strips); the
      VALUE numbers are data — they read in the brighter gold-yellow register
      so they pop off the chrome. Was #947038 (olive) — too faded-conclave. */
-  color: #d8b249;
+  color: #c1b85d;
   text-shadow: 0 0 8px rgba(216, 178, 73, 0.55);
 }
 /* Salvaged-console panel — a warm hairline border + faint inner warmth over a

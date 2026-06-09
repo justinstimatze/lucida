@@ -9,9 +9,9 @@
   },
   "surface": {
     "bg":     "#030808",
-    "cell":   "rgba(20, 28, 28, 0.14)",
-    "header": "rgba(16, 24, 24, 0.22)",
-    "code":   "rgba(20, 28, 28, 0.14)",
+    "cell":   "rgba(20, 28, 28, 0.34)",
+    "header": "rgba(16, 24, 24, 0.42)",
+    "code":   "rgba(20, 28, 28, 0.34)",
     "muted":  "#5a6868",
     "line":   "rgba(148, 112, 56, 0.20)"
   },
@@ -41,7 +41,7 @@
     "fg":      "#cdded4",
     "muted":   "#8a7860",
     "bg":      "#030808",
-    "panel":   "rgba(20, 28, 28, 0.14)"
+    "panel":   "rgba(20, 28, 28, 0.34)"
   },
   "layout": "corners",
   "chrome": "instrument",
