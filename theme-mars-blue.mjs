@@ -14,23 +14,129 @@ function _active() { return (typeof window !== "undefined" && window.__LUCIDA_TH
 
 export function _buildFurnitureMarsBlue(el) {
   const ACTIVE = _active();
-  // MCRN bridge-console BEZEL: corner brackets, L/R bearing tick scales, a top
-  // segmented readout strip, and the signature bottom band (red spectrum-analyzer
-  // histogram + cyan dials + registry label). All in the viewport margins,
-  // pointer-events none. The animated bits (bar bounce, strip runner, dial
-  // needles) + the body::after radar sweep are the "movement" tells. Styling +
-  // keyframes live in notebook.css (#theme-furniture[data-theme=mars-blue]).
+  // MCRN bridge-console BEZEL.  Layout reorganized 2026-06-09 to match
+  // refs/rocinante/roci_warship_tactical_screen bottom-band density:
+  //   TOP    — row of "PDC ammo" filled-meter circles across the top center,
+  //            small cryptic labels in the TL/TR corners.
+  //   BOTTOM — compact mint-rate histogram in the LL corner (was full-width),
+  //            row of partial-circle cockpit gauges with coord labels across
+  //            the bottom center, mirror dense block in the BR corner.
+  //   Above each histogram: small blue-bordered red-filled "PIP" rectangles
+  //   (the show's THREAT chip motif).
+  //   Brackets and bearing-scales kept.
   let bars = "";
-  const N = 46;
+  const N = 28;  // narrower band — fewer bars since width is much smaller now
   for (let i = 0; i < N; i++) {
-    // Bars start at a flat baseline; _updateMarsBlueHisto() binds each bar's
-    // height to REAL mint activity (cells minted in that time slice). The
-    // per-bar dur/delay only drive a subtle shimmer so the band looks alive
-    // without overriding the data height.
     const dur = (1.5 + (i % 5) * 0.4).toFixed(2);
     const delay = (((i * 3) % 11) * 0.13).toFixed(2);
     bars += '<i style="--h:0.1;--dur:' + dur + 's;--delay:' + delay + 's"></i>';
   }
+  // PDC ammo circles — 12 across the top center in ONE row.  User
+  // 2026-06-09: 2×8 was overlapping the hero cell's titlebar; "maybe
+  // we could do one row of 12 or something."
+  let pdc = "";
+  const PDC_N = 12;
+  for (let i = 0; i < PDC_N; i++) {
+    // Pseudo-random level via a small hash: 0..1
+    const lvl = ((i * 37 + 11) % 100) / 100;
+    // SVG arc from -90° to (-90 + lvl*360°) — start at top, fill clockwise.
+    const ang = -90 + lvl * 360;
+    const a = (ang * Math.PI) / 180;
+    const x = 8 + 6 * Math.cos(a);
+    const y = 8 + 6 * Math.sin(a);
+    const large = lvl > 0.5 ? 1 : 0;
+    const pathD = lvl < 0.005
+      ? ""
+      : "M 8 2 A 6 6 0 " + large + " 1 " + x.toFixed(2) + " " + y.toFixed(2) + " L 8 8 Z";
+    pdc += '<span class="fur-pdc-cell"><svg viewBox="0 0 16 16">'
+        +   '<circle cx="8" cy="8" r="6" fill="none" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="0.9"/>'
+        +   (pathD ? '<path d="' + pathD + '" fill="#4c8dc6" fill-opacity="0.88"/>' : '')
+        + '</svg></span>';
+  }
+  // Cockpit dials — 8 fancy analog-pilot-watch dials across the bottom
+  // center.  Each has an outer bezel ring, inner face ring, 12 tick marks
+  // around the rim, 4 numerals at 12/3/6/9, a sub-dial at 6 o'clock with
+  // its own little needle, a main needle, and a center cap.  Coordinate
+  // label above each per ref.
+  // ViewBox 48×48 for room; center at (24, 24).
+  // 5 dials per ref (user 2026-06-09 "there are 5 of those gauges in the bottom center").
+  const DIAL_LABELS = ["(0,0)", "(88,2)", "(224)", "(54,2)", "(20,2)"];
+  let dials = "";
+  for (let i = 0; i < DIAL_LABELS.length; i++) {
+    // Main needle angle, deterministic per index.  Convention: 0° = up,
+    // sweep clockwise.  Range [-150°, +150°] so it doesn't overlap the
+    // bottom sub-dial area.
+    const needleAng = -150 + ((i * 41) % 300);
+    const ang = (needleAng - 90) * Math.PI / 180;
+    const nx = 24 + 16 * Math.cos(ang);
+    const ny = 24 + 16 * Math.sin(ang);
+    // Sub-dial little hand
+    const subAng = ((i * 71) % 360);
+    const sa = (subAng - 90) * Math.PI / 180;
+    const sx = 24 + 4 * Math.cos(sa);
+    const sy = 33 + 4 * Math.sin(sa);
+    // 12 tick marks around the rim
+    let ticks = "";
+    for (let t = 0; t < 12; t++) {
+      const tAng = (t * 30 - 90) * Math.PI / 180;
+      const r1 = 19, r2 = (t % 3 === 0) ? 16.5 : 17.5;
+      const x1 = 24 + r1 * Math.cos(tAng), y1 = 24 + r1 * Math.sin(tAng);
+      const x2 = 24 + r2 * Math.cos(tAng), y2 = 24 + r2 * Math.sin(tAng);
+      const sw = (t % 3 === 0) ? 0.9 : 0.5;
+      ticks += '<line x1="' + x1.toFixed(2) + '" y1="' + y1.toFixed(2) +
+               '" x2="' + x2.toFixed(2) + '" y2="' + y2.toFixed(2) +
+               '" stroke="#4c8dc6" stroke-opacity="0.7" stroke-width="' + sw + '"/>';
+    }
+    // Second-hand angle, different sweep from main needle (faster)
+    const hourAng = -90 + ((i * 91) % 360);
+    const ha = (hourAng - 90) * Math.PI / 180;
+    const hx = 24 + 10 * Math.cos(ha);
+    const hy = 24 + 10 * Math.sin(ha);
+    dials += '<span class="fur-cdial">'
+      +   '<span class="fur-cdial-lbl">' + DIAL_LABELS[i] + '</span>'
+      +   '<svg viewBox="0 0 48 48">'
+      +     // Outer bezel — BOLD per user 2026-06-09 "container line should be bolder".
+      +     '<circle cx="24" cy="24" r="22.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.85" stroke-width="2.0"/>'
+      +     // Inner bezel ring
+      +     '<circle cx="24" cy="24" r="20.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.5" stroke-width="0.6"/>'
+      +     // Face fill — very subtle darker disc
+      +     '<circle cx="24" cy="24" r="19.5" fill="rgba(8,18,36,0.45)"/>' +
+            // More concentric circles inside per user "more smaller concentric circles".
+      +     '<circle cx="24" cy="24" r="16.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.35" stroke-width="0.4"/>'
+      +     '<circle cx="24" cy="24" r="13.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.3"  stroke-width="0.4"/>'
+      +     '<circle cx="24" cy="24" r="10.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.28" stroke-width="0.4"/>'
+      +     '<circle cx="24" cy="24" r="7.5"  fill="none" stroke="#4c8dc6" stroke-opacity="0.24" stroke-width="0.4"/>' +
+            // Tick marks
+            ticks
+      +     // Sub-dial at 6 o'clock — small inner circle + its own needle
+      +     '<circle cx="24" cy="33" r="4.2" fill="none" stroke="#4c8dc6" stroke-opacity="0.55" stroke-width="0.5"/>'
+      +     '<line x1="24" y1="33" x2="' + sx.toFixed(2) + '" y2="' + sy.toFixed(2) + '" stroke="#4c8dc6" stroke-opacity="0.78" stroke-width="0.6"/>'
+      +     '<circle cx="24" cy="33" r="0.6" fill="#4c8dc6" fill-opacity="0.92"/>' +
+            // Hour hand — short and thick.
+      +     '<line x1="24" y1="24" x2="' + hx.toFixed(2) + '" y2="' + hy.toFixed(2) +
+              '" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="1.4"/>' +
+            // Minute hand — longer, thin.
+      +     '<line x1="24" y1="24" x2="' + nx.toFixed(2) + '" y2="' + ny.toFixed(2) +
+              '" stroke="#4c8dc6" stroke-opacity="0.92" stroke-width="0.9"/>'
+      +     // Counterweight tail
+      +     '<line x1="24" y1="24" x2="' + (24 - 4 * Math.cos(ang)).toFixed(2) + '" y2="' + (24 - 4 * Math.sin(ang)).toFixed(2) +
+              '" stroke="#4c8dc6" stroke-opacity="0.7" stroke-width="0.8"/>'
+      +     // Center pivot cap
+      +     '<circle cx="24" cy="24" r="1.7" fill="#4c8dc6" fill-opacity="0.92"/>'
+      +     '<circle cx="24" cy="24" r="0.6" fill="#02103a"/>' +
+            // Crown at 3 o'clock (decorative)
+      +     '<rect x="46" y="22" width="2" height="4" fill="#4c8dc6" fill-opacity="0.5"/>'
+      +   '</svg>'
+      + '</span>';
+  }
+  // Pip rectangles — small blue-bordered red-filled boxes above the
+  // histograms (and a couple decorative ones around the dial block).
+  // The "THREAT" chip from the show.
+  const pips = '<span class="fur-pip">THREAT</span>'
+             + '<span class="fur-pip">SCAN</span>'
+             + '<span class="fur-pip">LOK</span>';
+  const pipsR = '<span class="fur-pip">PDC</span>'
+              + '<span class="fur-pip">AUX</span>';
   // mars-red reuses this furniture (same MCRN bezel); ACTIVE picks the registry.
   const REG = ACTIVE === "mars-red" ? "MARS NAVY · CV-T15" : "MARS NAVY · CTV-K1W-XR";
   el.innerHTML =
@@ -41,18 +147,29 @@ export function _buildFurnitureMarsBlue(el) {
     '<div class="fur-bracket fur-br"></div>' +
     '<div class="fur-scale fur-scale-l"></div>' +
     '<div class="fur-scale fur-scale-r"></div>' +
+    // Top: PDC ammo circle 2×8 grid + thick red separator below + corner cryptic labels.
+    '<div class="fur-top-pdc">' + pdc + '</div>' +
+    '<div class="fur-top-sep" aria-hidden="true"></div>' +
+    '<div class="fur-top-tl"><div>UN.7 · CTV-K1W</div><div>ENG · OK</div><div>RCS · NOM</div><div>EPS · 0.91</div></div>' +
+    '<div class="fur-top-tr"><div>NAV · NOM</div><div>PDC.1-4 · ARM</div><div>RAIL · STBY</div><div>TBC · 03:42</div></div>' +
+    // Bottom-left: compact histogram + pips above.
+    '<div class="fur-pips fur-pips-bl">' + pips + '</div>' +
     '<div class="fur-histo" title="Mint-activity readout — each bar is a time slice of the session; bar height = cells minted in that slice.">' +
       '<div class="fur-histo-label">' + REG + '<br>TRAFFIC · STANDBY</div>' +
       '<div class="fur-bars">' + bars + '</div>' +
-      // System-color triad indicators — red/green/amber backlit lamps
-      // (Yorke's MCRN physical button palette). Bound below in
-      // _updateMarsBlueHisto to real session state.
       '<div class="fur-triad" title="System-color triad — red (errors/danger), amber (warnings), green (ok). Live from session state.">' +
         '<span class="fur-lamp fur-lamp-r" data-on="0"></span>' +
         '<span class="fur-lamp fur-lamp-a" data-on="0"></span>' +
         '<span class="fur-lamp fur-lamp-g" data-on="1"></span>' +
       '</div>' +
-      '<div class="fur-dials"><span class="fur-dial"></span><span class="fur-dial fur-dial-sm"></span></div>' +
+    '</div>' +
+    // Bottom-middle: row of cockpit dials with coord labels.
+    '<div class="fur-bottom-dials">' + dials + '</div>' +
+    // Bottom-right: mirror block + pips above.
+    '<div class="fur-pips fur-pips-br">' + pipsR + '</div>' +
+    '<div class="fur-bottom-right">' +
+      '<div class="fur-br-dials"><span class="fur-dial"></span><span class="fur-dial fur-dial-sm"></span></div>' +
+      '<div class="fur-br-label">PDC · AMMO 1842<br>RAIL · CHARGE 0.91</div>' +
     '</div>';
   _buildMarsBlueBgRadar();
 }
