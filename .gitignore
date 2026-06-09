@@ -69,16 +69,16 @@ demo/demo_cells.json
 research/
 
 # Visual reference dumps — ephemeral QA outputs (live-shots) and
-# re-extractable video frames (hackers-video, from YouTube via ffmpeg;
-# vigil = Iron Man frames extracted via video-vision for theme polish;
-# rocinante/belter/unn = Expanse MCRN/OPA/UNN frames via yt-dlp+ffmpeg).
-# Methodology lives in the per-dir NOTES.md + memory; the binaries are local.
-refs/gibson/live-shots/
-refs/gibson/hackers-video/
-refs/vigil/
-refs/rocinante/
-refs/belter/
-refs/unn/
+# Reference stills — ALL copyrighted frames under refs/ stay local-only
+# (re-extractable from sources via yt-dlp+ffmpeg; methodology + curation
+# verdicts live in the per-dir NOTES.md, which ARE tracked, along with
+# refs/ATTRIBUTION.md).  Pattern-based after the 2026-06-09 audit found
+# 131 stills tracked across 17 dirs despite the per-dir ignore list.
+refs/**
+!refs/*/
+!refs/**/
+!refs/**/NOTES.md
+!refs/ATTRIBUTION.md
 
 # memory dir leaked from auto-memory hook — actual store lives under
 # ~/.claude/projects/.../memory/, not in the project repo.
