@@ -37,7 +37,7 @@ import { buildScene3DMeshes } from "./scene3d.mjs?v=2";
 // each copy with its own _muuriGrid / state / LOG.  Reproduced 2026-06-08
 // as a fatal Muuri "one item per element" on every theme.  The bridge
 // closes that class of bug and matches the codebase convention
-// (window.__LUCIDA_THEME from theme-mars-blue.mjs).
+// (window.__LUCIDA_THEME from theme-mars.mjs).
 let el, resolveColor, state, LOG, _normalizeMermaidSpec;
 function _bindLucida() {
   if (state) return;  // already bound

@@ -2989,7 +2989,7 @@ html.theme-ops::before {
   font-family: var(--font-body);
   /* The MCRN nav-plot motif used to live here as a baked SVG in a data:
      URI background-image. Lifted out to #mb-bgradar (built in
-     theme-mars-blue.mjs) so the radar can grow into a live element —
+     theme-mars.mjs) so the radar can grow into a live element —
      richer glyph vocabulary (equilateral triangles / angle-brackets /
      red-dot-blue-outline contacts), compass heading arc, future SMIL
      animation per task #76. Body keeps just the bg color now. */
@@ -3001,7 +3001,8 @@ html.theme-ops::before {
 #mb-bgradar {
   display: none;
 }
-.theme-mars-blue #mb-bgradar {
+.theme-mars-blue #mb-bgradar,
+.theme-mars-red  #mb-bgradar {
   display: block;
   position: fixed;
   left: 50%;
@@ -3027,7 +3028,37 @@ html.theme-ops::before {
   contain: layout paint;
   overflow: hidden;
 }
-.theme-mars-blue #mb-bgradar svg {
+
+/* Mars-red Donnager war-room treatment — the bg tactical reads as a
+   holographic projection table.  Pull the radar's center to viewport
+   center (vs mars-blue's "lift 42px above bottom") and tilt the whole
+   plot back ~45° so concentric rings foreshorten into ellipses.  Per
+   user 2026-06-09 "pull the lower one up to the center and tilt back".
+   Mars-blue retains the flat-overhead look — these overrides only
+   apply when .theme-mars-red wins specificity. */
+.theme-mars-red #mb-bgradar {
+  /* FULL-CIRCLE war-table disc (viewBox 480x480, disc center = SVG
+     center).  Center the element on the viewport center, then tilt back
+     45° around its own center — the disc foreshortens into the war-room
+     table ellipse with its center pinned at viewport center.  Per user
+     2026-06-09: full circle (not semicircle), bigger, centered at
+     ~half the window. */
+  bottom: auto;
+  top: 50%;
+  /* 1:1 aspect to match the square viewBox.  Sized so the tilted disc
+     dominates: on a landscape viewport the 145vh cap wins (~95vh
+     apparent height after cos45° foreshortening). */
+  width: min(150vw, 145vh);
+  height: min(150vw, 145vh);
+  transform:
+    translateX(-50%)
+    translateY(-50%)
+    perspective(1100px)
+    rotateX(45deg);
+  transform-origin: 50% 50%;
+}
+.theme-mars-blue #mb-bgradar svg,
+.theme-mars-red  #mb-bgradar svg {
   width: 100%;
   height: 100%;
   display: block;
@@ -4520,13 +4551,11 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  /* RED-forward concentric nav-plot (the MCRN motif): red rings + crosshair +
-     a steel-cyan secondary ellipse. Harder/grittier than mars-blue's muted version. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23d8362a' stroke-opacity='0.26' stroke-width='0.8'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%234a9ec0' stroke-opacity='0.22' stroke-width='0.9' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='120' cy='120' r='3' fill='%23d8362a' fill-opacity='0.75'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: center 54%;
-  background-size: min(88vmin, 1040px) min(88vmin, 1040px);
-  background-attachment: fixed;
+  /* The flat concentric nav-plot data-URI that used to live here was
+     dropped 2026-06-09 — it was the "old radar rings" ghosting behind
+     the cells after the angled war-room tactical (#mb-bgradar with
+     rotateX) replaced it.  The live tactical is built per-element in
+     _buildMarsRedBgRadar (theme-mars-blue.mjs). */
 }
 .theme-mars-red header,
 .theme-mars-red .cell-head,
@@ -4713,17 +4742,148 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   /* Sharp-corner panel for the rect-outlined PDC indicators. */
   overflow: visible;
 }
-.theme-mars-red #theme-furniture .fur-top-sep {
-  /* Bolder, brighter tachi separator — switch from desaturated #a11a4b to
-     the dominant accent.primary #d8362a, and bump opacity full. */
-  background: #d8362a;
-  opacity: 1;
-  height: 6px;
-}
+/* (.fur-top-sep override removed 2026-06-09 — mars-red no longer emits
+   the separator element; don_85's top edge is bare hull + sparse chips.) */
 #theme-furniture[data-theme="mars-red"] .fur-glass {
   /* less polished, harder vignette — industrial grey not cockpit-glow */
   background:
     radial-gradient(118% 112% at 50% 42%, transparent 48%, rgba(2, 4, 6, 0.66) 100%);
+}
+
+/* Mars-red Donnager data-stack chrome (2026-06-09 rethink — replaces the
+   mars-blue-derived bezel gauges).  Vocabulary from the refs:
+   don_85 top strip = sparse irregular chip lights; don_201 left column =
+   waveform + micro-table + indicator lamps; don_201 right column =
+   sparse event ticks.  Bottom stays bare hull. */
+.theme-mars-red #theme-furniture .fur-mr-chips {
+  position: fixed;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  z-index: 311;
+}
+.theme-mars-red #theme-furniture .fur-mrchip {
+  display: block;
+  height: 5px;
+  background: #d8362a;
+  opacity: 0.85;
+}
+.theme-mars-red #theme-furniture .fur-mrchip[data-c="a"] {
+  background: #c9842a;
+}
+.theme-mars-red #theme-furniture .fur-mrchip[data-lit="0"] {
+  opacity: 0.22;
+}
+.theme-mars-red #theme-furniture .fur-mrchip[data-blink="1"] {
+  animation: mr-chip-blink 2.8s ease-in-out infinite;
+}
+@keyframes mr-chip-blink {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 0.28; }
+}
+.theme-mars-red #theme-furniture .fur-mr-stack {
+  position: fixed;
+  left: 14px;
+  bottom: 66px;
+  width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  z-index: 311;
+}
+.theme-mars-red #theme-furniture .fur-mr-wave {
+  width: 100%;
+  height: 34px;
+  display: block;
+}
+.theme-mars-red #theme-furniture .fur-mr-table {
+  font-family: "Space Mono", monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  line-height: 1.55;
+}
+.theme-mars-red #theme-furniture .fur-mr-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  color: #c9842a;          /* amber rows… */
+}
+.theme-mars-red #theme-furniture .fur-mr-row:nth-child(2n) {
+  color: #7fae62;          /* …interleaved with green (don_201 table) */
+}
+.theme-mars-red #theme-furniture .fur-mr-row span {
+  width: 26px;
+  opacity: 0.7;
+}
+.theme-mars-red #theme-furniture .fur-mr-row b {
+  font-weight: 400;
+}
+.theme-mars-red #theme-furniture .fur-mr-row i {
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.18;
+}
+.theme-mars-red #theme-furniture .fur-mr-ind {
+  display: flex;
+  gap: 11px;
+}
+.theme-mars-red #theme-furniture .fur-mr-lamp {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(216, 54, 42, 0.7);
+}
+.theme-mars-red #theme-furniture .fur-mr-lamp[data-on="1"] {
+  background: #d8362a;
+  box-shadow: 0 0 6px rgba(216, 54, 42, 0.55);
+  animation: mr-lamp-pulse 3.4s ease-in-out infinite;
+}
+@keyframes mr-lamp-pulse {
+  50% { box-shadow: 0 0 11px rgba(216, 54, 42, 0.8); }
+}
+.theme-mars-red #theme-furniture .fur-mr-reg {
+  position: fixed;
+  left: 14px;
+  bottom: 20px;
+  font-family: "Space Mono", monospace;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: rgba(216, 54, 42, 0.66);
+  z-index: 311;
+}
+.theme-mars-red #theme-furniture .fur-mr-ticks {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  z-index: 311;
+}
+.theme-mars-red #theme-furniture .fur-mr-tick {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: "Space Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  color: #c9842a;
+}
+.theme-mars-red #theme-furniture .fur-mr-tick i {
+  display: block;
+  width: 14px;
+  height: 2px;
+  background: #d8362a;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-mars-red #theme-furniture .fur-mrchip[data-blink="1"],
+  .theme-mars-red #theme-furniture .fur-mr-lamp[data-on="1"] {
+    animation: none;
+  }
 }
 
 /* ============================================================

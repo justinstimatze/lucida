@@ -270,6 +270,76 @@ export function _buildFurnitureMarsBlue(el) {
               + '<span class="fur-pip" data-pip="AUX">AUX</span>';
   // mars-red reuses this furniture (same MCRN bezel); ACTIVE picks the registry.
   const REG = ACTIVE === "mars-red" ? "MARS NAVY · CV-T15" : "MARS NAVY · CTV-K1W-XR";
+
+  // ── Mars-red: Donnager data-stack chrome ─────────────────────────────
+  // 2026-06-09 rethink — the bezel-gauge row was mars-blue cockpit grammar
+  // recolored red ("just making them red and square isn't enough").  The
+  // Donnager refs show NO gauges; their edge vocabulary is:
+  //   TOP    — sparse IRREGULAR chip lights (don_85 top strip)
+  //   LEFT   — data stack: waveform band + micro-table rows + round
+  //            indicator lamps (don_201 left column)
+  //   RIGHT  — sparse event-tick list (don_201 right column)
+  //   BOTTOM — bare hull (no gauges, no histogram)
+  // All data-bound in _updateMarsBlueHisto (flair-must-inform).
+  if (RED) {
+    // Sparse irregular chip lights — widths/gaps hand-scattered so the
+    // row reads as hull indicator lights, not a uniform meter.
+    const CHIP_DEF = [
+      { w: 14, gap: 0,   c: "r", lit: 1 },
+      { w: 8,  gap: 26,  c: "r", lit: 1 },
+      { w: 10, gap: 9,   c: "a", lit: 1 },
+      { w: 8,  gap: 48,  c: "r", lit: 0 },
+      { w: 12, gap: 14,  c: "r", lit: 1, blink: 1 },
+      { w: 8,  gap: 64,  c: "a", lit: 0 },
+      { w: 9,  gap: 22,  c: "r", lit: 1 },
+      { w: 14, gap: 90,  c: "r", lit: 0 },
+      { w: 8,  gap: 12,  c: "a", lit: 1, blink: 1 },
+      { w: 10, gap: 30,  c: "r", lit: 1 },
+    ];
+    let chips = "";
+    for (const ch of CHIP_DEF) {
+      chips += `<i class="fur-mrchip" data-c="${ch.c}" data-lit="${ch.lit}"${ch.blink ? ' data-blink="1"' : ""} style="width:${ch.w}px;margin-left:${ch.gap}px"></i>`;
+    }
+    // Micro-table rows — label + value + hairline; values live-bound via
+    // [data-mr] in _updateMarsBlueHisto.
+    const ROWS = [
+      ["TRF", "trf"], ["CON", "con"], ["SUB", "sub"], ["DNG", "dng"],
+      ["EPS", "eps"], ["FLX", "flx"], ["DLT", "dlt"],
+    ];
+    let rows = "";
+    for (const [lbl, key] of ROWS) {
+      rows += `<div class="fur-mr-row"><span>${lbl}</span><b data-mr="${key}">--</b><i></i></div>`;
+    }
+    el.innerHTML =
+      '<div class="fur-glass" aria-hidden="true"></div>' +
+      '<div class="fur-bracket fur-tl"></div>' +
+      '<div class="fur-bracket fur-tr"></div>' +
+      '<div class="fur-bracket fur-bl"></div>' +
+      '<div class="fur-bracket fur-br"></div>' +
+      // No fur-top-sep here — the bright red separator bar was mars-blue
+      // bezel grammar; don_85's top edge is bare hull + sparse chips.
+      '<div class="fur-mr-chips" aria-hidden="true">' + chips + '</div>' +
+      '<div class="fur-top-tl"><div>UN.7 · CTV-K1W</div><div>ENG · OK</div><div>RCS · NOM</div><div>EPS · 0.91</div></div>' +
+      '<div class="fur-top-tr"><div>NAV · NOM</div><div>PDC.1-4 · ARM</div><div>RAIL · STBY</div><div>TBC · 03:42</div></div>' +
+      // LEFT — Donnager data stack.
+      '<div class="fur-mr-stack" title="Sensor readout stack — waveform is live mint activity; table rows are session metrics.">' +
+        '<svg class="fur-mr-wave" viewBox="0 0 120 26" preserveAspectRatio="none">' +
+          '<line x1="0" y1="22" x2="120" y2="22" stroke="#a8a838" stroke-opacity="0.5" stroke-width="0.5" stroke-dasharray="3 2"/>' +
+          '<polyline points="0,22 120,22" fill="none" stroke="#d8362a" stroke-opacity="0.85" stroke-width="0.8"/>' +
+        '</svg>' +
+        '<div class="fur-mr-table">' + rows + '</div>' +
+        '<div class="fur-mr-ind">' +
+          '<span class="fur-mr-lamp" data-on="1"></span>' +
+          '<span class="fur-mr-lamp" data-on="0"></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="fur-mr-reg">' + REG + '<br>TRAFFIC · STANDBY</div>' +
+      // RIGHT — event-tick list (populated live).
+      '<div class="fur-mr-ticks" title="Event log — one tick per recent mint, fading with age."></div>';
+    _buildMarsBlueBgRadar();
+    return;
+  }
+
   el.innerHTML =
     '<div class="fur-glass" aria-hidden="true"></div>' +
     '<div class="fur-bracket fur-tl"></div>' +
@@ -329,6 +399,14 @@ function _buildMarsBlueBgRadar() {
   // (reproduced 2026-06-09).  Build once, reuse.
   if (host.dataset.built === "1") return;
   host.dataset.built = "1";
+
+  // Mars-red gets its own builder — Donnager tactical grammar
+  // (red-dominant rings, sector ticks, trajectory arcs, fewer labeled
+  // contacts).  Mars-blue render path below stays UNTOUCHED.
+  if (_active() === "mars-red") {
+    _buildMarsRedBgRadar(host);
+    return;
+  }
 
   // Reduced-motion gate — emits empty animation stanzas when the user
   // prefers reduced motion, so the radar stays photo-static.
@@ -553,17 +631,207 @@ function _buildMarsBlueBgRadar() {
       // Own ship — bold blue dot at the radar center (= viewport bottom).
       '<circle cx="240" cy="240" r="3.2" fill="#4c8dc6" fill-opacity="0.95"/>' +
     '</svg>';
-  // Mars-red palette swap — the tachi era runs RED-dominant tactical plots
-  // ("red concentric tactical plots, not just danger" per refs/mars-red
-  // NOTES.md), with steel-cyan as the cooler accent.  Cheaper than
-  // restructuring every color reference up above — the SVG content has
-  // exactly two repeating ink slots (#4c8dc6 cobalt = primary,
-  // #a11a4b desat-red = secondary), so a simple swap reskins everything.
-  if (_active() === "mars-red") {
-    svgStr = svgStr
-      .replace(/#4c8dc6/g, "#d8362a")
-      .replace(/#a11a4b/g, "#4a9ec0");
+  host.innerHTML = svgStr;
+}
+
+// Mars-red Donnager tactical — distinct from mars-blue's roci radar:
+// * RED-dominant concentric rings (no blue rings)
+// * Sector ticks at 8 octant boundaries (architectural Donnager motif)
+// * Hard-angular bracket frame around the tactical surface
+// * Red trajectory arcs between contact pairs (don_201 signature)
+// * Fewer, longer-labeled contacts (6 not 14) with bearing/range readouts
+// * NO violet ellipse, NO compass arc (those are mars-blue calm-ops cues)
+// * Cyan reserved for sector labels + secondary tags (the don_85 grammar)
+// Same viewBox 480x360 + center (240,240) so CSS positioning stays.
+function _buildMarsRedBgRadar(host) {
+  const reduce = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const R = "#d8362a";      // MCRN red — co-primary working color (NOTES.md)
+  const RD = "#9a2418";     // dimmer red — outer dashed rings
+  const CY = "#4a9ec0";     // steel-cyan — secondary tags + sector labels
+  const OL = "#a8a838";     // olive-yellow — don_85's mixed ring-dash color
+  const WH = "#b8c4cc";     // grey-white — don_85's third ring-dash color
+  const TR = `fill="${R}" fill-opacity="0.78" font-family="'Space Mono', monospace" font-size="2.6"`;
+  const TC = `fill="${CY}" fill-opacity="0.55" font-family="'Space Mono', monospace" font-size="2.2"`;
+
+  // Partial orbit-arc segment (don_201 signature): a dashed arc of
+  // `sweep`° starting at `startDeg` on radius r, with a bright contact
+  // dot riding its head.  Mixed colors per the ref (red / olive / white).
+  function polar(rr, deg) {
+    const a = (deg * Math.PI) / 180;
+    return [240 + rr * Math.cos(a), 240 - rr * Math.sin(a)];
   }
+  function arcSeg(rr, startDeg, sweep, color, op, dur) {
+    const [x1, y1] = polar(rr, startDeg);
+    const [x2, y2] = polar(rr, startDeg + sweep);
+    const large = sweep > 180 ? 1 : 0;
+    return `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${rr} ${rr} 0 ${large} 0 ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="${color}" stroke-opacity="${op}" stroke-width="0.7" stroke-dasharray="6 3">` +
+      (reduce ? "" : `<animate attributeName="stroke-dashoffset" from="0" to="-18" dur="${dur}s" repeatCount="indefinite"/>`) +
+      `</path>` +
+      `<circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="1.6" fill="${color}" fill-opacity="0.95"/>`;
+  }
+
+  // Sector ticks — FULL 360° every 22.5° (16 ticks), radial segments
+  // just inside the bright rim (r=200).  Major ticks at the quadrant
+  // boundaries are longer.
+  function sectorTick(angDeg, r1, r2) {
+    const a = (angDeg * Math.PI) / 180;
+    const x1 = 240 + r1 * Math.cos(a);
+    const y1 = 240 - r1 * Math.sin(a);
+    const x2 = 240 + r2 * Math.cos(a);
+    const y2 = 240 - r2 * Math.sin(a);
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${R}" stroke-opacity="0.55" stroke-width="0.6"/>`;
+  }
+  let ticks = "";
+  for (let a = 0; a < 360; a += 22.5) {
+    const isMajor = Math.abs(a % 45) < 0.01;
+    // Majors CROSS the rim both sides (don_85's long perpendicular
+    // cardinal ticks); minors stay just inside.
+    ticks += sectorTick(a, isMajor ? 188 : 194, isMajor ? 214 : 204);
+  }
+
+  // Trajectory arcs — the don_201 signature.  Curved RED Bezier paths
+  // connecting contact pairs, marching dashoffset for live feel.
+  function traj(d, dur) {
+    return `<path d="${d}" fill="none" stroke="${R}" stroke-opacity="0.62" stroke-width="0.6" stroke-dasharray="5 4">` +
+      (reduce ? "" : `<animate attributeName="stroke-dashoffset" from="0" to="-18" dur="${dur}s" repeatCount="indefinite"/>`) +
+      `</path>`;
+  }
+
+  // 8 named contacts — Donnager-style longer labels with bearing/range,
+  // distributed around the FULL disc (all four quadrants).
+  // Pre-positioned (no per-glyph drift; trajectory arcs ARE the motion).
+  const CT = [
+    { x: 185, y: 165, sh: "triangle", lbl: "M1 · 218°", sub: "0.4G" },
+    { x: 300, y: 130, sh: "triangle", lbl: "M2 · 042°", sub: "0.6G" },
+    { x: 150, y: 95,  sh: "caret",    lbl: "T1 · 286°", sub: "1.1G" },
+    { x: 340, y: 185, sh: "caret",    lbl: "T2 · 058°", sub: "0.9G" },
+    { x: 120, y: 240, sh: "dot",      lbl: "H1 · 264°", sub: "----"  },
+    { x: 355, y: 90,  sh: "dot",      lbl: "H2 · 074°", sub: "----"  },
+    { x: 170, y: 330, sh: "triangle", lbl: "M3 · 196°", sub: "0.2G" },
+    { x: 310, y: 355, sh: "dot",      lbl: "H3 · 142°", sub: "----"  },
+  ];
+  let contacts = "";
+  for (const c of CT) {
+    let glyph = "";
+    if (c.sh === "triangle") {
+      glyph = `<polygon points="${c.x},${c.y - 5} ${c.x - 4},${c.y + 2} ${c.x + 4},${c.y + 2}" fill="none" stroke="${R}" stroke-opacity="0.85" stroke-width="0.7"/>`;
+    } else if (c.sh === "caret") {
+      glyph = `<path d="M ${c.x - 5} ${c.y - 3} L ${c.x} ${c.y + 3} L ${c.x + 5} ${c.y - 3}" fill="none" stroke="${R}" stroke-opacity="0.85" stroke-width="0.7"/>` +
+        `<circle cx="${c.x}" cy="${c.y}" r="1.3" fill="${R}" fill-opacity="0.88"/>`;
+    } else {
+      glyph = `<circle cx="${c.x}" cy="${c.y}" r="2.6" fill="none" stroke="${R}" stroke-opacity="0.78" stroke-width="0.55"/>` +
+        `<circle cx="${c.x}" cy="${c.y}" r="1.3" fill="${R}" fill-opacity="0.92"/>`;
+    }
+    contacts +=
+      `<g>${glyph}` +
+        `<text x="${c.x + 6}" y="${c.y - 1}" ${TR}>${c.lbl}</text>` +
+        `<text x="${c.x + 6}" y="${c.y + 3}" ${TC}>${c.sub}</text>` +
+      `</g>`;
+  }
+
+  // Hard-angular corner brackets at the inscribed square of the rim
+  // (r=200 → corners at 240±150).  Industrial Donnager hull motif vs
+  // mars-blue's purely-circular radar feel.
+  function bracket(cx2, cy2, dx, dy) {
+    return `<path d="M ${cx2 + dx * 14} ${cy2} L ${cx2} ${cy2} L ${cx2} ${cy2 + dy * 14}" fill="none" stroke="${R}" stroke-opacity="0.7" stroke-width="1.1"/>`;
+  }
+  const brackets =
+    bracket(90, 90, 1, 1) +      // top-left
+    bracket(390, 90, -1, 1) +    // top-right
+    bracket(90, 390, 1, -1) +    // bottom-left
+    bracket(390, 390, -1, -1) +  // bottom-right
+    // sector IDs — cyan, at the four compass points just inside the rim
+    `<text x="240" y="32" text-anchor="middle" ${TC}>SECT-N</text>` +
+    `<text x="240" y="456" text-anchor="middle" ${TC}>SECT-S</text>` +
+    `<text x="22" y="243" text-anchor="middle" ${TC}>SECT-W</text>` +
+    `<text x="458" y="243" text-anchor="middle" ${TC}>SECT-E</text>`;
+
+  // FULL-CIRCLE war-table disc (2026-06-09: was a semicircle rising from
+  // the viewport bottom; user "needs to be a full circle and bigger").
+  // viewBox 480x480, disc center at (240,240) = SVG center.  The CSS
+  // tilts the whole element back 45° so these full circles foreshorten
+  // into the war-room table ellipses.
+  const svgStr =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480">` +
+      // Disc rings — these belong to the TABLE (not the dropped flat
+      // bg radar).  don_85's ring system is CLUSTERED thin rings with
+      // MIXED-color dash segments: red dominant, olive-yellow + grey-
+      // white interleaved.  Rim is a tight double-line pair.
+      `<circle cx="240" cy="240" r="200" fill="none" stroke="${R}" stroke-opacity="0.62" stroke-width="1.2"/>` +
+      `<circle cx="240" cy="240" r="196" fill="none" stroke="${R}" stroke-opacity="0.30" stroke-width="0.5"/>` +
+      // Olive dashed ring (don_85's yellow-green dash band).
+      `<circle cx="240" cy="240" r="170" fill="none" stroke="${OL}" stroke-opacity="0.34" stroke-width="0.55" stroke-dasharray="7 5"/>` +
+      // Mid cluster pair: olive dashed + red thin (clustered ~6 apart).
+      `<circle cx="240" cy="240" r="143" fill="none" stroke="${R}" stroke-opacity="0.42" stroke-width="0.6" stroke-dasharray="4 3">` +
+        (reduce ? "" : `<animate attributeName="stroke-dashoffset" from="0" to="-14" dur="26s" repeatCount="indefinite"/>`) +
+      `</circle>` +
+      `<circle cx="240" cy="240" r="137" fill="none" stroke="${OL}" stroke-opacity="0.30" stroke-width="0.45" stroke-dasharray="2 5"/>` +
+      // Grey-white dashed ring (don_85's third dash color).
+      `<circle cx="240" cy="240" r="110" fill="none" stroke="${WH}" stroke-opacity="0.26" stroke-width="0.5" stroke-dasharray="5 6"/>` +
+      `<circle cx="240" cy="240" r="80" fill="none" stroke="${RD}" stroke-opacity="0.38" stroke-width="0.5" stroke-dasharray="2 4"/>` +
+      // Partial orbit-arc segments with contact dots riding their heads
+      // (don_201): varying sweeps + radii, mixed colors.
+      arcSeg(155, 200, 95, R, 0.55, 21) +
+      arcSeg(122, 30, 70, WH, 0.40, 27) +
+      arcSeg(94, 290, 120, R, 0.48, 24) +
+      arcSeg(185, 120, 50, OL, 0.42, 31) +
+      // N-S + E-W graticules across the full disc — cyan (secondary).
+      `<line x1="240" y1="40" x2="240" y2="440" stroke="${CY}" stroke-opacity="0.20" stroke-width="0.4" stroke-dasharray="3 2"/>` +
+      `<line x1="40" y1="240" x2="440" y2="240" stroke="${CY}" stroke-opacity="0.20" stroke-width="0.4" stroke-dasharray="3 2"/>` +
+      // Thin diagonal hairlines through the disc (don_201's radial
+      // crossings) — barely-there structure.
+      `<line x1="100" y1="59" x2="380" y2="421" stroke="${R}" stroke-opacity="0.10" stroke-width="0.4"/>` +
+      `<line x1="380" y1="59" x2="100" y2="421" stroke="${R}" stroke-opacity="0.10" stroke-width="0.4"/>` +
+      // Full-circle sector ticks at the rim.
+      ticks +
+      // Hard-angular corner brackets + sector labels.
+      brackets +
+      // Trajectory arcs — the don_201 signature.  Bezier paths between
+      // contact pairs, marching dashoffset.  M1→M2 (allied pair),
+      // T1→M2 (intercept projection), H1→T1 (escort track),
+      // M3→H3 (southern patrol track).
+      traj("M 185 165 Q 250 120 300 130", 18) +
+      traj("M 150 95 Q 235 90 300 130", 22) +
+      traj("M 120 240 Q 125 150 150 95", 26) +
+      traj("M 170 330 Q 240 370 310 355", 30) +
+      // 8 named contacts with bearing + accel readouts.
+      contacts +
+      // Intercept callout (don_85's red-bordered chip at the display
+      // edge, leader-lined to the threat contact T2).  Blinks slowly —
+      // the one element that earns motion attention.
+      `<line x1="345" y1="187" x2="368" y2="208" stroke="${R}" stroke-opacity="0.55" stroke-width="0.45"/>` +
+      `<g>` +
+        (reduce ? "" : `<animate attributeName="opacity" values="1;0.55;1" dur="2.6s" repeatCount="indefinite"/>`) +
+        `<rect x="368" y="204" width="58" height="9" fill="rgba(38,12,10,0.85)" stroke="${R}" stroke-opacity="0.9" stroke-width="0.6"/>` +
+        `<text x="372" y="210.5" ${TR}>INTERCEPT 04:12</text>` +
+      `</g>` +
+      // Glowing red wireframe orb at the radar center — the holographic
+      // projection above the tilted war-room plot (don_225 cyan body
+      // recast as red).  3 great circles + 2 counter-rotating inner
+      // ellipses + soft fill glow + bright center pip.  Per user
+      // 2026-06-09 "glowing red wireframe orb at the center".
+      `<g transform="translate(240 240)">` +
+        // Hot center glow (don_201's glowing body) — wide soft halo
+        // stack behind the wireframe.
+        `<circle r="48" fill="${R}" fill-opacity="0.04"/>` +
+        `<circle r="34" fill="${R}" fill-opacity="0.07"/>` +
+        `<circle r="22" fill="${R}" fill-opacity="0.12"/>` +
+        // 3 great circles — equator + 2 polar.
+        `<circle r="27" fill="none" stroke="${R}" stroke-opacity="0.85" stroke-width="0.9"/>` +
+        `<ellipse rx="27" ry="10.5" fill="none" stroke="${R}" stroke-opacity="0.75" stroke-width="0.65"/>` +
+        `<ellipse rx="10.5" ry="27" fill="none" stroke="${R}" stroke-opacity="0.75" stroke-width="0.65"/>` +
+        // 2 counter-rotating inner ellipses — orbital activity.
+        `<ellipse rx="21" ry="7.5" fill="none" stroke="${R}" stroke-opacity="0.62" stroke-width="0.55">` +
+          (reduce ? "" : `<animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="24s" repeatCount="indefinite"/>`) +
+        `</ellipse>` +
+        `<ellipse rx="7.5" ry="21" fill="none" stroke="${R}" stroke-opacity="0.62" stroke-width="0.55">` +
+          (reduce ? "" : `<animateTransform attributeName="transform" type="rotate" from="0" to="-360" dur="32s" repeatCount="indefinite"/>`) +
+        `</ellipse>` +
+        // Bright center pip.
+        `<circle r="2.2" fill="${R}" fill-opacity="0.98"/>` +
+      `</g>` +
+    `</svg>`;
   host.innerHTML = svgStr;
 }
 
@@ -577,9 +845,11 @@ export function _updateMarsBlueHisto() {
   const ACTIVE = _active();
   const fur = document.getElementById("theme-furniture");
   if (!fur || fur.dataset.theme !== "mars-blue") return;
+  // Bars are mars-blue-only furniture; mars-red's Donnager stack binds
+  // further down.  Either may be present — guard each, bail on neither.
   const bars = fur.querySelectorAll(".fur-bars i");
-  if (!bars.length) return;
-  const N = bars.length;
+  const mrStack = fur.querySelector(".fur-mr-stack");
+  if (!bars.length && !mrStack) return;
   const ts = [...document.querySelectorAll("#notebook .cell[data-timestamp]")]
     .map((c) => Date.parse(c.dataset.timestamp))
     .filter((t) => Number.isFinite(t));
@@ -587,16 +857,19 @@ export function _updateMarsBlueHisto() {
   let minT = Infinity, maxT = -Infinity;
   for (const t of ts) { if (t < minT) minT = t; if (t > maxT) maxT = t; }
   const span = Math.max(1, maxT - minT);
-  const bins = new Array(N).fill(0);
-  for (const t of ts) {
-    let i = Math.floor(((t - minT) / span) * N);
-    if (i >= N) i = N - 1; else if (i < 0) i = 0;
-    bins[i]++;
-  }
-  let maxCount = 1;
-  for (const b of bins) if (b > maxCount) maxCount = b;
-  for (let i = 0; i < N; i++) {
-    bars[i].style.setProperty("--h", (0.1 + 0.9 * (bins[i] / maxCount)).toFixed(3));
+  if (bars.length) {
+    const N = bars.length;
+    const bins = new Array(N).fill(0);
+    for (const t of ts) {
+      let i = Math.floor(((t - minT) / span) * N);
+      if (i >= N) i = N - 1; else if (i < 0) i = 0;
+      bins[i]++;
+    }
+    let maxCount = 1;
+    for (const b of bins) if (b > maxCount) maxCount = b;
+    for (let i = 0; i < N; i++) {
+      bars[i].style.setProperty("--h", (0.1 + 0.9 * (bins[i] / maxCount)).toFixed(3));
+    }
   }
   const mins = Math.round(span / 60000);
   const window = mins >= 1 ? mins + "M" : "<1M";
@@ -657,4 +930,68 @@ export function _updateMarsBlueHisto() {
   setPip("LOK",    (dangerCount === 0 && recent > 0) ? "locked" : "idle");
   setPip("PDC",    "armed");
   setPip("AUX",    "armed");
+
+  // ── Mars-red Donnager data-stack bindings ──────────────────────────
+  if (mrStack) {
+    // Waveform — mint activity over the session window (the don_201
+    // left-column spectrum band, data-bound like the mars-blue bars).
+    const wavePoly = fur.querySelector(".fur-mr-wave polyline");
+    if (wavePoly) {
+      const WN = 40;
+      const wbins = new Array(WN).fill(0);
+      for (const t of ts) {
+        let i = Math.floor(((t - minT) / span) * WN);
+        if (i >= WN) i = WN - 1; else if (i < 0) i = 0;
+        wbins[i]++;
+      }
+      let wmax = 1;
+      for (const b of wbins) if (b > wmax) wmax = b;
+      let pts = "";
+      for (let i = 0; i < WN; i++) {
+        const x = ((i / (WN - 1)) * 120).toFixed(1);
+        const y = (22 - 18 * (wbins[i] / wmax)).toFixed(1);
+        pts += `${x},${y} `;
+      }
+      wavePoly.setAttribute("points", pts.trim());
+    }
+    // Micro-table values.
+    const setMr = (k, v) => {
+      const e = fur.querySelector(`[data-mr="${k}"]`);
+      if (e) e.textContent = v;
+    };
+    setMr("trf", rate.toFixed(1) + "/M");
+    setMr("con", String(ts.length));
+    setMr("sub", String(types.size));
+    setMr("dng", String(dangerCount));
+    setMr("eps", "0.91");
+    setMr("flx", rateNorm.toFixed(2));
+    setMr("dlt", window.replace("<", "‹"));
+    // Indicator lamps — lamp 1 mirrors clean+active, lamp 2 mirrors danger.
+    const lamps = fur.querySelectorAll(".fur-mr-lamp");
+    if (lamps[0]) lamps[0].dataset.on = recent > 0 ? "1" : "0";
+    if (lamps[1]) lamps[1].dataset.on = dangerCount > 0 ? "1" : "0";
+    // Registry footer line.
+    const reg = fur.querySelector(".fur-mr-reg");
+    if (reg) {
+      const mins2 = Math.round(span / 60000);
+      reg.innerHTML = REG + "<br>TRAFFIC · " + ts.length + " CONTACTS / " +
+        (mins2 >= 1 ? mins2 + "M" : "&lt;1M");
+    }
+    // Event ticks — one dash per recent mint, newest at top, fading
+    // with age (30min fade horizon).
+    const ticksEl = fur.querySelector(".fur-mr-ticks");
+    if (ticksEl) {
+      const sorted = [...ts].sort((a, b) => b - a).slice(0, 12);
+      let h = "";
+      for (const t of sorted) {
+        const ageMin = (maxT - t) / 60000;
+        const op = Math.max(0.25, 1 - ageMin / 30);
+        const d = new Date(t);
+        const lbl = String(d.getHours()).padStart(2, "0") +
+          String(d.getMinutes()).padStart(2, "0");
+        h += `<div class="fur-mr-tick" style="opacity:${op.toFixed(2)}"><i></i><span>${lbl}</span></div>`;
+      }
+      ticksEl.innerHTML = h;
+    }
+  }
 }
