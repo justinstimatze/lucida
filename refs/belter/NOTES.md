@@ -3,6 +3,14 @@
 Theme id: `belter`. Faction: Outer Planets Alliance / Belters / Free Navy. The brand IS
 eclecticism — salvaged, repurposed, multi-faction gear. "Waste not, want not."
 
+## Incoming frame (re-assigned from refs/rocinante, user curation 2026-06-09)
+
+`roci_threat_response_orbital.png` — actually a Free Navy screen (clip
+`pPutN_QzbeE`, the same clip all `bel_pPutN_*` frames came from); had been
+mis-filed as roci "calm-ops" and was nearly used to justify mars-blue changes.
+Filename kept for provenance. Grammar: violet orbital plot + starfield speckle +
+top-hanging yellow ▼ stalk pips + left bar-gauge column + ship-self wireframe.
+
 ## Sources
 
 - `mlN8azjGuTc` — "The Expanse — 5x01 Tycho Station Opening Scene" (4:31). Belter corridors,

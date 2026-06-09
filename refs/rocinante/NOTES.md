@@ -3,6 +3,26 @@
 Theme id: `rocinante` (user-locked). Faction: Mars Congressional Republic Navy (the
 Rocinante is the ex-MCRN *Tachi*, so it carries the MCRN screen-graphics lineage).
 
+## ⭐ CANONICAL REF SET (user curation 2026-06-09)
+
+Primary: **`roci_warship_tactical_screen.png`**, then
+`roci_combat_missilelock_dense.png` + `roci_nav_named_bodies.png`.
+Secondary (alt-layout sources): `roci_railgun_firecontrol.png`,
+`roci_console_target_render.png`, `roci_cockpit_wide_console.png` (wide
+multi-display view).
+
+Corrections applied 2026-06-09:
+- MOVED to refs/tachi (actually mars-red era): `roci_confirm_modal_chevron.png`,
+  `roci_keyboard_input.png`, `roci_registry_terminal_named.png`.
+- MOVED to refs/belter (actually a Free Navy screen — clip `pPutN_QzbeE` is the
+  same clip all `bel_pPutN_*` frames came from): `roci_threat_response_orbital.png`.
+  Any grammar note below citing that frame as roci is suspect — re-check against
+  the canonical three before acting on it.
+- DELETED: `00_01_03_roci_red_commandline_registration.png` (wide shot, no use).
+
+Provenance rule: the clip ID in each frame's row is the faction key — verify it
+(and eyeball the frame) before using a frame as design justification.
+
 ## Sources
 
 - `pPutN_QzbeE` — "Rocinante vs The Free Navy | The Expanse 5x10" (5:22). Roci cockpit

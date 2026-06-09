@@ -5,6 +5,13 @@ smooth-blue; tachi = early-Syfy hard grey + red. See memory `roci_tachi_era_spli
 CAVEAT: the tachi=grey+red / roci=blue mapping is a curatorial conceit, not literal
 canon (rename was S1; palette drift was the S4 Syfy→Amazon handoff).
 
+## Incoming frames (re-assigned from refs/rocinante, user curation 2026-06-09)
+
+`roci_confirm_modal_chevron.png` (chevron-framed confirm modal),
+`roci_keyboard_input.png`, `roci_registry_terminal_named.png` (green-phosphor
+registry terminal) — user: these are actually mars-red/tachi-era surfaces.
+Filenames kept for provenance.
+
 ## Sources
 
 - `NqDcnwrsq6U` — **the Donnager (MCRN flagship), S1.** User-supplied 2026-05-29 with
