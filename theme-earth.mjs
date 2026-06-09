@@ -128,6 +128,12 @@ export function _buildFurnitureEarth(el) {
       '<div class="earth-screen">' +
         '<svg viewBox="0 0 188 124" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
           '<g class="earth-grid-bg">' + grid + '</g>' +
+          // Translucent blue own-zone sphere (refs/unn rangerings: the UNN
+          // engagement envelope, overlapping the red dashed hostile bubble
+          // — the two-spheres composition is the ref's signature read).
+          '<circle cx="' + cx + '" cy="' + cy + '" r="34" fill="' + p.primary +
+            '" fill-opacity="0.07" stroke="' + p.primary +
+            '" stroke-opacity="0.30" stroke-width="0.7"/>' +
           _earthSeal(cx, cy, 10) +
           '<g class="earth-rings">' + rings + '</g>' + threat +
           // Sweep beam — SVG <animateTransform> rotating a 30° wedge around
@@ -170,6 +176,10 @@ export function _buildFurnitureEarth(el) {
         '</div>' +
       '</div>' +
     '</div>';
+  // (2026-06-09: a perspective grid-plane bg element + zone spheres were
+  // tried here and rolled back same-day — "we already have the hero tile
+  // for that" + "keep the light grid but straight squares".  The flat
+  // orthogonal CSS tile on .theme-earth body is the whole bg story.)
 }
 
 // Formal naval track abbreviation for a substrate type — institutional register
@@ -203,7 +213,9 @@ export function _updateEarthTactical() {
   const cx = 94, cy = 60, ringR = [10, 22, 34, 46];
   let out = "", rows = "";
   cells.forEach((c, i) => {
-    const r = ringR[Math.min(ringR.length - 1, Math.floor(i / 2))]; // newest inner, 2 per ring
+    // ONE contact per ring (was 2/ring — both inner-ring labels stacked
+    // next to the OWN label at center; task #71 label-overlap).
+    const r = ringR[Math.min(ringR.length - 1, i)];
     const deg = (i * 67 + 28) % 360;                                // deterministic bearing
     const a = ((deg - 90) * Math.PI) / 180;                         // 0° = North
     const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
@@ -234,11 +246,15 @@ export function _updateEarthTactical() {
           '" width="4" height="4" fill="none" stroke="' + p.cat2 + '" stroke-width="1"/>' +
         (i === 0 ? '<rect class="earth-sel-live" x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
           '" width="7.2" height="7.2" fill="none" stroke="' + p.cat3 + '" stroke-opacity="0.75" stroke-width="0.6"/>' : "") +
-        (i < 3 ? '<text class="earth-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
+        // Label flips to the outboard side on the left half of the plot so
+        // it never runs back toward OWN/center (task #71).
+        (i < 3 ? '<text class="earth-contact-lbl" x="' +
+          (x < cx ? (x - 6).toFixed(1) : (x + 6).toFixed(1)) + '" y="' + (y + 2.5).toFixed(1) +
+          (x < cx ? '" text-anchor="end' : '') +
           '">' + _earthTag(c.type) + '</text>' : "") +
       '</g>';
     const brg = String(deg).padStart(3, "0");
-    const ringIdx = Math.min(ringR.length - 1, Math.floor(i / 2));
+    const ringIdx = Math.min(ringR.length - 1, i);
     const rng = String(4 + ringIdx * 8 + (i % 2) * 2).padStart(2, "0"); // recency→range
     rows += '<div class="earth-rrow"><span>' + String(i + 1).padStart(2, "0") +
       '</span><span>' + _earthTag(c.type) + '</span><span>' + brg +

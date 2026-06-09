@@ -5091,8 +5091,11 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  /* Plain orthogonal institutional grid — no flourish, no glow. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M48 0H0V48' fill='none' stroke='%232f6fd0' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
+  /* Plain orthogonal institutional grid — straight squares, no perspective,
+     no flourish (user 2026-06-09: rings/zones belong to the hero board, the
+     bg is just a light grid).  Opacity nudged 0.06 → 0.10 so the grid is
+     actually visible (the canonical refs' surface is clearly gridded). */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M48 0H0V48' fill='none' stroke='%232f6fd0' stroke-opacity='0.10' stroke-width='1'/%3E%3C/svg%3E");
   background-size: 48px 48px;
   background-attachment: fixed;
 }

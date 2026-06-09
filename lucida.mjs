@@ -25,7 +25,7 @@ import { _buildFurnitureDrift, _updateDriftOrbital, _updateDriftHero } from "./t
 // Shared module for BOTH mars themes (mars-blue + mars-red) — builders
 // split internally per theme; see _buildMarsRedBgRadar vs _buildMarsBlueBgRadar.
 import { _buildFurnitureMarsBlue, _updateMarsBlueHisto } from "./theme-mars.mjs?v=3";
-import { _buildFurnitureEarth, _updateEarthTactical, _earthAmbientStart } from "./theme-earth.mjs?v=1";
+import { _buildFurnitureEarth, _updateEarthTactical, _earthAmbientStart } from "./theme-earth.mjs?v=4";
 import {
   applyOrganicLayout, applyPackHeroLayout, applyWarroomLayout,
   applyCornersLayout, applyScatterLayout,
