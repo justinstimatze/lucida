@@ -43,3 +43,20 @@ repos:
     rev: v8.21.0
     hooks:
       - id: gitleaks
+
+  # Reference-still gate: copyrighted frames under refs/ must NEVER be
+  # committed (this is a PUBLIC repo). 131 stills slipped past the old
+  # per-dir gitignore list and had to be purged from history with
+  # git-filter-repo on 2026-06-09. `language: fail` fails the commit if
+  # any staged file matches. Prose (NOTES.md / ATTRIBUTION.md / README)
+  # doesn't match the binary extensions, so curation stays committable.
+  - repo: local
+    hooks:
+      - id: no-ref-stills
+        name: Block media binaries under refs/
+        entry: >-
+          Copyrighted reference media must stay local-only (public repo).
+          Unstage it; if intentional prose/code, rename outside refs/ or
+          adjust .pre-commit-config.yaml.
+        language: fail
+        files: '^refs/.*\.(png|jpe?g|gif|webp|bmp|tiff?|mp4|mov|mkv|webm|ttf|otf|woff2?)$'
