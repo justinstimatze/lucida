@@ -12076,8 +12076,10 @@ function applyCornersLayout() {
       left: Math.round(s.x) + "px",
       top: Math.round(s.y) + "px",
       width: d.w + "px",
-      height: "auto",
-      minHeight: Math.round(d.h * 0.5) + "px",
+      // FIXED height — height:auto + content updates made the cells (and the
+      // band positions tracking them via getBoundingClientRect) shift on every
+      // mint. Stable height keeps the chrome bands pinned.
+      height: d.h + "px",
       maxHeight: d.h + "px",
       maxWidth: "none",
       zIndex: String(100 + (cells.length - i)),
