@@ -24,7 +24,7 @@ import { initScene3D } from "./scene3d.mjs?v=2";
 import { _buildFurnitureDrift, _updateDriftOrbital, _updateDriftHero } from "./theme-drift.mjs?v=2";
 // Shared module for BOTH mars themes (mars-blue + mars-red) — builders
 // split internally per theme; see _buildMarsRedBgRadar vs _buildMarsBlueBgRadar.
-import { _buildFurnitureMarsBlue, _updateMarsBlueHisto } from "./theme-mars.mjs?v=3";
+import { _buildFurnitureMarsBlue, _updateMarsBlueHisto } from "./theme-mars.mjs?v=6";
 import { _buildFurnitureEarth, _updateEarthTactical, _earthAmbientStart } from "./theme-earth.mjs?v=4";
 import {
   applyOrganicLayout, applyPackHeroLayout, applyWarroomLayout,

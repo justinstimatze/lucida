@@ -451,40 +451,50 @@ function _buildMarsBlueBgRadar() {
   // absolute — the path "M 0 0 ..." applies as a relative translation
   // around the group's intrinsic position.
   let stalkers = "";
+  // Second-line numeric readout under each contact tag — the canonical
+  // roci_warship_tactical_screen contacts all carry 2-line labels
+  // (name over number).  Deterministic 4-digit codes; dimmer + smaller
+  // than the tag line.  Fresh-eyes pass 2026-06-09.
+  const TB2 = 'fill="#4c8dc6" fill-opacity="0.38" font-family="\'Space Mono\', monospace" font-size="2.2"';
+  const TR2 = 'fill="#a11a4b" fill-opacity="0.42" font-family="\'Space Mono\', monospace" font-size="2.2"';
+  function sub(x, y, i, red) {
+    const code = String((i * 1973 + 311) % 10000).padStart(4, "0");
+    return '<text x="' + x + '" y="' + (y + 3.6) + '" ' + (red ? TR2 : TB2) + '>' + code + '</text>';
+  }
   // 2 blue + 2 red equilateral triangles (M1, M2, T1, T2).
   stalkers +=
     '<g>' + motion(0, 75) +
       '<polygon points="200,191 196,198 204,198" fill="none" ' + SB + '/>' +
-      '<text x="206" y="200" ' + TB + '>M1</text>' +
+      '<text x="206" y="200" ' + TB + '>M1</text>' + sub(206, 200, 0, false) +
     '</g>' +
     '<g>' + motion(1, 85) +
       '<polygon points="290,136 286,143 294,143" fill="none" ' + SB + '/>' +
-      '<text x="296" y="145" ' + TB + '>M2</text>' +
+      '<text x="296" y="145" ' + TB + '>M2</text>' + sub(296, 145, 1, false) +
     '</g>' +
     '<g>' + motion(2, 55) +
       '<polygon points="175,114 171,121 179,121" fill="none" ' + SR + '/>' +
-      '<text x="181" y="123" ' + TR + '>T1</text>' +
+      '<text x="181" y="123" ' + TR + '>T1</text>' + sub(181, 123, 2, true) +
     '</g>' +
     '<g>' + motion(3, 70) +
       '<polygon points="315,161 311,168 319,168" fill="none" ' + SR + '/>' +
-      '<text x="321" y="170" ' + TR + '>T2</text>' +
+      '<text x="321" y="170" ' + TR + '>T2</text>' + sub(321, 170, 3, true) +
     '</g>';
   // 2 blue + 1 red caret-with-dot (M5, M6, T3).  Dot in the caret mouth.
   stalkers +=
     '<g>' + motion(4, 60) +
       '<path d="M 260 168 L 252 174 L 260 180" fill="none" ' + SB + '/>' +
       '<circle cx="257" cy="174" r="1.5" fill="#4c8dc6" fill-opacity="0.78"/>' +
-      '<text x="262" y="176" ' + TB + '>M5</text>' +
+      '<text x="262" y="176" ' + TB + '>M5</text>' + sub(262, 176, 4, false) +
     '</g>' +
     '<g>' + motion(5, 80) +
       '<path d="M 220 200 L 226 192 L 232 200" fill="none" ' + SB + '/>' +
       '<circle cx="226" cy="198" r="1.5" fill="#4c8dc6" fill-opacity="0.78"/>' +
-      '<text x="232" y="200" ' + TB + '>M6</text>' +
+      '<text x="232" y="200" ' + TB + '>M6</text>' + sub(232, 200, 5, false) +
     '</g>' +
     '<g>' + motion(6, 65) +
       '<path d="M 340 128 L 346 122 L 352 128" fill="none" ' + SR + '/>' +
       '<circle cx="346" cy="127" r="1.5" fill="#a11a4b" fill-opacity="0.88"/>' +
-      '<text x="354" y="128" ' + TR + '>T3</text>' +
+      '<text x="354" y="128" ' + TR + '>T3</text>' + sub(354, 128, 6, true) +
     '</g>';
   // 10 red-dot-with-blue-outline contacts (H1..HA).  Outer r=2.8, inner r=1.4.
   const CT = [
@@ -506,8 +516,65 @@ function _buildMarsBlueBgRadar() {
         '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="2.8" fill="none" stroke="#4c8dc6" stroke-opacity="0.78" stroke-width="0.6"/>' +
         '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="1.4" fill="#a11a4b" fill-opacity="0.92"/>' +
         '<text x="' + c[2] + '" y="' + c[3] + '" ' + TR + '>' + c[4] + '</text>' +
+        sub(c[2], c[3], 7 + k, true) +
       '</g>';
   }
+  // Background-traffic layer — the primary ref reads ~28 contacts vs our
+  // 17.  Ten more, deliberately QUIETER than the labeled foreground:
+  // 6 small blue chevrons with only the dim numeric line, 4 bare dots.
+  // Fresh-eyes pass 2026-06-09.
+  const BG_CHEV = [
+    [205, 95, 50], [268, 88, 72], [148, 142, 64], [355, 152, 58],
+    [240, 75, 80], [310, 105, 66],
+  ];
+  for (let k = 0; k < BG_CHEV.length; k++) {
+    const [bx, by, dur] = BG_CHEV[k];
+    stalkers +=
+      '<g>' + motion(17 + k, dur) +
+        '<path d="M ' + (bx - 3) + ' ' + (by - 3) + ' L ' + (bx + 3) + ' ' + by +
+          ' L ' + (bx - 3) + ' ' + (by + 3) + '" fill="none" stroke="#4c8dc6" stroke-opacity="0.55" stroke-width="0.55"/>' +
+        sub(bx + 5, by - 1.6, 17 + k, false) +
+      '</g>';
+  }
+  const BG_DOTS = [[190, 78, 62], [325, 82, 78], [128, 118, 56], [362, 122, 70]];
+  for (let k = 0; k < BG_DOTS.length; k++) {
+    const [bx, by, dur] = BG_DOTS[k];
+    stalkers +=
+      '<g>' + motion(23 + k, dur) +
+        '<circle cx="' + bx + '" cy="' + by + '" r="1.1" fill="#4c8dc6" fill-opacity="0.45"/>' +
+      '</g>';
+  }
+  // Bearing tick scale "-30 .. 0 .. 30" — CURVED along an arc concentric
+  // with the radar (user 2026-06-09: the ref's scale follows the tactical
+  // circle, not a straight line).  Radius 100 sits in the clear band
+  // between ring 1 (r=60) and ring 2 (r=120).  Bearing d maps to angle
+  // d*1.4 from vertical for readability; ticks point radially outward,
+  // labels ride just outside the arc, upright.
+  const BR = 100, BMUL = 1.4, BCX = 240, BCY = 240;
+  function bpt(d, r) {
+    const a = ((d * BMUL) * Math.PI) / 180;
+    return [BCX + r * Math.sin(a), BCY - r * Math.cos(a)];
+  }
+  const [bsx, bsy] = bpt(-35, BR);
+  const [bex, bey] = bpt(35, BR);
+  let bearingScale =
+    '<path d="M ' + bsx.toFixed(1) + ' ' + bsy.toFixed(1) +
+      ' A ' + BR + ' ' + BR + ' 0 0 1 ' + bex.toFixed(1) + ' ' + bey.toFixed(1) +
+      '" fill="none" stroke="#4c8dc6" stroke-opacity="0.25" stroke-width="0.4"/>';
+  for (let d = -30; d <= 30; d += 10) {
+    const major = d % 30 === 0;
+    const [tx1, ty1] = bpt(d, BR - 1);
+    const [tx2, ty2] = bpt(d, major ? BR + 4.5 : BR + 3);
+    const [lx, ly] = bpt(d, BR + 9);
+    bearingScale +=
+      '<line x1="' + tx1.toFixed(1) + '" y1="' + ty1.toFixed(1) +
+        '" x2="' + tx2.toFixed(1) + '" y2="' + ty2.toFixed(1) +
+        '" stroke="#4c8dc6" stroke-opacity="0.35" stroke-width="0.4"/>' +
+      '<text x="' + lx.toFixed(1) + '" y="' + (ly + 0.8).toFixed(1) +
+        '" text-anchor="middle" fill="#4c8dc6" fill-opacity="0.38" ' +
+        'font-family="\'Space Mono\', monospace" font-size="2.2">' + d + '</text>';
+  }
+  stalkers += bearingScale;
 
   // viewBox 480x360 (extra-wide + extra headroom up top so the larger
   // perimeter rings can render).  Radar centered at (240, 240) — bottom-
