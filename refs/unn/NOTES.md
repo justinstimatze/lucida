@@ -3,6 +3,19 @@
 Theme id: `unn` (UN Navy). Faction: Earth / United Nations. The establishment power —
 institutional, formal, polished but practical.
 
+## ⭐ CANONICAL REF SET (user curation 2026-06-09 — "basically only use those")
+
+1. **`unn_tactical_perspective_grid.png`** — THE primary display ref ("the best").
+2. **`agatha-king/ak_2.png`** — second display ref.
+3. **`agatha-king/ak_234.png`** — environmental VIBES only (wide shot that happens to
+   include displays) — use for room/atmosphere judgment, NOT as a display example.
+
+All other frames in this dir are deprecated for design reference. DROPPED outright
+2026-06-09: `00_03_22_un_warroom_blue_holo_table_wide.png` (junk frame, possibly not
+even The Expanse) and `00_09_26_avasarala_office_green_holo_flags.png` (a frame from
+the **SteamVR setup process** — wrong video entirely). Both deleted from disk; their
+rows below are struck for the record.
+
 ## Sources
 
 - `m7WtNgesVbQ` — "Sci-Fi UI Episode 1: The Expanse" (12:08). The UN situation/war room +
@@ -48,10 +61,10 @@ Contrast is the point: across the 3 themes, UNN is the "boring competent bureauc
 | `unn_tactical_perspective_grid.png` | `F9tbootnWLI` @2:51 | ⭐ Same tactical in **perspective** (grid plane tilts away, 2.5D): blue gridded plane + concentric range-rings + "UNN Agatha King" contact cluster + scattered cyan/white contacts; right-side "TRACKING" panel + button blocks. |
 | `unn_bridge_console_angular.png` | `F9tbootnWLI` @3:54 | ⭐ UNN **bridge console hardware**: bank of small blue screens in **chunky angular grey bezels** (Yorke's WWII-naval "small angular panels"), button rows + a circular dial. The institutional/utilitarian console look. |
 | `00_04_02_un_warroom_seal_table_orbital_lines.png` | 4:02 | ⭐ UN war room — circular holo-table with the **UN globe-laurel seal** inlaid, red + blue orbital trajectory arcs floating above, left-wall readout screens. The Earth-power centerpiece. |
-| `00_03_22_un_warroom_blue_holo_table_wide.png` | 3:22 | War room wide — blue volumetric holo projection rising from the round table, concrete-and-wood institutional room, faction flags, wall screens. |
-| `00_06_04_un_warroom_wall_readout_screens.png` | 6:04 | War room — left wall readout screens detail (red-tinted + blue panels), blue orbital arc. |
-| `00_08_05_avasarala_holoscreen_globe_red_arc.png` | 8:05 | Avasarala at a holo-screen — cyan/blue **Earth globe** + red trajectory arc + green accent lines. Diplomatic FUI. |
-| `00_09_26_avasarala_office_green_holo_flags.png` | 9:26 | Avasarala's office — **green laser-line** holographic projection, UN + member-state flags, globe, wood desk. |
+| ~~`00_03_22_un_warroom_blue_holo_table_wide.png`~~ | 3:22 | DELETED 2026-06-09 — junk frame (green CRT terminal, possibly not The Expanse at all). The 00_* extraction timestamps are unreliable. |
+| `00_06_04_un_warroom_wall_readout_screens.png` | 6:04 | (deprecated for design use) Actually shows the round seal TABLE with blue holo arcs — filename wrong. |
+| `00_08_05_avasarala_holoscreen_globe_red_arc.png` | 8:05 | (deprecated for design use) Avasarala holo-screen. |
+| ~~`00_09_26_avasarala_office_green_holo_flags.png`~~ | 9:26 | DELETED 2026-06-09 — a **SteamVR setup-process frame**, not The Expanse. Extraction pipeline grabbed the wrong source. |
 
 ## Design vocabulary (palette)
 
