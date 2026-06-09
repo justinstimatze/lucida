@@ -173,15 +173,13 @@
         });
       }
       // Boot overlay fade-out: mixed3d signals 'booted' from its own
-      // first-frame callback (slow path — wait for WebGL warm). All
-      // other layouts hide the overlay on window-load + one rAF, since
-      // they don't have a comparable warmup cost.
+      // first-frame callback (slow path — wait for WebGL warm). NON-mixed3d
+      // dismissal moved entirely into lucida.mjs's load() — it sets booted
+      // AFTER all three applyActiveLayout passes have settled (+0, +600,
+      // +2000ms), so the ugly layout-churn cascade stays HIDDEN behind the
+      // overlay. The window.load + rAF dismissal here was firing before
+      // those iterations and revealing the thrash.
       window.addEventListener("load", function () {
-        if (layout !== "mixed3d") {
-          requestAnimationFrame(function () {
-            document.body.classList.add("booted");
-          });
-        }
         // Safety fallback: force-hide after 90 seconds if the warmup
         // path never even begins (e.g. mount drain stuck). Healthy boot
         // dismisses MUCH earlier via the boot-ready promise that warmup
@@ -322,6 +320,6 @@
      empty (invisible) for themes without a furniture builder. Part of the
      theming-flexibility foundation. -->
 <div id="theme-furniture" aria-hidden="true"></div>
-<script type="module" src="lucida.mjs?v=75"></script>
+<script type="module" src="lucida.mjs?v=76"></script>
 </body>
 </html>

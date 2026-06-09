@@ -2534,7 +2534,7 @@ async function load() {
   // (see applyMixed3DLayout tick), so this branch leaves them alone.
   if (!document.body.classList.contains("booted")
       && getLayoutMode() !== "mixed3d") {
-    setTimeout(() => document.body.classList.add("booted"), 2200);
+    setTimeout(() => document.body.classList.add("booted"), 2500);
   }
   // Catch async-loaded content (vega/mermaid/scene3d) that resolves
   // after first layout — re-check at intervals during the first
