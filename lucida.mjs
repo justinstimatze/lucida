@@ -21,7 +21,7 @@ window.mermaid = mermaid;
 // pinned via ?v= — bump alongside `lucida.mjs?v=` in index.html when this
 // file changes (see [[dev_cache_discipline]]).
 import { buildScene3DMeshes, initScene3D } from "./scene3d.mjs?v=2";
-import { _buildFurnitureDrift, _updateDriftOrbital, _updateDriftHero } from "./theme-drift.mjs?v=1";
+import { _buildFurnitureDrift, _updateDriftOrbital, _updateDriftHero } from "./theme-drift.mjs?v=2";
 
 // Full-stack theme config: chrome lives in CSS (notebook.css), but
 // mermaid + vega + scene3d content also need theme-aware colors.

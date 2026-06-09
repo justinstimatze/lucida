@@ -3796,17 +3796,17 @@ html.theme-mars-red #notebook {
   letter-spacing: 0.18em;
   color: rgba(122, 175, 175, 0.85);
 }
-/* Cryptic Belter labels above the mesh widget — stacked vertical column
-   of low-opacity salvaged-console call-signs. */
+/* Cryptic Belter labels to the LEFT of the mesh widget — vertical column
+   of low-opacity salvaged-console call-signs that can't intrude on the
+   TR button strip's vertical zone (which lives in the top-right band). */
 #theme-furniture[data-theme="drift"] .drift-mesh-labels {
   position: fixed;
-  right: 24px;
-  bottom: 258px;             /* widget top (50 + 200) + 8 gap */
-  width: 240px;
+  right: 270px;              /* widget right (24) + widget width (240) + 6 gap */
+  bottom: 50px;              /* aligned with widget bottom */
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 6px;
   pointer-events: none;
 }
 #theme-furniture[data-theme="drift"] .drift-mesh-labels > span {

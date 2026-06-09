@@ -189,10 +189,10 @@ export function _buildFurnitureDrift(el) {
       '<span class="drift-decal drift-decal-3">OUTERFLEET</span>' +
       '<span class="drift-decal drift-decal-4">STATIONKEEP · DRIFT</span>' +
     '</div>' +
-    // Cryptic Belter labels stacked above the bottom-right mesh widget
-    // (a salvaged-console call-and-response). pointer-events:none, low
-    // contrast so they read as ambient chrome, not actionable UI.
-    '<div class="drift-mesh-labels" aria-hidden="true">' +
+    // Cryptic Belter labels — moved to the LEFT side of the mesh widget
+    // (vertical text column) so the TR button strip can hang freely below
+    // the TR cell without colliding with the label stack.
+    '<div class="drift-mesh-labels drift-mesh-labels-left" aria-hidden="true">' +
       '<span>WALDA · INTEN</span>' +
       '<span>KOMUN-OTKWA</span>' +
       '<span>BERLA · 47-K</span>' +
