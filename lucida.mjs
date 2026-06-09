@@ -22,7 +22,7 @@ window.mermaid = mermaid;
 // file changes (see [[dev_cache_discipline]]).
 import { initScene3D } from "./scene3d.mjs?v=2";
 import { _buildFurnitureDrift, _updateDriftOrbital, _updateDriftHero } from "./theme-drift.mjs?v=2";
-import { _buildFurnitureMarsBlue, _updateMarsBlueHisto } from "./theme-mars-blue.mjs?v=1";
+import { _buildFurnitureMarsBlue, _updateMarsBlueHisto } from "./theme-mars-blue.mjs?v=8";
 import { _buildFurnitureEarth, _updateEarthTactical, _earthAmbientStart } from "./theme-earth.mjs?v=1";
 import {
   applyOrganicLayout, applyPackHeroLayout, applyWarroomLayout,

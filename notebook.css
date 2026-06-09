@@ -2987,17 +2987,54 @@ html.theme-ops::before {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  /* The MCRN nav-plot motif. Per refs/mars-blue NOTES.md the canonical
-     composition pairs a CENTRAL polar concentric plot with a RADIAL
-     SONAR-FAN anchored at bottom-center (5 spokes + 2 semicircular
-     arcs). Plus calm-ops cues: violet orbital ellipse + single yellow
-     target pip. Red reserved for histogram band + threat reticles
-     elsewhere (accent discipline). */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%235a96aa' stroke-opacity='0.13' stroke-width='0.5'%3E%3Cline x1='120' y1='240' x2='5' y2='102'/%3E%3Cline x1='120' y1='240' x2='59' y2='71'/%3E%3Cline x1='120' y1='240' x2='120' y2='60'/%3E%3Cline x1='120' y1='240' x2='181' y2='71'/%3E%3Cline x1='120' y1='240' x2='235' y2='102'/%3E%3Cpath d='M40 240 A 80 80 0 0 1 200 240'/%3E%3Cpath d='M-10 240 A 130 130 0 0 1 250 240'/%3E%3C/g%3E%3Cg fill='none' stroke='%235a96aa' stroke-opacity='0.24' stroke-width='0.7'%3E%3Ccircle cx='120' cy='120' r='58'/%3E%3Ccircle cx='120' cy='120' r='114'/%3E%3Cline x1='120' y1='12' x2='120' y2='228'/%3E%3Cline x1='12' y1='120' x2='228' y2='120'/%3E%3C/g%3E%3Cellipse cx='120' cy='120' rx='104' ry='54' fill='none' stroke='%238b6cff' stroke-opacity='0.22' stroke-width='0.9' transform='rotate(-20 120 120)'/%3E%3Ccircle cx='168' cy='150' r='2.6' fill='%23ffc233' fill-opacity='0.7'/%3E%3Cpath d='M168 142v16M160 150h16' stroke='%23ffc233' stroke-opacity='0.5' stroke-width='0.7'/%3E%3Ccircle cx='120' cy='120' r='2.8' fill='%235a96aa' fill-opacity='0.6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: center 54%;
-  background-size: min(88vmin, 1040px) min(88vmin, 1040px);
-  background-attachment: fixed;
+  /* The MCRN nav-plot motif used to live here as a baked SVG in a data:
+     URI background-image. Lifted out to #mb-bgradar (built in
+     theme-mars-blue.mjs) so the radar can grow into a live element —
+     richer glyph vocabulary (equilateral triangles / angle-brackets /
+     red-dot-blue-outline contacts), compass heading arc, future SMIL
+     animation per task #76. Body keeps just the bg color now. */
+}
+/* Mars-blue background tactical radar. Fixed full-viewport sized,
+   centered under the cells (z=0 sits behind cells which are 1-119),
+   pointer-events:none so cells stay interactive. Hidden by default —
+   only shown when the body wears .theme-mars-blue. */
+#mb-bgradar {
+  display: none;
+}
+.theme-mars-blue #mb-bgradar {
+  display: block;
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  /* Container caps:
+     - Width × Height honor the viewBox 480:360 aspect via paired min()s.
+     - On LANDSCAPE viewports the height cap (100vh) wins, container shrinks
+       so the BIGGEST ring's top is at viewport top (not pushed off above).
+     - On PORTRAIT/square viewports the width cap (200vw) wins for the
+       "biggest ring ~ 2 × vw" feel.
+     - contain + overflow:hidden keep compositor paint bounded.  Without
+       this the 200vw × 150vw container on a 4K monitor allocates a
+       compositor texture in the 10000+px range and OOM's the tab
+       (reproduced 2026-06-09). */
+  width: min(200vw, 133vh);
+  height: min(150vw, 100vh);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 0;
+  contain: layout paint;
+  overflow: hidden;
+}
+.theme-mars-blue #mb-bgradar svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* Hero cell on mars-blue cockpit sits dead-center in front of the radar,
+   so it needs a bit more opaque backing than the rest of the cells (which
+   stay at the lighter token --cell-bg 0.22 for the glass effect) — text
+   stays crisp against the radar lines. */
+.theme-mars-blue #notebook[data-layout="cockpit"]:not([data-composition]) > .cell:first-child {
+  background: rgba(20, 36, 78, 0.42);
 }
 /* Red concentric-bullseye threat reticle — the canonical MCRN
    missile-lock glyph (per refs/mars-blue NOTES.md and

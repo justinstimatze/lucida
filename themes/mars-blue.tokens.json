@@ -4,14 +4,14 @@
     "primary": "#4c8dc6",
     "secondary": "#2a5288",
     "warning": "#ffc233",
-    "danger": "#e23b2e",
+    "danger": "#c12555",
     "ok": "#57a06a"
   },
   "surface": {
     "bg": "#0a1640",
-    "cell": "rgba(20, 36, 78, 0.14)",
+    "cell": "rgba(20, 36, 78, 0.22)",
     "header": "rgba(15, 27, 78, 0.72)",
-    "code": "rgba(20, 36, 78, 0.14)",
+    "code": "rgba(20, 36, 78, 0.22)",
     "muted": "#3a5870",
     "line": "rgba(76, 141, 198, 0.20)"
   },
@@ -20,14 +20,14 @@
     "muted": "#5f8198"
   },
   "data": {
-    "_comment": "Navy\u2192blue-white ladder, muted to match the restrained cockpit screens. System colors amber[4]/red[5] fire only on 5+ categories so red stays a rare signal (accent-discipline).",
+    "_comment": "Navy\u2192blue-white ladder, muted to match the restrained cockpit screens. System colors amber[4]/red[5] fire only on 5+ categories so red stays a rare signal (accent-discipline). 2026-06-09 split red: data.cat[5] = deep magenta #a11a4b (matches the tactical stalker pips sampled from roci_warship_tactical_screen), accent.danger = brighter #c12555 (the meter-fill / alert state sampled from missilelock_dense). Show MCRN red is pink-magenta, NOT orange \u2014 was #e23b2e (H=5\u00b0), now H=343\u00b0 / 346\u00b0.",
     "cat": [
       "#5a96aa",
       "#3c6a93",
       "#7ba6b5",
       "#9bbcce",
       "#ffc233",
-      "#e23b2e"
+      "#a11a4b"
     ]
   },
   "type": {
