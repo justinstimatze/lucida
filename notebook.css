@@ -4696,6 +4696,30 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
 #theme-furniture[data-theme="mars-red"] .fur-dial::before {
   background: rgba(216, 54, 42, 0.85);
 }
+/* Mars-red bezel bar overrides — el.dataset.theme is set to the builder
+   KEY ("mars-blue") for both themes (so they share the base layout), so
+   `[data-theme="mars-red"]` selectors never match.  Scope via the body
+   class `.theme-mars-red` instead — that's set by the bootstrap. */
+.theme-mars-red #theme-furniture .fur-cdial-lbl {
+  /* Tachi label hue — saturated red instead of cobalt. */
+  color: rgba(216, 54, 42, 0.78);
+}
+.theme-mars-red #theme-furniture .fur-pip {
+  /* Tachi pip — brighter saturated red, no cobalt border. */
+  background: #d8362a;
+  border-color: rgba(216, 54, 42, 0.85);
+}
+.theme-mars-red #theme-furniture .fur-pdc-cell svg {
+  /* Sharp-corner panel for the rect-outlined PDC indicators. */
+  overflow: visible;
+}
+.theme-mars-red #theme-furniture .fur-top-sep {
+  /* Bolder, brighter tachi separator — switch from desaturated #a11a4b to
+     the dominant accent.primary #d8362a, and bump opacity full. */
+  background: #d8362a;
+  opacity: 1;
+  height: 6px;
+}
 #theme-furniture[data-theme="mars-red"] .fur-glass {
   /* less polished, harder vignette — industrial grey not cockpit-glow */
   background:

@@ -79,10 +79,52 @@ export function _buildFurnitureMarsBlue(el) {
         +   '" dur="' + dur + 's" begin="' + off + 's" repeatCount="indefinite"/>'
         + '</path>';
     }
+    // mars-red gets a squared-off PDC indicator (rect outline with the
+    // same pie-slice fill inside) to match the tachi-era angular chassis.
+    // mars-blue keeps the round bezel.
+    const pdcOutline = ACTIVE === "mars-red"
+      ? `<rect x="2" y="2" width="12" height="12" fill="none" stroke="#d8362a" stroke-opacity="0.9" stroke-width="0.9"/>`
+      : `<circle cx="8" cy="8" r="6" fill="none" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="0.9"/>`;
+    const pdcFillColor = ACTIVE === "mars-red" ? "#d8362a" : "#4c8dc6";
+    const fillElemColored = fillElem.replace(/#4c8dc6/g, pdcFillColor);
     pdc += '<span class="fur-pdc-cell"><svg viewBox="0 0 16 16">'
-        +   '<circle cx="8" cy="8" r="6" fill="none" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="0.9"/>'
-        +   fillElem
+        +   pdcOutline
+        +   fillElemColored
         + '</svg></span>';
+  }
+  // Theme-aware palette for the gauges.  mars-red (early-Syfy tachi era)
+  // = saturated red + steel-cyan + harder square bezels per user 2026-06-09
+  // ("the gauges look weird on mars red — not squared off enough — and
+  // obviously the wrong colors").  mars-blue (late-Amazon era) keeps the
+  // round chrome + cobalt-on-cobalt-white palette.
+  const RED = ACTIVE === "mars-red";
+  const P = RED ? {
+    fg:     "#d8362a",                // dominant stroke (was #4c8dc6 cobalt)
+    fgDim:  "rgba(216, 54, 42, 0.45)", // dim variant for inner rings
+    sec:    "#4a9ec0",                // secondary = steel-cyan
+    accent: "#ffc233",                // accent / red-zone (RPM hot zone)
+    face:   "rgba(38, 22, 22, 0.85)", // dark red-tinted face fill
+    glow:   "#c8d8e8",                // bright spot (plasma core, etc.)
+    star:   "#c8d8e8",                // star color for inertial gauge
+    bezel:  "rect",                   // squared-off industrial chassis
+  } : {
+    fg:     "#4c8dc6",
+    fgDim:  "rgba(76, 141, 198, 0.45)",
+    sec:    "#92aee3",
+    accent: "#a11a4b",
+    face:   "#02103a",
+    glow:   "#92aee3",
+    star:   "#92aee3",
+    bezel:  "round",
+  };
+  // Bezel helper — round (circle) or square (rect with sharp corners).
+  // The inner gauge content stays circular either way (it's a gauge), so
+  // the square option reads as a tachi-era chassis around a round face.
+  function bezel() {
+    if (P.bezel === "rect") {
+      return `<rect x="2" y="2" width="44" height="44" fill="none" stroke="${P.fg}" stroke-opacity="0.9" stroke-width="2.0"/><rect x="4" y="4" width="40" height="40" fill="none" stroke="${P.fg}" stroke-opacity="0.45" stroke-width="0.6"/><rect x="5" y="5" width="38" height="38" fill="${P.face}"/>`;
+    }
+    return `<circle cx="24" cy="24" r="22.5" fill="none" stroke="${P.fg}" stroke-opacity="0.85" stroke-width="2.0"/><circle cx="24" cy="24" r="20.5" fill="none" stroke="${P.fg}" stroke-opacity="0.5" stroke-width="0.6"/><circle cx="24" cy="24" r="19.5" fill="${P.face}"/>`;
   }
   // Cockpit gauges — 5 DISTINCT types across the bottom center (per user
   // 2026-06-09: "the dials all look like watch faces, give me more
@@ -119,14 +161,14 @@ export function _buildFurnitureMarsBlue(el) {
       const x2 = (24 + r2 * Math.cos(tAng)).toFixed(2);
       const y2 = (24 + r2 * Math.sin(tAng)).toFixed(2);
       const sw = (t % 3 === 0) ? 0.9 : 0.5;
-      ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#4c8dc6" stroke-opacity="0.7" stroke-width="${sw}"/>`;
+      ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.fg}" stroke-opacity="0.7" stroke-width="${sw}"/>`;
     }
     const subHand = reduce
-      ? `<line x1="24" y1="33" x2="${sx}" y2="${sy}" stroke="#4c8dc6" stroke-opacity="0.78" stroke-width="0.6"/>`
-      : `<g transform="rotate(${subAng} 24 33)"><animateTransform attributeName="transform" type="rotate" values="${subAng} 24 33; ${subAng + 360} 24 33" dur="${subDur}s" repeatCount="indefinite"/><line x1="24" y1="33" x2="24" y2="29" stroke="#4c8dc6" stroke-opacity="0.78" stroke-width="0.6"/></g>`;
+      ? `<line x1="24" y1="33" x2="${sx}" y2="${sy}" stroke="${P.fg}" stroke-opacity="0.78" stroke-width="0.6"/>`
+      : `<g transform="rotate(${subAng} 24 33)"><animateTransform attributeName="transform" type="rotate" values="${subAng} 24 33; ${subAng + 360} 24 33" dur="${subDur}s" repeatCount="indefinite"/><line x1="24" y1="33" x2="24" y2="29" stroke="${P.fg}" stroke-opacity="0.78" stroke-width="0.6"/></g>`;
     const hourSway = reduce ? "" : `<animateTransform attributeName="transform" type="rotate" values="0 24 24; 11 24 24; -7 24 24; 0 24 24" dur="${hourSwingDur}s" repeatCount="indefinite"/>`;
     const minSway = reduce ? "" : `<animateTransform attributeName="transform" type="rotate" values="0 24 24; 22 24 24; -14 24 24; 0 24 24" dur="${minSwingDur}s" repeatCount="indefinite"/>`;
-    return `<circle cx="24" cy="24" r="22.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.85" stroke-width="2.0"/><circle cx="24" cy="24" r="20.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.5" stroke-width="0.6"/><circle cx="24" cy="24" r="19.5" fill="rgba(8,18,36,0.45)"/><circle cx="24" cy="24" r="16.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.35" stroke-width="0.4"/><circle cx="24" cy="24" r="13.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.3" stroke-width="0.4"/><circle cx="24" cy="24" r="10.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.28" stroke-width="0.4"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.24" stroke-width="0.4"/>${ticks}<circle cx="24" cy="33" r="4.2" fill="none" stroke="#4c8dc6" stroke-opacity="0.55" stroke-width="0.5"/>${subHand}<circle cx="24" cy="33" r="0.6" fill="#4c8dc6" fill-opacity="0.92"/><line x1="24" y1="24" x2="${hx}" y2="${hy}" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="1.4">${hourSway}</line><path d="M 24 24 L ${nx} ${ny} M 24 24 L ${cwx} ${cwy}" stroke="#4c8dc6" stroke-opacity="0.9" stroke-width="0.9" fill="none">${minSway}</path><circle cx="24" cy="24" r="1.7" fill="#4c8dc6" fill-opacity="0.92"/><circle cx="24" cy="24" r="0.6" fill="#02103a"/><rect x="46" y="22" width="2" height="4" fill="#4c8dc6" fill-opacity="0.5"/>`;
+    return `${bezel()}<circle cx="24" cy="24" r="16.5" fill="none" stroke="${P.fg}" stroke-opacity="0.35" stroke-width="0.4"/><circle cx="24" cy="24" r="13.5" fill="none" stroke="${P.fg}" stroke-opacity="0.3" stroke-width="0.4"/><circle cx="24" cy="24" r="10.5" fill="none" stroke="${P.fg}" stroke-opacity="0.28" stroke-width="0.4"/><circle cx="24" cy="24" r="7.5" fill="none" stroke="${P.fg}" stroke-opacity="0.24" stroke-width="0.4"/>${ticks}<circle cx="24" cy="33" r="4.2" fill="none" stroke="${P.fg}" stroke-opacity="0.55" stroke-width="0.5"/>${subHand}<circle cx="24" cy="33" r="0.6" fill="${P.fg}" fill-opacity="0.92"/><line x1="24" y1="24" x2="${hx}" y2="${hy}" stroke="${P.fg}" stroke-opacity="0.88" stroke-width="1.4">${hourSway}</line><path d="M 24 24 L ${nx} ${ny} M 24 24 L ${cwx} ${cwy}" stroke="${P.fg}" stroke-opacity="0.9" stroke-width="0.9" fill="none">${minSway}</path><circle cx="24" cy="24" r="1.7" fill="${P.fg}" fill-opacity="0.92"/><circle cx="24" cy="24" r="0.6" fill="${P.face}"/>`;
   }
   // Fusion reactor containment cross-section — toroidal magnetic-field
   // lines around a pulsing plasma core.  Replaces the old compass gauge
@@ -138,7 +180,7 @@ export function _buildFurnitureMarsBlue(el) {
     const pulse = reduce ? "" : `<animate attributeName="r" values="1.8; 3.0; 1.8" dur="${dur}s" repeatCount="indefinite"/>`;
     const pulseO = reduce ? "" : `<animate attributeName="fill-opacity" values="0.7; 1; 0.7" dur="${dur}s" repeatCount="indefinite"/>`;
     const haloPulse = reduce ? "" : `<animate attributeName="stroke-opacity" values="0.3; 0.65; 0.3" dur="${dur}s" repeatCount="indefinite"/>`;
-    return `<circle cx="24" cy="24" r="22.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.85" stroke-width="2.0"/><circle cx="24" cy="24" r="20.5" fill="#02103a" fill-opacity="0.95"/><ellipse cx="24" cy="24" rx="16" ry="9" fill="none" stroke="#4c8dc6" stroke-opacity="0.42" stroke-width="0.5"/><ellipse cx="24" cy="24" rx="12" ry="6.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.55" stroke-width="0.5"/><ellipse cx="24" cy="24" rx="8" ry="4.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.72" stroke-width="0.55"/><path d="M 8 14 A 16 9 0 0 1 40 14" fill="none" stroke="#4c8dc6" stroke-opacity="0.32" stroke-width="0.4" stroke-dasharray="2 2"/><path d="M 8 34 A 16 9 0 0 0 40 34" fill="none" stroke="#4c8dc6" stroke-opacity="0.32" stroke-width="0.4" stroke-dasharray="2 2"/><line x1="8" y1="14" x2="8" y2="34" stroke="#4c8dc6" stroke-opacity="0.30" stroke-width="0.4" stroke-dasharray="1 2"/><line x1="40" y1="14" x2="40" y2="34" stroke="#4c8dc6" stroke-opacity="0.30" stroke-width="0.4" stroke-dasharray="1 2"/><circle cx="24" cy="24" r="3.6" fill="none" stroke="#92aee3" stroke-opacity="0.35" stroke-width="0.4">${haloPulse}</circle><circle cx="24" cy="24" r="2" fill="#92aee3" fill-opacity="0.88">${pulse}${pulseO}</circle><text x="24" y="44" text-anchor="middle" font-family="Space Mono,monospace" font-size="2.4" fill="#4c8dc6" fill-opacity="0.6">FUS</text>`;
+    return `${bezel()}<ellipse cx="24" cy="24" rx="16" ry="9" fill="none" stroke="${P.fg}" stroke-opacity="0.42" stroke-width="0.5"/><ellipse cx="24" cy="24" rx="12" ry="6.5" fill="none" stroke="${P.fg}" stroke-opacity="0.55" stroke-width="0.5"/><ellipse cx="24" cy="24" rx="8" ry="4.5" fill="none" stroke="${P.fg}" stroke-opacity="0.72" stroke-width="0.55"/><path d="M 8 14 A 16 9 0 0 1 40 14" fill="none" stroke="${P.fg}" stroke-opacity="0.32" stroke-width="0.4" stroke-dasharray="2 2"/><path d="M 8 34 A 16 9 0 0 0 40 34" fill="none" stroke="${P.fg}" stroke-opacity="0.32" stroke-width="0.4" stroke-dasharray="2 2"/><line x1="8" y1="14" x2="8" y2="34" stroke="${P.fg}" stroke-opacity="0.30" stroke-width="0.4" stroke-dasharray="1 2"/><line x1="40" y1="14" x2="40" y2="34" stroke="${P.fg}" stroke-opacity="0.30" stroke-width="0.4" stroke-dasharray="1 2"/><circle cx="24" cy="24" r="3.6" fill="none" stroke="${P.glow}" stroke-opacity="0.35" stroke-width="0.4">${haloPulse}</circle><circle cx="24" cy="24" r="2" fill="${P.glow}" fill-opacity="0.88">${pulse}${pulseO}</circle><text x="24" y="44" text-anchor="middle" font-family="Space Mono,monospace" font-size="2.4" fill="${P.fg}" fill-opacity="0.6">FUS</text>`;
   }
   function gaugeRpm(i) {
     const dur = 9 + ((i * 3) % 6);
@@ -153,9 +195,9 @@ export function _buildFurnitureMarsBlue(el) {
       const x2 = (24 + r2 * Math.cos(a)).toFixed(2);
       const y2 = (24 + r2 * Math.sin(a)).toFixed(2);
       const sw = (t % 2 === 0) ? 0.9 : 0.5;
-      ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#4c8dc6" stroke-opacity="0.72" stroke-width="${sw}"/>`;
+      ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.fg}" stroke-opacity="0.72" stroke-width="${sw}"/>`;
     }
-    return `<circle cx="24" cy="24" r="22.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.85" stroke-width="2.0"/><circle cx="24" cy="24" r="20.5" fill="rgba(8,18,36,0.55)"/>${ticks}<path d="M 36 11 A 16 16 0 0 1 38 31" stroke="#a11a4b" stroke-opacity="0.78" stroke-width="2.2" fill="none"/><text x="9" y="40" font-family="Space Mono,monospace" font-size="2.6" fill="#4c8dc6" fill-opacity="0.55">0</text><text x="32" y="40" font-family="Space Mono,monospace" font-size="2.6" fill="#a11a4b" fill-opacity="0.75">RED</text><line x1="24" y1="24" x2="24" y2="8" stroke="#4c8dc6" stroke-opacity="0.95" stroke-width="1.1" transform="rotate(${baseAng} 24 24)">${sway}</line><circle cx="24" cy="24" r="1.7" fill="#4c8dc6" fill-opacity="0.92"/>`;
+    return `${bezel()}${ticks}<path d="M 36 11 A 16 16 0 0 1 38 31" stroke="${P.accent}" stroke-opacity="0.78" stroke-width="2.2" fill="none"/><text x="9" y="40" font-family="Space Mono,monospace" font-size="2.6" fill="${P.fg}" fill-opacity="0.55">0</text><text x="32" y="40" font-family="Space Mono,monospace" font-size="2.6" fill="${P.accent}" fill-opacity="0.75">RED</text><line x1="24" y1="24" x2="24" y2="8" stroke="${P.fg}" stroke-opacity="0.95" stroke-width="1.1" transform="rotate(${baseAng} 24 24)">${sway}</line><circle cx="24" cy="24" r="1.7" fill="${P.fg}" fill-opacity="0.92"/>`;
   }
   // Inertial reference / star-tracker — the aircraft artificial horizon
   // doesn't translate to vacuum (no sky/ground), so replace with a
@@ -176,9 +218,13 @@ export function _buildFurnitureMarsBlue(el) {
     ];
     let stars = "";
     for (const [sx, sy] of STAR_POS) {
-      stars += `<circle cx="${sx}" cy="${sy}" r="0.4" fill="#92aee3" fill-opacity="0.78"/>`;
+      stars += `<circle cx="${sx}" cy="${sy}" r="0.4" fill="${P.star}" fill-opacity="0.78"/>`;
     }
-    return `<defs><clipPath id="${clipId}"><circle cx="24" cy="24" r="20.5"/></clipPath></defs><circle cx="24" cy="24" r="22.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.85" stroke-width="2.0"/><circle cx="24" cy="24" r="20.5" fill="#02103a"/><g clip-path="url(#${clipId})">${stars}</g><g clip-path="url(#${clipId})" transform="rotate(0 24 24)">${tilt}<line x1="-4" y1="24" x2="52" y2="24" stroke="#4c8dc6" stroke-opacity="0.78" stroke-width="0.6" stroke-dasharray="5 1.5"/><line x1="24" y1="-4" x2="24" y2="52" stroke="#4c8dc6" stroke-opacity="0.36" stroke-width="0.35" stroke-dasharray="3 2"/><line x1="17" y1="17" x2="31" y2="17" stroke="#4c8dc6" stroke-opacity="0.45" stroke-width="0.3"/><line x1="14" y1="20" x2="34" y2="20" stroke="#4c8dc6" stroke-opacity="0.45" stroke-width="0.3"/><line x1="17" y1="31" x2="31" y2="31" stroke="#4c8dc6" stroke-opacity="0.45" stroke-width="0.3"/><line x1="14" y1="28" x2="34" y2="28" stroke="#4c8dc6" stroke-opacity="0.45" stroke-width="0.3"/></g><circle cx="24" cy="24" r="3.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="0.55"/><line x1="20" y1="24" x2="28" y2="24" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="0.55"/><line x1="24" y1="20" x2="24" y2="28" stroke="#4c8dc6" stroke-opacity="0.88" stroke-width="0.55"/><circle cx="24" cy="24" r="0.7" fill="#4c8dc6"/>`;
+    // Clip path matches bezel shape so stars don't bleed past the chassis edge.
+    const clipShape = P.bezel === "rect"
+      ? `<rect x="5" y="5" width="38" height="38"/>`
+      : `<circle cx="24" cy="24" r="20.5"/>`;
+    return `<defs><clipPath id="${clipId}">${clipShape}</clipPath></defs>${bezel()}<g clip-path="url(#${clipId})">${stars}</g><g clip-path="url(#${clipId})" transform="rotate(0 24 24)">${tilt}<line x1="-4" y1="24" x2="52" y2="24" stroke="${P.fg}" stroke-opacity="0.78" stroke-width="0.6" stroke-dasharray="5 1.5"/><line x1="24" y1="-4" x2="24" y2="52" stroke="${P.fg}" stroke-opacity="0.36" stroke-width="0.35" stroke-dasharray="3 2"/><line x1="17" y1="17" x2="31" y2="17" stroke="${P.fg}" stroke-opacity="0.45" stroke-width="0.3"/><line x1="14" y1="20" x2="34" y2="20" stroke="${P.fg}" stroke-opacity="0.45" stroke-width="0.3"/><line x1="17" y1="31" x2="31" y2="31" stroke="${P.fg}" stroke-opacity="0.45" stroke-width="0.3"/><line x1="14" y1="28" x2="34" y2="28" stroke="${P.fg}" stroke-opacity="0.45" stroke-width="0.3"/></g><circle cx="24" cy="24" r="3.5" fill="none" stroke="${P.fg}" stroke-opacity="0.88" stroke-width="0.55"/><line x1="20" y1="24" x2="28" y2="24" stroke="${P.fg}" stroke-opacity="0.88" stroke-width="0.55"/><line x1="24" y1="20" x2="24" y2="28" stroke="${P.fg}" stroke-opacity="0.88" stroke-width="0.55"/><circle cx="24" cy="24" r="0.7" fill="${P.fg}"/>`;
   }
   function gaugeVscale(i) {
     const dur = 22 + ((i * 4) % 12);
@@ -188,10 +234,10 @@ export function _buildFurnitureMarsBlue(el) {
     for (let t = 0; t <= 10; t++) {
       const y = (6 + t * 3.6).toFixed(2);
       const r = (t % 2 === 0) ? 4 : 2;
-      ticks += `<line x1="15" y1="${y}" x2="${15 + r}" y2="${y}" stroke="#4c8dc6" stroke-opacity="0.6" stroke-width="0.4"/>`;
+      ticks += `<line x1="15" y1="${y}" x2="${15 + r}" y2="${y}" stroke="${P.fg}" stroke-opacity="0.6" stroke-width="0.4"/>`;
     }
     const labelVal = (35 + i * 7);
-    return `<circle cx="24" cy="24" r="22.5" fill="none" stroke="#4c8dc6" stroke-opacity="0.85" stroke-width="2.0"/><circle cx="24" cy="24" r="20.5" fill="rgba(8,18,36,0.55)"/><line x1="15" y1="6" x2="15" y2="42" stroke="#4c8dc6" stroke-opacity="0.78" stroke-width="0.6"/>${ticks}<rect x="16" y="9" width="14" height="30" fill="rgba(76,141,198,0.06)"/><text x="34" y="9" font-family="Space Mono,monospace" font-size="2.4" fill="#4c8dc6" fill-opacity="0.55">H</text><text x="34" y="42" font-family="Space Mono,monospace" font-size="2.4" fill="#4c8dc6" fill-opacity="0.55">L</text><g transform="translate(0 0)">${slide}<polygon points="20,${baseY} 24,${baseY - 2.5} 24,${baseY + 2.5}" fill="#4c8dc6" fill-opacity="0.95"/><text x="27" y="${(baseY + 1).toFixed(2)}" font-family="Space Mono,monospace" font-size="3" fill="#4c8dc6" fill-opacity="0.88">${labelVal}</text></g>`;
+    return `${bezel()}<line x1="15" y1="6" x2="15" y2="42" stroke="${P.fg}" stroke-opacity="0.78" stroke-width="0.6"/>${ticks}<rect x="16" y="9" width="14" height="30" fill="${P.fgDim}" fill-opacity="0.18"/><text x="34" y="9" font-family="Space Mono,monospace" font-size="2.4" fill="${P.fg}" fill-opacity="0.55">H</text><text x="34" y="42" font-family="Space Mono,monospace" font-size="2.4" fill="${P.fg}" fill-opacity="0.55">L</text><g transform="translate(0 0)">${slide}<polygon points="20,${baseY} 24,${baseY - 2.5} 24,${baseY + 2.5}" fill="${P.fg}" fill-opacity="0.95"/><text x="27" y="${(baseY + 1).toFixed(2)}" font-family="Space Mono,monospace" font-size="3" fill="${P.fg}" fill-opacity="0.88">${labelVal}</text></g>`;
   }
   // 5 distinct gauges across the bottom center — pilot watch, reactor
   // containment, inertial reference, RPM dial, vertical scale.  All
