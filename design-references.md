@@ -441,13 +441,13 @@ their own arc memos: `multi_stream_arc`, `audio_reactive_arc`,
 ### Phase 0 — Audit (read-only)
 
 Baseline inputs for the chrome work:
-- `--accent` usage map across 11 themes; flag spray-vs-moment.
+- `--accent` usage map across all themes; flag spray-vs-moment.
 - Per-substrate motion inventory; identify frozen substrates.
 - Per-theme flair gap matrix: what does each theme *uniquely* do today?
 
 #### Phase 0 findings (2026-05-01)
 
-**Accent audit.** All 11 themes have distinct `--accent` token values
+**Accent audit.** All themes have distinct `--accent` token values
 (no palette collisions). `var(--accent)` resolves to ~50 call sites in
 `notebook.css`. Categorization:
 - *Moment-correct (~6 sites):* outline focus (line 32), cell-fresh
@@ -663,7 +663,7 @@ reimplement. Never copy CSS, JS, or asset files from the repo.
 
 ### Refs serve BOTH 2D themes AND mixed3d variants
 
-**User 2026-05-24: "remember we'll need these visual refs not just for the 2d
+**Decision 2026-05-24: "remember we'll need these visual refs not just for the 2d
 themes but the mixed3d versions we can make later."**
 
 Currently `mixed3d` = `hackers` (Gibson tower canyon). The plan is to build

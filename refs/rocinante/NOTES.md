@@ -1,9 +1,9 @@
 # Rocinante references — The Expanse, MCRN / Martian military FUI
 
-Theme id: `rocinante` (user-locked). Faction: Mars Congressional Republic Navy (the
+Theme id: `rocinante` (locked). Faction: Mars Congressional Republic Navy (the
 Rocinante is the ex-MCRN *Tachi*, so it carries the MCRN screen-graphics lineage).
 
-## ⭐ CANONICAL REF SET (user curation 2026-06-09)
+## ⭐ CANONICAL REF SET (curation 2026-06-09)
 
 Primary: **`roci_warship_tactical_screen.png`**, then
 `roci_combat_missilelock_dense.png` + `roci_nav_named_bodies.png`.
@@ -26,9 +26,9 @@ Provenance rule: the clip ID in each frame's row is the faction key — verify i
 ## Sources
 
 - `pPutN_QzbeE` — "Rocinante vs The Free Navy | The Expanse 5x10" (5:22). Roci cockpit
-  button panels + cyan/blue tactical screens. (User-supplied.)
+  button panels + cyan/blue tactical screens. (timestamp-pinned source.)
 - `XIKQVow3Mmo` — "The Expanse — Naming The Rocinante" (2:38). THE red command-line
-  registration display + the green-phosphor registry terminal. (User-supplied.)
+  registration display + the green-phosphor registry terminal. (timestamp-pinned source.)
 - `Eil4xNXWsj4` — "Rocinante Set Tour (Season 3)" (13:18). Physical-set environment only
   (blue-lit industrial corridors) — no screen FUI. Useful for the eventual mixed3d scene.
 - `m7WtNgesVbQ` — "Sci-Fi UI Episode 1: The Expanse" (12:08). String-light holographic nav.
@@ -108,7 +108,7 @@ rule, see `feedback` memos), green/yellow as state-meaning. Monospace `type.mono
 
 ## CORRECTED grammar — from the battle-clip frames (2026-05-28, raw-verified)
 
-The three new ⭐ frames from `0i0vjIs-Oz8` (user-supplied timestamps) sharpen the model — and
+The three new ⭐ frames from `0i0vjIs-Oz8` (timestamp-pinned) sharpen the model — and
 correct one thing I had wrong: **red is NOT just "rare fine markers."** The real division of labor:
 - **Cyan = the STRUCTURE color** — persistent grid, sonar-fan arcs, contact dots, label rails,
   segmented readouts. The calm baseline that's always there.
@@ -197,19 +197,19 @@ volumetric web of glowing **blue + red trajectory string-lights** curving throug
 red conduit structure on the walls. THE reference for cells-docked-in-a-volumetric-web.
 Distinct from hackers' tower canyon and the planned hailmary cockpit-cutaway.
 
-**Razorback "Spherical Display" — its own special thing, NOT the Roci grammar** (user 2026-05-26):
+**Razorback "Spherical Display" — its own special thing, NOT the Roci grammar** (decision 2026-05-26):
 the Razorback is Julie Mao's civilian *racing pinnace*, not an MCRN ship, so its design language is
 distinct from the Rocinante's military command-line look — don't fold it into this theme. Captured
 here only because it sits adjacent to the Roci work on Yorke's portfolio (`q9VKgD`). What it is: the
 pilot sits inside a **gimbal/gyroscope ring**; UI screens float in 3D space *around the seat* and
 **slide along the ring** as it rotates (Yorke designed it all in 3D because elements "slid across
 the interface"); cyan/white ring lighting. Held as a **candidate standalone theme** (`razorback`)
-for later — user "not opposed to its own theme." It's the strongest Expanse precedent for lucida's
+for later — flagged as "not opposed to its own theme." It's the strongest Expanse precedent for lucida's
 wanted holographic depth (see `feedback_holographic_depth_yes`): cells docked on the inner face of a
 rotating ring, reticle/seat at the hub. Park it; the 3-theme arc (rocinante/belter/unn) comes first.
 
 
-## User-supplied timestamps (durable)
+## Pinned source timestamps (durable)
 
 Verbatim per-video timestamp ranges from the user — pinned here so future sessions don't need to dig through transcripts. See memory `feedback-pin-timestamps-to-notes` for the discipline. Frame extraction should target these ranges. The video ID is the durable key.
 
@@ -219,12 +219,12 @@ Verbatim per-video timestamp ranges from the user — pinned here so future sess
 | `XIKQVow3Mmo` | https://www.youtube.com/watch?v=XIKQVow3Mmo | `0:38-0:39, 0:44-0:45 (handheld — skip), 1:47-1:55, 2:12-2:14` | Naming the Rocinante (Tachi → Roci). Tachi-era UI being renamed. Existing frames: red-commandline @1:03, keyboard @1:53, chevron-confirm @1:55, registry-terminal @2:14. Cross-listed in refs/tachi |
 | `m7WtNgesVbQ` | https://www.youtube.com/watch?v=m7WtNgesVbQ | `1:10-1:11 (ceres docks), 1:17-1:27 (variety of UIs in sequence), 1:30-1:31 (knight shuttle), 1:54-2:14 (variety starting with UNN 3d tactical hologram), 2:28-2:32 (handhelds)` | Sci-Fi UI Episode 1 — multi-faction. UNN content cross-listed in refs/unn |
 | `pPutN_QzbeE` | https://www.youtube.com/watch?v=pPutN_QzbeE | `0:11-0:17 (belter wide displays), 0:20-0:21 (belter tactical), 0:28 (belter 3 displays), 0:37-0:40 (roci tactical), 1:11-1:12 (roci tactical), 1:16-1:17 (belter tactical), 1:49-1:50 (roci)` | Rocinante vs Free Navy. Belter timestamps cross-listed in refs/belter |
-| `8ldyfTa3WrA` | https://www.youtube.com/watch?v=8ldyfTa3WrA | `0:06-0:07` | source of `roci_railgun_firecontrol.png` (@0:07). "Pretty much it" per user |
+| `8ldyfTa3WrA` | https://www.youtube.com/watch?v=8ldyfTa3WrA | `0:06-0:07` | source of `roci_railgun_firecontrol.png` (@0:07). confirmed sufficient |
 | `XuqEX1PnG9I` | https://www.youtube.com/watch?v=XuqEX1PnG9I | `0:05-0:06, 0:09, 0:23-0:24, 1:07, 1:36, 1:57-1:58, 2:06, 2:10-2:12, 2:18-2:20, 2:23, 2:30` | source of `roci_console_target_render.png` (@2:12). Dense list — multiple frames available |
 | `PX9_1I2oykQ` | https://www.youtube.com/watch?v=PX9_1I2oykQ | `0:10-0:14, 0:17-0:19, 0:27-0:30, 0:36-0:38, 1:26-1:27` | source of `roci_nav_named_bodies.png` (@1:26) |
 | `_c9W-icdTmg` | https://www.youtube.com/watch?v=_c9W-icdTmg | `0:52-0:56, 1:07, 2:08-2:13 (video feed inside a ui frame), 2:30, 2:34, 2:37` | source of `roci_target_wireframe_schematic.png` (@2:34), `roci_video_feed_panel.png` (@2:10) |
 
-### Dropped per user
+### Dropped (curation)
 
 - `mlN8azjGuTc` — no 2d interfaces
 - `yfShyOFN9Gs` — "couldn't see what you were referring to"

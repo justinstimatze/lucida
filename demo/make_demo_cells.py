@@ -7,7 +7,7 @@ for use with demo/replay.py.
 
 Run once before recording (costs ~$0.20 in API tokens, ~2 min):
 
-    cd ~/Documents/lucida
+    cd path/to/lucida
     python demo/make_demo_cells.py
 
 Options:

@@ -2,9 +2,9 @@
 
 Theme id: `hackers` (Gibson visualization). See memory `hackers_1995_gibson_ownership`: the Gibson belongs to Ellingson Mineral, NOT Dade Murphy. Dade hacks INTO it.
 
-## User-supplied timestamps (durable)
+## Pinned source timestamps (durable)
 
-Verbatim per-video timestamp ranges from the user. Pinned per memory `feedback-pin-timestamps-to-notes`. The video ID is the durable key.
+Verbatim per-video timestamp ranges. Pinned per memory `feedback-pin-timestamps-to-notes`. The video ID is the durable key.
 
 | video ID | URL | timestamps | notes |
 |---|---|---|---|

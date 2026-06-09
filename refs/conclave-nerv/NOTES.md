@@ -4,7 +4,7 @@ Source: <https://www.youtube.com/watch?v=zI2Fme6k-Iw> — "Interfaces of Neon Ge
 
 Extracted: 2026-05-24 via claude-video-vision plugin + ffmpeg seek-to-frame.
 
-User 2026-05-24: "ultra dense, we'll need to check several frames per second, but is probably the best nerv/evangelion reference I've seen."
+Decision 2026-05-24: "ultra dense, we'll need to check several frames per second, but is probably the best nerv/evangelion reference I've seen."
 
 ## Why this matters
 

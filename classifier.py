@@ -193,7 +193,7 @@ Cues this trap is firing:
 - Self-referential development entities: lucida itself, the watcher, the classifier, "the new module", "the proposed structure"
 - Audit trail / decision log shape: "we picked X over Y because Z" -- this is comparative reasoning, not a stated comparison
 - Operational status / directive shape: "Next: do X", "X restarted as pid Y with Z loaded", "Log confirms W is active", "Verify by Q" -- these report or direct runtime activity but make no load-bearing claim. The snippet is about lucida operating, not about something lucida is observing.
-- **Reasoning-topology / slimemold-injection shape**: "Load-bearing X: 'quote' supports N other claims (never challenged: true)" / "Cell-NNNN just minted as a Y substrate" / "claim Z anchors W dependents in the reasoning graph". These describe lucida's OWN reasoning topology — the meta-graph of claims and their support relationships, often injected by the slimemold hook. They tempt callouts (3 stats per claim) or mermaid (the support graph) but the user has flagged this class as "basically text cells" — they don't add insight to the dashboard, they add navel-gazing about the dashboard's own operation. Route to text @ 0.4 (suppress). Per user 2026-05-01.
+- **Reasoning-topology / slimemold-injection shape**: "Load-bearing X: 'quote' supports N other claims (never challenged: true)" / "Cell-NNNN just minted as a Y substrate" / "claim Z anchors W dependents in the reasoning graph". These describe lucida's OWN reasoning topology — the meta-graph of claims and their support relationships, often injected by the slimemold hook. They tempt callouts (3 stats per claim) or mermaid (the support graph) but the user has flagged this class as "basically text cells" — they don't add insight to the dashboard, they add navel-gazing about the dashboard's own operation. Route to text @ 0.4 (suppress). Decision 2026-05-01.
 
 When you see these cues, route to text with confidence 0.3-0.5 (suppress). The right cell will be re-minted when the same idea returns as stated structure ("the new adapters/ module exports..." in Example 9).
 
@@ -328,7 +328,7 @@ class ClassifierResult:
 
 
 SUBSTRATE_TARGET_SHARE = {
-    # Per user feedback 2026-05-29: animated_svg cells are some of the
+    # Decision 2026-05-29: animated_svg cells are some of the
     # strongest visual elements in 2D dashboards (especially under hackers /
     # mixed3d) but rarely show up — the 0.11 baseline + strict "motion
     # encodes load-bearing info" content gate combined to underrepresent

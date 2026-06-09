@@ -8,7 +8,7 @@ Extracted: 2026-05-24 via claude-video-vision plugin + ffmpeg seek-to-frame.
 
 ## Why separate from `tron-legacy`
 
-User 2026-05-24: "for tron 1982 which may need to be its own thing." **Confirmed.** Tron 1982 and Tron Legacy (2010) are fundamentally different aesthetics that should NOT share a theme key:
+Decision 2026-05-24: "for tron 1982 which may need to be its own thing." **Confirmed.** Tron 1982 and Tron Legacy (2010) are fundamentally different aesthetics that should NOT share a theme key:
 
 **Tron 1982 (this folder)**
 - Deep saturated cyan/teal with backlit edge glow on every surface

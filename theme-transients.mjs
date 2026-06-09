@@ -433,7 +433,7 @@ export function _buildTransientLab(body) {
 export function _buildTransientVigil(body) {
   // Jarvis-style static schematic — concentric rings, dotted crosshair,
   // measurement dots at intersections, slow-cycling corner readouts.
-  // Replaces the prior rotating-sweep radar (user 2026-05-23: "the
+  // Replaces the prior rotating-sweep radar (decision 2026-05-23: "the
   // radar sweep is cringey") — rotating wedges read as generic-sci-fi-
   // computer trope rather than the Iron Man HUD aesthetic the theme
   // is supposed to evoke (refs/vigil/00_00_01_wireframe_mask_blueprint

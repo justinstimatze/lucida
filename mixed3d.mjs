@@ -115,7 +115,7 @@ export function applyMixed3DLayout(opts) {
   }
   // Boot-time perf checkpoints. Each phase logs its wall-clock
   // duration in ms so we can spot which part of init dominates the
-  // loading-screen-to-interactive gap (user 2026-05-04: "took like
+  // loading-screen-to-interactive gap (decision 2026-05-04: "took like
   // 15 seconds after the loading screen disappeared to actually load").
   const _bootT0 = performance.now();
   const _bootDebug =
@@ -371,7 +371,7 @@ export function applyMixed3DLayout(opts) {
   const cssSceneFar = new T.Scene();
   // Heavier fog (0.06 vs prior 0.04) so back tower faces fade into
   // black void rather than contributing decorative text clutter to
-  // mid-distance — user 2026-05-19 "we need more dark fog drop off
+  // mid-distance — decision 2026-05-19 "we need more dark fog drop off
   // so that the back tower faces don't add too much visual clutter".
   // Towers ~50 units away ≈ 5% visible; ~80 units ≈ 1%.
   scene.fog = new T.FogExp2(0x000308, 0.06);
@@ -387,13 +387,13 @@ export function applyMixed3DLayout(opts) {
   // every tower base picks up identical light, so distant and
   // near towers read with the SAME base color (was tinted unevenly
   // by a central PointLight whose falloff brightened middle towers
-  // and dimmed edges; user 2026-05-02 "the floor of each tower
+  // and dimmed edges; decision 2026-05-02 "the floor of each tower
   // needs to be the same color").
   const hemi = new T.HemisphereLight(0x000308, tint, 1.0);
   hemi.position.set(0, 0, 0);
   scene.add(hemi);
 
-  // Towers — 20×20 grid (was 8×2 canyon walls). User 2026-05-02:
+  // Towers — 20×20 grid (was 8×2 canyon walls). Decision 2026-05-02:
   // "the grid of towers is much bigger. seemingly like 20 by 20
   // towers. the camera stays low and flies between the towers so
   // you rarely get a wide angle view so the field feels semi
@@ -406,7 +406,7 @@ export function applyMixed3DLayout(opts) {
   // the architecture, the cells are the content.
   // 10×10 grid = 100 towers. Tower proportions tuned via Fisher
   // Stevens at video 5:54 (5'7"). Iterations: 4×4×12 → 4×4×16 →
-  // 5×5×15 → 5×5×19 → 5×5×17 (user 2026-05-02: "a little too tall
+  // 5×5×15 → 5×5×19 → 5×5×17 (decision 2026-05-02: "a little too tall
   // now, bring them back down"). 3.4:1 aspect, gap = 7 (1.4× towerW).
   const towerCount = 10;
   const towerW = 5.0;
@@ -434,7 +434,7 @@ export function applyMixed3DLayout(opts) {
   // Tower base glow — a billboarded sprite (always faces camera)
   // with a radial-gradient cyan texture, additive blend. Sprites
   // stay visible from any camera angle, where a flat disk goes
-  // edge-on and disappears at low altitude. User 2026-05-02:
+  // edge-on and disappears at low altitude. Decision 2026-05-02:
   // "the towers were lit from below, their bases glow and kind of
   // wash out where the tower meets the floor."
   const _glowCanvas = document.createElement("canvas");
@@ -460,7 +460,7 @@ export function applyMixed3DLayout(opts) {
     // depthTest:false, the tower's front face writes depth and the
     // sprite gets culled from most camera angles — only visible
     // briefly mid-pan when the camera crosses a face-grazing angle
-    // (user 2026-05-02 "the glow doesn't appear until the first
+    // (decision 2026-05-02 "the glow doesn't appear until the first
     // sideways pan is about halfway done and then it disappears").
     // Flipping depthTest off makes the halo always render; price
     // is the halo may bleed through towers in front of it, which
@@ -476,7 +476,7 @@ export function applyMixed3DLayout(opts) {
   // baked cyan square supplies the bright base and depth-tests
   // correctly against everything in the scene.)
   // Uplight cone: base matches the tower footprint exactly
-  // (user 2026-05-02 "the glow cone base needs to be the same size
+  // (decision 2026-05-02 "the glow cone base needs to be the same size
   // as the tower base"), widens upward to ~2× tower-width at the
   // top, and uses a vertical-gradient texture so the cone reads
   // as a SOFT glow rather than a hard mesh shape.
@@ -521,7 +521,7 @@ export function applyMixed3DLayout(opts) {
     color: tint,
     transparent: true,
     // 0.025 (was 0.04) — even more translucent, so back towers
-    // visibly read THROUGH front towers. User 2026-05-02 ref
+    // visibly read THROUGH front towers. Decision 2026-05-02 ref
     // tower_glass_closeup.png shows multiple tower silhouettes
     // overlapping through translucency.
     opacity: 0.025,
@@ -757,7 +757,7 @@ export function applyMixed3DLayout(opts) {
     const groundGeo = new T.BufferGeometry();
     groundGeo.setAttribute("position", new T.BufferAttribute(groundPos, 3));
     const groundMat = new T.PointsMaterial({
-      // User 2026-05-25: "bright fast pulses should all be the tower
+      // Decision 2026-05-25: "bright fast pulses should all be the tower
       // color, so cyan currently ... not purple on the floor".
       // Was #b48aff lavender. #80f0ff is bright cyan that survives
       // additive bloom and reads as the same family as the tower glass.
@@ -887,7 +887,7 @@ export function applyMixed3DLayout(opts) {
     // Per-tower count so we can spread cells across the field
     // before stacking — without this, the camera-aware picker fills
     // one tower's 29 slots completely before reaching the next
-    // (~76 cells = ~3 fully-filled towers, user 2026-05-02
+    // (~76 cells = ~3 fully-filled towers, decision 2026-05-02
     // "only like 4 towers have cells").
     towerCellCount: new Array(towerCount * towerCount).fill(0),
     beams: [], // active danger-mode LineSegments awaiting expiry
@@ -904,7 +904,7 @@ export function applyMixed3DLayout(opts) {
       // 6 narrow columns per face × 4 faces = 24 columns/tower.
       // Each column is a TERMINAL SCROLLBACK STREAM that packs cells
       // of varying heights until it fills the full tower height
-      // (user 2026-05-03 "wall-height scrollback buffer ... variation
+      // (decision 2026-05-03 "wall-height scrollback buffer ... variation
       // in the heights of the cells ... each column of cells
       // completely fills the height of the tower"). Not a grid.
       // slotsPerFaceY is the *target* number of cells per column at
@@ -1005,7 +1005,7 @@ export function applyMixed3DLayout(opts) {
   // window hook so future HUD chips or auto-triggers can reach it.
   const onKey = (ev) => {
     // Danger toggle moved D → X to free D for free-flight WASD strafe.
-    // User 2026-05-22.
+    // Decision 2026-05-22.
     if (ev.key !== "x" && ev.key !== "X") return;
     const tgt = ev.target;
     const tagName = tgt && tgt.tagName ? tgt.tagName.toUpperCase() : "";
@@ -1073,7 +1073,7 @@ export function applyMixed3DLayout(opts) {
       // 1000ms to 5000ms because at saturation the mount drain can
       // produce 1-2s frame stalls and resetting the camera every
       // few seconds reads as the camera "snapping back to start"
-      // (user 2026-05-03 "the camera motion resets back to the
+      // (decision 2026-05-03 "the camera motion resets back to the
       // initial position every 4 seconds which seems bad").
       if (dt > 5000) {
         _mixed3dResetCameraTimer();
@@ -1203,7 +1203,7 @@ export function applyMixed3DLayout(opts) {
     // than 55 units get obj.visible=false → CSS3DRenderer sets their
     // element display:none, skipping the (expensive) DOM matrix3d
     // write. Heavy CSS3DObjects + thousands of cells = 1fps without
-    // this; user 2026-05-02 "the framerate is absolutely dead now."
+    // this; decision 2026-05-02 "the framerate is absolutely dead now."
     {
       const T2 = window.THREE;
       const projMat = new T2.Matrix4().multiplyMatrices(
@@ -1216,7 +1216,7 @@ export function applyMixed3DLayout(opts) {
       // Distance cull only (75u). The previous per-cell frustum check
       // via `containsPoint(obj.position)` caused edge-of-viewport
       // flicker as camera rotation crossed the cell center across the
-      // frustum boundary frame-to-frame (user 2026-05-02 "some of
+      // frustum boundary frame-to-frame (decision 2026-05-02 "some of
       // them are flickering near the edges of the viewport"). Plane
       // meshes are cheap; the GPU clips offscreen geometry for free.
       const maxD2 = 75 * 75;
@@ -1239,7 +1239,7 @@ export function applyMixed3DLayout(opts) {
     // matrix3d writes, so the close/far throttling is no longer needed.)
     // CSS3D-fog + occlusion dim. WebGL fog only fades native meshes,
     // and CSS3D doesn't read the WebGL depth buffer, so cells viewed
-    // THROUGH a tower in front render too crisp (user 2026-05-02
+    // THROUGH a tower in front render too crisp (decision 2026-05-02
     // "the tiles on the back side of the translucent towers need to
     // be dimmed like you're looking through at least two layers of
     // glass"). For each cell, check how many tower bounding boxes
@@ -1401,7 +1401,7 @@ export function applyMixed3DLayout(opts) {
 // ----------------------------------------------------------------
 // mixed3d: war-room arrangement — EARTH holo-table v2.
 // VOLUMETRIC HOLOGRAM rebuild after v1 was called out as "a bad copy
-// of the reference" (User 2026-05-30: "rethink the whole thing based
+// of the reference" (Decision 2026-05-30: "rethink the whole thing based
 // on the 3d holograms in the reference videos / it's a lot more
 // colored lines and wireframes in 3d with some floating windows").
 //
@@ -1457,7 +1457,7 @@ function applyMixed3DWarRoom(O) {
   scene.fog = new T.FogExp2(0x040814, 0.018);
   const cssScene = new T.Scene();
 
-  // Camera: standing-INSIDE-the-hologram framing.  User 2026-05-30:
+  // Camera: standing-INSIDE-the-hologram framing.  Decision 2026-05-30:
   // "you can get even closer to the center 3d viz, it's ok if you're
   // close because in the show people are basically standing inside
   // the extended hologram."  At z=13 the camera sits just outside the
@@ -1479,7 +1479,7 @@ function applyMixed3DWarRoom(O) {
   // The holo-table base disc — the projection source for every cell
   // and centerpiece hologram in the room. Bumped from the faint v1
   // (opacity 0.10) to a real emissive surface: brighter main disc +
-  // wider additive glow halo extending outward. User 2026-05-31:
+  // wider additive glow halo extending outward. Decision 2026-05-31:
   // "glowing table" — table is the holo source, should look like it.
   const discRadius = 16;
   const discGeo = new T.CylinderGeometry(discRadius, discRadius, 0.18, 64);
@@ -1576,7 +1576,7 @@ function applyMixed3DWarRoom(O) {
   // Per refs/unn the war-room hologram varies across council scenes:
   // sometimes a single planet (00_04_02), sometimes a solar-system
   // model (00_06_04), sometimes purely trajectories or 3D tactical
-  // markers without any central body.  User 2026-05-30: "it's not
+  // markers without any central body.  Decision 2026-05-30: "it's not
   // always a planetary sphere, sometimes it's trajectories or 3d
   // locations" + "more variety than just the globe" + "should slowly
   // iterate through the options unless the mode is set via url".
@@ -1879,7 +1879,7 @@ function applyMixed3DWarRoom(O) {
   // markers in 3D space, not solid spheres or cones.  Each glyph is
   // three line segments crossed at origin; shared BufferGeometry
   // across all glyphs so we only allocate one.
-  // User 2026-05-30: "it's not always a planetary sphere, sometimes
+  // Decision 2026-05-30: "it's not always a planetary sphere, sometimes
   // it's trajectories or 3d locations" + "we have an absolute ton of
   // reference footage" + "council tactical meetings are probably the
   // richest" — drawing on refs/unn/00_06_04 (solar-system + trajectory
@@ -2082,13 +2082,13 @@ function applyMixed3DWarRoom(O) {
   // disc edge. Inner tier at lower altitude + shorter radius (~5
   // cells); outer tier higher up + wider radius (~9 cells). Each tier
   // staggers Y per index so adjacent windows don't read as a flat
-  // fence. Per User 2026-05-30: "a lot more colored lines and
+  // fence. Per Decision 2026-05-30: "a lot more colored lines and
   // wireframes in 3d with some floating windows."
   // Cells form a CURVED WALL on the FAR SIDE of the globe relative to
   // camera (which sits near +Z eye level).  Two rows stacked vertically;
   // each row arranges cells along an arc in the -Z hemisphere so the
   // hero viz (globe + arcs + plus glyphs) is foreground centerpiece
-  // and the cells are a backdrop wall.  Per User 2026-05-30: "the
+  // and the cells are a backdrop wall.  Per Decision 2026-05-30: "the
   // central 3d viz should be front and centered with the cells behind
   // it."  Cells face the world origin via lookAt so they read flat to
   // the camera looking through them.
@@ -2106,7 +2106,7 @@ function applyMixed3DWarRoom(O) {
   // with the top third cut off. Equator (y ≈ globe altitude, 6.5) is
   // the floor — NO cells below it — and rows curve inward toward the
   // y-axis as they climb, mimicking the dome's narrowing latitude.
-  // User 2026-05-31 spec: "hemisphere with the top third cut off,
+  // Decision 2026-05-31 spec: "hemisphere with the top third cut off,
   // pack layout with minimal overlap". Curved cell faces (per-cell
   // CSS transform) skipped for now — perf risk on every frame.
   //
@@ -2137,7 +2137,7 @@ function applyMixed3DWarRoom(O) {
   // Lower ring: at equator altitude. Upper ring: 9 world units
   // higher so a 40vh cell (~8.8 world units at scale 0.029) fits
   // between rows. Tighter gap made the very bottom of long bodies
-  // (mermaid graphs, html tables) clip — user 2026-05-31 "cells
+  // (mermaid graphs, html tables) clip — decision 2026-05-31 "cells
   // still seem to cut off just the very bottom of the content."
   // Smaller upper R closes the dome.
   const LOWER_Y = 6.5;
@@ -2652,7 +2652,7 @@ function _mixed3dToggleDebugOverlay() {
     // without the badge. Visible cells repaint within ~10-20s as the
     // driver works through the camera-priority queue. While the driver
     // catches up, fall back to the promote-stub so cells don't show the
-    // stale badge texture. User 2026-05-22: "if I toggle debug mode off
+    // stale badge texture. Decision 2026-05-22: "if I toggle debug mode off
     // and on the debug labels on the cells don't disappear again".
     const cache = S._snapTexCache;
     if (cache) {
@@ -2723,7 +2723,7 @@ if (typeof window !== "undefined" && !window._mixed3dDebugKeysWired) {
   // position when no movement keys are held. WASD translate, QE up/down,
   // arrow keys yaw/pitch, Shift = boost. Debug-overlay + contact-sheet
   // hotkeys remapped off D/Q to avoid collision with strafe/down.
-  // User 2026-05-22: "just remap the debug d and q keys, so there's no
+  // Decision 2026-05-22: "just remap the debug d and q keys, so there's no
   // collisions or mode switching".
   window._mixed3dFreeFlightKeys = new Set();
   window.addEventListener("keydown", (e) => {
@@ -2828,7 +2828,7 @@ function _mixed3dDriveFreeFlight(t) {
   if (keys.has("ArrowLeft")) S._ffYaw = (S._ffYaw || 0) + lookSpeed;
   if (keys.has("ArrowRight")) S._ffYaw = (S._ffYaw || 0) - lookSpeed;
   // Flight-sim inversion: pushing Up pitches the nose DOWN (forward).
-  // User 2026-05-22 "invert my arrow keys up down so it's more like
+  // Decision 2026-05-22 "invert my arrow keys up down so it's more like
   // a flight sim too".
   if (keys.has("ArrowUp")) S._ffPitch = Math.max(-1.3, (S._ffPitch || 0) - lookSpeed);
   if (keys.has("ArrowDown")) S._ffPitch = Math.min(1.3, (S._ffPitch || 0) + lookSpeed);
@@ -2839,7 +2839,7 @@ function _mixed3dDriveFreeFlight(t) {
   // Right vector = cross(fwd, up). With up=(0,1,0) and fwd above,
   // right = (-fwd.z, 0, fwd.x). Strafe stays horizontal (pitch
   // ignored). Earlier formula (cos, 0, -sin) was reversed — A and D
-  // swapped per user 2026-05-22.
+  // swapped decision 2026-05-22.
   const right = new T.Vector3(-Math.cos(yaw), 0, Math.sin(yaw));
   const cam = S.camera;
   if (keys.has("KeyW")) cam.position.addScaledVector(fwd, speed);
@@ -2851,7 +2851,7 @@ function _mixed3dDriveFreeFlight(t) {
   // Bounds: don't fly through the floor or too far out of the city.
   // Half-field plus a small margin so the camera can graze edges but
   // not escape into the void. Floor stop at y=1.5 (above the floor
-  // mesh + floor texture). User 2026-05-23 "probably shouldn't let
+  // mesh + floor texture). Decision 2026-05-23 "probably shouldn't let
   // me fly the camera through the floor or too far away from the
   // city".
   const G = S.geometry;
@@ -2874,7 +2874,7 @@ function _mixed3dDriveCamera(t) {
   if (_mixed3dState._warmupActive) return;
   // Park-at-cell takes priority — click-park works even after the user
   // has flown around (else click-to-park stops working post-flight,
-  // user 2026-05-22). Park flag is set by _mixed3dParkAt.
+  // decision 2026-05-22). Park flag is set by _mixed3dParkAt.
   if (_mixed3dState._park) {
     const T = window.THREE;
     if (T) {
@@ -2882,7 +2882,7 @@ function _mixed3dDriveCamera(t) {
       // Seed lookAtActual from the camera's CURRENT forward vector so
       // the look direction lerps smoothly from wherever the camera was
       // pointing (mid-swoopy / mid-mouselook) to the cell — instead
-      // of snapping. User 2026-05-23 "smooth transition away from
+      // of snapping. Decision 2026-05-23 "smooth transition away from
       // current camera position instead of just snapping to zoom".
       if (!park.lookAtActual) {
         const dir = new T.Vector3();
@@ -2900,7 +2900,7 @@ function _mixed3dDriveCamera(t) {
   // Free-flight: any movement key held → drive camera from keys; tour
   // disabled once the user has ever pressed a movement key. The first
   // touch sets _userTookCamera; tour stays off for the page session.
-  // User 2026-05-22.
+  // Decision 2026-05-22.
   const _ffKeys = window._mixed3dFreeFlightKeys;
   const _hasMove = _ffKeys && (_ffKeys.has("KeyW") || _ffKeys.has("KeyA") || _ffKeys.has("KeyS") || _ffKeys.has("KeyD") || _ffKeys.has("KeyQ") || _ffKeys.has("KeyZ") || _ffKeys.has("ArrowLeft") || _ffKeys.has("ArrowRight") || _ffKeys.has("ArrowUp") || _ffKeys.has("ArrowDown"));
   if (_hasMove) _mixed3dState._userTookCamera = true;
@@ -2976,7 +2976,7 @@ function _mixed3dPickSwoopFocus(fromPos, fromLookAt, motionDir) {
   // the picker indexed off (lookAt - pos) which can drift far from
   // where the camera is actually heading — that's how we ended up
   // picking targets behind the motion vector and then doing a 180°
-  // swing to reach them (user 2026-05-02 "we still did a fast 180
+  // swing to reach them (decision 2026-05-02 "we still did a fast 180
   // spin at some point").
   let fwdNX, fwdNZ;
   if (motionDir) {
@@ -3001,7 +3001,7 @@ function _mixed3dPickSwoopFocus(fromPos, fromLookAt, motionDir) {
     if (align < 0.5) continue;
     // Inner-field bias: prefer towers nearer the field center so
     // the camera path circles the middle and most of the field
-    // stretches back into the distance (user 2026-05-02 "camera
+    // stretches back into the distance (decision 2026-05-02 "camera
     // shouldn't get too close to the edges").
     const fieldHalf = ((S.geometry.towerCount - 1) / 2) * S.geometry.spacing;
     const innerRadius = fieldHalf * 0.55;
@@ -3022,7 +3022,7 @@ function _mixed3dBuildSwoopSegment(t, fromPos, fromLookAt, motionDir) {
   const G = _mixed3dState.geometry;
   const focus = _mixed3dPickSwoopFocus(fromPos, fromLookAt, motionDir);
   // Focus look-target Y at low cell-stack height (~4) — camera
-  // stays low (user 2026-05-02: "camera level should stay low,
+  // stays low (decision 2026-05-02: "camera level should stay low,
   // never above halfway up the columns. they should always feel
   // like they're towering above us a bit").
   const focusCenter = new T.Vector3(
@@ -3083,7 +3083,7 @@ function _mixed3dBuildSwoopSegment(t, fromPos, fromLookAt, motionDir) {
     lookAtFrom: fromLookAt.clone(),
     lookAtTo: focusCenter.clone(),
     t0: t,
-    // ~3× longer per segment than before — user 2026-05-02 "general
+    // ~3× longer per segment than before — decision 2026-05-02 "general
     // camera flying speed is still too high. it needs to be like 1/3
     // that." 30–45s per segment, smoothstep easing slows the
     // pass-through-tower-face moment to barely-moving.
@@ -3093,7 +3093,7 @@ function _mixed3dBuildSwoopSegment(t, fromPos, fromLookAt, motionDir) {
   };
   // Towers are solid — push the bezier control point out of any tower
   // it currently clips through, iterating until clear (or we hit max).
-  // User 2026-05-02: "columns should be treated as solid, camera
+  // Decision 2026-05-02: "columns should be treated as solid, camera
   // can't fly through them."
   _mixed3dPushSegmentOutOfTowers(seg);
   return seg;
@@ -3102,7 +3102,7 @@ function _mixed3dBuildSwoopSegment(t, fromPos, fromLookAt, motionDir) {
 // Sample the curve and push the control point out of any tower it
 // would intersect. Quadratic bezier midpoint moves by Δ/2 when
 // control moves by Δ, so the push factor has to be ~2× the depth
-// or it never escapes (was undersized at 2+depth, hence user 2026-
+// or it never escapes (was undersized at 2+depth, hence the 2026-
 // 05-02 "I just saw the camera fly through a column"). Lifts y on
 // each pass so chronic clipping converges on a higher arc as a
 // final fallback.
@@ -3426,7 +3426,7 @@ function _mixed3dDriveSwoopyTour(t) {
   // gives the cumulative arc-length traveled at time t — used as the
   // u parameter so the curve is sampled smoothly through the speed
   // ramp without an accumulator (which would need per-frame dt).
-  // User 2026-05-03: "start the camera moving slow and steady for
+  // Decision 2026-05-03: "start the camera moving slow and steady for
   // maybe 10 seconds first".
   // Slow-scan scheduling. Every ~30–50s, decelerate to ~15% speed for
   // 7s, drift the camera laterally toward one side, and rotate lookAt
@@ -3437,7 +3437,7 @@ function _mixed3dDriveSwoopyTour(t) {
   if (t < 10) {
     // skip scan during boot ease-in. After boot, scans fire ~every 8-14s
     // (forward-fly), giving roughly 50/50 wall-facing to corridor-flying
-    // ratio. User 2026-05-20: "swing the camera around to face the tower
+    // ratio. Decision 2026-05-20: "swing the camera around to face the tower
     // walls more often ... like visually scanning across a 2d dashboard".
     sw.scanNextStart = 6 + Math.random() * 4;
     sw.scanFactor = 0;
@@ -3450,7 +3450,7 @@ function _mixed3dDriveSwoopyTour(t) {
       // Was 2.5/12/2.5 (17s) but the 2.5s ramp swung the lookAt ~90°
       // in 2.5s = peak 36°/s visible yaw, which read as a fast
       // direction change. Doubling the ramp to 5s drops peak yaw to
-      // ~18°/s, "impressively slow and intentional" (user 2026-05-23).
+      // ~18°/s, "impressively slow and intentional" (decision 2026-05-23).
       // Longer hold
       // + lower scanMult floor below = camera glides past more cells
       // per scan, not just parks-and-vertical-pans on one slot.
@@ -3461,7 +3461,7 @@ function _mixed3dDriveSwoopyTour(t) {
       else {
         f = 0;
         // 6-10s forward fly between scans (was 8-14s) — more frequent
-        // wall passes per user 2026-05-22.
+        // wall passes decision 2026-05-22.
         sw.scanNextStart = t + 6 + Math.random() * 4;
         sw.scanSide = 0;
         sw.scanTargetCell = null;
@@ -3501,7 +3501,7 @@ function _mixed3dDriveSwoopyTour(t) {
     sw.lastT = t;
     // Don't fully park during scan — keep 40% arc speed so the camera
     // glides PAST the tower face (more cells slide into view) instead
-    // of dollying vertically on one slot. User 2026-05-22 "do more
+    // of dollying vertically on one slot. Decision 2026-05-22 "do more
     // slow passes across tower faces so cells more clearly visible
     // as temporarily a 2D viz".
     const scanMult = 1 - sf * 0.6;
@@ -3517,7 +3517,7 @@ function _mixed3dDriveSwoopyTour(t) {
     // segments makes each captured frame's content less different from
     // the next — smoother apparent motion at any capture framerate.
     // User feedback 2026-05-04: "still a few fast turns too, yawing".
-    // User 2026-05-26: "capture framerate is terrible... especially
+    // Decision 2026-05-26: "capture framerate is terrible... especially
     // during the big camera swoops".
     const lastAvgRate = sw.lastAvgRate || 0;
     const cornerMult = Math.max(0.25, 1 - Math.abs(lastAvgRate) * 1.0);
@@ -3755,7 +3755,7 @@ function _mixed3dDriveSwoopyTour(t) {
   // bfcache/visibility restore). Without this, the camera enters
   // the very first curve corner with full bank applied
   // immediately, reading as a sudden tilt to the right at t=0
-  // (user 2026-05-03 "on first load there's an immediate bank to
+  // (decision 2026-05-03 "on first load there's an immediate bank to
   // the right, we don't want that. just start the camera moving
   // slow and steady for maybe 10 seconds first"). The position
   // path itself stays linear so motion is steady.
@@ -3773,7 +3773,7 @@ function _mixed3dDriveSwoopyTour(t) {
   // down proportionally to camera height ABOVE a "comfort" altitude
   // so high passes look INTO the canyon below instead of across at
   // sky. Low passes (Y <= COMFORT_Y) get no bias and keep their
-  // horizontal forward-look. User 2026-05-26: "spiral up to near top
+  // horizontal forward-look. Decision 2026-05-26: "spiral up to near top
   // of towers is fine, just don't stare up at the ceiling for
   // extended periods."
   const COMFORT_Y = 7;
@@ -3787,7 +3787,7 @@ function _mixed3dDriveSwoopyTour(t) {
   // hasn't caught up to a sharply-different scan-target altitude.
   // Without this the lookAt aims straight at the sky (pitch 70°+)
   // during the transition from low-cell to high-cell scan targets
-  // (user 2026-05-24 "camera path is looking almost straight up").
+  // (decision 2026-05-24 "camera path is looking almost straight up").
   const MAX_PITCH_DEG = 18;
   const dx = sw.lookAtActual.x - cam.position.x;
   const dz = sw.lookAtActual.z - cam.position.z;
@@ -3808,7 +3808,7 @@ function _mixed3dDriveSwoopyTour(t) {
 // towers. Camera snaps both axes to the nearest lane on every turn
 // so a 90° change always produces a corridor-aligned trajectory
 // (was clipping through columns when turns happened mid-lane —
-// user 2026-05-02).
+// decision 2026-05-02).
 const _WEAVE_DIR_X = [0, 1, 0, -1]; // heading 0=N(-Z), 1=E(+X), 2=S(+Z), 3=W(-X)
 const _WEAVE_DIR_Z = [-1, 0, 1, 0];
 function _mixed3dLaneSnap(v) {
@@ -3989,7 +3989,7 @@ function _mixed3dPaintDecorativeText(ctx, x0, y0, w, h, rng, cyan) {
   // canyon decoratives. Five layout variants picked per-cell so a wall
   // of cells reads as varied at glance distance instead of one tiled
   // pattern — variety stays inside the decorative idiom (no
-  // substrate-shaped drift, per user 2026-05-23). The variant pick is
+  // substrate-shaped drift, decision 2026-05-23). The variant pick is
   // deterministic via the same seeded rng as the token pick, so a
   // re-paint of the same cell paints the same way.
   const fontSize = Math.max(8, Math.min(14, Math.floor(h / 12)));
@@ -4090,7 +4090,7 @@ export function _mixed3dDrawCellPreview(ctx, cell, x0, y0, w, h, cyan, pink) {
   const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   const ctype = cell.dataset.cellType || "";
   // ARCHETYPE DISPATCH — only TWO substrate-shaped exceptions (bars,
-  // bar-meter); everything else → decorative-text. User 2026-05-23:
+  // bar-meter); everything else → decorative-text. Decision 2026-05-23:
   // "I'd rather they just be decorative cells which look really
   // great. maybe the bar charts are ok but not the xy plots".
   let archetype;
@@ -4233,7 +4233,7 @@ function _mixed3dResetCameraTimer() {
 }
 
 // Pick a tier-1 cell to anchor the next scan window on. "We made them,
-// may as well let the user look at them" (user 2026-05-23). Filters to
+// may as well let the user look at them" (decision 2026-05-23). Filters to
 // cells that (a) have a cached snap in _snapTexCache (so the user
 // actually sees rendered content, not a stub), (b) are ahead of the
 // camera along the path, (c) sit off to one side of the path so a
@@ -4332,7 +4332,7 @@ document.addEventListener("visibilitychange", () => {
 // promoted instead of just queued. Snap-cached cells paint instantly
 // (no canvas re-render), so the cost mostly hits cells that haven't
 // snapped yet.
-// Bumped 2026-05-26 (28->36 / 32->40): user "I lerp toward them then
+// Bumped 2026-05-26 (28->36 / 32->40): observed: "I lerp toward them then
 // promote to tier 1 but I expected them to promote earlier based on
 // the camera path." Cells along the swoopy curve now flip to tier-1
 // at 36u (was 28u), 8u sooner. Pairs naturally with the snap-driver's
@@ -4387,7 +4387,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     // without its real rendered content. Without a cache hit we leave
     // the cell as tier-2 (shared decorative material) and let the
     // snap-driver render+cache it. The next retier sweep will then
-    // see the cache and complete the promotion. User 2026-05-22:
+    // see the cache and complete the promotion. Decision 2026-05-22:
     // "i just want the rendered cells to be rendered before they're
     // on camera period."
     const cachedSnap = _mixed3dSnapCacheGet(S, id);
@@ -4403,7 +4403,7 @@ function _mixed3dSwapCellTier(obj, id, newTier, cyan, pink) {
     // image. Mismatched constructor dimensions vs cached canvas
     // dimensions caused only the top region (title) to upload to
     // GPU; body region was sampling outside the original placeholder
-    // bounds → blank. User 2026-05-22 "blank" on cell-4271 etc.
+    // bounds → blank. Decision 2026-05-22 "blank" on cell-4271 etc.
     const tex = new T.CanvasTexture(cachedSnap);
     tex.minFilter = T.LinearFilter;
     tex.magFilter = T.LinearFilter;
@@ -4526,7 +4526,7 @@ function _mixed3dRetierSweep() {
     // Sort by recency so cells with newer timestamps are visited first
     // per sweep. Combined with the distance gate + PROMOTE_BUDGET=2,
     // this biases the 400-cell tier-1 set toward the freshest cells
-    // the camera passes (user 2026-05-19: "whatever the camera is
+    // the camera passes (decision 2026-05-19: "whatever the camera is
     // looking at or about to look at is as usefully relevant and
     // recent as possible"). Cells without a timestamp fall to the
     // back (-Infinity).
@@ -4652,7 +4652,7 @@ function _mixed3dBuildOneSharedMat(cyan, pink, substrate, v, cs) {
   // 192x576 baseline for cs=1; W scales with cs for wider planes so the
   // texture aspect tracks the typical wide-cell plane aspect.
   // ctx.scale(2,2) gives 2px stroke weight at the design level,
-  // matching the decorative tier's stroke weight (user 2026-05-19).
+  // matching the decorative tier's stroke weight (decision 2026-05-19).
   canvas.width = 192 * cs;
   canvas.height = 576;
   const ctx = canvas.getContext("2d");
@@ -4929,7 +4929,7 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink, colspan, planeW, plane
   // the tower glass behind blend through. Material's transparent
   // pass alpha-blends correctly. Earlier opaque-pass + dim-cyan
   // bg + cyan border read as "panel embedded in glass"; dropping
-  // those for the etched look (user 2026-05-03 "the cell
+  // those for the etched look (decision 2026-05-03 "the cell
   // backgrounds are basically transparent").
   const pad = 3;
   if (W - pad * 2 >= 12 && H - pad * 2 >= 12) {
@@ -4950,7 +4950,7 @@ function _mixed3dCellTextureMini(cell, isTop, cyan, pink, colspan, planeW, plane
 // Inject a <style> block into a mermaid SVG that recolors strokes/fills
 // to hackers cyan/purple and thickens line weights so the rendered graph
 // reads boldly at canyon distance. Mermaid's default theme is thin neutral
-// gray which disappears against the tower glass — user 2026-05-20
+// gray which disappears against the tower glass — decision 2026-05-20
 // "diagrams are pretty thin and uninspiring".
 function _mixed3dStyleMermaidSVG(svgString) {
   // COMMENT-FREE — CSS comments inside an injected <style> block broke
@@ -5007,7 +5007,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
     }
     /* Mindmaps have more breathing room than flowcharts — labels can
        be bigger without overflowing nodes. cell-3221 (TRIZ mindmap)
-       was 12px at colspan=3 and read as too small (user 2026-05-23).
+       was 12px at colspan=3 and read as too small (decision 2026-05-23).
        Bump mindmap to 14px, root node to 17px+bold. Flowcharts still
        use the validated 12px text-fit pin (memory:
        feedback_mermaid_text_fit_validated). */
@@ -5036,7 +5036,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
        through the transparent label background. Paint-order rule at
        .edgeLabel (below) draws stroke first, fill on top — without a
        stroke value the rule is a no-op; setting it here completes the
-       intent. User 2026-05-26 cell-5148. */
+       intent. Decision 2026-05-26 cell-5148. */
     .edgeLabel text, .edgeLabel foreignObject div, g.edgeLabel text {
       stroke: #000814 !important;
       stroke-width: 4px !important;
@@ -5059,7 +5059,7 @@ function _mixed3dStyleMermaidSVG(svgString) {
     }
     /* Mindmap node-bkg (the rect/path behind each label) defaults to a
        dark gray that clashes with the hackers cyan/dark scheme. Force
-       transparent so only the stroke shows. User 2026-05-22. */
+       transparent so only the stroke shows. Decision 2026-05-22. */
     .node-bkg, .node-no-border, .node-circle, .node-bkg.node-no-border,
     g.mindmap-node > rect, g.mindmap-node > path, g.mindmap-node > circle,
     .mindmap-node > .label > rect, .mindmap-node foreignObject {
@@ -5087,14 +5087,14 @@ function _mixed3dStyleMermaidSVG(svgString) {
   // rewrite content. Only touches the inner-tspan text run; doesn't
   // affect attribute values, ids, etc. Matches the rest of the
   // theme's caps-everywhere convention (titles, decoratives, html
-  // cells, timeline labels). User 2026-05-21.
+  // cells, timeline labels). Decision 2026-05-21.
   //
   // Entity-safe: XML entities are case-sensitive (`&amp;` valid,
   // `&AMP;` invalid). Naïve toUpperCase() on text containing `&lt;`
   // turned it into `&AMP;LT;` (mermaid double-escapes `&` → `&amp;`),
   // which strict SVG-as-Image parsing in Chrome rejected → blob
   // Image.onerror → rasterize fail → stub-cached cell. Symptom:
-  // user 2026-05-22 cell-4513 "no real content, just title + faded
+  // decision 2026-05-22 cell-4513 "no real content, just title + faded
   // bands" — node label was `claude --resume <sid>` (escaped
   // `&lt;sid&gt;`). Skip the uppercase pass on tspans containing
   // entities — they're rare enough that mixed-case text in those
@@ -5154,7 +5154,7 @@ function _mixed3dPaintTitleBlock(ctx, title, fullW) {
   if (cur && y + lineH <= TITLE_H - 2) ctx.fillText(cur, padX, y);
   // Divider removed — when the cell backdrop is transparent the line
   // sat on the tower-glass scanlines behind, reading as a "dotted
-  // line above the cell" (user 2026-05-21). The title→body break
+  // line above the cell" (decision 2026-05-21). The title→body break
   // is already clear from the typographic difference; no need for
   // a visible rule.
   ctx.restore();
@@ -5177,7 +5177,7 @@ function _mixed3dPaintPromoteStub(id, cellData, colspan, canvasH) {
   // No background fill — transparent backdrop is intentional.
   _mixed3dPaintTitleBlock(ctx, cellData?.title || id, W);
   // Body region: render decorative-style scrolling text bands instead
-  // of "RENDERING". User 2026-05-21: cells whose content never arrives
+  // of "RENDERING". Decision 2026-05-21: cells whose content never arrives
   // (no spec/html in cellsById) should look like ambient tower content
   // rather than a failure state. Same vocabulary as tier-2 decoratives:
   // mono shorts/meds/arrows with occasional purple highlight. Static
@@ -5268,7 +5268,7 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
       const aspectImg = img.naturalWidth / img.naturalHeight;
       // Fit to canvas preserving aspect, then center vertically so the
       // leftover space splits above/below the diagram instead of all
-      // sitting below it. User 2026-05-21: "lot of whitespace below
+      // sitting below it. Decision 2026-05-21: "lot of whitespace below
       // the diagram although I think the width is good overall".
       //
       // Earlier MAX_GRAPH_DIM cap (720px, a389592, intended to shrink
@@ -5300,7 +5300,7 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
       // Track failures on _mixed3dState so we can surface them in HUD
       // and debug. Without this the rasterize-fail-then-stub path was
       // invisible — cells silently stayed as decorative stubs.
-      // User 2026-05-22: "instrument this so it doesn't happen,
+      // Decision 2026-05-22: "instrument this so it doesn't happen,
       // I think it's been a long standing issue".
       const S = _mixed3dState;
       if (S) {
@@ -5326,7 +5326,7 @@ function _mixed3dRasterizeSvgToCanvas(svgString, w, h, extras) {
 // in a tall cell, or vice versa), rewrite the `flowchart`/`graph`
 // direction and re-render. Only meaningful for flowchart-family
 // subtypes; sequence/gantt/pie are axis-fixed.
-// User 2026-05-22: "two-pass is what I had in mind" — graph rerouted
+// Decision 2026-05-22: "two-pass is what I had in mind" — graph rerouted
 // to match the slot it has to live in.
 function _mixed3dMaybeFlipMermaidDirection(spec, svg, cellW, cellH) {
   // Only flowchart/graph have a flippable direction.
@@ -5369,7 +5369,7 @@ function _mixed3dMaybeFlipMermaidDirection(spec, svg, cellW, cellH) {
 // two characters) in labels/notes to `<br/>` so mermaid renders them
 // as line breaks. Specialists generating mermaid sometimes encode line
 // breaks as JSON-escaped `\n` thinking mermaid will interpret them,
-// but mermaid only understands `<br>` in labels. User 2026-05-24:
+// but mermaid only understands `<br>` in labels. Decision 2026-05-24:
 // cell-4586 (sequenceDiagram) had participants like "PortAudio Mic\n
 // (16 kHz mono)" rendering with literal "\n" in the box. Actual
 // mermaid statement-separator newlines are 0x0A characters and not
@@ -5400,7 +5400,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // Dev escape hatch: ?nocache=1 disables the manifest lookup so every
   // mermaid render goes through freshRender. Useful during styling
   // changes so old cached SVGs aren't mistaken for unfixed bugs.
-  // User 2026-05-22: "always clear cache so I'm not mistaking old
+  // Decision 2026-05-22: "always clear cache so I'm not mistaking old
   // cache entries for unfixed".
   const _nocache = window._mixed3dNoCache
     || new URLSearchParams(window.location.search).get("nocache") === "1";
@@ -5410,7 +5410,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
   // if it's mismatched, reject the cache and fall through to fresh
   // render (which goes through two-pass direction-flip). Without
   // this, cells minted before the two-pass landed keep their wrong-
-  // direction graphs forever. User 2026-05-22 on cell-4398: "this
+  // direction graphs forever. Decision 2026-05-22 on cell-4398: "this
   // one probably should have been vertical or something".
   const tryCache = haveCache
     ? fetch(`/cells/${encodeURIComponent(cellId)}.${cacheKey}.svg`)
@@ -5446,7 +5446,7 @@ function _mixed3dRenderMermaidToCanvas(spec, w, h, extras) {
     // packs into the cell shape it actually has. Tall cells get tight
     // nodeSpacing + loose rankSpacing (graph stretches vertically);
     // wide cells get the opposite. Only flowchart/graph honors these.
-    // User 2026-05-22 "chase them both yeah" (substrate-fit pass).
+    // Decision 2026-05-22 "chase them both yeah" (substrate-fit pass).
     const aspect = w / h;
     let specForRender = spec;
     if (/^\s*(flowchart|graph)\b/m.test(spec) && !/%%\{init:/.test(spec)) {
@@ -5645,7 +5645,7 @@ function _mixed3dRenderSparklineToCanvas(spec, w, h, extras) {
   const pad = 16;
   // Plot fills as much of body as possible. Label gets a fixed top
   // band when present; without a label, the line starts near the top.
-  // User 2026-05-22 cell-3793: "good graph but doesn't take up all
+  // Decision 2026-05-22 cell-3793: "good graph but doesn't take up all
   // the vertical height of the cell".
   const py0 = label ? 28 : 8;
   const py1 = h - 12;
@@ -5707,13 +5707,13 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
   const ctx = canvas.getContext("2d");
   // Small-n branch: ≤3 items in a treemap renders as 99%-vs-1% slivers
   // (cell-3682 case) — outline-only treemap reads as an empty cell with
-  // labels in a corner. User 2026-05-22 picked "swap to a different
+  // labels in a corner. Decision 2026-05-22 picked "swap to a different
   // substrate" — we render as stacked big-number+label rows instead.
   if (items.length <= 3) {
     const pad = 12;
     const usableH = h - pad * 2;
     // Cap rowH so small-n treemaps don't sprawl to full canvas height
-    // (user 2026-05-25 on cell-5972 "way too spaced out, needs to be
+    // (decision 2026-05-25 on cell-5972 "way too spaced out, needs to be
     // compressed"). 110px keeps big number ~60px + label ~16px + 30px
     // padding per row. Three rows × 110px = 330px content; the rest
     // anchors top + leaves clean trailing space rather than stretched
@@ -5792,7 +5792,7 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
     }
     if (i === items.length - 1 || i === 11) { rw = remW; rh = remH; }
     const color = colors[i % colors.length];
-    // Outlines only — user 2026-05-22: "treemap cells should also not
+    // Outlines only — decision 2026-05-22: "treemap cells should also not
     // have their backgrounds filled, just lines like the bar charts".
     // Drops the 0.18-alpha fill that competed with the cyan label.
     ctx.globalAlpha = 0.9;
@@ -5802,7 +5802,7 @@ function _mixed3dRenderTreemapToCanvas(spec, w, h, extras) {
     // Label
     if (rw > 40 && rh > 24) {
       // Label sized to tile area: bigger tiles get bigger labels.
-      // User 2026-05-21: "labels too small" on treemap.
+      // Decision 2026-05-21: "labels too small" on treemap.
       const labelFont = Math.max(14, Math.min(28, Math.floor(Math.sqrt(rw * rh) / 8)));
       ctx.fillStyle = "#ffffff";
       ctx.globalAlpha = 1;
@@ -5841,7 +5841,7 @@ function _mixed3dRenderTimelineRibbonToCanvas(spec, w, h, extras) {
   // VERTICAL layout: tower cells are tall-and-narrow (W:H ≈ 1:2). The
   // old horizontal axis crammed 5+ stage labels into 60-80px slots and
   // truncated everything. Vertical gives each stage a full-width row
-  // for label + detail. User 2026-05-22: "maybe the timeline ribbon
+  // for label + detail. Decision 2026-05-22: "maybe the timeline ribbon
   // should be vertical".
   return Promise.resolve(_mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLabel));
 }
@@ -5852,7 +5852,7 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
   const padTop = axisLabel ? 36 : 16;
   const padBot = 16;
   // Cap stepY so 3-stage timelines on a 1080px canvas don't spread the
-  // dots 500px apart and read as "visually sparse" (user 2026-05-22 on
+  // dots 500px apart and read as "visually sparse" (decision 2026-05-22 on
   // cell-3909). Rows anchor to the top; axis continues to bottom edge
   // as a "scaffold awaiting more events" — fits the Gibson terminal
   // aesthetic. Even-spread still wins when stage count exceeds what
@@ -5875,7 +5875,7 @@ function _mixed3dRenderTimelineRibbonVertical(canvas, ctx, w, h, stages, axisLab
   const labelX = axisX + haloR + 12;
   const availW = w - labelX - 12;
   // Vertical axis line — cyan dim (was purple). 2026-05-24 sweep.
-  // Alpha lifted 0.35 → 0.6 (user 2026-05-25: "timelines and html are
+  // Alpha lifted 0.35 → 0.6 (decision 2026-05-25: "timelines and html are
   // surprisingly dim in comparison to other things in the render").
   // Whole supporting-chrome layer of the timeline was too retreating
   // against the high-density tier-2 decorative bed.
@@ -6054,7 +6054,7 @@ function _mixed3dRenderVegaToCanvas(spec, w, h, extras) {
     const it = items[i];
     const bx = pad + i * (bw + 4);
     const bh = (py1 - py0) * (it.value / maxV);
-    // Bars as outlines only — user 2026-05-21: "numbers hard to
+    // Bars as outlines only — decision 2026-05-21: "numbers hard to
     // read, maybe bars should just be outlines instead of filled".
     // Filled cyan rectangles competed with the cyan value labels
     // sitting above each bar.
@@ -6095,7 +6095,7 @@ function _mixed3dRenderForceGraphToCanvas(spec, w, h, extras) {
   const ctx = canvas.getContext("2d");
   // Real spring-repulsion layout. Earlier path placed nodes on a regular
   // circle, so every force_graph cell collapsed to the same regular
-  // N-gon (user 2026-05-25 "kind of weird that all the force graphs end
+  // N-gon (decision 2026-05-25 "kind of weird that all the force graphs end
   // up in this same polygon shape"). This runs ~80 relaxation steps
   // with Coulomb-style node repulsion + spring forces along edges,
   // converging to graph-specific layouts (chain reads as line, hub
@@ -6337,7 +6337,7 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
   );
   // Strict-parse defense: SVG-as-Image fails silently (white square)
   // when the root <svg> uses xlink:href but doesn't declare the xlink
-  // namespace. Inject it if missing. User 2026-05-24 cell-4049: blank
+  // namespace. Inject it if missing. Decision 2026-05-24 cell-4049: blank
   // canvas; spec used xlink:href on <animateTransform> without xmlns:xlink.
   if (themed.includes("xlink:") && !/xmlns:xlink=/.test(themed)) {
     themed = themed.replace(/<svg\b([^>]*)>/, '<svg$1 xmlns:xlink="http://www.w3.org/1999/xlink">');
@@ -6353,7 +6353,7 @@ function _mixed3dRenderAnimatedSvgFresh(spec, w, h, cellId, cacheKey, cacheFilen
       // animated SVGs (420×160 is a common spec shape) look like a
       // small floating panel at the top of a tall cell with huge
       // empty space below — read as "weird filled background"
-      // (user 2026-05-25, cell-4937). Centering at least balances
+      // (decision 2026-05-25, cell-4937). Centering at least balances
       // the empty regions vertically; a future task can fill them
       // with decorative tokens.
       const aspectImg = img.naturalWidth / img.naturalHeight;
@@ -6514,7 +6514,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   // Decorative-text aesthetic: no chip, no card frame. Mono dim cyan
   // text + faint horizontal scanlines so the cell visually melts into
   // the decorative bed. Title in purple at top, content rows below.
-  // User 2026-05-21: "html type cells need to look a lot more like
+  // Decision 2026-05-21: "html type cells need to look a lot more like
   // the decorative text style. if we have them at all". Approach A+B
   // with B-emphasis — show the table/list content, styled to merge.
   const pad = 10;
@@ -6534,7 +6534,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   ctx.textBaseline = "top";
   // No body-level title: _mixed3dCompositeAndCacheSnap already paints
   // a 72px title block at the top of the final canvas. The old "> ..."
-  // purple line here duplicated that title. User 2026-05-22 cell-3356:
+  // purple line here duplicated that title. Decision 2026-05-22 cell-3356:
   // "duplicating titles now, one purple one white".
   let cy = pad;
   const yMax = h - pad - 12;
@@ -6544,7 +6544,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
   // big-number, table grid, severity bars) read as a different
   // visual system and were collapsed 2026-05-24.
   if (rows && rows.length) {
-    // DECORATIVE-STYLE rendering. User 2026-05-24 (repeated): tier-1
+    // DECORATIVE-STYLE rendering. Decision 2026-05-24 (repeated): tier-1
     // html cells must "look similar enough to the decoration cells".
     // Earlier paths (callouts big-number-purple, table grid + severity
     // bars, dl two-col with bright labels) all read as a different
@@ -6572,7 +6572,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     ctx.textBaseline = "top";
     ctx.textAlign = "start";
     // Stroke pass on top of fill — visually chunkier glyphs without
-    // changing font weight or size. User 2026-05-25 round 2: "still
+    // changing font weight or size. Decision 2026-05-25 round 2: "still
     // could be bolder and brighter". Stroke width scales with font;
     // 1px at 14pt, ~1.5px at 22pt. Cyan matches fill, alpha 0.55 so
     // stroke layers without over-saturating.
@@ -6585,7 +6585,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     const rightColMaxW = isTwoCol ? (w - pad - rightColX) : (w - pad * 2);
     const leftColMaxW = leftColW - pad;
     // Word-wrap to fit pixel width (was missing — text overflowed cell
-    // right edge, user 2026-05-24 "text just falls off the right edge").
+    // right edge, decision 2026-05-24 "text just falls off the right edge").
     // Max 2 lines per row; ellipsize beyond. Returns array of lines.
     const wrap = (text, maxPx, maxLines) => {
       if (!text) return [];
@@ -6626,7 +6626,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
     // Pre-measure pass: compute total content height by simulating wrap()
     // per row so we can vertically center short content in the cell
     // instead of leaving a fat strip of empty pixels at the bottom.
-    // User 2026-05-25 on cell-4120 (callouts): "should be more
+    // Decision 2026-05-25 on cell-4120 (callouts): "should be more
     // vertically centered so there isn't a bunch of whitespace at the
     // bottom". Single extra pass over rows; wrap() runs on the same
     // font/ctx as the paint pass so the simulation is exact.
@@ -6655,7 +6655,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
       // content rows read bright against the decorative backdrop now
       // painted underneath. Pre-backdrop the 0.55 floor was readable
       // on transparent; against an alpha=0.22 token bed, 0.55 rows
-      // got perceptually flattened. User 2026-05-25 round 2: "still
+      // got perceptually flattened. Decision 2026-05-25 round 2: "still
       // could be bolder and brighter to match the decorative cells".
       const rowAlpha = 0.78 + rng() * 0.2;
       ctx.fillStyle = "#00ddff";
@@ -6679,7 +6679,7 @@ function _mixed3dRenderHtmlToCanvas(cellData, w, h, extras) {
         // Vertically center each column within the row's used height.
         // Without this, a 1-line value next to a 2-line label stuck
         // to the top with dead space below — read as "weird wrap"
-        // (user 2026-05-24). Now: short side floats to vertical
+        // (decision 2026-05-24). Now: short side floats to vertical
         // middle, tall side fills.
         const leftOffset = Math.floor((n - leftLines.length) * rowH / 2);
         const rightOffset = Math.floor((n - rightLines.length) * rowH / 2);
@@ -6726,7 +6726,7 @@ const _MIXED3D_SNAP_BATCH = 1;
 // LRU cap on _snapTexCache. Each cached entry is a 384-576px wide
 // canvas, 446-1152px tall — averaging ~1.5MB. Over hours of camera
 // movement the cache grew unbounded to 1249 entries / 1.8GB before this
-// cap landed (user 2026-05-23). 300 entries × ~1.5MB ≈ 450MB ceiling.
+// cap landed (decision 2026-05-23). 300 entries × ~1.5MB ≈ 450MB ceiling.
 // Eviction priority: oldest-touched first. The current swoopy scan
 // target is exempted (see _mixed3dSnapCacheSet) so the cell the camera
 // is actively visiting can't be evicted mid-look.
@@ -6784,7 +6784,7 @@ function _mixed3dSnapCacheSet(S, id, canvas) {
       // the cached canvas with a stub (title + decorative rows) so
       // the cell still reads while waiting for the next snap. Stub
       // texture pre-uploaded via initTexture so even the swap doesn't
-      // produce its own flash. User 2026-05-24 "still white blink".
+      // produce its own flash. Decision 2026-05-24 "still white blink".
       const T = window.THREE;
       const cellData = state.rendering.cellsById?.get(oldest);
       const stubCanvas = _mixed3dPaintPromoteStub(oldest, cellData, obj.userData?.colspan || 1, obj.userData?.canvasH);
@@ -6831,14 +6831,14 @@ const _MIXED3D_RENDERERS = {
 // region. Lives entirely in margin (top-right + bottom-left), 80×42px
 // each. Cyan Eurostile, decorative-style. Deterministic per-cell seed
 // from cell.id so each cell's tokens are stable across reloads —
-// reads as ambient instrumentation. User 2026-05-25 density-without-
+// reads as ambient instrumentation. Decision 2026-05-25 density-without-
 // fighting-content option E: "floating callouts in unused corners".
 //
 // Tokens drawn from _MIXED3D_DECO_TOKENS (the decorative-text pool),
 // not labelled with metric prefixes (CONF, RANK, etc) — the earlier
 // CONF·0.87 framing implied real numbers and these are deterministic-
 // random. Plain decorative tokens read as flair without implying
-// they're derived from anything (user 2026-05-25 review).
+// they're derived from anything (decision 2026-05-25 review).
 function _mixed3dPaintCornerCallouts(ctx, fullCanvasW, fullCanvasH, titleH, cellData, targetId) {
   const id = String(targetId || cellData?.id || "x");
   let seed = 0;
@@ -6888,7 +6888,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
   // cause was the WebGL texture dimension-binding bug (composite
   // mutated .map.image inside the existing __webglTexture instead
   // of recreating the CanvasTexture; old dimensions clipped re-
-  // uploads of larger cached canvases). User 2026-05-22.
+  // uploads of larger cached canvases). Decision 2026-05-22.
   _mixed3dPaintTitleBlock(ctx, cellData?.title || targetId, fullCanvas.width);
   ctx.drawImage(bodyCanvas, 0, TITLE_H);
   _mixed3dPaintCornerCallouts(ctx, fullCanvas.width, fullCanvas.height, TITLE_H, cellData, targetId);
@@ -6905,7 +6905,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
     // placeholder; subsequent uploads via gl.texImage2D inside the
     // existing texture binding clipped to those original dimensions.
     // Fresh CanvasTexture → fresh WebGLTexture → correct dimensions.
-    // User 2026-05-22: "the cell is blank" on the tower face.
+    // Decision 2026-05-22: "the cell is blank" on the tower face.
     const T = window.THREE;
     if (T) {
       const tex = new T.CanvasTexture(fullCanvas);
@@ -6916,7 +6916,7 @@ function _mixed3dCompositeAndCacheSnap(S, targetId, bodyCanvas, cellData, colspa
       // material points at a not-yet-uploaded texture → samples default
       // 1×1 white → cell flashes white for one frame. The previous
       // visible-false + 2-rAF defense only covered initial MOUNT, not
-      // this snap-replace path (user 2026-05-24 "still a white blink on
+      // this snap-replace path (decision 2026-05-24 "still a white blink on
       // all the tier 1 cells").
       if (S.renderer?.initTexture) {
         try { S.renderer.initTexture(tex); } catch (_) {}
@@ -7011,7 +7011,7 @@ function _mixed3dStartSnapshotDriver() {
     // already tier-1. Including in-range tier-2 cells lets the driver
     // PRE-RENDER cells before they actually promote, so the retier
     // sweep never sees a tier-2 cell crossing the boundary without a
-    // ready cache entry. User 2026-05-22: "rendered cells to be
+    // ready cache entry. Decision 2026-05-22: "rendered cells to be
     // rendered before they're on camera period". Instance handles
     // (decorative bed) still skipped — they don't have an obj.position
     // and aren't promoted via this path.
@@ -7172,7 +7172,7 @@ function _mixed3dRunPathWarmup(S) {
   const sw = S.swoopCam;
   if (!sw || !sw.curve) return Promise.resolve();
   // Pre-render EVERY cell that could ever promote to tier-1 — not just
-  // those near the camera path. User 2026-05-21: "basically nothing
+  // those near the camera path. Decision 2026-05-21: "basically nothing
   // is prerendered even when I see the bar fill on a new fresh hard
   // reload". The spatial filter missed cells outside the boot-position
   // LOD radius but reachable during the swoopy tour; those showed up
@@ -7186,7 +7186,7 @@ function _mixed3dRunPathWarmup(S) {
   // gradually over seconds), so iterating it gives a tiny warmupSet
   // that completes in ~26ms with nothing actually rendered. cellsById
   // is populated synchronously the moment cells.json loads.
-  // User 2026-05-21: "they're all empty or saying pending still" — root
+  // Decision 2026-05-21: "they're all empty or saying pending still" — root
   // cause was this enumeration source.
   const warmupSet = new Set();
   const cbi = state?.rendering?.cellsById;
@@ -7243,11 +7243,11 @@ function _mixed3dRunPathWarmup(S) {
   const CONCURRENCY = 4;
   // Hard cap bumped 30s -> 90s so warmup actually finishes 1244 cells
   // on cold cache (~30 cells/sec observed = ~42s for full set, with
-  // slack). User 2026-05-22 prefers a longer splash to seeing pending
+  // slack). Decision 2026-05-22 prefers a longer splash to seeing pending
   // stubs after dismissal.
   const HARD_CAP_MS = 90000;
   // Boot-ready quota: previously 40 (dismiss boot once viewport-quota
-  // warm). User 2026-05-22 reversed direction after seeing pending
+  // warm). Decision 2026-05-22 reversed direction after seeing pending
   // cells: "I'd much rather have a longer loading bar than have half
   // the column faces just full of pending cells." Quota now == total,
   // so bootReadyP only resolves when warmupP does. Splash carries
@@ -7460,14 +7460,14 @@ window._mixed3dParkAt = (cellId, offset) => {
   //  - content "near the top of the cell" lands above the visible
   //    frame because lookAt = geometric center puts content at
   //    +planeH/2 above the framing point, off-screen at 75° FOV
-  //    when planeH is large (user 2026-05-24, cell-4479).
+  //    when planeH is large (decision 2026-05-24, cell-4479).
   const planeW = obj.geometry?.parameters?.width || 1.0;
   const planeH = obj.geometry?.parameters?.height || 1.0;
   // FOV-fit distance: vertical needs planeH / (2*tan(37.5°)) ≈
   // planeH * 0.65; horizontal at the renderer's live aspect ratio
   // needs planeW / (2*tan(hFov/2)). Take the max so neither axis
   // overflows, then 20% margin. Floor at 2.0u for small cells.
-  // 0.85 multiplier underframed wide colspan-6 cells (user 2026-05-25
+  // 0.85 multiplier underframed wide colspan-6 cells (decision 2026-05-25
   // "camera still getting super close to the face in unhelpful ways").
   const aspect = (_mixed3dState.renderer?.domElement?.clientWidth || 16) / (_mixed3dState.renderer?.domElement?.clientHeight || 9);
   const tanV = Math.tan((75 * Math.PI / 180) / 2);
@@ -7626,7 +7626,7 @@ function _mixed3dCellTexture(cell, isTop, cyan, pink, colspan, canvasH) {
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
   // Body area intentionally blank: dropped the decorative-bands
-  // placeholder (user 2026-05-22 "drop the faded decorative cell
+  // placeholder (decision 2026-05-22 "drop the faded decorative cell
   // content"). Tier-1 cells should show real substrate content or
   // nothing — the title block + dark fill alone read more cleanly
   // than a stand-in that competes with real content visually. The
@@ -7882,7 +7882,7 @@ function _mixed3dDrainMountQueue() {
       // square-ish single-value indicators; without a cap they inherit
       // the column slot.h (~3.4u avg) which leaves huge dead space
       // around the dial. Cap them to 2x planeW so the cell is roughly
-      // square — content fills it. User 2026-05-21: "I'm not sure the
+      // square — content fills it. Decision 2026-05-21: "I'm not sure the
       // gauge needs to be bigger, it just has a lot of space around it".
       const ct_for_h = cell.dataset.cellType || "";
       if (ct_for_h === "gauge" || ct_for_h === "sparkline") {
@@ -7957,7 +7957,7 @@ function _mixed3dDrainMountQueue() {
     // uniqueness in exchange for flat O(1) GPU memory regardless of
     // cell count. Per-cell unique tier-2 textures hit a hard wall
     // around 11000-12000 cells where GPU eviction stalled the tab
-    // for 12-25s at a stretch (user 2026-05-03).
+    // for 12-25s at a stretch (decision 2026-05-03).
     // Tier-2 instanced path: try to add as an InstancedMesh instance
     // before allocating a per-cell Mesh. Falls through to the Mesh
     // path if the shared mat isn't built yet (chunked builder still
@@ -8077,7 +8077,7 @@ function _mixed3dDrainMountQueue() {
     // skips the render, then we flip true after the GPU upload has
     // actually happened.
     //
-    // SINGLE rAF was not enough (user 2026-05-24 follow-up: "still
+    // SINGLE rAF was not enough (decision 2026-05-24 follow-up: "still
     // white tiles at load, some blinking"). The rAF callback runs
     // BEFORE that frame's renderer.render() call — so visible=true,
     // then the render samples the still-default 1×1 white tex, and
@@ -8136,7 +8136,7 @@ function _mixed3dGetFaceSharedPlan(S, towerIdx, face) {
 // slotsPerFaceY, generates per-cell heights with ±50% variance, then
 // distributes any leftover space as inter-cell padding so the first
 // cell sits flush at y=0 and the last cell ends flush at y=towerH —
-// no whitespace at top or bottom (user 2026-05-03 "first/last cell
+// no whitespace at top or bottom (decision 2026-05-03 "first/last cell
 // crisply flush ... pretty dense ... variation in heights").
 function _mixed3dPlanColumn(towerH, targetCount, cellW) {
   // Variable heights — clamp removed 2026-05-21 per
@@ -8146,7 +8146,7 @@ function _mixed3dPlanColumn(towerH, targetCount, cellW) {
   // stays uniform regardless of slot.h variance.
   const MAX_H = Infinity;
   const N = targetCount;
-  // User 2026-05-19: 'the top and bottom of each face need some
+  // Decision 2026-05-19: 'the top and bottom of each face need some
   // padding too'. Inset 0.5u from both tower base and top so cells
   // don't kiss the cyan edge tubes on the top/bottom rims either.
   // Reverses the 2026-05-03 "flush" decision.
@@ -8154,7 +8154,7 @@ function _mixed3dPlanColumn(towerH, targetCount, cellW) {
   const topPad = 0.5;
   const usableH = towerH - baseY - topPad;
   // Inter-cell padding: each gap drawn from [0.28u, 0.52u] for a
-  // visibly varied "evenly-but-randomly-spaced" feel (user 2026-05-03
+  // visibly varied "evenly-but-randomly-spaced" feel (decision 2026-05-03
   // "or a little randomly spaced out actually, that could be nice").
   // Cell heights ALSO vary randomly within the column. The two
   // sources of variation compose without explicit coordination —
@@ -8202,9 +8202,9 @@ function _mixed3dPlanColumn(towerH, targetCount, cellW) {
   // actually read at low pitch. Random shuffle within each (small) bin
   // keeps the field from looking grid-striped while still keeping pitch
   // <20° on every real cell the camera approaches. Replaces the pure-
-  // random shuffle (user 2026-05-24 "camera path is looking almost
+  // random shuffle (decision 2026-05-24 "camera path is looking almost
   // straight up at a cell" — tower-top slots forced 70°+ pitch).
-  // Earlier pure-bottom-up pattern was disliked too (user 2026-05-19);
+  // Earlier pure-bottom-up pattern was disliked too (decision 2026-05-19);
   // this is the camera-altitude-anchored middle ground.
   const CAM_Y = 4.5;
   const BIN_SIZE = 2.0;  // ~2u bins → ~6-8 bins per tower
@@ -8223,7 +8223,7 @@ function _mixed3dPlanColumn(towerH, targetCount, cellW) {
 // looks fully populated. Real cells (tier-1 / tier-2) mount in front
 // of the decoratives at the same slot positions; depth-test handles
 // occlusion. No DOM, no cellObjects map entry, no tier-1 promotion
-// eligibility. User 2026-05-19: "decorative tier also probably
+// eligibility. Decision 2026-05-19: "decorative tier also probably
 // similar to what we used to call ephemeral viz cells, just little
 // animations that match the theme" and "we should be hovering around
 // full towers at all times".
@@ -8239,7 +8239,7 @@ function _mixed3dBuildDecorativeLayer() {
   if (!T || !S.towerMeshes || !S.geometry) return;
   // Defer until Eurostile is ready — without this, the canvas paints
   // before the @font-face WOFF2 has loaded and falls back to system
-  // monospace. User 2026-05-19: "note we have the actual font
+  // monospace. Decision 2026-05-19: "note we have the actual font
   // available in the repo, don't just use a random monospace font".
   // document.fonts.check returns true once Eurostile is decoded.
   if (typeof document !== "undefined" && document.fonts && !document.fonts.check('14px "Eurostile"')) {
@@ -8248,7 +8248,7 @@ function _mixed3dBuildDecorativeLayer() {
   }
   S._decorativeBuilt = true;
 
-  // Procedural terminal-text texture. User 2026-05-19: "the content
+  // Procedural terminal-text texture. Decision 2026-05-19: "the content
   // in the movie is mostly terminal text" + "be sure to use the right
   // font for terminal text". Real monospace glyphs (system mono ->
   // Share Tech Mono / Eurostile fallback) drawn as random hackers-
@@ -8258,7 +8258,7 @@ function _mixed3dBuildDecorativeLayer() {
   canvas.width = 256;
   canvas.height = 768;
   const ctx = canvas.getContext("2d");
-  // Background stays fully transparent. User 2026-05-19: "the cells
+  // Background stays fully transparent. Decision 2026-05-19: "the cells
   // should basically have no background ... bright text on
   // transparent glass (behind which is a dark background)". The dark
   // void behind the towers + the tower-edge cyan supplies all the
@@ -8317,7 +8317,7 @@ function _mixed3dBuildDecorativeLayer() {
   ];
   // Weighted bias: short/medium templates more common than long.
   // Hex-using templates 3 (word+hex) and 7 (hex chain) weights dialed
-  // back 2026-05-19 per user 'less hex code in the decorative cells'.
+  // back 2026-05-19 decision: 'less hex code in the decorative cells'.
   // Indices: [blank, long, word+hex, word->word, three-shorts, key=val,
   //           hex-chain, filler-bar, tree-branch]
   const templateWeights = [3, 3, 1, 3, 4, 3, 0, 1, 2];
@@ -8333,7 +8333,7 @@ function _mixed3dBuildDecorativeLayer() {
 
   // Paint helper — called N times to generate N distinct decorative
   // canvases. Math.random() inside the row loop gives unique content
-  // per canvas. User 2026-05-19: 'I'm seeing some duplication in
+  // per canvas. Decision 2026-05-19: 'I'm seeing some duplication in
   // decorative cell text, like several "kinematics" cells next to
   // each other ... we need a lot more variety'.
   const paintDecoCanvas = () => {
@@ -8366,7 +8366,7 @@ function _mixed3dBuildDecorativeLayer() {
     t.minFilter = T.LinearFilter;
     t.magFilter = T.LinearFilter;
     // RepeatWrapping so texture.offset.y can scroll the content
-    // continuously without showing a hard edge. User 2026-05-19: 'in
+    // continuously without showing a hard edge. Decision 2026-05-19: 'in
     // the movie there are clearly text typing, lists scrolling etc'.
     t.wrapS = T.RepeatWrapping;
     t.wrapT = T.RepeatWrapping;
@@ -8497,7 +8497,7 @@ function _mixed3dBuildDecorativeLayer() {
   LOG.debug(`[mixed3d] decorative layer built: ${totalCount} instances across ${N_TEXTURES} textures`);
 }
 
-// Per-frame animation step for decoratives. User 2026-05-19: 'in the
+// Per-frame animation step for decoratives. Decision 2026-05-19: 'in the
 // movie there are clearly text typing, lists scrolling etc' +
 // 'blinking'. Three layers of per-MATERIAL animation (cheap — one
 // uniform update per mesh, not per-instance):
@@ -8526,7 +8526,7 @@ function _mixed3dStepDecoratives(t) {
   }
   const meshes = S._decorativeMeshes;
   // Per-mesh scroll state. UV scroll was sloppy because partial rows
-  // were visible at the wrap edge (user 2026-05-19: 'scrolling a
+  // were visible at the wrap edge (decision 2026-05-19: 'scrolling a
   // partial line into or out of visibility just looks like sloppy').
   // Now: at each scroll tick, shift the canvas contents up by exactly
   // ROW_H px and paint a fresh line at the bottom. Texture re-uploads
@@ -8537,7 +8537,7 @@ function _mixed3dStepDecoratives(t) {
     // First-scroll fires within ~80ms of init across all meshes so the
     // dashboard starts moving as soon as the boot overlay clears,
     // instead of staying static for 0.2–1.4s of staring at frozen
-    // text. User 2026-05-21: "the decorative tiles don't start
+    // text. Decision 2026-05-21: "the decorative tiles don't start
     // scrolling for a while".
     S._decoScrollState = meshes.map((_, i) => ({
       nextT: t + 0.02 + (i * 0.005),
@@ -8545,7 +8545,7 @@ function _mixed3dStepDecoratives(t) {
     }));
     // Shared scratch canvas so canvas-to-self drawImage with
     // overlapping source/dest rects can't produce undefined-behavior
-    // smear (user 2026-05-19 'I think maybe your lines are overwriting
+    // smear (decision 2026-05-19 'I think maybe your lines are overwriting
     // each other'). Reused across all 16 meshes — scroll events are
     // sequential within a single tick.
     S._decoScrollTempCan = document.createElement("canvas");
@@ -8647,7 +8647,7 @@ function _mixed3dHideDecorativeAtSlot(towerIdx, face, col, p) {
 // Derive horizontal span (1..3) for a cell from its substrate/subtype.
 // Wider cells get more body area; the visual signature of narrow
 // columns is preserved by leaving most cells at colspan=1.
-// User 2026-05-21: "diagrams and graphs just don't like good squished
+// Decision 2026-05-21: "diagrams and graphs just don't like good squished
 // into the tall vertical cell default" — graph-shaped substrates get
 // 2 columns so mermaid flowcharts / vega / force_graph have aspect
 // closer to 1:1.5 instead of 1:3.
@@ -8665,7 +8665,7 @@ function _mixed3dColspanForCell(cell) {
   if (ct === "mermaid") {
     const sub = cell.dataset.mermaidSubtype || "";
     // Flowcharts + their wide cousins (gitGraph, gantt, sankey, ER)
-    // take the full 6-col face. User 2026-05-25 on cell-6080: "this
+    // take the full 6-col face. Decision 2026-05-25 on cell-6080: "this
     // should be a full 6 colspan diagram" — flowcharts with non-
     // trivial branching are illegible at colspan=3 (was the prior
     // setting). Trade-off: colspan=6 means one diagram occupies the
@@ -8712,7 +8712,7 @@ function _mixed3dPickSlotForNewCell(desiredColspan) {
   // far distance. Earlier value (1.5×spacing ≈ 18u, ~5s ahead at
   // swoopy-tour speed) meant new cells landed on towers the user
   // wouldn't reach for several seconds — the cell had already aged
-  // out of "fresh" by the time it appeared in view (user 2026-05-04
+  // out of "fresh" by the time it appeared in view (decision 2026-05-04
   // "we should be sure we're placing new cells along that visual
   // path so they're seen by the user shortly after minting").
   // 0.6×spacing ≈ 7u keeps new cells on the tower the camera is

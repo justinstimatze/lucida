@@ -93,7 +93,7 @@ export function _buildFurnitureMarsBlue(el) {
         + '</svg></span>';
   }
   // Theme-aware palette for the gauges.  mars-red (early-Syfy tachi era)
-  // = saturated red + steel-cyan + harder square bezels per user 2026-06-09
+  // = saturated red + steel-cyan + harder square bezels decision 2026-06-09
   // ("the gauges look weird on mars red — not squared off enough — and
   // obviously the wrong colors").  mars-blue (late-Amazon era) keeps the
   // round chrome + cobalt-on-cobalt-white palette.
@@ -126,7 +126,7 @@ export function _buildFurnitureMarsBlue(el) {
     }
     return `<circle cx="24" cy="24" r="22.5" fill="none" stroke="${P.fg}" stroke-opacity="0.85" stroke-width="2.0"/><circle cx="24" cy="24" r="20.5" fill="none" stroke="${P.fg}" stroke-opacity="0.5" stroke-width="0.6"/><circle cx="24" cy="24" r="19.5" fill="${P.face}"/>`;
   }
-  // Cockpit gauges — 5 DISTINCT types across the bottom center (per user
+  // Cockpit gauges — 5 DISTINCT types across the bottom center (decision
   // 2026-06-09: "the dials all look like watch faces, give me more
   // variety. there's more variety in the ref image").  Each fits viewBox
   // 0 0 48 48 with center (24, 24).  Template literals throughout — the
@@ -545,7 +545,7 @@ function _buildMarsBlueBgRadar() {
       '</g>';
   }
   // Bearing tick scale "-30 .. 0 .. 30" — CURVED along an arc concentric
-  // with the radar (user 2026-06-09: the ref's scale follows the tactical
+  // with the radar (decision 2026-06-09: the ref's scale follows the tactical
   // circle, not a straight line).  Radius 100 sits in the clear band
   // between ring 1 (r=60) and ring 2 (r=120).  Bearing d maps to angle
   // d*1.4 from vertical for readability; ticks point radially outward,
@@ -592,7 +592,7 @@ function _buildMarsBlueBgRadar() {
         'stroke="#4c8dc6" stroke-opacity="0.36" stroke-width="0.8"/>' +
       // (Spokes dropped — they were barely visible at 0.10 opacity.)
       // Ring radii × 1.5 (was 40/80/120/150/180/205/225/240 in commit
-      // f44e32b; user 2026-06-09 "radius of curvature 50% more"):
+      // f44e32b; decision 2026-06-09 "radius of curvature 50% more"):
       // Ring 1: inner small thin solid blue.
       '<path d="M 180 240 A 60 60 0 0 1 300 240" fill="none" ' +
         'stroke="#4c8dc6" stroke-opacity="0.32" stroke-width="0.5"/>' +
@@ -815,7 +815,7 @@ function _buildMarsRedBgRadar(host) {
     `<text x="458" y="243" text-anchor="middle" ${TC}>SECT-E</text>`;
 
   // FULL-CIRCLE war-table disc (2026-06-09: was a semicircle rising from
-  // the viewport bottom; user "needs to be a full circle and bigger").
+  // the viewport bottom; revision call: "full circle and bigger").
   // viewBox 480x480, disc center at (240,240) = SVG center.  The CSS
   // tilts the whole element back 45° so these full circles foreshorten
   // into the war-room table ellipses.
@@ -876,7 +876,7 @@ function _buildMarsRedBgRadar(host) {
       // Glowing red wireframe orb at the radar center — the holographic
       // projection above the tilted war-room plot (don_225 cyan body
       // recast as red).  3 great circles + 2 counter-rotating inner
-      // ellipses + soft fill glow + bright center pip.  Per user
+      // ellipses + soft fill glow + bright center pip.  Decision:
       // 2026-06-09 "glowing red wireframe orb at the center".
       `<g transform="translate(240 240)">` +
         // Hot center glow (don_201's glowing body) — wide soft halo

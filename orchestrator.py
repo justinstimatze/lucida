@@ -721,7 +721,7 @@ def _trivial_mermaid(spec) -> str | None:
     # of them and would false-positive every cell as "0 nodes". Only
     # apply the filter to flowchart / graph specs. (Bucket-2 added the
     # other subtypes 2026-04-29; trivial-filter wasn't updated, demoting
-    # ~50% of recent mermaid cells into text. Per user 2026-04-29.)
+    # ~50% of recent mermaid cells into text. Decision 2026-04-29.)
     header = lines[0].lower()
     is_flowchart = header.startswith("graph ") or header.startswith("flowchart ")
     if not is_flowchart:
@@ -1172,7 +1172,7 @@ def _append_proposal_locked(
                 # now the orchestrator runs mermaid.parse via node
                 # subprocess, and on failure asks Claude to repair the
                 # spec (one retry). Persistent failure → suppress.
-                # Per user 2026-05-01: "lint and fix things like mermaid".
+                # Decision 2026-05-01: "lint and fix things like mermaid".
                 if chosen_type == "mermaid" and isinstance(non_image_spec, str):
                     ok, err = _specs.lint_mermaid_spec(non_image_spec)
                     if not ok:

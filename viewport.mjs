@@ -57,7 +57,7 @@ export function setupAutoPan(container, content, opts) {
     // Try column-anchored pan for tables: when content holds a single
     // <table> and overflow is horizontal, waypoints snap to column
     // boundaries so the camera reads column-by-column rather than
-    // edge-to-edge. Per user 2026-04-29: "should pan from column to
+    // edge-to-edge. Decision 2026-04-29: "should pan from column to
     // column probably and not edge to edge."
     let columnAnchors = null;
     if (overflowX && !overflowY) {
@@ -86,7 +86,7 @@ export function setupAutoPan(container, content, opts) {
     // Strip-pan fallback for non-table overflow (mermaid SVGs, etc).
     // Generate evenly-distributed frames per axis: at least 3 frames
     // (start / middle / end) when overflow is meaningful, more if
-    // needed to keep ≤70% jump between frames. Per user 2026-04-29:
+    // needed to keep ≤70% jump between frames. Decision 2026-04-29:
     // the prior floor()-based stride generated only corner waypoints
     // for typical overflow sizes, so the camera tour skipped the
     // interior of the diagram and "shows almost only the edges."
@@ -153,7 +153,7 @@ export function setupAutoPan(container, content, opts) {
 
     // Append a zoom-out "overview" beat to the cycle so the user sees
     // the whole diagram/table once per tour, then resumes panning. Per
-    // user 2026-04-29 evening: scanning at zoomed-in level only made it
+    // decision 2026-04-29 evening: scanning at zoomed-in level only made it
     // hard to get a sense for the whole. Scale chosen so content fits
     // inside container with small margin; only added when overflow is
     // big enough that an overview is meaningfully different from any
@@ -187,7 +187,7 @@ export function setupAutoPan(container, content, opts) {
     let timer = null;
     let paused = false;
     let visible = true;
-    // Dwell long enough to actually read a column or region. Per user
+    // Dwell long enough to actually read a column or region. Decision
     // 2026-04-29: prior 3.2s felt rushed. 5.5s gives ~4s of stillness
     // after the 1.5s transition completes — enough to read a table
     // column without scanning frantically.

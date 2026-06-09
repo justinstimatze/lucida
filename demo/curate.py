@@ -5,7 +5,7 @@ Picks real cells minted by the watcher from an actual Claude Code session
 and writes them to demo/demo_cells.json for use with replay.py.
 
 Usage:
-    cd ~/Documents/lucida
+    cd path/to/lucida
 
     # Auto-select best cell per substrate from a session (recommended):
     python demo/curate.py --session nif-demo

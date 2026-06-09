@@ -6,7 +6,7 @@ Extracted: 2026-05-24 via claude-video-vision plugin + ffmpeg seek-to-frame.
 
 ## Why a separate ref folder from gits-1995
 
-User 2026-05-24: "GITS2 (which might need to be a separate entry)" — **confirmed**. GITS 1995 and GITS Innocence are visually distinct enough they should not share a theme key.
+Decision 2026-05-24: "GITS2 (which might need to be a separate entry)" — **confirmed**. GITS 1995 and GITS Innocence are visually distinct enough they should not share a theme key.
 
 - **GITS 1995 (`refs/gits-1995/`)**: practical-cybernetic, concrete mechanism, green-on-pipes compositing.
 - **GITS Innocence (this folder)**: psychedelic-spiritual — concentric orange rings, kanji-tile walls with life/death Zen phrases, no literal UI elements. Abstract dream-state cyberspace.

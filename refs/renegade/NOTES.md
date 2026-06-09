@@ -4,7 +4,7 @@ Sources:
 - **ME3** Normandy CIC tour: <https://www.youtube.com/watch?v=zOKjm_avvGs> (2:37) — Alliance-era SR-2, post-Cerberus
 - **ME2** Normandy CIC Collector-era tour: <https://www.youtube.com/watch?v=BMarDewElOY> (3:35) — Cerberus-era SR-2
 
-Both extracted 2026-05-24 via claude-video-vision plugin + ffmpeg seek-to-frame. User 2026-05-24: "mass effect is tricky but here's the ME3 normandy CIC, you can probably extract from the terminals visible within the game" + "and here's the me2 normandy tour".
+Both extracted 2026-05-24 via claude-video-vision plugin + ffmpeg seek-to-frame. Decision 2026-05-24: "mass effect is tricky but here's the ME3 normandy CIC, you can probably extract from the terminals visible within the game" + "and here's the me2 normandy tour".
 
 ## Why two eras together
 

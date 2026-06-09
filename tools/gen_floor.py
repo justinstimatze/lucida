@@ -135,7 +135,7 @@ def add_tower_base_detail(
     tower_color: str,
 ) -> None:
     """Sparse asymmetric chip-pad accents inside each tower footprint.
-    Earlier cross-hatch grid version read as a Go-board (user 2026-05-04
+    Earlier cross-hatch grid version read as a Go-board (decision 2026-05-04
     "looks like a go board"); replaced with random-scattered darker
     rectangles of varying sizes — closer to PCB silkscreen markings,
     no repeating axis-aligned uniformity.
@@ -183,7 +183,7 @@ def is_in_tower(spec: FloorSpec, x: float, z: float, margin: float = 0.0) -> boo
 class FloorRouter:
     """Manhattan BFS path router for pin-to-pin floor traces. Adapted
     from the nano-banana 'Gibson Circuit Explorer' algorithm shared by
-    the user 2026-05-04 — chips become grid obstacles, pin-to-pin nets
+    the decision 2026-05-04 — chips become grid obstacles, pin-to-pin nets
     are routed cell-by-cell with strict 90-degree-only motion, and
     each routed path becomes an obstacle for subsequent routes so
     later traces don't overlap earlier ones.
@@ -388,7 +388,7 @@ def bake(
         return False
 
     # 1b. BFS-routed pin-to-pin nets: the structural piece nano-banana
-    #     (user 2026-05-04) keeps emphasizing — buses connect SPECIFIC
+    #     (decision 2026-05-04) keeps emphasizing — buses connect SPECIFIC
     #     chip pin terminals, not random points in space. Each net is
     #     a 3-line ribbon between consecutive pins on two random towers,
     #     routed cell-by-cell with strict 90-degree-only motion. The
@@ -805,7 +805,7 @@ def bake(
     # 6. Tower footprints = bright "hole into a bright light" visible
     #    through translucent tower glass. Uses tower_color (cyan, matches
     #    the tower-edge tubes) — distinct from primary which colours the
-    #    purple PCB traces per refs (user 2026-05-03 "the floor lines/
+    #    purple PCB traces per refs (decision 2026-05-03 "the floor lines/
     #    traces are pretty consistently purple ... reflections of the
     #    purple circuit lines in the glass of the tower faces").
     overpaint_tower_bboxes(draw, spec, fill=tower_color, margin=0.0)

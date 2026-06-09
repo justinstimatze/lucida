@@ -11,7 +11,7 @@
 // Why full puppeteer (not puppeteer-core): bundled Chromium means
 // contributors / forkers don't need to install Chrome separately.
 // Adds ~170MB to node_modules but the on-boarding gain is worth it
-// (user 2026-05-25: "would like to not make people use chrome more
+// (decision 2026-05-25: "would like to not make people use chrome more
 // than necessary").
 //
 // I/O:

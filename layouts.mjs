@@ -46,7 +46,7 @@ export function applyOrganicLayout() {
   //   radius + size/2 <= w/2 - margin
   // Same constraint vertically. Without this clamp, default
   // (radius=0.62, sizeMul=0.55) ring of cells extended ~430px past
-  // the right viewport edge at 1920×1080 (user 2026-05-23 audit).
+  // the right viewport edge at 1920×1080 (decision 2026-05-23 audit).
   // Scale the entire layout proportionally to keep the FUI feel while
   // guaranteeing the outer satellites fit.
   const margin = 32;

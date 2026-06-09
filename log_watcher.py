@@ -8,7 +8,7 @@ its own column under the existing multi-stream filter
 The systemd journal is the natural unified-log answer on this host
 (aggregates kernel + user services + syslog), so v0 hardwires it as
 the single source. UX for adding/removing arbitrary log sources is a
-later concern (user 2026-05-03: "I'm not sure how to easily let lucida
+later concern (decision 2026-05-03: "I'm not sure how to easily let lucida
 configure log sources but that's a ux thing for later").
 
 Compose with watcher.py: run both processes in parallel, their

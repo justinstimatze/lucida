@@ -6,7 +6,7 @@ Extracted: 2026-05-24 via claude-video-vision plugin + ffmpeg seek-to-frame.
 
 ## Why separate from `tron-82`
 
-User 2026-05-24: "for tron 1982 which may need to be its own thing." Confirmed — the 2010 and 1982 aesthetics are fundamentally different. See `refs/tron-82/NOTES.md` for the 1982 vocabulary.
+Decision 2026-05-24: "for tron 1982 which may need to be its own thing." Confirmed — the 2010 and 1982 aesthetics are fundamentally different. See `refs/tron-82/NOTES.md` for the 1982 vocabulary.
 
 **Tron: Legacy 2010 = corporate-future glass + thin-line HUDs**
 - Cool desaturated blue-grey + cyan accent slivers, mostly white text

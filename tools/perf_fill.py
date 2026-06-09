@@ -1,6 +1,6 @@
 """Saturate the dashboard with cloned cells to expose render-perf issues.
 
-User 2026-05-03: "we need to make sure we can render smoothly with all
+Decision 2026-05-03: "we need to make sure we can render smoothly with all
 surfaces covered in cells. then we can make the cells look right."
 
 The mixed3d layout has 100 towers x 73 slots = 7,300 surfaces. At ~2,000

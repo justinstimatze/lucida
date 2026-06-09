@@ -300,7 +300,7 @@ def _process_once_locked(
     # Without this, newly-minted mermaid cells fall back to client-side
     # mermaid.render — ~200ms per render on the browser main thread,
     # which produces the "decorative animations stutter when new cells
-    # arrive" pattern (user 2026-05-25). The backfill noops fast when
+    # arrive" pattern (decision 2026-05-25). The backfill noops fast when
     # nothing's uncached, so we just call it after every mint pass.
     if write and any(
         c.get("id") in minted_ids and c.get("cell_type") == "mermaid"

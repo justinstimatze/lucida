@@ -16,7 +16,7 @@ Physical Review Letters 132, 065102 (2024)
 
 ```bash
 # Terminal 1 — everything (renderer + watcher, auto-attaches when claude starts)
-cd ~/Documents/lucida && bash demo/start_session.sh
+cd path/to/lucida && bash demo/start_session.sh
 
 # Terminal 2 — fresh session (not in the lucida directory)
 mkdir -p /tmp/nif-session && cd /tmp/nif-session && claude
@@ -199,7 +199,7 @@ cross-sections alone don't convey.
 ## After the session
 
 ```bash
-cd ~/Documents/lucida
+cd path/to/lucida
 python demo/curate.py --list   # find the 8 fresh mints
 python demo/curate.py --ids cell-XXXX,...
 

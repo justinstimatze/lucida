@@ -16,12 +16,16 @@ https://github.com/user-attachments/assets/d08aa14f-2a12-4f6d-a107-d71d98529dac
 
 ## Themes
 
-The dashboard ships thirteen themes. Switch via `?theme=` in the URL or the
-`THEME` chip in the HUD.
+The dashboard ships a wardrobe of themes — switch via `?theme=` in the URL
+or the `THEME` chip in the HUD.
 
 | Theme       | Feel                                                       |
 | ----------- | ---------------------------------------------------------- |
 | `lab`       | Default dark, cyan accent                                  |
+| `mars-blue` | The Expanse, Rocinante — cobalt tactical radar, bezel gauges |
+| `mars-red`  | The Expanse, classic MCRN — red war-table, Donnager data stack |
+| `earth`     | The Expanse, UN Navy — royal-blue situations plot, institutional |
+| `drift`     | The Expanse, OPA/Belter — amber orbital plot, salvage eclectic |
 | `vigil`     | MCU/Jarvis — cold electric cyan, arc reactor gold          |
 | `ops`       | Star Trek LCARS — full L-frame chrome                      |
 | `circuit`   | Tron Legacy — hard grid, neon data strip                   |
@@ -38,6 +42,11 @@ The dashboard ships thirteen themes. Switch via `?theme=` in the URL or the
 Each theme ships per-theme entrance animations and window-edge chrome
 authentic to its source material. Themes also declare a preferred layout
 that activates on switch.
+
+The four faction themes from *The Expanse* — each with its own live
+tactical furniture, not just a palette swap:
+
+![The four Expanse faction themes: mars-blue, mars-red, earth, drift](assets/expanse-themes-2x2.png)
 
 https://github.com/user-attachments/assets/6da05581-f458-48f4-9044-4ad3795d152f
 
@@ -290,7 +299,7 @@ python -m adapters.cli --source aider <chat.md> --out /tmp/transcript.txt
 ```
 lucida/
 ├── index.html             renderer
-├── notebook.css           all 13 themes
+├── notebook.css           all theme chrome
 ├── themes/                per-theme token JSON
 ├── serve.py               static server + snap receiver
 ├── orchestrator.py        one-shot entry point

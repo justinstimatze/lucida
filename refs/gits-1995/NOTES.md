@@ -6,7 +6,7 @@ Extracted: 2026-05-24 via claude-video-vision plugin + ffmpeg seek-to-frame.
 
 ## Why a separate ref folder from gits-innocence
 
-User 2026-05-24: "GITS2 (which might need to be a separate entry)" — **confirmed**. GITS 1995 and GITS Innocence (2004) are visually distinct enough they should not share a theme key, the same way Tron 1982 and Tron Legacy split:
+Decision 2026-05-24: "GITS2 (which might need to be a separate entry)" — **confirmed**. GITS 1995 and GITS Innocence (2004) are visually distinct enough they should not share a theme key, the same way Tron 1982 and Tron Legacy split:
 
 - **GITS 1995 (this folder)**: practical-cybernetic — concrete mechanism, multi-fingered hands on a glass keyboard, green-code-overlay on industrial pipes. Tangible cyberspace.
 - **GITS Innocence (`refs/gits-innocence/`)**: psychedelic-spiritual — concentric orange rings, kanji-tile walls (life/death zen phrases), no literal interface. Abstract dream-state cyberspace.

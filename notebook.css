@@ -419,7 +419,7 @@ main {
   overflow: hidden;
   position: relative;
   /* Container query context so .cell-head can hide low-priority chips
-     in narrow cells. Per user 2026-04-29 — narrow ambient cells had
+     in narrow cells. Decision 2026-04-29 — narrow ambient cells had
      ~280px head width with chips totaling ~280px, leaving the title
      truncated to "B..", "STAN..", etc. Container-type: inline-size
      observes only the cell's width, doesn't shrink-fit the cell to
@@ -451,7 +451,7 @@ main {
     display: none !important;
   }
 }
-/* All-four-edge feathered fade. Per user 2026-04-29: every edge
+/* All-four-edge feathered fade. Decision 2026-04-29: every edge
    should have the nice blur/fade effect the bottom edge had.
    Packed into ::after only (theme-ops + theme-conclave already use
    ::before for the side rail; mixing ownership got the rail
@@ -460,7 +460,7 @@ main {
    at the edge. Always-on so cells read as soft-edged regardless
    of overflow.
    Top inset (2.2rem) skips the cell-head row so the metadata chips
-   (cell-id / cell-move / cell-conf) aren't softened — per user
+   (cell-id / cell-move / cell-conf) aren't softened — by request
    2026-04-29: "the top blur should start below the cell title bar
    otherwise it just blurs the titlebar metadata button thingies." */
 .cell::after {
@@ -524,7 +524,7 @@ main {
 /* Grid items default to min-width:auto (intrinsic content width); long
    single-word titles or wide mermaid SVGs blow past the 45fr column
    width and the cell overflows past the right viewport edge. min-width:0
-   lets each cell shrink to its column allocation. User 2026-05-23 saw
+   lets each cell shrink to its column allocation. A 2026-05-23 review saw
    tactical right column cut off on a 730px viewport. */
 #notebook[data-layout="tactical"] > .cell {
   min-width: 0;
@@ -805,7 +805,7 @@ main {
    cells so a cell's content renders the same way regardless of
    position. The grid-column: 1/-1 stretching forced wide-cell content
    like cell-1054's arc chart to render with massive horizontal
-   whitespace; per user 2026-04-29 the cell should render at its
+   whitespace; decision 2026-04-29 the cell should render at its
    content's natural size and stay there. */
 #notebook > .cell:first-child {
   /* hero soft cap matches ambient — no separate headroom.
@@ -1113,7 +1113,7 @@ main {
 .theme-conclave .cell-id {
   text-shadow: 0 0 3px rgba(255, 140, 0, 0.4);
 }
-/* cell-source: trigger + notes + prompt — debug-only data per user
+/* cell-source: trigger + notes + prompt — debug-only data by request
    2026-05-01 ("really a debug thing anyway no one will ever click
    it"). Lives inside cell-head as a tiny "{·}" icon. When opened,
    content blocks render below the head (escapes the head row via
@@ -1228,6 +1228,19 @@ main {
   overflow: hidden;
   position: relative;  /* establish containing block for transformed children */
 }
+/* Center smaller-than-cell viz horizontally (2026-06-09 — diagrams sat
+   flush-left with dead space right; "usually the viz is centered and the
+   text below is left"). display:block kills the inline baseline gap;
+   margin:auto is a no-op for diagrams at/over container width, and the
+   auto-pan tour's transform composes after layout so panning is
+   unaffected. */
+.vega-target svg,
+.vega-target canvas,
+.mermaid-target svg {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
 /* Narrow cockpit rails — mermaid/timeline/trajectory SVGs render at their
    intrinsic size, which for a typical spec ends up ~280×470. In a 309×216
    rail cell that overflows top+bottom; cell `overflow:hidden` then clips
@@ -1312,7 +1325,7 @@ main {
   font-family: var(--type-mono, ui-monospace, "SF Mono", Menlo, monospace);
   /* 0.72rem (was 0.78) — code cells render denser per char than prose;
      dropping the size compresses vertical real estate so a 10-line
-     function doesn't dominate the grid. Per user 2026-04-29: code
+     function doesn't dominate the grid. Decision 2026-04-29: code
      cells were reading as "too much text" relative to other substrates. */
   font-size: 0.72rem;
   line-height: 1.45;
@@ -1422,7 +1435,7 @@ main {
 .ascii-pre {
   font-family: var(--type-mono, ui-monospace, "SF Mono", Menlo, monospace);
   /* 0.88rem (was 0.78) — box-drawing glyphs (┌─┐ ╔═╗ etc) render at
-     subpixel widths that lose detail at smaller font sizes. Per user
+     subpixel widths that lose detail at smaller font sizes. Decision:
      2026-04-29 cell-1249 was unreadable; bump to 0.88rem so the box
      corners and intersections register clearly. */
   font-size: 0.88rem;
@@ -1563,7 +1576,7 @@ main {
      cell, the canonical Evangelion section-tag glyph.  Same --cell-corner-*
      mechanism as the renegade N7 stripe / vigil arc-reactor / hailmary
      active pip; conclave's is angular red because NERV is angular red.
-     User 2026-05-30: "Conclave was intended to be nerv magi eva stuff." */
+     Decision 2026-05-30: "Conclave was intended to be nerv magi eva stuff." */
   --cell-corner-content: "";
   --cell-corner-size: 14px;
   --cell-corner-bg: linear-gradient(225deg, #ff2020 50%, transparent 50%);
@@ -1623,7 +1636,7 @@ main {
   /* Verdigris (oxidized copper). Was olive #5d7a1f pre-2026-05-01;
      read as swampy/mismatched against the brass+cream palette. Now
      matches data.cat[1] so "ok state" and "secondary data role" share
-     the same green token. Per user 2026-05-01. */
+     the same green token. Decision 2026-05-01. */
   --vis-ok: #5e8e7e;
   --vis-warn: #b8860b;
   --vis-tripped: #8b2500;
@@ -1691,7 +1704,7 @@ main {
 /* Needle pivots on (12,12). At conf=0 it points to -135° (lower-left
    tick); at conf=1 it points to +135° (lower-right). 270° sweep total
    matches the visible tick arc. The needle SITS at value (no entrance
-   sweep) and wiggles ±0.7° to read as a live analog gauge — per user
+   sweep) and wiggles ±0.7° to read as a live analog gauge — by request
    2026-05-01 ("at value with a little wiggle noise"). */
 @property --needle-wiggle {
   syntax: "<angle>";
@@ -1787,7 +1800,7 @@ main {
    is the track; fills swap in proportional to --conf. Filled portion
    is at the BOTTOM of each hex via clip-path inset. The hex shape is
    the iconic NERV cue — far more recognizably-MAGI than the 3-bar
-   stack it replaces (user 2026-05-01: "needs to be more iconically
+   stack it replaces (decision 2026-05-01: "needs to be more iconically
    magi themed"). */
 .theme-conclave .cell-conf-magi .magi-tracks polygon {
   fill: transparent;
@@ -1797,7 +1810,7 @@ main {
 .theme-conclave .cell-conf-magi .magi-fills polygon {
   fill: var(--accent);
   /* Crop top (1 - conf) of the hex bounding box so fill rises with
-     confidence. Sits at value — no entrance swing per user
+     confidence. Sits at value — no entrance swing by request
      2026-05-01 ("at value with a little wiggle noise"). */
   clip-path: inset(calc((1 - var(--conf, 0)) * 100%) 0 0 0);
 }
@@ -2088,7 +2101,7 @@ main {
      so the bar renders correctly at first paint before the async
      JSON fetch resolves. Otherwise the un-set vars produced an
      invalid gradient that visibly snapped into place once tokens
-     loaded — per user 2026-04-29 status-bar FOUC report. */
+     loaded — decision 2026-04-29 status-bar FOUC report. */
   background: repeating-linear-gradient(
     90deg,
     var(--data-cat-0, #ff9900) 0 80px,
@@ -2212,10 +2225,10 @@ html.theme-ops::before {
 }
 /* LCARS rail-aware fade: the generic .cell::after lays four gradient
    strips, one per edge. The left strip would soften the LCARS rail
-   (::before, 15px wide at left:-1px) into a fuzzy edge — per user
+   (::before, 15px wide at left:-1px) into a fuzzy edge — by request
    2026-04-29. Override to drop the left gradient so the rail stays
    crisp. ALSO inset the left to 15px so the top + bottom gradients
-   don't paint over the rail at the leftmost column — per user
+   don't paint over the rail at the leftmost column — by request
    2026-04-29 ("top and bottom blur on the hero cell still interfere
    with the lcars left border").
    Inherits the top inset (2.6rem) from the base rule so cell-head
@@ -2225,7 +2238,7 @@ html.theme-ops::before {
      Initial fix at 15px gave 1px clearance but user reported the fade
      still bled onto the rail by ~1px on the hero cell — likely a
      subpixel/antialiasing thing on the rail's right edge. 16px clears
-     it cleanly per user 2026-04-29 ("top and bottom blur is still just
+     it cleanly decision 2026-04-29 ("top and bottom blur is still just
      like a pixel too far to the left"). */
   inset: 2.6rem 0 0 16px;
   background:
@@ -2284,7 +2297,7 @@ html.theme-ops::before {
    those cells were size-distinguished and the lack of rail padding
    gave them more horizontal real estate. Post-natural-size-pivot
    (2026-04-29) the hero has no size advantage — the carve-out just
-   made hero/reflection content overlap the rail. Removed per user
+   made hero/reflection content overlap the rail. Removed by request
    2026-04-29 ("if we're not really doing hero cell sizing any more
    should we still have the hero cell lcars border difference").
    Specificity (0,2,1) wins over the base .cell padding rule (0,1,1)
@@ -3008,7 +3021,7 @@ html.theme-ops::before {
   left: 50%;
   /* Lift the radar so its center (viewBox 240,240 — at the very bottom
      of the SVG) aligns with the center of the middle cockpit gauge in
-     the bezel bar (~42px above viewport bottom).  Per user 2026-06-09. */
+     the bezel bar (~42px above viewport bottom).  Decision 2026-06-09. */
   bottom: 42px;
   /* Container caps:
      - Width × Height honor the viewBox 480:360 aspect via paired min()s.
@@ -3033,14 +3046,14 @@ html.theme-ops::before {
    holographic projection table.  Pull the radar's center to viewport
    center (vs mars-blue's "lift 42px above bottom") and tilt the whole
    plot back ~45° so concentric rings foreshorten into ellipses.  Per
-   user 2026-06-09 "pull the lower one up to the center and tilt back".
+   decision 2026-06-09 "pull the lower one up to the center and tilt back".
    Mars-blue retains the flat-overhead look — these overrides only
    apply when .theme-mars-red wins specificity. */
 .theme-mars-red #mb-bgradar {
   /* FULL-CIRCLE war-table disc (viewBox 480x480, disc center = SVG
      center).  Center the element on the viewport center, then tilt back
      45° around its own center — the disc foreshortens into the war-room
-     table ellipse with its center pinned at viewport center.  Per user
+     table ellipse with its center pinned at viewport center.  Decision:
      2026-06-09: full circle (not semicircle), bigger, centered at
      ~half the window. */
   bottom: auto;
@@ -3165,7 +3178,7 @@ html.theme-ops::before {
    right box on the hero, flipping the 225° red gradient's wedge to top-left.
    On mars-red we want the corner triangle consistent across cells; suppress
    the ::before expansion so the corner-system box positioning wins. Recency
-   signal moves to a drop-shadow on the cell instead. (User 2026-06-07.) */
+   signal moves to a drop-shadow on the cell instead. (Decision 2026-06-07.) */
 .theme-mars-red .cell.cell-still-warm::before {
   /* DON'T override inset/top/left — that would supersede .cell::before's
      `top: var(--cell-corner-top, 0); right: var(--cell-corner-right, 0)`
@@ -3514,7 +3527,7 @@ html.theme-ops::before {
   cursor: help;
 }
 /* Top-bar PDC ammo circles — row of small filled-meter rings across the
-   top center.  Per user 2026-06-09 "the top bar is a lot of little
+   top center.  Decision 2026-06-09 "the top bar is a lot of little
    circles (probably pdc ammo) that are filled like a meter." */
 #theme-furniture[data-theme="mars-blue"] .fur-top-pdc {
   position: absolute;
@@ -3533,7 +3546,7 @@ html.theme-ops::before {
 }
 /* Thick desaturated-red horizontal line below the PDC row, separating it
    from the tactical display.  Uses the deeper magenta (data.cat[5] /
-   stalker pip hue) NOT the brighter accent.danger highlight — per user
+   stalker pip hue) NOT the brighter accent.danger highlight — by request
    2026-06-09 "the desaturated red, not the highlight red". */
 #theme-furniture[data-theme="mars-blue"] .fur-top-sep {
   position: absolute;
@@ -3637,7 +3650,7 @@ html.theme-ops::before {
   letter-spacing: 0.08em;
   color: #e8edf6;
   /* Desaturated red (data.cat[5] / stalker pip hue) to match the top
-     separator bar — NOT the highlight accent.danger.  Per user 2026-06-09. */
+     separator bar — NOT the highlight accent.danger.  Decision 2026-06-09. */
   background: #a11a4b;
   border: 1px solid var(--accent-primary, #4c8dc6);
   border-radius: 1px;
@@ -3677,7 +3690,7 @@ html.theme-ops::before {
    band: the panel occupies the screen (no page scroll), cells keep readable
    natural heights (minmax(150px, auto) — NOT 1fr-compressed), and the scroll
    region ends above the band so nothing is ever cut by it. Thin themed
-   scrollbar. (Earlier hard-clip fit made every cell unreadable; user 2026-05-28
+   scrollbar. (Earlier hard-clip fit made every cell unreadable; decision 2026-05-28
    "cells too small to see the contents".) */
 .theme-mars-blue #notebook[data-layout="cockpit"][data-composition="instrument"] {
   /* --hud-h is set in JS from the header's actual height (it can grow to a
@@ -3698,7 +3711,7 @@ html.theme-ops::before {
 }
 /* Hero center-plot: center wide substrates (timeline ribbons, trajectories) and
    scale them to fit the slot, so the leading edge doesn't clip under the cell's
-   feathered left border (user 2026-05-28: "hero timeline truncated on the left
+   feathered left border (decision 2026-05-28: "hero timeline truncated on the left
    … should be centered"). */
 .theme-mars-blue .cell.comp-hero .timeline-ribbon-target,
 .theme-mars-blue .cell.comp-hero .trajectory-target {
@@ -3730,7 +3743,7 @@ html.theme-ops::before {
   inset: 0;
   pointer-events: none;
   /* MATTE curved-screen depth — vignette only (no glossy sheen/highlight). MCRN
-     screens are utilitarian, not shiny glass (user 2026-05-28: "blue and shiny
+     screens are utilitarian, not shiny glass (decision 2026-05-28: "blue and shiny
      vs red angular mcrn"); the edge darkening alone reads as the screen bowing
      away. */
   background:
@@ -4479,7 +4492,7 @@ html.theme-drift:has(#notebook .cell.cell-danger) #theme-furniture .drift-contac
   transform: scale(2.4);
   transform-origin: top left;
 }
-/* Prevent phantom horizontal scroll on pack-hero (user 2026-06-08:
+/* Prevent phantom horizontal scroll on pack-hero (decision 2026-06-08:
    "the whole dashboard thinks it could scroll to the right a little"). */
 html.theme-earth, html.theme-earth body {
   overflow-x: hidden;
@@ -4893,7 +4906,7 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
    and faint scanline grit (Peel: messy "because it's junk"). layout=pack so the
    varied bin-pack reads improvised, not a planned grid. Identity is grounded in
    the faction-SPECIFIC surfaces — Free Navy tactical displays, corridor strip
-   lighting, salvaged consoles — NOT the hand terminal (user 2026-05-29: the
+   lighting, salvaged consoles — NOT the hand terminal (decision 2026-05-29: the
    hand terminal is the faction-agnostic "iPhone of the future", carries no
    faction signal). Grounded: refs/drift/NOTES.md.
    ============================================================ */
@@ -4978,7 +4991,7 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   box-shadow: inset 0 0 16px rgba(61, 119, 119, 0.05);
 }
 /* A third register: yellow-green — some Drift ships run a green-amber console
-   palette (user 2026-05-28: "at least one of them is a lot of yellow green"), so
+   palette (decision 2026-05-28: "at least one of them is a lot of yellow green"), so
    a slice of panels read as salvaged from those ships. Amber + cyan + green =
    the multi-ship eclectic mix. */
 .theme-drift .cell:nth-child(5n+4) {
@@ -5092,7 +5105,7 @@ html.theme-earth:has(#notebook .cell.cell-danger) #theme-furniture .earth-threat
   color: var(--fg);
   font-family: var(--font-body);
   /* Plain orthogonal institutional grid — straight squares, no perspective,
-     no flourish (user 2026-06-09: rings/zones belong to the hero board, the
+     no flourish (decision 2026-06-09: rings/zones belong to the hero board, the
      bg is just a light grid).  Opacity nudged 0.06 → 0.10 so the grid is
      actually visible (the canonical refs' surface is clearly gridded). */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M48 0H0V48' fill='none' stroke='%232f6fd0' stroke-opacity='0.10' stroke-width='1'/%3E%3C/svg%3E");
@@ -5139,7 +5152,7 @@ html.theme-earth #notebook {
    in lucida.mjs). When .cell-still-warm / .cell-fresh add their border +
    glow + inset:-1px to that SAME pseudo-element, the 14×14 size constraint
    wins, producing a tiny bordered square at the top-left corner instead of
-   a whole-cell recency ring. (User 2026-06-01 cell-7647 "little square in
+   a whole-cell recency ring. (Decision 2026-06-01 cell-7647 "little square in
    the top left of the title bar".) Reset width/height so the inset:-1px
    takes full effect and the recency border wraps the entire cell as the
    base rule originally intended. */
@@ -7106,7 +7119,7 @@ body {
    layout but with reduced opacity and an em-dash tag in the head so it
    reads as "this is the system's heartbeat, not a content cell". */
 .cell.cell-transient {
-  /* Tier-2 demotion (2026-05-24, user "more like tier-2 cells"): ephemeral
+  /* Tier-2 demotion (2026-05-24, verdict: "more like tier-2 cells"): ephemeral
      cells were reading as peer-of-content because opacity 0.85 +
      saturate 0.85 left them too bright/saturated. They should recede into
      the background the way mixed3d tier-2 cells do — present, visible,
@@ -8024,7 +8037,7 @@ body.layout-mixed3d .cell[data-cell-type="scene3d"] {
    The WebGL canvas is transparent except where holos render — so a
    user sees holos in the FOREGROUND with the cell wall as a backdrop.
    Earlier (z-index 2 over 1) cells permanently occluded any holo they
-   shared screen space with. User 2026-05-31: "back half + holos in
+   shared screen space with. Decision 2026-05-31: "back half + holos in
    front of it". */
 #mixed3d-webgl {
   position: absolute;
@@ -8055,7 +8068,7 @@ body.layout-mixed3d .cell[data-cell-type="scene3d"] {
 /* In mixed3d the substrate IS the data — the prose caption is
    readability tooling for the 2D dashboard reader. At dome scale
    the caption was eating ~50% of each cell's vertical space
-   (user 2026-05-31). Hide it; the substrate viz speaks for itself. */
+   (decision 2026-05-31). Hide it; the substrate viz speaks for itself. */
 body.layout-mixed3d .cell-caption { display: none !important; }
 
 body.layout-mixed3d .cell {
@@ -8063,11 +8076,11 @@ body.layout-mixed3d .cell {
   /* Holo-shimmer edge: tight glow halo. Kept narrow (4px) because
      CSS3D projection at our scale magnifies the shadow further —
      a 22px shadow first attempt bled into adjacent cells and read
-     as the cells overlapping each other. User 2026-05-31. */
+     as the cells overlapping each other. Decision 2026-05-31. */
   box-shadow: 0 0 4px color-mix(in srgb, var(--accent, #00ddff) 50%, transparent);
   /* Cells in war room can visually overlap each other across rows or
      radii — bump bg opacity so the front cell reads as opaque, not
-     a ghostly composite of the cell behind it. User 2026-05-31. */
+     a ghostly composite of the cell behind it. Decision 2026-05-31. */
   background: color-mix(in srgb, var(--cell-bg, #08121e) 88%, transparent);
   backdrop-filter: none;
   border-radius: 0;
@@ -8088,7 +8101,7 @@ body.layout-mixed3d .cell {
    needs to live on THAT wrapper (the .cell itself is untransformed).
    Hides far-side cells when their back faces the camera so they don't
    read as mirrored text bleeding through the foreground.
-   User 2026-05-30 holo-table v2 polish. */
+   Decision 2026-05-30 holo-table v2 polish. */
 body.layout-mixed3d #mixed3d-css > div > div {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -8149,7 +8162,7 @@ body.layout-mixed3d .cell-head {
   /* Visualization-status colors (timeline_ribbon failed/skipped/etc.,
      gauge warn/danger, etc.) inherit from these. Defaults in the
      renderers are coral/yellow which read as orange in the canyon —
-     user 2026-05-23 cell-4598 "that orange doesn't match our theme".
+     decision 2026-05-23 cell-4598 "that orange doesn't match our theme".
      Pinned to the hackers palette: pink for tripped (matches the
      rare-highlight rule), dim cyan for warn, bright cyan for ok. */
   --vis-tripped: #ff3a8c;
@@ -8181,7 +8194,7 @@ body.layout-mixed3d .cell-head {
   mix-blend-mode: screen;
   z-index: 0;
 }
-/* Decorative glyph fill — answers user 2026-05-23 "fill empty space
+/* Decorative glyph fill — answers decision 2026-05-23 "fill empty space
    with our decorative primitives". Tiled SVG with cyan brackets,
    ticks, digits at low alpha. Cells whose content doesn't fill the
    body reveal this pattern in the empty regions, so the whole cell
@@ -8203,7 +8216,7 @@ body.layout-mixed3d .cell-head {
    bars / lines / series / bar-meter / blocks) painted at low alpha
    behind cell content. Created by renderCell after layout sizes
    the card; ResizeObserver re-paints when substrate lazy-mounts
-   grow the cell. User 2026-05-23 "post render fill cells with
+   grow the cell. Decision 2026-05-23 "post render fill cells with
    decorative content." */
 .cell-archetype-bg {
   position: absolute;
@@ -8258,7 +8271,7 @@ body.layout-mixed3d .cell-head {
   text-shadow: 0 0 4px color-mix(in srgb, #ff3a8c 40%, transparent);
 }
 
-/* Tier-1 text density boost — really commit to it. (User 2026-05-23
+/* Tier-1 text density boost — really commit to it. (Decision 2026-05-23
    "way too thin, dim, grey" on cell-4214 / "really commit to it".)
    Tier-2 decorative renders text via Canvas2D fillStyle=cyan at
    bold 14px Eurostile. Tier-1 CSS3D real-DOM cells must match that

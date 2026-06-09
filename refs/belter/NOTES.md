@@ -3,7 +3,7 @@
 Theme id: `belter`. Faction: Outer Planets Alliance / Belters / Free Navy. The brand IS
 eclecticism — salvaged, repurposed, multi-faction gear. "Waste not, want not."
 
-## Incoming frame (re-assigned from refs/rocinante, user curation 2026-06-09)
+## Incoming frame (re-assigned from refs/rocinante, curation 2026-06-09)
 
 `roci_threat_response_orbital.png` — actually a Free Navy screen (clip
 `pPutN_QzbeE`, the same clip all `bel_pPutN_*` frames came from); had been
@@ -15,10 +15,10 @@ top-hanging yellow ▼ stalk pips + left bar-gauge column + ship-self wireframe.
 
 - `mlN8azjGuTc` — "The Expanse — 5x01 Tycho Station Opening Scene" (4:31). Belter corridors,
   the OPA split-circle logo, the translucent hand terminal. Real show footage.
-  **NO 2D screen interfaces** (user 2026-05-28) — environment + the hand-terminal device only.
+  **NO 2D screen interfaces** (decision 2026-05-28) — environment + the hand-terminal device only.
   The existing frames below already captured all of it; do **not** re-sample this clip for screen UI.
 - `pPutN_QzbeE` — "Rocinante vs The Free Navy 5x10" (5:22). The Belter Free Navy tactical
-  display with **Lang Belta (creole) labels**. (User-supplied.)
+  display with **Lang Belta (creole) labels**. (timestamp-pinned source.)
 - `m7WtNgesVbQ` — "Sci-Fi UI Episode 1: The Expanse" (12:08). The Ceres "ART IS LIFE" red comms screen.
 
 Extracted 2026-05-26 via yt-dlp (≤720p) + claude-video-vision + ffmpeg.
@@ -32,17 +32,17 @@ Yorke: Belters use **Atari-era oranges and browns**, retro-influenced, reflectin
 improvised/independent character. Timothy Peel (Junction Box): deliberately **messy, eclectic,
 salvaged-OS** look — the Canterbury got intentional fritz/static/noise "because it's junk." So
 the Belter theme should read as *inconsistent and repurposed*, NOT a clean coherent system —
-the eclecticism is the signal (user: "variety?" — yes). Iconography: the **OPA split-circle**
+the eclecticism is the signal (eclecticism confirmed as the goal). Iconography: the **OPA split-circle**
 (divided ring) logo, red/white. The translucent amber-edge-lit hand terminal is canonical.
 
 ## Frames
 
-Re-extracted 2026-06-07 from user-pinned timestamps only (the pre-discipline
+Re-extracted 2026-06-07 from pinned timestamps only (the pre-discipline
 Claude-picked frames now live under `_archive/`). Naming: `bel_<videoid>_<sec>.png`.
 
-### Canonical role assignments (user-picked 2026-06-07)
+### Canonical role assignments (picked 2026-06-07)
 
-User-validated picks from the 18-frame contact sheet, mapped to critique-loop roles:
+Validated picks from the 18-frame contact sheet, mapped to critique-loop roles:
 
 | Role | File | Why |
 |---|---|---|
@@ -54,7 +54,7 @@ User-validated picks from the 18-frame contact sheet, mapped to critique-loop ro
 | **Hand-detail / inline-readout** | `bel_6BgX_115.png` | Translucent device close-up — informs sparkline/inline detail treatment. |
 | **Environment context** (not UI) | `bel_6BgX_063.png` | Dim Belter control room with peripheral amber console glow. Faction setting context. |
 
-### Other user-pinned frames (motion variants, additional context)
+### Other pinned frames (motion variants, additional context)
 
 `bel_pPutN_011/014/017/021`: sequential motion variants of the Free Navy tactical
 (useful for animation cadence + cyan-track flicker reference).
@@ -133,7 +133,7 @@ exposed structure, amber work-lights. Tycho Station's gantry/spoke geometry is t
 vocabulary. Visually the *least uniform* of the three — grid should look improvised, not planned.
 
 
-## User-supplied timestamps (durable)
+## Pinned source timestamps (durable)
 
 | video ID | URL | timestamps | notes |
 |---|---|---|---|

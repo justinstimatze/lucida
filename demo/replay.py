@@ -6,7 +6,7 @@ a configurable interval. The renderer polls cells.json and animates new cells
 as they arrive — so this produces a live-mint visual during screen capture.
 
 Usage:
-    cd ~/Documents/lucida
+    cd path/to/lucida
     python demo/replay.py                        # 6s between cells, default source
     python demo/replay.py --interval 8           # 8s between cells
     python demo/replay.py --source demo/demo_cells.json --interval 5

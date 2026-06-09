@@ -1,7 +1,7 @@
 """v0 system-snapshot adapter — periodic cell of "what the box looks
 like right now".
 
-User 2026-05-03: "and not just logs but system info like what htop or
+Decision 2026-05-03: "and not just logs but system info like what htop or
 similar would snapshot ... doesn't need to be continuous ... just a
 cell going by with what the state of the system was at that point".
 

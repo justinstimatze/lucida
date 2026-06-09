@@ -3,7 +3,7 @@
 Theme id: `unn` (UN Navy). Faction: Earth / United Nations. The establishment power —
 institutional, formal, polished but practical.
 
-## ⭐ CANONICAL REF SET (user curation 2026-06-09 — "basically only use those")
+## ⭐ CANONICAL REF SET (curation 2026-06-09 — "basically only use those")
 
 1. **`unn_tactical_perspective_grid.png`** — THE primary display ref ("the best").
 2. **`agatha-king/ak_2.png`** — second display ref.
@@ -21,7 +21,7 @@ rows below are struck for the record.
 - `m7WtNgesVbQ` — "Sci-Fi UI Episode 1: The Expanse" (12:08). The UN situation/war room +
   Avasarala's diplomatic holo-screens. The dedicated FUI-analysis video (ignore its own
   reviewer chrome: the "CONTROL / ERGO / FINAL SCORE" frames are the YouTuber's graphics).
-- `F9tbootnWLI` — Agatha-King combat clip (user-supplied 2026-05-28). ⭐ The 2D UNN tactical
+- `F9tbootnWLI` — Agatha-King combat clip (sourced 2026-05-28). ⭐ The 2D UNN tactical
   screens: flat/perspective blue **grid-plane plot** with blue (friendly) + red (threat) range-rings
   + "UNN Agatha King" labels, and the chunky **angular-bezel bridge consoles**. Real show footage.
   (Companion clip `Vg5m6LGesAc` yielded nothing — character close-ups w/ defocused console bokeh.)
@@ -46,7 +46,7 @@ influence (Agatha King = short-wide main screen, small angular panels). Institut
 practical — the showrunner banned "giant flashing text boxes." Earth = polished establishment vs
 Belter improvised vs Mars militant. The **UN globe-laurel seal** is the key iconography.
 
-**DESIGN INTENT (user 2026-05-28): "the UNN interfaces are pretty clunky and boring, fitting for
+**DESIGN INTENT (decision 2026-05-28): "the UNN interfaces are pretty clunky and boring, fitting for
 the UNN."** This is a *feature, not a flaw to design around.* The unn theme should deliberately read
 as institutional/bureaucratic/utilitarian — plain blue panels, dense unglamorous readouts, minimal
 flair — the dull weight of the establishment. Do NOT try to make it slick, dynamic, or exciting the
@@ -140,7 +140,7 @@ Architectural surfaces (concrete pillars, flags, wood) rather than ship-hull. Th
 *grounded/horizontal* composition of the three (vs Roci cockpit-forward, Belter improvised-vertical).
 
 
-## User-supplied timestamps (durable)
+## Pinned source timestamps (durable)
 
 | video ID | URL | timestamps | notes |
 |---|---|---|---|

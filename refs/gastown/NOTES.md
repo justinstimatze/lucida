@@ -1,6 +1,6 @@
 # Gastown references — reframing away from "steampunk"
 
-User 2026-05-24: "gastown isn't really exactly steampunk and there aren't a lot of good visual references." Two sources shared to triangulate what gastown actually IS:
+Decision 2026-05-24: "gastown isn't really exactly steampunk and there aren't a lot of good visual references." Two sources shared to triangulate what gastown actually IS:
 
 1. **Steampunk cultural explainer** — <https://www.youtube.com/watch?v=EGgs66Q4dDs> ("What is Steampunk? Fiction to Subculture | Explained for the Curious"). User: "I think the transcript might be the most useful part." → saved as `steampunk-explainer-transcript.txt`. Useful for understanding what gastown is NOT (Victorian brass+goggles).
 2. **Mad Max: Fury Road visual breakdown** — <https://www.youtube.com/watch?v=9u6DwJOs604> ("What Writers Should Learn From Mad Max: Fury Road"). Gastown (the city) is featured in Fury Road. → 5 frames extracted.
@@ -9,13 +9,13 @@ Extracted: 2026-05-24 via claude-video-vision plugin + yt-dlp captions + ffmpeg 
 
 ## Why the current `gastown` theme description is wrong
 
-Current `themes/gastown.tokens.json` describes the theme as "steampunk brass on cream serif". Per user feedback this is misaligned with what gastown actually evokes. The steampunk-explainer-transcript opens with:
+Current `themes/gastown.tokens.json` describes the theme as "steampunk brass on cream serif". This is misaligned with what gastown actually evokes. The steampunk-explainer-transcript opens with:
 
 > "steampunk: it's a genre of victorian science fantasy with coal and clockwork cravats and crinoline and of course goggles on a hat..."
 
 That Victorian-fantasy register is NOT the gastown register. Gastown — specifically Fury Road's Gas Town, the oil-refining city — is **petromodern post-apocalyptic scrap-industrial**: chrome-painted faces, war-boys, scrap-armor, oil drums, chained vehicles, orange dust, matte black. The shared aesthetic with steampunk is "appropriate technology to that era" but the era is collapsed-future not Victorian-past.
 
-If the lucida `gastown` theme key is intended to evoke Vancouver's Gastown neighborhood (which DOES have a steampunk-brass-Victorian aesthetic via its historical steam clock), that's a separate (legitimate) interpretation. But per user "isn't really exactly steampunk" — the Fury Road Gastown reading is what we should serve.
+If the lucida `gastown` theme key is intended to evoke Vancouver's Gastown neighborhood (which DOES have a steampunk-brass-Victorian aesthetic via its historical steam clock), that's a separate (legitimate) interpretation. But the verdict — "isn't really exactly steampunk" — the Fury Road Gastown reading is what we should serve.
 
 ## Frames (Fury Road)
 

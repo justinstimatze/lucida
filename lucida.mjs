@@ -636,7 +636,7 @@ function applyFactionHUDLabels(theme) {
   // Layout AND theme chips stay canonical ("LAYOUT: PACK", "THEME: EARTH")
   // across themes — per-theme remaps (layout pack→CONVOY, theme unn→FLAG …)
   // hid the renderer-internal id the corresponding dropdown still showed,
-  // so chip and dropdown disagreed. Reverted per user 2026-05-29: "the
+  // so chip and dropdown disagreed. Reverted decision 2026-05-29: "the
   // earth still uses the 'flag' name instead of 'theme' — correct that for
   // all themes". Faction flavor stays in the other chip labels
   // (status/cells/since/render/session).
@@ -683,11 +683,11 @@ function applyFactionHUDLabels(theme) {
 mermaid.initialize({
   startOnLoad: false,
   // padding: 16 (default 8) gives node-internal breathing room so
-  // label text doesn't crash into the node border (user 2026-05-23
+  // label text doesn't crash into the node border (decision 2026-05-23
   // cell-4271). curve: "step" replaces the default basis-spline
   // edges (swoopy curves) with orthogonal 90° elbow lines — PCB-
   // trace style, architectural / square-pipe instead of organic
-  // (user 2026-05-23 "force the mermaids etc to square pipe style
+  // (decision 2026-05-23 "force the mermaids etc to square pipe style
   // lines between nodes instead of the swoops").
   flowchart: { htmlLabels: false, padding: 16, curve: "step" },
   ...TC.mermaid,
@@ -1091,7 +1091,7 @@ function computeHud(data, substrateAudit, mintLog) {
 // Substrate-type → theme-palette index mapping for the CELLS stacked bar.
 // Routed through --data-cat-N so the bar wears the active theme's data
 // palette (was hardcoded var(--vis-ok)/etc. → green/yellow/red regardless
-// of theme — user 2026-06-08: "doesn't really seem to change much between
+// of theme — decision 2026-06-08: "doesn't really seem to change much between
 // themes"). Grouping is by substrate semantics so adjacent stripes don't
 // blend visually:
 //   cat-0 → primary viz (vega/animated_svg/treemap/force_graph)
@@ -1287,7 +1287,7 @@ function liveAppendNewCells(cellsData) {
   //
   // Multi-stream mode previously bypassed this loop entirely, so a session
   // running for hours accumulated cells across every column without bound
-  // (user 2026-05-01: "766MB of ram"). Now: each column gets its own cap
+  // (decision 2026-05-01: "766MB of ram"). Now: each column gets its own cap
   // and the eviction also cleans up registry state (WebGL contexts,
   // running timers via cell teardown hooks) so freed cells don't leak.
   const recentCap = getRecentCap();
@@ -2030,7 +2030,7 @@ const LAYOUT_REGISTRY = {
     // only tags side-rail cells so CSS can angle them inward (curved-cockpit
     // tilt) — it never sets positions. MarsBlue's default layout.
     apply: () => applyCockpitRailTags(),
-    // 3 columns × ~2 rows at typical res (user 2026-05-28: "if you're going to
+    // 3 columns × ~2 rows at typical res (decision 2026-05-28: "if you're going to
     // have 3 cols then you can have only 1-2 rows"). Hero spans both center rows;
     // the rest are 2 rails per side. Few, large, fully-readable cells, no scroll
     // and no vertical clipping. Full corpus lives in the pack layout.
@@ -2069,10 +2069,10 @@ const LAYOUT_REGISTRY = {
     // Reserves a center rect for a hero board (e.g. earth's situations-plot).
     // Distributes cells into 4 perimeter strips: top, bottom, left, right.
     // Each strip flows L→R or T→B. Cells stay visible AND the hero stays
-    // dominant in the center. Per user request 2026-06-08 ("pack but with
+    // dominant in the center. Requested 2026-06-08 ("pack but with
     // a reserved spot in the center for the hero cell, tiled grid around").
     apply: () => applyPackHeroLayout(),
-    // Cap 4: 1 right of hero + 3 below. User 2026-06-08: 5 was still too
+    // Cap 4: 1 right of hero + 3 below. Decision 2026-06-08: 5 was still too
     // many; 4 cells around a hero gives proper breathing room.
     cap: 4,
   },
@@ -2528,7 +2528,7 @@ function applyPackLayout() {
   // sweep (the snap driver, transient spawner, live mints from cells.json)
   // hit the DOM before pack-prep got applied — flash at top-left, then
   // Muuri re-positions them. Container-level hide is bulletproof: nothing
-  // inside #notebook paints until pack layout settles. User 2026-05-24
+  // inside #notebook paints until pack layout settles. Decision 2026-05-24
   // (third report): "ephemeral cells still appear briefly at load on top
   // of all the other cells then disappear."
   root.classList.add("pack-laying-out");
@@ -2803,7 +2803,7 @@ function setupCellZoom() {
     // html-pan-wrap at max-content) which overflowed the dialog and
     // produced horizontal scrollbars on click. In the dialog the user
     // wants fit-to-view, not natural-overflow — reset the sizing so
-    // content scales to the dialog width. Per user 2026-04-29.
+    // content scales to the dialog width. Decision 2026-04-29.
     clone.style.removeProperty("--cell-natural-width");
     clone.style.maxHeight = "none";
     const cloneSvg = clone.querySelector(".mermaid-target svg");
@@ -3279,7 +3279,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
   }
   // Time chip: HH:MM in the user's LOCAL timezone (full ISO in title
   // for hover). Pre-2026-05-01 we regex'd HH:MM out of the ISO string,
-  // which left it as UTC — user 2026-05-01: "should probably be in
+  // which left it as UTC — decision 2026-05-01: "should probably be in
   // local". Parse via Date so DST + offset resolve naturally.
   const timeStr = (() => {
     if (!c.timestamp) return "";
@@ -3703,7 +3703,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       // is 0.72rem which renders at ~6.5px per mono char). Cap tighter
       // (520 max, was 720) so a 10-line function doesn't dominate the
       // grid — code cells should compose alongside other substrates,
-      // not crowd them out. Per user 2026-04-29.
+      // not crowd them out. Decision 2026-04-29.
       const lines = (c.spec.source || "").split("\n");
       const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
       const w = Math.min(520, Math.max(260, 16 + longest * 6.5));
@@ -3817,7 +3817,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       try {
         const spec = c.spec || {};
         // Hackers / rectilinear themes get square markers; other
-        // themes keep circular dots. User 2026-05-23 cell-3423.
+        // themes keep circular dots. Decision 2026-05-23 cell-3423.
         const squareMarkers = document.documentElement.classList.contains("theme-hackers");
         const stages = Array.isArray(spec.stages) ? spec.stages : [];
         if (stages.length < 3) {
@@ -3899,7 +3899,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
             mk(cx - 5, cy + 5, cx + 5, cy - 5);
           } else if (status === "pending") {
             // Hackers/rectilinear themes get a square marker; other
-            // themes keep the circle. User 2026-05-23 cell-3423.
+            // themes keep the circle. Decision 2026-05-23 cell-3423.
             const ring = squareMarkers
               ? document.createElementNS(svgNS, "rect")
               : document.createElementNS(svgNS, "circle");
@@ -4673,7 +4673,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
       // at 0.88rem mono render wider than ASCII — the wider multiplier
       // keeps the ┌─┐ ╔═╗ corners from being squeezed past readability).
       // Min raised to 280 so single-narrow-line ASCII doesn't render
-      // as a sliver. Per user 2026-04-29 cell-1249 unreadable case.
+      // as a sliver. Decision 2026-04-29 cell-1249 unreadable case.
       const lines = ascii.split("\n");
       const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
       const w = Math.min(720, Math.max(280, 24 + longest * 9.0));
@@ -4750,7 +4750,7 @@ function renderCell(c, snippetGroups, cellsById, opts) {
 
   // Trigger snippet + prompt + notes: bottom of cell, collapsed by default.
   // Source (trigger / notes / prompt) — debug info, not primary
-  // surface. User 2026-05-01: "really a debug thing anyway no one
+  // surface. Decision 2026-05-01: "really a debug thing anyway no one
   // will ever click it. Move to a small icon in the title bar".
   // Lives inside cell-head as a tiny "{·}" icon; content drops
   // below the head when opened. Per #92/#93 density pass.
@@ -5250,7 +5250,7 @@ function attachMintScrubber(cellNode) {
   // theme-tuned decorative-glyph storm (sparklines, bars) appears as
   // a "fake plot in the corner" of dome cells. Suppress in mixed3d
   // entirely — the WebGL holos + crossfade already cover ambient
-  // motion. User 2026-05-31.
+  // motion. Decision 2026-05-31.
   if (getLayoutMode() === "mixed3d") return;
   // Don't double-attach (defensive — a cell shouldn't re-enter cell-fresh).
   if (body.querySelector(".mint-scrubber")) return;
