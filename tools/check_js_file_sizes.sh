@@ -11,9 +11,15 @@ set -euo pipefail
 
 MAX_LINES=4000
 ALLOWLIST=(
-  # lucida.mjs: ~14k lines, dominated by the mixed3d block (~8.6k).
-  # Tracked in task #70; remove from this list once mixed3d is extracted.
+  # lucida.mjs: ~5.3k after mixed3d slice (was 14k). Next reductions
+  # tracked in task #70 — substrate renderers + HUD code are the next
+  # likely candidates. Remove once it drops below MAX_LINES.
   "lucida.mjs"
+  # mixed3d.mjs: ~8.9k. Single-slice extraction landed; second-pass
+  # sub-extractions (camera tour, substrate renderers, decorative
+  # layer, tier management) deferred — see
+  # memory/handoff_2026_06_08_mixed3d_extraction.md.
+  "mixed3d.mjs"
 )
 
 is_allowlisted() {
