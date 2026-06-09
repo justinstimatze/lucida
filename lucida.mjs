@@ -39,7 +39,7 @@ import {
 import { pauseOffScreen, setupAutoPan } from "./viewport.mjs?v=1";
 import {
   applyMixed3DLayout, teardownMixed3DLayout, _mixed3dDrawCellPreview,
-} from "./mixed3d.mjs?v=5";
+} from "./mixed3d.mjs?v=6";
 
 // Full-stack theme config: chrome lives in CSS (notebook.css), but
 // mermaid + vega + scene3d content also need theme-aware colors.
@@ -2916,6 +2916,15 @@ export function el(tag, cls, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
+
+// Bridge for extracted modules (mixed3d.mjs) so they don't need a
+// circular `import` back into lucida.mjs.  ESM modules are scoped by
+// URL string — a ?v= drift between index.html's script tag and any
+// consumer's import line double-loads lucida.mjs (each copy with its
+// own _muuriGrid / state / LOG).  Going through window sidesteps the
+// problem entirely.  Matches the convention used by window.__LUCIDA_THEME
+// (read by theme-mars-blue.mjs et al.).
+window.__LUCIDA = { state, LOG, el, resolveColor, _normalizeMermaidSpec };
 
 // Map a substrate cell_type to a faction-archetype ROLE — the basis for a
 // theme "skin"'s per-cell widget treatment. Coarser than the mixed3d

@@ -23,19 +23,26 @@
 // memory/handoff_2026_06_08_mixed3d_extraction.md.
 
 import { buildScene3DMeshes } from "./scene3d.mjs?v=2";
-// Circular import back into lucida.mjs.  The ?v= here MUST match the
-// value index.html loads (<script src="lucida.mjs?v=N">) — the browser
-// scopes ESM modules by URL string.  A missing or mismatched ?v= loads
-// a SECOND copy of lucida.mjs, with its own _muuriGrid / state / LOG,
-// which double-mounted Muuri ("You can only create one Muuri Item per
-// element") on every theme (reproduced + fixed 2026-06-08).  When you
-// bump lucida.mjs?v= in index.html, bump this number too.
+
+// Bridge to lucida.mjs internals (state / LOG / el / resolveColor /
+// _normalizeMermaidSpec).  Populated by lucida.mjs once all five are
+// defined (window.__LUCIDA = {...}).  Bound LAZILY at first call into
+// the module — mixed3d is imported by lucida.mjs near the TOP, so at
+// this module's evaluation time lucida hasn't assigned the bridge yet.
 //
-// I tried switching to a window.__LUCIDA bridge to remove the lockstep,
-// but the lazy-bind + module-level-let pattern broke the mixed3d
-// warmup gate on initial boot.  Until that's debugged, the ?v= lockstep
-// is the shipping pattern.
-import { el, resolveColor, state, LOG, _normalizeMermaidSpec } from "./lucida.mjs?v=82";
+// Going through window avoids importing back from lucida.mjs.  ESM
+// modules are scoped by URL string: if index.html loads `lucida.mjs?v=N`
+// and a consumer does `from "./lucida.mjs"` (or a stale ?v=), the two
+// URLs resolve to DIFFERENT modules and the browser double-loads lucida,
+// each copy with its own _muuriGrid / state / LOG.  Reproduced 2026-06-08
+// as a fatal Muuri "one item per element" on every theme.  The bridge
+// closes that class of bug and matches the codebase convention
+// (window.__LUCIDA_THEME from theme-mars-blue.mjs).
+let el, resolveColor, state, LOG, _normalizeMermaidSpec;
+function _bindLucida() {
+  if (state) return;  // already bound
+  ({ el, resolveColor, state, LOG, _normalizeMermaidSpec } = window.__LUCIDA);
+}
 
 // ----------------------------------------------------------------
 // mixed3d: WebGL world + CSS3DRenderer cells on tower faces.
@@ -82,6 +89,7 @@ function _mixed3dResolveOpts(opts) {
 }
 
 export function applyMixed3DLayout(opts) {
+  _bindLucida();
   if (!window.THREE) return;
   const T = window.THREE;
   if (!T.CSS3DRenderer || !T.CSS3DObject) {
