@@ -3005,7 +3005,10 @@ html.theme-ops::before {
   display: block;
   position: fixed;
   left: 50%;
-  bottom: 0;
+  /* Lift the radar so its center (viewBox 240,240 — at the very bottom
+     of the SVG) aligns with the center of the middle cockpit gauge in
+     the bezel bar (~42px above viewport bottom).  Per user 2026-06-09. */
+  bottom: 42px;
   /* Container caps:
      - Width × Height honor the viewBox 480:360 aspect via paired min()s.
      - On LANDSCAPE viewports the height cap (100vh) wins, container shrinks
@@ -3607,6 +3610,34 @@ html.theme-ops::before {
   background: #a11a4b;
   border: 1px solid var(--accent-primary, #4c8dc6);
   border-radius: 1px;
+  /* Default armed state — slight dim; live state set by
+     _updateMarsBlueHisto (data-state="alert" | "active" | "locked" | "idle" | "armed"). */
+  opacity: 0.78;
+  transition: opacity 0.4s, box-shadow 0.4s;
+}
+#theme-furniture[data-theme="mars-blue"] .fur-pip[data-state="armed"]  { opacity: 0.78; }
+#theme-furniture[data-theme="mars-blue"] .fur-pip[data-state="idle"]   { opacity: 0.55; }
+#theme-furniture[data-theme="mars-blue"] .fur-pip[data-state="locked"] {
+  opacity: 1;
+  box-shadow: 0 0 4px rgba(87, 160, 106, 0.7), inset 0 0 2px rgba(180, 230, 200, 0.55);
+  border-color: rgba(87, 160, 106, 0.85);
+}
+#theme-furniture[data-theme="mars-blue"] .fur-pip[data-state="active"] {
+  animation: mars-blue-pip-active 2.6s ease-in-out infinite alternate;
+}
+#theme-furniture[data-theme="mars-blue"] .fur-pip[data-state="alert"] {
+  animation: mars-blue-pip-alert 1.1s ease-in-out infinite alternate;
+}
+@keyframes mars-blue-pip-active {
+  from { opacity: 0.72; box-shadow: 0 0 0 transparent; }
+  to   { opacity: 1.0;  box-shadow: 0 0 6px rgba(76, 141, 198, 0.55); }
+}
+@keyframes mars-blue-pip-alert {
+  from { opacity: 0.85; box-shadow: 0 0 0 transparent; background: #a11a4b; }
+  to   { opacity: 1.0;  box-shadow: 0 0 7px rgba(226, 59, 46, 0.85); background: #c12555; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #theme-furniture[data-theme="mars-blue"] .fur-pip { animation: none !important; }
 }
 /* Reserve room below the grid (non-cockpit mars-blue layouts) so the fixed
    bottom histogram band doesn't occlude the last row of cells. */
