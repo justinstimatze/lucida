@@ -22,6 +22,7 @@ export function _buildFurnitureDrift(el) {
   // Coords: viewBox 480×200, cx=240 cy=170 RxMax=280; matches the new
   // _updateDriftOrbital arithmetic.
   // Lang-Belta perimeter decals stay as eclectic-graffiti tell.
+  const p = _driftPalette();
   el.innerHTML =
     // Top-center hero band — sits between the TL and TR corner cells.
     // Composition (per ref bel_pPutN_076): left = live ROCI-style callout
@@ -66,8 +67,8 @@ export function _buildFurnitureDrift(el) {
           '<radialGradient id="drift-target-halo" cx="50%" cy="50%" r="50%">' +
             '<stop offset="0%"   stop-color="#d4d076" stop-opacity="0.55"/>' +
             '<stop offset="35%"  stop-color="#a39d5c" stop-opacity="0.30"/>' +
-            '<stop offset="70%"  stop-color="#947038" stop-opacity="0.10"/>' +
-            '<stop offset="100%" stop-color="#947038" stop-opacity="0"/>' +
+            '<stop offset="70%"  stop-color="' + p.primary + '" stop-opacity="0.10"/>' +
+            '<stop offset="100%" stop-color="' + p.primary + '" stop-opacity="0"/>' +
           '</radialGradient>' +
         '</defs>' +
         '<ellipse class="drift-target-halo" cx="240" cy="170" rx="120" ' +
@@ -83,11 +84,11 @@ export function _buildFurnitureDrift(el) {
         // Triple-blue outer perimeter — two thin inner rings + one thick
         // outermost. The threat-detection edge.
         '<ellipse cx="240" cy="170" rx="276" ry="82.5" fill="none" ' +
-          'stroke="#3d7777" stroke-opacity="0.55" stroke-width="0.7"/>' +
+          'stroke="' + p.secondary + '" stroke-opacity="0.55" stroke-width="0.7"/>' +
         '<ellipse cx="240" cy="170" rx="282" ry="84.5" fill="none" ' +
-          'stroke="#3d7777" stroke-opacity="0.55" stroke-width="0.7"/>' +
+          'stroke="' + p.secondary + '" stroke-opacity="0.55" stroke-width="0.7"/>' +
         '<ellipse cx="240" cy="170" rx="292" ry="87.5" fill="none" ' +
-          'stroke="#3d7777" stroke-opacity="0.85" stroke-width="2.4"/>' +
+          'stroke="' + p.secondary + '" stroke-opacity="0.85" stroke-width="2.4"/>' +
         // Center target triangle — bright yellow. Equilateral in the orbital
         // plane (tilt 0.30), apex pointing forward.
         //   apex (240, 162) · BR (254, 174) · BL (226, 174)
@@ -204,6 +205,26 @@ export function _buildFurnitureDrift(el) {
 
 // Salvaged-terminal tag for a substrate type — honest (derived from the real
 // cell type) but typeset in the Drift creole/abbreviation register.
+// Resolve the drift palette from CSS custom properties at call time.
+// SVG presentation attributes (fill="...", stroke="...", stop-color="...")
+// don't accept `var(--accent-X)` syntax — those resolve only in style
+// declarations, not attribute strings.  So we read once per build and
+// interpolate the literal.  Hex fallbacks match drift.tokens.json so
+// the SVG is still correct if applyTokensToCSSVars hasn't run yet
+// (rare, but cheap insurance).  Eliminates the tokens.json ↔ .mjs
+// calque on drift accent.primary / .secondary / .warning / .danger.
+function _driftPalette() {
+  const cs = getComputedStyle(document.body);
+  const get = (name, fallback) =>
+    (cs.getPropertyValue(name) || fallback).trim() || fallback;
+  return {
+    primary:   get("--accent-primary",   "#947038"),
+    secondary: get("--accent-secondary", "#3d7777"),
+    warning:   get("--accent-warning",   "#ffc233"),
+    danger:    get("--accent-danger",    "#e23b2e"),
+  };
+}
+
 function _driftTag(type) {
   const m = {
     vega: "VEGA", treemap: "TREE", gauge: "DIAL", sparkline: "SPRK",
@@ -418,6 +439,7 @@ function _renderDriftOrbitalFrame(tSec) {
   const g = fur.querySelector(".drift-contacts");
   if (!g || !_driftTracks.length) return;
   const cx = 240, cy = 170, RxMax = 280, tilt = 0.30, stalkH = 50;
+  const p = _driftPalette();
   let out = "";
   _driftTracks.forEach((tr, i) => {
     const ang = tr.baseAng + tSec * DRIFT_OMEGA * (tr.speedMul || 1);
@@ -447,8 +469,8 @@ function _renderDriftOrbitalFrame(tSec) {
         // per refs/drift/belter_orbital_tactical (canonical Drift contact glyph).
         '<line x1="' + px + '" y1="' + py + '" x2="' + px + '" y2="' + ty +
           '" stroke="#b1a55c" stroke-width="2" stroke-opacity="0.9"/>' +
-        '<path class="drift-marker-tri" d="' + tri + '" fill="#ffc233"/>' +
-        '<path class="drift-marker-dia" d="' + dia + '" fill="#e23b2e"/>' +
+        '<path class="drift-marker-tri" d="' + tri + '" fill="' + p.warning + '"/>' +
+        '<path class="drift-marker-dia" d="' + dia + '" fill="' + p.danger + '"/>' +
         '<text x="' + px + '" y="' + (tyN - 7).toFixed(1) +
           '" text-anchor="middle" class="drift-contact-lbl">' + _driftTag(tr.type) +
         '</text>' +

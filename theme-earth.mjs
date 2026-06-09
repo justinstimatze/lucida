@@ -14,6 +14,25 @@
 //   _updateEarthTactical()    — binds contacts + readout to live cells
 //   _earthAmbientStart()      — kicks off the 2s ambient ticker
 
+// Resolve the earth palette from CSS custom properties at call time.
+// SVG presentation attributes (fill="...", stroke="...") don't accept
+// `var(--accent-X)` syntax — those resolve only in style declarations,
+// not in attribute strings.  So we read once per build and interpolate
+// the literal.  Hex fallbacks match earth.tokens.json so the SVG is
+// correct if applyTokensToCSSVars hasn't run yet.  Eliminates the
+// tokens.json ↔ .mjs calque on earth accent.primary / data.cat[2-3-5].
+function _earthPalette() {
+  const cs = getComputedStyle(document.body);
+  const get = (name, fallback) =>
+    (cs.getPropertyValue(name) || fallback).trim() || fallback;
+  return {
+    primary: get("--accent-primary", "#2f6fd0"),
+    danger:  get("--accent-danger",  "#d83a2e"),
+    cat2:    get("--data-cat-2",     "#6f9fd0"),
+    cat3:    get("--data-cat-3",     "#9bb8d8"),
+  };
+}
+
 // UN globe-laurel seal — the key Earth-power iconography (refs/unn/NOTES.md).
 // Simplified azimuthal globe grid (concentric circles + radial meridians) flanked
 // by two mirrored laurel branches. Flat single-blue line work, low opacity — it
@@ -22,7 +41,7 @@ function _earthSeal(cx, cy, R) {
   // Brighter institutional blue + higher opacity so the seal reads as
   // the Earth-power inlay, not a faint watermark. Audit 2026-05-31
   // flagged the prior #7da4d6 @ 0.5 as nearly invisible against bg.
-  const col = "#9bb8d8";
+  const col = _earthPalette().cat3;
   let s = '<g class="earth-seal-g" stroke="' + col + '" stroke-opacity="0.78" fill="none" stroke-width="0.7" stroke-linecap="round">';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R.toFixed(1) + '"/>';
   s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.62).toFixed(1) + '"/>';
@@ -50,6 +69,7 @@ export function _buildFurnitureEarth(el) {
   // overlaps it — the reference's signature composition (EARTH Agatha King's blue
   // bubble overlapping the MCRN threat's red bubble), not a single concentric
   // radar. Own ship is named by the UN seal + placard; the threat is labeled.
+  const p = _earthPalette();
   const cx = 94, cy = 60;
   const ringR = [10, 22, 34, 46];
   // Head-on flat grid plane underlay — refs/unn/unn_tactical_grid_rangerings.png
@@ -60,22 +80,22 @@ export function _buildFurnitureEarth(el) {
   let grid = "";
   for (let x = 4; x <= 184; x += 16) {
     grid += '<line x1="' + x + '" y1="6" x2="' + x + '" y2="118" ' +
-      'stroke="#2f6fd0" stroke-opacity="0.13" stroke-width="0.5" stroke-dasharray="2 2"/>';
+      'stroke="' + p.primary + '" stroke-opacity="0.13" stroke-width="0.5" stroke-dasharray="2 2"/>';
   }
   for (let y = 6; y <= 118; y += 16) {
     grid += '<line x1="4" y1="' + y + '" x2="184" y2="' + y + '" ' +
-      'stroke="#2f6fd0" stroke-opacity="0.13" stroke-width="0.5" stroke-dasharray="2 2"/>';
+      'stroke="' + p.primary + '" stroke-opacity="0.13" stroke-width="0.5" stroke-dasharray="2 2"/>';
   }
   let rings = "";
   ringR.forEach((r) => {
     rings += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r +
-      '" fill="none" stroke="#2f6fd0" stroke-opacity="0.5" stroke-width="1"/>';
+      '" fill="none" stroke="' + p.primary + '" stroke-opacity="0.5" stroke-width="1"/>';
   });
   // N-S / E-W bearing graticule through own ship.
   rings += '<line x1="' + cx + '" y1="' + (cy - 46) + '" x2="' + cx + '" y2="' + (cy + 46) +
-    '" stroke="#2f6fd0" stroke-opacity="0.22" stroke-width="0.6"/>' +
+    '" stroke="' + p.primary + '" stroke-opacity="0.22" stroke-width="0.6"/>' +
     '<line x1="' + (cx - 46) + '" y1="' + cy + '" x2="' + (cx + 46) + '" y2="' + cy +
-    '" stroke="#2f6fd0" stroke-opacity="0.22" stroke-width="0.6"/>';
+    '" stroke="' + p.primary + '" stroke-opacity="0.22" stroke-width="0.6"/>';
   // Offset hostile contact — its own dashed red sensor bubble + an open red
   // threat triangle at its center + a label. Overlaps the blue envelope.
   const tx = 56, ty = 86, tr = 26;
@@ -97,9 +117,9 @@ export function _buildFurnitureEarth(el) {
       threatMotion +
       threatFade +
       '<circle cx="' + tx + '" cy="' + ty + '" r="' + tr + '" fill="none" ' +
-        'stroke="#d83a2e" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>' +
+        'stroke="' + p.danger + '" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>' +
       '<path d="M' + tx + ' ' + (ty - 4) + ' L' + (tx + 4) + ' ' + (ty + 3) +
-        ' L' + (tx - 4) + ' ' + (ty + 3) + ' Z" fill="none" stroke="#d83a2e" stroke-width="1.2"/>' +
+        ' L' + (tx - 4) + ' ' + (ty + 3) + ' Z" fill="none" stroke="' + p.danger + '" stroke-width="1.2"/>' +
       '<text class="earth-threat-lbl" x="' + tx + '" y="' + (ty + 14) + '" text-anchor="middle">HOSTILE</text>' +
     '</g>';
   el.innerHTML =
@@ -117,8 +137,8 @@ export function _buildFurnitureEarth(el) {
           '<g transform="translate(' + cx + ' ' + cy + ')">' +
             '<g class="earth-sweep">' +
               '<path d="M 0 0 L 42 0 A 42 42 0 0 1 36.4 21 Z" ' +
-                'fill="#2f6fd0" fill-opacity="0.06" ' +
-                'stroke="#2f6fd0" stroke-opacity="0.32" stroke-width="0.4"/>' +
+                'fill="' + p.primary + '" fill-opacity="0.06" ' +
+                'stroke="' + p.primary + '" stroke-opacity="0.32" stroke-width="0.4"/>' +
               (window.matchMedia &&
                 window.matchMedia("(prefers-reduced-motion: reduce)").matches
                   ? ""
@@ -179,6 +199,7 @@ export function _updateEarthTactical() {
     .filter((c) => Number.isFinite(c.t))
     .sort((a, b) => b.t - a.t)
     .slice(0, 4);   // 4-contact dignified plot — fits 4 rows + 4 field rows in the readout panel.
+  const p = _earthPalette();
   const cx = 94, cy = 60, ringR = [10, 22, 34, 46];
   let out = "", rows = "";
   cells.forEach((c, i) => {
@@ -208,11 +229,11 @@ export function _updateEarthTactical() {
       '<g class="earth-contact">' +
         animMotion +
         '<line x1="' + cx + '" y1="' + cy + '" x2="' + px + '" y2="' + py +
-          '" stroke="#2f6fd0" stroke-opacity="0.28" stroke-width="0.6"/>' +
+          '" stroke="' + p.primary + '" stroke-opacity="0.28" stroke-width="0.6"/>' +
         '<rect x="' + (x - 2).toFixed(1) + '" y="' + (y - 2).toFixed(1) +
-          '" width="4" height="4" fill="none" stroke="#6f9fd0" stroke-width="1"/>' +
+          '" width="4" height="4" fill="none" stroke="' + p.cat2 + '" stroke-width="1"/>' +
         (i === 0 ? '<rect class="earth-sel-live" x="' + (x - 3.6).toFixed(1) + '" y="' + (y - 3.6).toFixed(1) +
-          '" width="7.2" height="7.2" fill="none" stroke="#9bb8d8" stroke-opacity="0.75" stroke-width="0.6"/>' : "") +
+          '" width="7.2" height="7.2" fill="none" stroke="' + p.cat3 + '" stroke-opacity="0.75" stroke-width="0.6"/>' : "") +
         (i < 3 ? '<text class="earth-contact-lbl" x="' + (x + 6).toFixed(1) + '" y="' + (y + 2.5).toFixed(1) +
           '">' + _earthTag(c.type) + '</text>' : "") +
       '</g>';
