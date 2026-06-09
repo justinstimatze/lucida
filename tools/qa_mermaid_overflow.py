@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import argparse
 import glob
+import os
 import re
 from collections import namedtuple
+from pathlib import Path
 
 Node = namedtuple("Node", "cell node_id rect_w text overflow_ratio")
 
@@ -67,7 +69,13 @@ def main() -> None:
         "--threshold", type=float, default=1.0, help="overflow_ratio > THRESHOLD = flagged"
     )
     ap.add_argument("--limit", type=int, default=30)
-    ap.add_argument("--dir", default="/home/gas6amus/Documents/lucida/cells")
+    # Default to ./cells relative to the repo root (the conventional location
+    # for mermaid SVG output). Override via --dir or LUCIDA_CELLS_DIR.
+    default_dir = os.environ.get(
+        "LUCIDA_CELLS_DIR",
+        str(Path(__file__).resolve().parent.parent / "cells"),
+    )
+    ap.add_argument("--dir", default=default_dir)
     args = ap.parse_args()
     files = glob.glob(f"{args.dir}/*.mermaid.*.svg")
     print(f"scanning {len(files)} mermaid SVGs")
