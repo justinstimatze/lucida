@@ -23,6 +23,8 @@ Filenames kept for provenance.
 Extracted 2026-05-29 via yt-dlp (≤720p) + ffmpeg at user timestamps. Clips in
 /tmp/tachi-refs/ (tmp-reaper wipes between sessions — re-fetch as needed). refs/ is
 GITIGNORED (copyrighted stills stay local; grammar also lives in memory).
+RE-EXTRACTED 2026-06-09 at 1080p (don_*.png now 1440x1080, was 960x720) — same
+five timestamps, AV1 source `NqDcnwrsq6U` via yt-dlp bestvideo[height<=1080].
 
 ## Grammar (classic-MCRN / Donnager)
 
