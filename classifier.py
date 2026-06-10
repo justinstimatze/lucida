@@ -5,24 +5,24 @@ Claude Haiku 4.5 call returning a structured classification:
   - discourse_move (structural | temporal | comparative | causal | quantitative | none)
   - cell_type     (one of lucida's supported types)
   - confidence    (0.0-1.0)
-  - reasoning     (1-2 sentences explaining the choice)
+  - reasoning     (one short sentence explaining the choice)
 
 The orchestrator applies the leg5 confidence gate (<0.6 -> text, 0.6-0.8
 -> draft indicator, >0.8 -> normal) on the result.
 
-Prompt caching: SYSTEM_PROMPT is expanded with worked examples + decision
-rules to improve calibration. As a side effect, the prefix is large enough
-to activate caching on Sonnet 4.6 (min 2048 tokens) and approaches Haiku
-4.5's 4096-token floor. cache_control is set on the last system block so
-caching activates the moment we cross either threshold. ClassifierResult
-exposes cache_read_tokens / cache_creation_tokens so the orchestrator can
-report hit/miss and we can verify behavior empirically.
+Prompt caching: SYSTEM_PROMPT carries worked examples + decision rules
+for calibration, and the full cacheable prefix (tools + system) measures
+~11.5K tokens (count_tokens, 2026-06) -- well past both Sonnet 4.6's
+2048-token and Haiku 4.5's 4096-token cache floors, so caching fires on
+either model. cache_control is set on the last system block.
+ClassifierResult exposes cache_read_tokens / cache_creation_tokens so the
+orchestrator can report hit/miss and we can verify behavior empirically.
 
-Model selection via LUCIDA_CLASSIFIER_MODEL. Defaults to claude-haiku-4-5.
-Sonnet 4.6 (claude-sonnet-4-6) is a reasonable trade if classification
-quality matters more than the ~3x input-cost premium -- and its lower
-2048-token minimum cacheable prefix means caching activates immediately
-at our current size.
+Model selection via LUCIDA_CLASSIFIER_MODEL. Defaults to claude-sonnet-4-6.
+The classifier is the highest-volume call in the pipeline (one per segment;
+tools/spend_audit.py measured ~44% of recorded spend), so Haiku 4.5 was
+trialed for the ~3x saving and rejected on quality -- see the DEFAULT_MODEL
+comment below and tools/classifier_agreement_check.py to re-test.
 
 Discourse-move taxonomy: structural | temporal | comparative | causal | quantitative.
 Worked examples drawn from live lucida session classifications.
@@ -42,14 +42,26 @@ except ImportError:
     pass
 
 
-# Default to Sonnet 4.6: its 2048-token min cacheable prefix lets the
-# expanded SYSTEM_PROMPT (worked examples + decision rules, ~2500 tokens)
-# actually trigger prompt caching. Haiku 4.5 is cheaper per uncached token
-# but its 4096-token floor means caching never fires at current prompt size,
-# making it net more expensive than cached Sonnet. Override via env if you
-# want to flip back to Haiku once the prompt grows past 4K, or to a 1M-context
-# model if shape A's transcript-aware classification lands.
+# Stays on Sonnet, but NOT for the old reason. The old comment argued the
+# prompt (~2.5K tokens) was under Haiku's 4096-token cache floor; that's
+# stale -- the prefix is ~11.5K now and caching fires on both models. Haiku
+# was then tried for the ~3x saving and REJECTED empirically (2026-06-10,
+# 72 stratified historical snippets, both models on this prompt): 36%
+# cell_type agreement, and Haiku collapsed to text@<0.6 on half the sample
+# (suppress band 7/72 -> 36/72), which would silently kill half the mints.
+# This classification task leans on judgment the worked examples don't
+# fully transfer to Haiku. Don't re-flip without re-running
+# tools/classifier_agreement_check.py (spend side: tools/spend_audit.py).
 DEFAULT_MODEL = os.environ.get("LUCIDA_CLASSIFIER_MODEL", "claude-sonnet-4-6")
+
+# Cache TTL for the ~11.5K-token classifier prefix. Default 1h: the 5m
+# cache dies during any >5min conversation lull, and each re-write costs
+# 1.25x the prefix (~$0.04) vs the 1h write's one-time 2x (~$0.07/session).
+# One avoided lull-rewrite per hour and the 1h TTL is ahead; sessions
+# with constant <5min activity lose only ~$0.03 once. "5m" or "1h".
+CACHE_TTL = os.environ.get("LUCIDA_CLASSIFIER_CACHE_TTL", "1h")
+if CACHE_TTL not in ("5m", "1h"):
+    CACHE_TTL = "1h"
 
 
 SYSTEM_PROMPT = """You are the classifier for lucida, a co-evolving notebook of generated artifacts that accretes alongside conversation.
@@ -58,6 +70,8 @@ Given a conversation snippet, decide three things:
 1. The discourse move it makes -- one of: structural, temporal, comparative, causal, quantitative, or none.
 2. The cell_type that best surfaces what's load-bearing about the snippet.
 3. Your confidence in (2) on a 0-1 scale. Use the gate: <0.6 means "this snippet doesn't really want a viz", 0.6-0.8 means "uncertain", >0.8 means "clearly this type."
+
+Keep the reasoning field to ONE short sentence: name the shape you saw, nothing more. Do not restate the snippet's content or describe what the chart will look like. The worked examples below show longer Reasoning fields — those are expository, teaching the decision rules; do NOT imitate their length. (Exception: the mid-band text-pick case below, which requires explaining the rejected viz.)
 
 # Cell types and when each fits
 
@@ -267,7 +281,7 @@ CLASSIFY_TOOL = {
             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
             "reasoning": {
                 "type": "string",
-                "description": "1-2 sentences explaining the classification.",
+                "description": "One short sentence explaining the classification. Output tokens are the priciest part of this call -- be telegraphic, no restating the snippet.",
             },
             "title": {
                 "type": "string",
@@ -420,7 +434,7 @@ def classify(
                     {
                         "type": "text",
                         "text": SYSTEM_PROMPT,
-                        "cache_control": {"type": "ephemeral"},
+                        "cache_control": {"type": "ephemeral", "ttl": CACHE_TTL},
                     }
                 ],
                 tools=[CLASSIFY_TOOL],

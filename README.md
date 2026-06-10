@@ -168,6 +168,40 @@ mints 30–80 cells — roughly $0.60–$2.00. Classifier calls are cached.
 Turn off `--generate` to run the classifier only (free) and mint manually
 when you want a visual.
 
+### Where the money goes
+
+Measured with `tools/spend_audit.py`, which reconstructs per-stage spend
+from the cache counters recorded in your own `cells.json` — run it on your
+data rather than trusting anyone's averages:
+
+```bash
+python tools/spend_audit.py                 # calibrated (a few free count_tokens calls)
+python tools/spend_audit.py --no-calibrate  # fully offline
+```
+
+On a long real session the classifier was ~44% of recorded spend (it runs
+once per segment with an ~11.5K-token cached prefix), with the rest spread
+across the specialists — none above ~11%. Within the classifier, cost
+splits roughly half cached-prefix reads, half its own output tokens.
+
+### Why the classifier stays on Sonnet
+
+The obvious cheap move — flipping the classifier to Haiku 4.5 for the ~3x
+rate cut — was tried and **rejected on quality**: on a 72-snippet
+stratified replay (both models, same prompt), Haiku agreed with Sonnet on
+cell_type only 36% of the time and collapsed half the sample to
+low-confidence `text`, which the confidence gate then suppresses. The
+saving would have arrived as a half-empty dashboard. The replay harness is
+`tools/classifier_agreement_check.py` — re-run it before trying another
+classifier model (every stage's model is overridable via `LUCIDA_*_MODEL`
+env vars; see `.env.example`).
+
+What *does* cut cost without touching judgment: the classifier prompt asks
+for telegraphic one-sentence reasoning (output tokens are the expensive
+half), and every stage sets a prompt-cache breakpoint, so keeping the
+watcher polling inside the 5-minute cache TTL keeps prefix reads at ~10%
+of list price.
+
 ---
 
 ## Watcher options

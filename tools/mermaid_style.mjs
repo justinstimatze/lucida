@@ -1,22 +1,23 @@
 // Single source for mermaid SVG post-processing — keep in sync with
-// _mixed3dStyleMermaidSVG and STYLE_V in index.html (~line 6171, 6592).
-// Both index.html (client-side render fallback path) and the puppeteer-
+// _mixed3dStyleMermaidSVG and STYLE_V in mixed3d.mjs (browser copy;
+// lived in index.html before the module split). Both the browser
+// (client-side render fallback path) and the puppeteer-
 // based render_mermaid.mjs apply the same styling, so the CSS string
 // and version constant must agree.
 //
 // To bump:
 //   1. Edit STYLE_CSS here
 //   2. Increment STYLE_V here
-//   3. Mirror both changes inside index.html's _mixed3dStyleMermaidSVG
-//      (the inline copy is required because index.html has no build
-//      step — it can't `import` from this file)
+//   3. Mirror both changes inside mixed3d.mjs's _mixed3dStyleMermaidSVG
+//      (mixed3d.mjs is an ES module, so importing from this file is now
+//      possible — collapsing that mirror is a welcome future cleanup)
 //   4. Mirror STYLE_V in tools/backfill_mermaid_svgs.py
 //
-// Yes that's three mirrors. The browser-side copy is the unavoidable
-// one (no build step); the python copy is one constant only, not the
-// whole CSS. Reducing past this would require a build step or a
-// runtime fetch of this file from the browser, both of which violate
-// the project's "one big index.html, no build" stance.
+// Yes that's three mirrors. The original excuse for the browser-side
+// copy (index.html had no build step, couldn't import) died with the
+// module split: mixed3d.mjs is an ES module and could import STYLE_V
+// and STYLE_CSS from here directly. Until that cleanup lands, the
+// python copy is one constant only, not the whole CSS.
 
 export const STYLE_V = "v12";
 

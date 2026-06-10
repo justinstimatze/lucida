@@ -50,14 +50,15 @@ def test_target_path_colspan_three() -> None:
     assert p.name == f"cell-1234.mermaid.c3.{mod.STYLE_V}.svg"
 
 
-def test_style_v_pinned_to_index_html() -> None:
-    """STYLE_V must match the constant in index.html or the disk
-    cache will silently diverge from what the browser fetches."""
+def test_style_v_pinned_to_mixed3d_mjs() -> None:
+    """STYLE_V must match the constant in mixed3d.mjs or the disk
+    cache will silently diverge from what the browser fetches.
+    (Lived in index.html before the module split.)"""
     mod = _load_module()
-    html = (REPO_ROOT / "index.html").read_text()
+    mjs = (REPO_ROOT / "mixed3d.mjs").read_text()
     # Grep the inline constant assignment _mixed3dRenderMermaidToCanvas uses.
-    assert f'const STYLE_V = "{mod.STYLE_V}"' in html, (
-        f"STYLE_V drift: backfill={mod.STYLE_V}, index.html doesn't contain matching constant"
+    assert f'const STYLE_V = "{mod.STYLE_V}"' in mjs, (
+        f"STYLE_V drift: backfill={mod.STYLE_V}, mixed3d.mjs doesn't contain matching constant"
     )
 
 

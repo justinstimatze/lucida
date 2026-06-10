@@ -29,6 +29,15 @@ except ImportError:
     pass
 
 
+# Stays on Sonnet. Haiku 4.5 was trialed 2026-06-10 (36 historical cells,
+# both models): aggregate score calibration matched (means 0.71 vs 0.71),
+# but per-cell agreement was 4x noisier than Sonnet's own run-to-run
+# variance (mean |score diff| 0.136 vs 0.036 sonnet-vs-sonnet; gate-band
+# crossings 14/36 vs 3/36) — a noisy judge defeats the point of a quality
+# gate for ~$0.008/call. The cost lever taken instead: the SYSTEM_PROMPT
+# carries a worked example that pushes the prefix past Sonnet's 2048-token
+# cache floor, so the cache_control marker actually fires (it was silently
+# inert below the floor).
 DEFAULT_MODEL = os.environ.get("LUCIDA_TEXT_EVALUATOR_MODEL", "claude-sonnet-4-6")
 
 
@@ -53,6 +62,13 @@ Mentally execute (do not output):
    - INVENTED: plausible but the snippet does not state. This is the failure mode you are detecting. Examples that REMAIN INVENTED even under the relaxed DERIVED rule: (a) named entities, files, directories, or functions not mentioned in the snippet; (b) numeric values, thresholds, or targets the snippet does not state; (c) reframing an unconfirmed/hypothetical claim as a confirmed fact (e.g., snippet says "20% is the kill threshold, may not hit it" -> calling 20% the "target" is INVENTED framing); (d) nodes referenced in edges but never declared with a label.
 
 4. Compile the list of INVENTED items. Each one is a hallucination.
+
+# Worked example (calibration anchor)
+
+Snippet: "Migrating the parser cut cold-start from 340ms to 90ms; the config loader is unchanged."
+Artifact (vega): data.values = [{"stage": "before", "ms": 340}, {"stage": "after", "ms": 90}, {"stage": "config", "ms": 120}], axis title "cold-start ms".
+Audit: 340 is DIRECT; 90 is DIRECT; a -250ms delta, had the spec shown one, would be DERIVED (unambiguous arithmetic on stated values); "config: 120" is INVENTED -- the snippet names the config loader but states no number for it.
+Verdict: one material invention -> quality_score 0.4, invented_substrate_items ["config loader: 120ms (snippet states no value)"], should_demote_to_text false (two DIRECT units remain, the chart type is coherent without the invention).
 
 # Caption check
 

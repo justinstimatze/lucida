@@ -34,7 +34,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Must match STYLE_V in index.html (_mixed3dRenderMermaidToCanvas)
+# Must match STYLE_V in mixed3d.mjs (_mixed3dRenderMermaidToCanvas)
 # and tools/render_mermaid.mjs. Bump all three when CSS changes.
 STYLE_V = "v12"
 
