@@ -32,7 +32,7 @@ build-backend = "hatchling.build"
 packages = ["."]
 include = [
     "orchestrator.py", "nano_banana.py", "classifier.py", "image_specialist.py",
-    "reflect.py", "evaluator.py", "specialists.py", "segmenter.py", "watcher.py",
+    "reflect.py", "evaluator.py", "specialists.py", "motion_timeline.py", "segmenter.py", "watcher.py",
     "jsonl_to_transcript.py", "text_evaluator.py",
     "audit_kill_criteria.py", "eval_all_substrates.py",
 ]

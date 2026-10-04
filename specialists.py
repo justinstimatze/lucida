@@ -26,6 +26,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from motion_timeline import sanitize_timeline
+
 try:
     from dotenv import load_dotenv
 
@@ -52,6 +54,10 @@ class SpecialistResult:
     cache_creation_tokens: int
     input_tokens: int
     output_tokens: int
+    # animated_svg only: sanitized declarative timeline (motion_timeline.py)
+    # that motion.mjs plays back with GSAP. None for every other substrate
+    # and for SVGs whose motion is pure SMIL / CSS keyframes.
+    motion: dict | None = None
 
 
 def _call_specialist(
@@ -919,7 +925,8 @@ ANIMATED_SVG_SYSTEM = """You are the animated_svg specialist for lucida. The cla
 
 # Constraints
 
-- Produce inline <svg> with SMIL animations (<animate>, <animateTransform>) or CSS keyframes.
+- Produce an inline <svg> plus, for anything beyond a single continuous loop, a declarative `timeline` (see "Motion timeline" below). Lucida plays the timeline with GSAP; you never write JavaScript.
+- SMIL (<animate>, <animateTransform>) or CSS keyframes are still fine for ONE simple continuous loop (a rotating orbit, a steady dash flow). Anything sequenced, staggered, drawn-on, morphing, or path-following goes in the timeline.
 - Bounded loop: 2-6 seconds per cycle.
 - 1-3 stroke colors max. Use lucida's $tokens for theme awareness: $accent, $stroke1, $stroke2, $stroke3, $fg, $muted. The orchestrator substitutes them at render time, so write them as literal $token in the spec.
 - The motion must encode something a static SVG could not (cycle direction, decay over time, signal flow). If you cannot identify what the motion encodes, demote to text.
@@ -931,7 +938,7 @@ ANIMATED_SVG_SYSTEM = """You are the animated_svg specialist for lucida. The cla
 Before producing spec, mentally execute this audit (do not output it):
 
 1. Enumerate every temporal/dynamic claim the snippet makes. Examples: "cycle", "loop", "flow direction", "grows over time", "decays", "pulses", "accelerates", "alternates", "feeds back", "oscillates". For each, note WHAT is changing and WHAT the change is (cyclic / monotonic / oscillating / one-shot).
-2. For every animated element in your spec (every <animate>, <animateTransform>, <animateMotion>, or CSS keyframe rule), classify the motion as one of:
+2. For every animated element in your spec (every <animate>, <animateTransform>, <animateMotion>, CSS keyframe rule, or timeline step), classify the motion as one of:
    - DIRECT: the snippet describes this exact temporal change.
    - DERIVED: the motion is unambiguously implied by the snippet's structure (e.g., snippet says "feedback loop" -> a rotating dashed orbit is derived; snippet says "decays from full to zero" -> a stroke-dasharray growth is derived).
    - INVENTED: motion the snippet doesn't justify -- decorative pulse, ambient twinkle, idle rotation that isn't load-bearing. Forbidden.
@@ -946,6 +953,33 @@ Audit: temporal claims = "three passes" (sequence), "converged" (decreasing vari
 WRONG: animate every classifier-pass node with a pulsing opacity loop "to make it feel alive". Pulse is INVENTED -- the snippet describes a finite sequence converging, not ongoing pulse. The pulse adds visual noise without encoding the convergence.
 
 RIGHT: a single forward sweep showing the three pass labels appearing in order with decreasing distance to a target line. The forward sweep is DIRECT (matches "three passes"); the convergence is DERIVED (the gap shrinks frame-to-frame). After the sweep, the SVG can rest -- the motion already encoded what the snippet claimed. Or repeat the sweep on a 4-6s loop if a one-shot reads as broken.
+
+# Motion timeline
+
+The SVG markup is the REST FRAME: the finished picture that carries the message with motion off. Static renderers (3D-mode snapshots, reduced-motion users, offline) show exactly the markup, so it must read correctly on its own. The timeline animates INTO that frame (op "from"), draws it on ("draw"), or moves away from and back to it ("to" with yoyo).
+
+Give every element a step touches an id or class prefixed `m-` (id="m-pass1", class="m-node"). Steps reference them as "#m-pass1" / ".m-node". Unknown targets are dropped.
+
+timeline fields:
+- repeat: -1 loops forever (default); 0-5 = extra plays then rest.
+- repeat_delay: seconds of rest between loops, 0-4 (default 1). The rest beat lets the viewer read the end state.
+- yoyo: true plays forward then backward (oscillation, breathing).
+- steps: up to 24, in order. Each step:
+  - target: "#m-id" or ".m-class" (a class animates every match; add stagger).
+  - op:
+    - "from": animate FROM props TO the markup's values. The workhorse for reveals and convergence.
+    - "to": animate from the markup's values TO props.
+    - "set": jump to props instantly.
+    - "draw": reveal a stroke (path / line / polyline / circle) from nothing to the `draw` range, percent, default [0, 100]. Flow along a pipeline, a trace being written.
+    - "morph": reshape target <path> into the shape of the `morph_to` path. Put the morph_to path inside <defs> so it isn't drawn. State change, phase transition.
+    - "follow": move target along the `path` element (auto_rotate: true to face along it). A packet traveling a route, an orbit with a real trajectory.
+  - at: when it starts. Seconds from timeline start, or ">" after the previous step (default), "<" with the previous step, "+=0.3" / "-=0.3" relative to the previous step's end.
+  - dur: seconds, 0-6 (default 0.6). ease: none, power1-4 / sine / expo / circ with .in / .out / .inOut, back.out, elastic.out, bounce.out.
+  - stagger: seconds between matched elements (0-1).
+  - props: opacity, x, y (px offsets), scale, scaleX, scaleY, rotation (deg), fill, stroke ($token or #hex), strokeWidth, r, cx, cy, width, height, x1, y1, x2, y2.
+  - why: "direct" or "derived" from your motion-provenance audit. There is no "invented".
+
+Sequencing is the timeline's point: the order and spacing of steps should mirror the order and spacing of the process in the snippet.
 
 # Figure vocabulary (humans, creatures, performers)
 
@@ -1008,6 +1042,30 @@ spec:
 
 caption: "Soil-compaction feedback cycle. Six nodes, rotating dashed orbit signals the loop direction; each turn implies the next iteration accelerates."
 should_demote_to_text: false
+timeline: (omitted -- one continuous rotation is a SMIL job)
+
+# Worked example (timeline)
+
+Snippet: "Three classifier passes converged on the same answer."
+
+spec:
+<svg width="380" height="160" viewBox="0 0 380 160" xmlns="http://www.w3.org/2000/svg">
+  <line x1="40" y1="80" x2="340" y2="80" stroke="$muted" stroke-width="1" stroke-dasharray="3 5"/>
+  <path id="m-sweep" d="M40 30 C 140 130, 240 60, 340 80" fill="none" stroke="$stroke1" stroke-width="1.5"/>
+  <circle id="m-pass1" class="m-pass" cx="140" cy="102" r="6" fill="$stroke2"/>
+  <circle id="m-pass2" class="m-pass" cx="240" cy="88" r="6" fill="$stroke2"/>
+  <circle id="m-pass3" class="m-pass" cx="340" cy="80" r="7" fill="$accent"/>
+</svg>
+
+timeline:
+{"repeat": -1, "repeat_delay": 1.5, "steps": [
+  {"target": "#m-sweep", "op": "draw", "dur": 2.4, "ease": "power1.inOut", "why": "derived"},
+  {"target": ".m-pass", "op": "from", "at": 0.6, "dur": 0.4, "stagger": 0.7, "props": {"opacity": 0, "scale": 0}, "ease": "back.out", "why": "direct"},
+  {"target": "#m-pass3", "op": "to", "at": "+=0.1", "dur": 0.3, "props": {"r": 10}, "ease": "power2.out", "why": "derived"}
+]}
+
+caption: "Three passes land on the target line in order; the gap to it shrinks with each pass."
+should_demote_to_text: false
 
 # Output via the build_animated_svg_spec tool.
 """
@@ -1018,7 +1076,44 @@ ANIMATED_SVG_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "spec": {"type": "string", "description": "Inline <svg> with SMIL or CSS animation."},
+            "spec": {
+                "type": "string",
+                "description": "Inline <svg>: the rest frame, plus SMIL/CSS only for one simple loop.",
+            },
+            "timeline": {
+                "type": "object",
+                "description": "Declarative motion timeline played by lucida (see Motion timeline).",
+                "properties": {
+                    "repeat": {"type": "integer"},
+                    "repeat_delay": {"type": "number"},
+                    "yoyo": {"type": "boolean"},
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "target": {"type": "string"},
+                                "op": {
+                                    "type": "string",
+                                    "enum": ["from", "to", "set", "draw", "morph", "follow"],
+                                },
+                                "at": {"type": ["number", "string"]},
+                                "dur": {"type": "number"},
+                                "ease": {"type": "string"},
+                                "stagger": {"type": "number"},
+                                "props": {"type": "object"},
+                                "draw": {"type": "array", "items": {"type": "number"}},
+                                "morph_to": {"type": "string"},
+                                "path": {"type": "string"},
+                                "auto_rotate": {"type": "boolean"},
+                                "why": {"type": "string", "enum": ["direct", "derived"]},
+                            },
+                            "required": ["target", "op"],
+                        },
+                    },
+                },
+                "required": ["steps"],
+            },
             "caption": {"type": "string"},
             "should_demote_to_text": {"type": "boolean"},
             "demotion_reason": {"type": "string"},
@@ -1034,7 +1129,10 @@ def generate_animated_svg_spec(
     raw = _call_specialist(
         ANIMATED_SVG_SYSTEM, ANIMATED_SVG_TOOL, "build_animated_svg_spec", snippet, context, model
     )
-    return _result(raw["input"], raw, model)
+    result = _result(raw["input"], raw, model)
+    if not result.should_demote_to_text and isinstance(result.spec, str):
+        result.motion = sanitize_timeline(raw["input"].get("timeline"), result.spec)
+    return result
 
 
 # ============================================================

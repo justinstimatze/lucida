@@ -74,6 +74,9 @@ class CellProposal:
     image_path: str | None = None
     spec: object | None = None
     html: str | None = None
+    # animated_svg: declarative GSAP timeline (motion_timeline.py); spec
+    # stays the SVG string so every spec-as-string consumer is unaffected.
+    motion: dict | None = None
     caption: str = ""
     notes: str = ""
     # populated by demote_if_trivial when the original viz failed the heuristic
@@ -825,6 +828,7 @@ def demote_if_trivial(proposal: CellProposal) -> str | None:
     proposal.cell_type = "text"
     proposal.spec = None
     proposal.html = None
+    proposal.motion = None
     proposal.caption = (
         proposal.caption or ""
     ) + f" [demoted from {proposal.attempted_cell_type}: {reason}]"
@@ -1094,6 +1098,7 @@ def _append_proposal_locked(
     # thought.
     non_image_spec = None
     non_image_html = None
+    non_image_motion = None
     non_image_caption = ""
     if (
         llm_available
@@ -1164,6 +1169,7 @@ def _append_proposal_locked(
                     non_image_html = spec_result.spec
                 else:
                     non_image_spec = spec_result.spec
+                non_image_motion = spec_result.motion
                 non_image_caption = spec_result.caption
                 classifier_label += f" [{chosen_type}-specialist:{spec_cache_info}]"
 
@@ -1209,6 +1215,7 @@ def _append_proposal_locked(
         prompt=final_prompt,
         spec=non_image_spec,
         html=non_image_html,  # type: ignore[arg-type]
+        motion=non_image_motion,
         caption=non_image_caption,
         notes=proposal_notes,
         discourse_move=discourse_move,

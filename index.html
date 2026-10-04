@@ -40,6 +40,23 @@
         integrity="sha384-X9Z4JPIA98tyn9ayVMe0cM9j3zfE7CliV/xrpqv2t757y/UFj/awObaY8PUT6rh7"
         crossorigin="anonymous"></script>
 <script src="vendor/CSS3DRenderer.js"></script>
+<!-- GSAP + SVG plugins: plays animated_svg declarative timelines
+     (motion.mjs). The specialist emits JSON from a fixed op vocabulary;
+     no model-written JS runs. Draw/Morph/MotionPath plugins are free
+     under GSAP's standard license since 3.13. If these fail to load,
+     animated_svg cells fall back to their static rest frame. -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"
+        integrity="sha384-XmJ9SoHtVOHoQUcKvFAzVXwdkKo1Ie3bhmSoIAkcdsHGaIrVJIkmozyq0FJeb/Ly"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/DrawSVGPlugin.min.js"
+        integrity="sha384-pfZbCpJUiv0Y8664JafRbiKcx2uJmjNjVCoPXGwaxvTSbO11M0htzeEeTC6KSaqa"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/MorphSVGPlugin.min.js"
+        integrity="sha384-2D9N9SXHI+GuUJosWr9sUo4lNZyaZoOK+kvXEXCL3/h9nrsMDeqDxAennJtVtMtt"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/MotionPathPlugin.min.js"
+        integrity="sha384-YAP0gHFFPxr8wOSUhn4e+TuP5bfNLSK+i4tU3G9qh+IDMZRxsjxzPkb+sg037k23"
+        crossorigin="anonymous"></script>
 <!-- d3-hierarchy: canonical squarified treemap (Bruls 2000). Replaces
      ~80 lines of custom squarify code; we just feed it weights and read
      leaf rectangles back. -->
@@ -320,6 +337,6 @@
      empty (invisible) for themes without a furniture builder. Part of the
      theming-flexibility foundation. -->
 <div id="theme-furniture" aria-hidden="true"></div>
-<script type="module" src="lucida.mjs?v=107"></script>
+<script type="module" src="lucida.mjs?v=108"></script>
 </body>
 </html>

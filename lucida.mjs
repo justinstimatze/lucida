@@ -39,6 +39,7 @@ import {
   _transientThemeName,
 } from "./theme-transients.mjs?v=1";
 import { pauseOffScreen, setupAutoPan } from "./viewport.mjs?v=1";
+import { playTimeline } from "./motion.mjs?v=1";
 import {
   applyMixed3DLayout, teardownMixed3DLayout, _mixed3dDrawCellPreview,
 } from "./mixed3d.mjs?v=6";
@@ -188,7 +189,17 @@ function disconnectAllCellObservers() {
   document.querySelectorAll("#notebook *").forEach(el => {
     if (el._pauseObserver) { el._pauseObserver.disconnect(); el._pauseObserver = null; }
     if (el._lazyObserver)  { el._lazyObserver.disconnect();  el._lazyObserver = null; }
+    if (el._motion)        { _killMotion(el); }
   });
+}
+
+// animated_svg GSAP timelines (motion.mjs) repeat forever on the global
+// GSAP ticker; a detached target doesn't stop them. Every path that
+// drops a cell's DOM must kill its controller.
+function _killMotion(target) {
+  if (!target?._motion) return;
+  try { target._motion.kill(); } catch { /* swallow */ }
+  target._motion = null;
 }
 
 // Build the session-filter dropdown contents. Reads unique session_id
@@ -792,6 +803,7 @@ function disposeCellState(cellEl) {
       v._vegaView = null;
     }
   }
+  for (const t of cellEl.querySelectorAll(".svg-target")) _killMotion(t);
   // Lazy-mount IntersectionObservers: target nodes hold an _lazyObserver
   // ref. Disconnect proactively so the observer doesn't keep a strong
   // ref to the (about-to-be-detached) target.
@@ -3580,8 +3592,16 @@ function renderCell(c, snippetGroups, cellsById, opts) {
         } catch (e) { /* getBBox unavailable on detached SVG -- skip */ }
       }
       applyNaturalCellSize(target, w);
+      // Declarative timeline (motion.mjs): played after the viewBox
+      // reframe so the bbox measures the rest frame, not a mid-tween
+      // pose. No timeline / no GSAP / reduced motion → the markup is
+      // the rest frame and any SMIL in it runs as before.
+      if (inner && c.motion) {
+        _killMotion(target);
+        target._motion = playTimeline(inner, c.motion, { resolveColor });
+      }
     };
-    lazyMount(target, renderSVG);
+    lazyMount(target, renderSVG, () => _killMotion(target));
   } else if (c.cell_type === "treemap" && c.spec) {
     // Treemap substrate (Shneiderman 1991, design-references.md): nested
     // rectangles where size encodes a quantitative attribute and nesting

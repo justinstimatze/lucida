@@ -58,6 +58,7 @@
   "files": {
     "includes": [
       "lucida.mjs",
+      "motion.mjs",
       "tools/**/*.mjs",
       "tools/**/*.js",
       "validate_mermaid.mjs",

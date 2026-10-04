@@ -19,6 +19,6 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": false
   },
-  "include": ["lucida.mjs", "tools/**/*.mjs", "validate_mermaid.mjs"],
+  "include": ["lucida.mjs", "motion.mjs", "tools/**/*.mjs", "validate_mermaid.mjs"],
   "exclude": ["node_modules", "dist", "coverage"]
 }

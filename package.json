@@ -8,7 +8,8 @@
     "validate": "node validate_mermaid.mjs",
     "lint": "biome lint",
     "lint:fix": "biome lint --write",
-    "typecheck": "tsc -p jsconfig.json"
+    "typecheck": "tsc -p jsconfig.json",
+    "test:motion": "node tools/test_motion.mjs"
   },
   "dependencies": {
     "jsdom": "^29.1.1",
@@ -17,6 +18,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
+    "gsap": "3.15.0",
     "typescript": "~5.6"
   }
 }
