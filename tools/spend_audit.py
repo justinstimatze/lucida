@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -42,7 +43,10 @@ PRICES = {
     "haiku": (1.00, 5.00),
 }
 CACHE_READ_MULT = 0.10
-CACHE_WRITE_MULT = 1.25
+# Write premium depends on TTL: 2x for 1h (every stage's default since
+# 2026-10, tools/claude_tool.py), 1.25x for 5m. cells.json doesn't record
+# the TTL per call, so this assumes the current LUCIDA_CACHE_TTL.
+CACHE_WRITE_MULT = 2.0 if os.environ.get("LUCIDA_CACHE_TTL", "1h").strip() != "5m" else 1.25
 
 # Measured cacheable prefixes (tools+system, count_tokens, 2026-06-10).
 # Used when a specialist call left no cache counter (cache:miss = prefix

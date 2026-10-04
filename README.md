@@ -201,9 +201,11 @@ env vars; see `.env.example`).
 
 What *does* cut cost without touching judgment: the classifier prompt asks
 for telegraphic one-sentence reasoning (output tokens are the expensive
-half), and every stage sets a prompt-cache breakpoint, so keeping the
-watcher polling inside the 5-minute cache TTL keeps prefix reads at ~10%
-of list price.
+half), and every stage caches its tools + system prefix with a 1-hour
+TTL, so the bursty gaps between calls to the same specialist (often 5–60
+minutes) read the prefix at ~10% of list price instead of re-writing it.
+`LUCIDA_CACHE_TTL=5m` is cheaper only if every stage is hit at least
+every 5 minutes.
 
 ---
 

@@ -440,6 +440,7 @@ def classify(
                 tool=CLASSIFY_TOOL,
                 messages=[{"role": "user", "content": user_msg}],
                 effort="low",
+                ttl=CACHE_TTL,
             )
         )
     except anthropic.APIError as e:

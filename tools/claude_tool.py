@@ -21,6 +21,17 @@ structured output. Those call sites used forced tool use
 
 LUCIDA_EFFORT overrides every stage's effort (low|medium|high|xhigh|max)
 for sweeps.
+
+Caching: the breakpoint sits on the last system block, so tools + system
+(the only part shared between calls -- snippets and context differ every
+time) are cached per stage. Every stage defaults to the 1-hour TTL
+(LUCIDA_CACHE_TTL=5m|1h). Watcher traffic is bursty: a given specialist
+is called when a pass happens to mint its cell type, often 5-60 minutes
+apart, so a 5-minute entry usually expires unread and every call pays a
+fresh 1.25x write. With 1h, a stage called k times an hour pays one 2x
+write plus 0.1x reads -- ahead from the second call. The worst case
+(steady <5min traffic) costs one extra 0.75x prefix write per hour.
+Effort and thinking are pinned per stage, so they never invalidate.
 """
 
 from __future__ import annotations
@@ -35,6 +46,7 @@ DEFAULT_MODEL = "claude-sonnet-5-5"
 MAX_TOKENS = 16000
 
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
+CACHE_TTLS = ("5m", "1h")
 
 # Models whose API rejects output_config.effort.
 _NO_EFFORT_PREFIXES = (
@@ -64,6 +76,18 @@ def _effort(model: str, effort: str) -> str | None:
     return effort
 
 
+def cache_ttl(default: str = "1h") -> str:
+    ttl = os.environ.get("LUCIDA_CACHE_TTL", default).strip()
+    return ttl if ttl in CACHE_TTLS else default
+
+
+def _with_breakpoint(system: list[dict], ttl: str) -> list[dict]:
+    """Copy of `system` with the cache breakpoint on its last block."""
+    out = [dict(b) for b in system]
+    out[-1]["cache_control"] = {"type": "ephemeral", "ttl": ttl}
+    return out
+
+
 def _tool_use(response: Any, tool_name: str) -> bool:
     return any(
         getattr(b, "type", None) == "tool_use" and getattr(b, "name", None) == tool_name
@@ -80,14 +104,16 @@ def create_tool_call(
     messages: list[dict],
     effort: str = "low",
     max_tokens: int = MAX_TOKENS,
+    ttl: str | None = None,
 ) -> Any:
     """Send one request that should end in a call to `tool`. Returns the
-    final response; callers read the tool_use block by type as before."""
+    final response; callers read the tool_use block by type as before.
+    `ttl` overrides LUCIDA_CACHE_TTL for this stage."""
     name = tool["name"]
     kwargs: dict[str, Any] = {
         "model": model,
         "max_tokens": max_tokens,
-        "system": system,
+        "system": _with_breakpoint(system, ttl if ttl in CACHE_TTLS else cache_ttl()),
         "tools": [tool],
     }
     eff = _effort(model, effort)
@@ -114,4 +140,4 @@ def create_tool_call(
     return send(nudged)
 
 
-__all__ = ["DEFAULT_MODEL", "MAX_TOKENS", "create_tool_call"]
+__all__ = ["DEFAULT_MODEL", "MAX_TOKENS", "cache_ttl", "create_tool_call"]

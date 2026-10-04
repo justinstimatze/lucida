@@ -159,3 +159,30 @@ def test_default_models_are_current():
         text_evaluator,
     ):
         assert mod.DEFAULT_MODEL == "claude-sonnet-5-5", mod.__name__
+
+
+def test_breakpoint_defaults_to_1h_and_is_overridable(stub, monkeypatch):
+    monkeypatch.delenv("LUCIDA_CACHE_TTL", raising=False)
+    stub["replies"] = [TOOL_REPLY, TOOL_REPLY, TOOL_REPLY]
+    _call(stub)
+    monkeypatch.setenv("LUCIDA_CACHE_TTL", "5m")
+    _call(stub)
+    _call(stub, ttl="1h")  # per-stage override (the classifier's knob) wins
+    ttls = [r["body"]["system"][-1]["cache_control"] for r in stub["requests"]]
+    assert ttls == [
+        {"type": "ephemeral", "ttl": "1h"},
+        {"type": "ephemeral", "ttl": "5m"},
+        {"type": "ephemeral", "ttl": "1h"},
+    ]
+    # the caller's system list is not mutated
+    assert SYSTEM[-1]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_nudge_resends_identical_prefix(stub):
+    """The nudge turn must reuse the first request's tools+system bytes so
+    it reads the cache the first request wrote."""
+    stub["replies"] = [PROSE_REPLY, TOOL_REPLY]
+    _call(stub)
+    a, b = (r["body"] for r in stub["requests"])
+    assert a["system"] == b["system"] and a["tools"] == b["tools"]
+    assert a["output_config"] == b["output_config"]
