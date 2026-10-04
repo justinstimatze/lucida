@@ -10,9 +10,9 @@ Wikipedia article produces one giant useless cell. With it, the
 same article becomes N cells (5-15 typical for an essay), one per
 load-bearing passage.
 
-Caching: SYSTEM_PROMPT is ~1500 tokens; on Sonnet 4.6 (min 2048)
-caching activates after the document grows past 600 tokens or so.
-For typical inputs, cache fires from the first call.
+Caching: SYSTEM_PROMPT is ~1500 tokens -- under Sonnet 4.6's 2048-token
+cache floor but past Sonnet 5.5's much lower one, so on the default
+model the system prefix caches from the first call.
 
 Override the model via LUCIDA_SEGMENTER_MODEL env var.
 """
@@ -31,7 +31,7 @@ except ImportError:
     pass
 
 
-DEFAULT_MODEL = os.environ.get("LUCIDA_SEGMENTER_MODEL", "claude-sonnet-4-6")
+DEFAULT_MODEL = os.environ.get("LUCIDA_SEGMENTER_MODEL", "claude-sonnet-5-5")
 
 
 SYSTEM_PROMPT = """You are the segmenter for lucida -- a co-evolving notebook of generated artifacts. You read a document and identify the salient passages that are each worth their own notebook cell. Each passage you identify becomes a snippet that lucida's classifier + specialists will turn into an artifact (chart, diagram, scene, table, text caption).
@@ -144,12 +144,13 @@ def segment_document(text: str, model: str = DEFAULT_MODEL) -> SegmentationResul
     user_msg = f"Document:\n\n{text.strip()}"
 
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=4096,
                 system=[
                     {
                         "type": "text",
@@ -157,9 +158,9 @@ def segment_document(text: str, model: str = DEFAULT_MODEL) -> SegmentationResul
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                tools=[SEGMENT_TOOL],
-                tool_choice={"type": "tool", "name": "build_segments"},
+                tool=SEGMENT_TOOL,
                 messages=[{"role": "user", "content": user_msg}],
+                effort="low",
             )
         )
     except anthropic.APIError as e:

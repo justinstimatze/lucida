@@ -12,11 +12,10 @@ to text.
 Image cells use image_specialist.py (separate module because the
 2-step text -> Gemini flow needs different scaffolding).
 
-Caching: each specialist has its own ~700-1200 token SYSTEM_PROMPT.
-Sonnet 4.6's min cacheable prefix is 2048 tokens, so individual
-specialists may not always trigger caching unless the snippet pushes
-the prefix over -- still set cache_control on the system block for
-forward-compat.
+Caching: each specialist has its own ~700-1200 token SYSTEM_PROMPT plus
+its tool schema. That was under Sonnet 4.6's 2048-token cache floor;
+Sonnet 5.5's floor is much lower, so the cache_control marker on the
+system block now fires on the default model.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ except ImportError:
     pass
 
 
-DEFAULT_MODEL = os.environ.get("LUCIDA_SPECIALIST_MODEL", "claude-sonnet-4-6")
+DEFAULT_MODEL = os.environ.get("LUCIDA_SPECIALIST_MODEL", "claude-sonnet-5-5")
 
 
 class SpecialistError(RuntimeError):
@@ -87,12 +86,13 @@ def _call_specialist(
     user_msg = f"{hint_block}Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
 
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=2048,
                 system=[
                     {
                         "type": "text",
@@ -100,9 +100,9 @@ def _call_specialist(
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                tools=[tool_def],
-                tool_choice={"type": "tool", "name": tool_name},
+                tool=tool_def,
                 messages=[{"role": "user", "content": user_msg}],
+                effort="low",
             )
         )
     except anthropic.APIError as e:
@@ -533,12 +533,13 @@ def fix_mermaid_spec(
         f"Return a fixed spec that parses cleanly."
     )
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=2048,
                 system=[
                     {
                         "type": "text",
@@ -546,9 +547,9 @@ def fix_mermaid_spec(
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                tools=[MERMAID_FIX_TOOL],
-                tool_choice={"type": "tool", "name": "fix_mermaid_spec"},
+                tool=MERMAID_FIX_TOOL,
                 messages=[{"role": "user", "content": user_msg}],
+                effort="low",
             )
         )
     except Exception as e:

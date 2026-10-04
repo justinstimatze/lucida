@@ -39,7 +39,7 @@ except ImportError:
     pass
 
 
-DEFAULT_MODEL = os.environ.get("LUCIDA_REFLECT_MODEL", "claude-sonnet-4-6")
+DEFAULT_MODEL = os.environ.get("LUCIDA_REFLECT_MODEL", "claude-sonnet-5-5")
 
 
 SYSTEM_PROMPT = """You are the reflective layer for lucida -- a co-evolving notebook of generated artifacts that accretes alongside conversation.
@@ -274,12 +274,13 @@ def reflect_on_recent_cells(
 
     client = anthropic.Anthropic(api_key=api_key)
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=2048,
                 system=[
                     {
                         "type": "text",
@@ -287,9 +288,9 @@ def reflect_on_recent_cells(
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                tools=[REFLECT_TOOL],
-                tool_choice={"type": "tool", "name": "reflect"},
+                tool=REFLECT_TOOL,
                 messages=[{"role": "user", "content": content}],
+                effort="medium",
             )
         )
     except anthropic.APIError as e:

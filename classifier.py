@@ -12,13 +12,12 @@ The orchestrator applies the leg5 confidence gate (<0.6 -> text, 0.6-0.8
 
 Prompt caching: SYSTEM_PROMPT carries worked examples + decision rules
 for calibration, and the full cacheable prefix (tools + system) measures
-~11.5K tokens (count_tokens, 2026-06) -- well past both Sonnet 4.6's
-2048-token and Haiku 4.5's 4096-token cache floors, so caching fires on
-either model. cache_control is set on the last system block.
+~11.5K tokens (count_tokens, 2026-06) -- well past every current cache
+floor (Haiku 4.5's 4096 is the highest), so caching fires on any model. cache_control is set on the last system block.
 ClassifierResult exposes cache_read_tokens / cache_creation_tokens so the
 orchestrator can report hit/miss and we can verify behavior empirically.
 
-Model selection via LUCIDA_CLASSIFIER_MODEL. Defaults to claude-sonnet-4-6.
+Model selection via LUCIDA_CLASSIFIER_MODEL. Defaults to claude-sonnet-5-5.
 The classifier is the highest-volume call in the pipeline (one per segment;
 tools/spend_audit.py measured ~44% of recorded spend), so Haiku 4.5 was
 trialed for the ~3x saving and rejected on quality -- see the DEFAULT_MODEL
@@ -52,7 +51,7 @@ except ImportError:
 # This classification task leans on judgment the worked examples don't
 # fully transfer to Haiku. Don't re-flip without re-running
 # tools/classifier_agreement_check.py (spend side: tools/spend_audit.py).
-DEFAULT_MODEL = os.environ.get("LUCIDA_CLASSIFIER_MODEL", "claude-sonnet-4-6")
+DEFAULT_MODEL = os.environ.get("LUCIDA_CLASSIFIER_MODEL", "claude-sonnet-5-5")
 
 # Cache TTL for the ~11.5K-token classifier prefix. Default 1h: the 5m
 # cache dies during any >5min conversation lull, and each re-write costs
@@ -424,12 +423,13 @@ def classify(
         user_msg = f"{user_msg}\n\n{_build_quota_text(quota_state)}"
 
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=512,
                 system=[
                     {
                         "type": "text",
@@ -437,9 +437,9 @@ def classify(
                         "cache_control": {"type": "ephemeral", "ttl": CACHE_TTL},
                     }
                 ],
-                tools=[CLASSIFY_TOOL],
-                tool_choice={"type": "tool", "name": "classify_cell"},
+                tool=CLASSIFY_TOOL,
                 messages=[{"role": "user", "content": user_msg}],
+                effort="low",
             )
         )
     except anthropic.APIError as e:

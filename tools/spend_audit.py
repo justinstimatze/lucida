@@ -34,9 +34,11 @@ try:
 except ImportError:
     pass
 
-# $/MTok input, output (Sonnet 4.6 / Haiku 4.5, 2026-06)
+# $/MTok input, output (2026-10). "sonnet" is the current default
+# (Sonnet 5.5); "sonnet-4" covers classifier records minted on Sonnet 4.x.
 PRICES = {
-    "sonnet": (3.00, 15.00),
+    "sonnet": (2.00, 10.00),
+    "sonnet-4": (3.00, 15.00),
     "haiku": (1.00, 5.00),
 }
 CACHE_READ_MULT = 0.10
@@ -83,7 +85,8 @@ class StageTotals:
     plain_in: int = 0  # tokens billed at 1x (uncached tail + missed prefixes)
     out: int = 0
     # Pricing family recorded in the notes (classifier records its model;
-    # specialists don't, so they assume the sonnet default).
+    # specialists don't, so they're priced at the current sonnet default
+    # even for cells minted on Sonnet 4.x).
     model: str = "sonnet"
 
     def cost(self, model: str | None = None) -> float:
@@ -116,7 +119,7 @@ def calibrate(cells: list[dict]) -> Ratios:
         for s in samples:
             chars += len(s)
             toks += client.messages.count_tokens(
-                model="claude-sonnet-4-6",
+                model="claude-sonnet-5-5",
                 messages=[{"role": "user", "content": s}],
             ).input_tokens
         return chars / max(toks, 1)
@@ -148,7 +151,8 @@ def audit(cells: list[dict], r: Ratios) -> dict[str, StageTotals]:
 
         m = CLASSIFIER_RE.search(notes)
         if m:
-            family = "haiku" if "haiku" in m.group(1) else "sonnet"
+            name = m.group(1)
+            family = "haiku" if "haiku" in name else "sonnet-4" if "sonnet-4" in name else "sonnet"
             st = stages[f"classifier({family})"]
             st.model = family
             st.calls += 1

@@ -38,7 +38,7 @@ except ImportError:
 # carries a worked example that pushes the prefix past Sonnet's 2048-token
 # cache floor, so the cache_control marker actually fires (it was silently
 # inert below the floor).
-DEFAULT_MODEL = os.environ.get("LUCIDA_TEXT_EVALUATOR_MODEL", "claude-sonnet-4-6")
+DEFAULT_MODEL = os.environ.get("LUCIDA_TEXT_EVALUATOR_MODEL", "claude-sonnet-5-5")
 
 
 SYSTEM_PROMPT = """You are the substrate-hallucination evaluator for lucida. Your job: check whether a generated structural artifact (a vega-lite spec, a mermaid graph, or an HTML comparison table) contains claims that the trigger snippet does NOT support.
@@ -205,12 +205,13 @@ def evaluate_substrate_cell(
     )
 
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=1024,
                 system=[
                     {
                         "type": "text",
@@ -218,9 +219,9 @@ def evaluate_substrate_cell(
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                tools=[EVALUATE_TOOL],
-                tool_choice={"type": "tool", "name": "evaluate_substrate_cell"},
+                tool=EVALUATE_TOOL,
                 messages=[{"role": "user", "content": user_text}],
+                effort="medium",
             )
         )
     except anthropic.APIError as e:

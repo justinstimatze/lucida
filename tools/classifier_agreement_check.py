@@ -44,7 +44,7 @@ def run(args):
         return (cell["id"], model, None, None, None, str(e)[:80])
 
 
-jobs = [(c, m) for c in sample for m in ("claude-sonnet-4-6", "claude-haiku-4-5")]
+jobs = [(c, m) for c in sample for m in ("claude-sonnet-5-5", "claude-haiku-4-5")]
 with ThreadPoolExecutor(max_workers=8) as ex:
     results = list(ex.map(run, jobs))
 

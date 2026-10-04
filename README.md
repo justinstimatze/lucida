@@ -162,8 +162,11 @@ renderer paints it.
 
 ## Cost
 
-About **$0.02–0.03 per cell** using Sonnet 4.6. A busy hour-long session
-mints 30–80 cells — roughly $0.60–$2.00. Classifier calls are cached.
+Measured on Sonnet 4.6: about **$0.02–0.03 per cell**; a busy hour-long
+session minted 30–80 cells — roughly $0.60–$2.00. The default is now
+Sonnet 5.5, a third cheaper per token, but its adaptive thinking adds
+output tokens, so re-measure with `tools/spend_audit.py` before quoting a
+new figure. Classifier calls are cached.
 
 Turn off `--generate` to run the classifier only (free) and mint manually
 when you want a visual.
@@ -187,7 +190,7 @@ splits roughly half cached-prefix reads, half its own output tokens.
 ### Why the classifier stays on Sonnet
 
 The obvious cheap move — flipping the classifier to Haiku 4.5 for the ~3x
-rate cut — was tried and **rejected on quality**: on a 72-snippet
+rate cut (~2x against Sonnet 5.5) — was tried and **rejected on quality**: on a 72-snippet
 stratified replay (both models, same prompt), Haiku agreed with Sonnet on
 cell_type only 36% of the time and collapsed half the sample to
 low-confidence `text`, which the confidence gate then suppresses. The

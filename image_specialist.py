@@ -18,8 +18,8 @@ addresses the remaining failure mode: when an image cell IS warranted,
 the prompt sent to Gemini should be specifically grounded.
 
 Caching: same prefix-cache pattern as classifier.py. SYSTEM_PROMPT is
-~1500-2000 tokens; on Sonnet 4.6 (min 2048) caching activates after the
-prompt grows by ~50 more tokens of examples. cache_control set on the
+~1500-2000 tokens: below Sonnet 4.6's 2048-token cache floor, past
+Sonnet 5.5's much lower one, so it caches on the default model. cache_control set on the
 last system block; ImageBrief exposes cache_*_tokens for verification.
 
 Override the model via LUCIDA_IMAGE_SPECIALIST_MODEL env var.
@@ -39,7 +39,7 @@ except ImportError:
     pass
 
 
-DEFAULT_MODEL = os.environ.get("LUCIDA_IMAGE_SPECIALIST_MODEL", "claude-sonnet-4-6")
+DEFAULT_MODEL = os.environ.get("LUCIDA_IMAGE_SPECIALIST_MODEL", "claude-sonnet-5-5")
 
 
 SYSTEM_PROMPT = """You are the image specialist for lucida. Given a conversation snippet that the upstream classifier has already decided warrants an image cell, your job is to extract the load-bearing visual brief that the image should render -- and to recognize when the classifier got it wrong and the snippet shouldn't be visualized at all.
@@ -181,12 +181,13 @@ def shape_prompt(snippet: str, context: str = "", model: str = DEFAULT_MODEL) ->
     user_msg = f"Snippet:\n{snippet.strip()}\n\nContext:\n{context.strip() or '(none)'}"
 
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=1024,
                 system=[
                     {
                         "type": "text",
@@ -194,9 +195,9 @@ def shape_prompt(snippet: str, context: str = "", model: str = DEFAULT_MODEL) ->
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                tools=[BRIEF_TOOL],
-                tool_choice={"type": "tool", "name": "build_image_brief"},
+                tool=BRIEF_TOOL,
                 messages=[{"role": "user", "content": user_msg}],
+                effort="low",
             )
         )
     except anthropic.APIError as e:

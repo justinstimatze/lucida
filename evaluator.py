@@ -35,7 +35,7 @@ except ImportError:
     pass
 
 
-DEFAULT_MODEL = os.environ.get("LUCIDA_EVALUATOR_MODEL", "claude-sonnet-4-6")
+DEFAULT_MODEL = os.environ.get("LUCIDA_EVALUATOR_MODEL", "claude-sonnet-5-5")
 
 
 SYSTEM_PROMPT = """You are the cell evaluator for lucida -- you score a single image cell against its trigger snippet to decide whether the image-specialist + Gemini collaboration got it right.
@@ -276,12 +276,13 @@ def evaluate_image_cell(
     ]
 
     from tools.anthropic_retry import call_with_retry
+    from tools.claude_tool import create_tool_call
 
     try:
         response = call_with_retry(
-            lambda: client.messages.create(
+            lambda: create_tool_call(
+                client,
                 model=model,
-                max_tokens=768,
                 system=[
                     {
                         "type": "text",
@@ -289,9 +290,9 @@ def evaluate_image_cell(
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
-                tools=[EVALUATE_TOOL],
-                tool_choice={"type": "tool", "name": "evaluate_cell"},
+                tool=EVALUATE_TOOL,
                 messages=[{"role": "user", "content": user_content}],
+                effort="medium",
             )
         )
     except anthropic.APIError as e:

@@ -20,9 +20,9 @@ REPO = Path(__file__).parent
 CELLS_JSON = REPO / "cells.json"
 AUDITS_DIR = REPO / "audits"
 
-# Sonnet 4.6 pricing (USD per 1M tokens)
-_INPUT_COST_PER_M = 3.0
-_OUTPUT_COST_PER_M = 15.0
+# Sonnet 5.5 pricing (USD per 1M tokens)
+_INPUT_COST_PER_M = 2.0
+_OUTPUT_COST_PER_M = 10.0
 
 
 def main() -> None:
