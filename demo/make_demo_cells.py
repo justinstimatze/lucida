@@ -199,6 +199,7 @@ def build_cell(seed: Seed, result: SpecialistResult, idx: int, session_id: str) 
         "image_path": None,
         "spec": None if is_html else result.spec,
         "html": result.spec if is_html else None,
+        "motion": result.motion,
         "caption": result.caption,
         "notes": f"demo cell — {seed.cell_type} specialist [{result.model}]",
         "attempted_cell_type": None,

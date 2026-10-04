@@ -46,6 +46,17 @@ python demo/curate.py --session nif-demo
 # → writes demo/demo_cells.json
 ```
 
+To give an existing curated demo the GSAP motion timelines without
+re-running the whole session, re-mint just its animated_svg cells (a few
+cents; the old spec is kept under `attempted_spec`):
+
+```bash
+python demo/remint_motion.py --dry-run          # see which cells change
+python demo/remint_motion.py                    # rewrite demo/demo_cells.json
+python demo/remint_motion.py --convert mermaid  # optional: also try flow-ish
+                                                # mermaid cells as animated_svg
+```
+
 Then replay those cells for recording:
 
 ```bash
@@ -62,6 +73,7 @@ bash demo/record.sh   # resets + drips demo_cells.json
 | `convert.sh` | Convert raw WebM → `assets/demo.mp4` |
 | `replay.py` | Drip `demo_cells.json` into `cells.json` at a configurable interval |
 | `curate.py` | Extract best cells from a live session into `demo_cells.json` |
+| `remint_motion.py` | Re-mint a curated demo's animated_svg cells with GSAP timelines |
 | `start_session.sh` | Start renderer + watcher for a fresh live session |
 | `seed_conversation.md` | 8-prompt NIF ignition paper session script |
 
